@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Conway Flow Game</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/style.css">
+<script src="vendor/d3.min.js"></script>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1>Conway <span class="hint" style="font-weight:400">Flow Game</span></h1>
+    <span id="data-badge" class="badge">loading…</span>
+  </div>
+  <nav>
+    <button class="tab active" id="home-tab" data-view="home">Home</button>
+    <div class="nav-group" id="train-group">
+      <button type="button" class="tab" id="train-btn" aria-haspopup="true" aria-expanded="false">Train ▾</button>
+      <div class="nav-menu" id="train-menu" hidden>
+        <button class="tab" data-view="game">Play the game</button>
+        <!-- "🎮 Run games" injected here for facilitators by auth.js -->
+      </div>
+    </div>
+    <div class="nav-group" id="plan-group" hidden>
+      <button type="button" class="tab" id="plan-btn" aria-haspopup="true" aria-expanded="false">Plan ▾</button>
+      <div class="nav-menu" id="plan-menu" hidden>
+        <button class="tab" id="net-plan" data-view="network">Org what-if</button>
+        <button class="tab" data-view="flow">Levers</button>
+        <button class="tab" data-view="plan">Plan a future period</button>
+      </div>
+    </div>
+    <!-- "Leaderboard" and "Admin" are injected here for admins by auth.js -->
+    <div class="nav-group" id="explore-group">
+      <button type="button" class="tab" id="explore-btn" aria-haspopup="true" aria-expanded="false">Observe ▾</button>
+      <div class="nav-menu" id="explore-menu" hidden>
+        <button class="tab" id="net-observe" data-view="network">Org Network</button>
+        <button class="tab" data-view="scoreboard">WIP Scoreboard</button>
+        <button class="tab" data-view="hygiene">Data Quality</button>
+        <button class="tab" data-view="simulator">Feature Simulator</button>
+        <button class="tab" id="obs-rosters" hidden>👥 Rosters</button>
+        <button class="tab" id="obs-import" hidden>📥 Import from Jira</button>
+        <button class="tab" id="obs-snapshots" hidden>🗂 Snapshots</button>
+      </div>
+    </div>
+    <button id="guide-btn" class="tab guide-tab">Guide</button>
+  </nav>
+</header>
+
+<main>
+  <section id="view-home" class="view active">
+    <div id="home-body"></div>
+  </section>
+  <section id="view-plan" class="view">
+    <div id="plan-root"><p class="hint">Loading…</p></div>
+  </section>
+  <section id="view-flow" class="view">
+    <div class="flow-grid">
+      <div class="card">
+        <h2>1 · The constraint <span class="hint">(identify → exploit → subordinate → elevate)</span>
+        <span class="help" data-tip="Score = Kingman queue factor ρ/(1−ρ) × downstream reach. The Goal: improve the bottleneck and the whole system improves; improve anywhere else and you've improved nothing. Act top-to-bottom: cap WIP (free) before adding people (expensive).">?</span></h2>
+        <div id="constraint-cards"></div>
+      </div>
+      <div class="card">
+        <h2>2 · Bad multitasking — freeze candidates <span class="hint">(Little's law projection)</span>
+        <span class="help" data-tip="Flow time = WIP ÷ throughput. Red = excess WIP above the per-dev cap. Click a bar to see the actual Jira issues with freeze verdicts. Rules of Flow: freeze means out of sight — parked work that stays on the board stays warm and keeps stealing attention.">?</span></h2>
+        <label class="hint">healthy WIP cap: <b id="cap-v">1.5</b>× per work-stream <span class="hint">(a pair counts as one stream; pairing comes from the roster)</span>
+          <input id="cap-slider" type="range" min="1" max="3" step="0.25" value="1.5"></label>
+        <div id="freeze-bars"></div>
+        <p id="freeze-summary" class="hint"></p>
+      </div>
+      <div class="card fever-card">
+        <h2>3 · Buffer fever chart <span class="hint">(in-flight epics: progress vs buffer burned)</span>
+        <span class="help" data-tip="Critical-chain buffer management: buffer = P85 − P50 of the Monte Carlo forecast. A dot climbing faster than it moves right is consuming safety faster than it makes progress. Yellow = plan a response; red = act now. Manage by buffer burn, not by % complete.">?</span></h2>
+        <label class="hint">newest in-flight epics:
+          <select id="fever-count"><option>10</option><option selected>25</option><option>50</option><option>100</option></select>
+          <span id="fever-loading" class="hint" hidden>⏳ fetching…</span></label>
+        <svg id="fever"></svg>
+        <div id="fever-list"></div>
+        <p class="hint">Buffer = P85 − P50 from the Monte Carlo forecast. Green: burning buffer slower
+        than progress. Red: buffer gone before the work — intervene now. Hover a dot for details.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-network" class="view readonly">
+    <div id="net-controls" class="net-controls"></div>
+    <div id="org-sim"></div>
+    <div class="net-wrap">
+      <svg id="netsvg"></svg>
+      <aside id="netpanel"><p class="hint">Click a pod to inspect it. Node size = current WIP, color = queue heat (utilization proxy), edge width = Jira blocking links (12 mo), arrow points at the blocked pod.</p></aside>
+    </div>
+    <div class="legend" id="netlegend"></div>
+  </section>
+
+  <section id="view-simulator" class="view">
+    <div class="sim-grid">
+      <div class="card" id="feature-editor">
+        <h2>Feature definition</h2>
+        <div class="epic-import">
+          <input id="epic-key" placeholder="ABC-12345" size="12">
+          <button id="import-epic">Import epic</button>
+          <span id="epic-status" class="hint"></span>
+        </div>
+        <div id="fullkit"></div>
+        <table id="task-table" class="sortable">
+          <thead><tr><th>Task</th><th>Pod</th><th>Size</th><th>Depends on</th><th data-nosort></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="row-actions">
+          <button id="add-task">+ task</button>
+          <button id="load-example">Load example feature</button>
+          <button id="run-sim" class="primary">Run 10,000 trials</button>
+        </div>
+        <div id="suggestions"></div>
+        <div id="whatif" class="whatif"></div>
+        <p class="hint">Sizes: S=½×, M=1×, L=2×, XL=4× of the pod's typical issue lead time (mined from Jira). Cross-pod handoffs add delay based on the two sites' working-hour overlap.</p>
+      </div>
+      <div class="card" id="sim-results">
+        <h2>Forecast
+        <span class="help" data-tip="10,000 Monte Carlo trials over the task graph using each pod's mined cycle-time distribution, queue state, and cross-site handoff penalties. Commit the P85, not the P50 — a 50% date is a coin flip. The tornado chart shows where help actually shortens the calendar.">?</span></h2>
+        <div id="stat-cards" class="stat-cards"></div>
+        <div class="chart-pair">
+          <div><h3>Completion probability (CDF)</h3><svg id="cdf"></svg></div>
+          <div><h3>Where the time goes — accelerate which pod? (days saved if pod is 25% faster)</h3><svg id="tornado"></svg></div>
+        </div>
+        <h3>Representative P85 schedule (critical path in red)</h3>
+        <svg id="gantt"></svg>
+        <div id="crit-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-scoreboard" class="view">
+    <div class="card">
+      <h2>Pod flow scoreboard <span class="hint">(mined from Jira, last 180 days)</span>
+      <span class="help" data-tip="Sort by Dependents = who is everyone waiting on. Sort by Load ρ = who is drowning. Both at once ('hub under load') is the most dangerous cell on this screen. Kingman × shows the wait multiplier at current load (∞ when a pod is over 100% — its queue can't self-clear).">?</span></h2>
+      <div id="wip-summary" class="wip-summary"></div>
+      <table id="score-table"></table>
+    </div>
+  </section>
+
+  <section id="view-hygiene" class="view">
+    <div class="card">
+      <h2>Jira data hygiene <span class="hint">(what's starving the model — fix these to sharpen every forecast)</span>
+      <span class="help" data-tip="Each gap degrades a specific output: unsized tasks → epic forecasts fall back to the pod's median item; stale In-Progress items → WIP and queue heat are overstated, polluting the freeze list; unassigned in-progress → zombie work; low link density → the dependency graph and suggestions under-represent real coupling. Click a pod row to drill into categories, then a category to see the individual Jiras.">?</span></h2>
+      <div id="hygiene-cards" class="stat-cards"></div>
+      <table id="hygiene-table" class="sortable" style="margin-top:14px"></table>
+    </div>
+  </section>
+
+  <section id="view-game" class="view">
+    <div id="game-notice" hidden></div>
+    <div id="game-setup" class="card">
+      <div id="game-setup-msg"></div>
+      <div class="row-actions">
+        <button id="game-new" class="primary" hidden>Begin the game ▶</button>
+      </div>
+    </div>
+    <div id="game-board" hidden>
+      <div class="game-top">
+        <div id="game-status"></div>
+        <div id="game-score" class="card"></div>
+      </div>
+      <div id="game-report"></div>
+      <div class="card">
+        <div class="pods-toggle">
+          <span class="pods-toggle-lbl">Pods</span>
+          <span class="seg">
+            <button id="pods-view-net" class="seg-on">Network</button><button id="pods-view-table">Table</button>
+          </span>
+          <span class="hint">how your levers reshape the dependency network — starts the same for every team</span>
+        </div>
+        <table id="game-pods" class="wip-table sortable" hidden></table>
+        <div id="game-net" class="gamenet-embed">
+          <div class="gamenet-grid">
+            <div id="gamenet-svg"></div>
+            <aside id="gamenet-panel"><p class="hint">Click a team to inspect its load, coupling and dependencies.</p></aside>
+          </div>
+          <div class="legend" id="gamenet-legend"></div>
+        </div>
+      </div>
+      <div id="game-levers" class="card"></div>
+      <div id="game-history"></div>
+    </div>
+  </section>
+</main>
+
+<div id="guide-overlay" hidden>
+  <div id="guide-modal">
+    <div class="guide-head">
+      <h2 id="guide-title">How to use this — pick your seat</h2>
+      <button id="guide-close">✕</button>
+    </div>
+    <div id="guide-personas" class="guide-personas"></div>
+    <div id="guide-body"></div>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

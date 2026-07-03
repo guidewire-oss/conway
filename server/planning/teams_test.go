@@ -1,0 +1,78 @@
+package planning
+
+import (
+	"math"
+	"testing"
+)
+
+func TestParseTeamsCSV(t *testing.T) {
+	csv := "Pod Name,Developers,Location,Pairs\n" +
+		"Ajanta,\"a@x,b@x,c@x,d@x,e@x,f@x\",Bengaluru,no\n" + // 6 devs, no pairing -> 6 tracks
+		"Cooperstown,\"g@x,h@x,i@x,j@x\",Krakow,yes\n" + // 4 devs, pairs -> 2 tracks
+		"Empty,,Remote,no\n" // 0 devs
+	teams, err := ParseTeamsCSV([]byte(csv))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(teams) != 3 {
+		t.Fatalf("want 3 teams, got %d", len(teams))
+	}
+	if teams[0].Devs != 6 || teams[0].Pairs || teams[0].EffectiveTracks() != 6 {
+		t.Fatalf("Ajanta: %+v tracks=%d", teams[0], teams[0].EffectiveTracks())
+	}
+	if teams[1].Devs != 4 || !teams[1].Pairs || teams[1].EffectiveTracks() != 2 {
+		t.Fatalf("Cooperstown (pairs -> 2 tracks): %+v tracks=%d", teams[1], teams[1].EffectiveTracks())
+	}
+	if teams[1].Site != "Krakow" {
+		t.Fatalf("site: %q", teams[1].Site)
+	}
+}
+
+func TestEffectiveTracks(t *testing.T) {
+	if got := (Team{Devs: 7, Pairs: true}).EffectiveTracks(); got != 4 { // ceil(7/2)
+		t.Fatalf("pairing 7 devs -> 4 tracks, got %d", got)
+	}
+	if got := (Team{Devs: 7, Tracks: 2}).EffectiveTracks(); got != 2 { // override wins
+		t.Fatalf("override should win, got %d", got)
+	}
+}
+
+func TestUtilization(t *testing.T) {
+	// Ajanta: 6 tracks; Cooperstown: 2 tracks. Horizon 26, loss 10% -> cap factor 23.4/track.
+	teams := []Team{{Name: "Ajanta", Devs: 6}, {Name: "Cooperstown", Devs: 4, Pairs: true}}
+	plan := &Plan{Initiatives: []Initiative{{Work: map[string]TeamWork{
+		"Ajanta":      {Weeks: 20, InPath: true},
+		"Cooperstown": {Weeks: 60, InPath: true}, // way over its 2-track capacity
+	}}}}
+	loads := Utilization(plan, teams, Params{HorizonWeeks: 26, CapacityLoss: 0.10})
+	byName := map[string]PodLoad{}
+	for _, l := range loads {
+		byName[l.Team] = l
+	}
+	aj := byName["Ajanta"]
+	if aj.Tracks != 6 || math.Abs(aj.CapacityWeeks-6*26*0.9) > 1e-9 {
+		t.Fatalf("Ajanta capacity: %+v", aj)
+	}
+	if aj.Rho >= 1 || aj.Constraint {
+		t.Fatalf("Ajanta should be under capacity: rho=%.3f", aj.Rho)
+	}
+	co := byName["Cooperstown"]
+	if !co.Constraint || co.Rho <= 1 {
+		t.Fatalf("Cooperstown should be the constraint: %+v", co)
+	}
+	// hottest-first ordering
+	if loads[0].Team != "Cooperstown" {
+		t.Fatalf("constraint should sort first, got %s", loads[0].Team)
+	}
+}
+
+func TestUtilizationNoCapacity(t *testing.T) {
+	plan := &Plan{Initiatives: []Initiative{{Work: map[string]TeamWork{"Ghost": {Weeks: 5, InPath: true}}}}}
+	loads := Utilization(plan, nil, Params{}) // Ghost has demand but no roster entry
+	// InfiniteRho (not literal +Inf) — encoding/json can't marshal Inf/NaN, so a
+	// plan with any zero-capacity, demand-carrying pod would silently return an
+	// empty response body otherwise.
+	if len(loads) != 1 || !loads[0].Constraint || loads[0].Rho != InfiniteRho {
+		t.Fatalf("team with demand but no capacity must be flagged: %+v", loads)
+	}
+}

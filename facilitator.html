@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Conway — Facilitator Guide</title>
+<style>
+  :root{--bg:#0f1419;--panel:#18202a;--panel2:#1f2937;--text:#e5eef7;--muted:#8aa0b4;
+    --accent:#4cc2ff;--green:#3ecf8e;--amber:#f5b94c;--red:#f4655f;--border:#2b3a4a;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 'Segoe UI',system-ui,sans-serif;}
+  .wrap{max-width:840px;margin:0 auto;padding:44px 24px 80px;}
+  .kicker{color:var(--accent);letter-spacing:2px;text-transform:uppercase;font-size:12px;font-weight:700;}
+  h1{font-size:30px;margin:6px 0 4px;}
+  .lede{color:var(--muted);margin:0 0 8px;}
+  .warn{background:rgba(245,185,76,.1);border:1px solid rgba(245,185,76,.4);border-radius:9px;padding:10px 14px;font-size:14px;color:var(--amber);margin:14px 0;}
+  h2{font-size:20px;margin:34px 0 8px;padding-top:16px;border-top:1px solid var(--border);}
+  h3{font-size:15px;color:var(--accent);margin:18px 0 4px;}
+  ol,ul{margin:8px 0;padding-left:22px;}
+  li{margin:6px 0;}
+  code{background:var(--panel2);padding:1px 6px;border-radius:4px;color:var(--accent);font-size:14px;}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:16px 20px;margin:14px 0;}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:14.5px;}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:top;}
+  th{color:var(--muted);text-transform:uppercase;font-size:11px;}
+  .q{margin:5px 0;padding-left:4px;}
+  .grp{font-weight:600;color:var(--text);margin-top:14px;}
+  .grp small{color:var(--muted);font-weight:400;}
+  .tip{border-left:3px solid var(--accent);padding:4px 0 4px 14px;margin:12px 0;color:var(--muted);}
+  @media print{body{background:#fff;color:#111;}*{color:#111 !important;}.card{background:#fff;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker">The Flow Game · Facilitator Guide</div>
+  <h1>Run sheet for Anoop &amp; the PgM</h1>
+  <p class="lede">Hold this; don't project it and don't put it on the shared drive — it frames the discussion you'll lead.</p>
+  <div class="warn">This file lives outside the web app on purpose, so players can't open it. It contains no formulas or thresholds either — just how to run the room.</div>
+
+  <h2>Before the session</h2>
+  <ol>
+    <li>Players read the four books beforehand (The Goal, Phoenix, Unicorn, Rules of Flow) and the one-page player briefing.</li>
+    <li>Start the server with a real password: <code>cd server &amp;&amp; CONWAY_ADMIN_PASSWORD='…' make server</code></li>
+    <li>Sign in as <b>admin → ⚙ Admin</b>. Create one account per team; hand each table its username + password (shown once).</li>
+    <li>Open <code>/leaderboard.html</code> on the projector and leave it up all session.</li>
+    <li>Do one practice quarter yourselves so the controls feel familiar when questions come.</li>
+  </ol>
+
+  <h2>Run of show (~3 hours, 5 teams of 3–4)</h2>
+  <table>
+    <tr><th>Time</th><th>Segment</th></tr>
+    <tr><td>0:15</td><td>Frame the goal &amp; the rules. State plainly: the prize is the <b>quality of your reasoning</b>, not the highest number. Read the three subtle hints once.</td></tr>
+    <tr><td>×4 quarters</td><td>~15 min plan/play → Resolve → scoreboard updates on the projector → <b>~15 min open discussion</b> (questions below) → reveal the curve ball → next quarter.</td></tr>
+    <tr><td>0:60</td><td>Final debrief: standings, the hidden-loop reveal, "which 3 moves do we adopt for real," anonymous pulse.</td></tr>
+  </table>
+
+  <h2>Between-round discussion — questions to tease out understanding</h2>
+  <p class="lede">Ask 2–3 per round; rotate so every team speaks. After a team answers, ask the others: “did anyone make the opposite call?” The contrast is where the insight lands.</p>
+
+  <div class="grp">Reading the system / constraints <small>— The Goal</small></div>
+  <div class="q">• Where did you decide the system was most stuck this quarter, and what told you that?</div>
+  <div class="q">• Did fixing one team's load move the bottleneck somewhere you didn't expect?</div>
+
+  <div class="grp">Flow &amp; WIP <small>— Rules of Flow, queueing</small></div>
+  <div class="q">• Did anything you did speed the org up <i>without</i> anyone working harder? What was happening there?</div>
+  <div class="q">• Where did you choose <i>not</i> to start work — and was that harder than choosing what to start?</div>
+
+  <div class="grp">Trade-offs &amp; sequencing</div>
+  <div class="q">• Which two of your moves reinforced each other? Which two fought each other?</div>
+  <div class="q">• Was there a quarter you deliberately did <i>less</i>? What did that buy you?</div>
+  <div class="q">• Did the story ever say a "good" move cost you something? What was the hidden bill?</div>
+
+  <div class="grp">People &amp; sustainability</div>
+  <div class="q">• Did a team's morale move on you? What were you trading to keep them whole — or what did you spend them on?</div>
+
+  <div class="grp">Ops / readiness / SRE <small>— Phoenix &amp; Unicorn</small></div>
+  <div class="q">• When the incident or adoption shock hit, did it hurt more or less than you expected — and why?</div>
+  <div class="q">• Did anything you shipped come back to bite you a quarter later?</div>
+
+  <div class="grp">Reflection &amp; transfer <small>— the real point</small></div>
+  <div class="q">• What's one thing the simulation did that mirrors something real in our org right now?</div>
+  <div class="q">• If you replayed this quarter, what would you change — and what concept changed your mind?</div>
+
+  <h2>What to listen for (yours only)</h2>
+  <ul>
+    <li><b>Shaky understanding:</b> "we just pulled every lever we could"; chasing the score number; treating a bad quarter as failure rather than signal; ignoring tired teams to chase output.</li>
+    <li><b>Strong understanding:</b> naming one constraint and subordinating to it; doing less on purpose; pairing moves that reinforce; protecting people and readiness even when it costs this-quarter output; reading the after-action story and adjusting.</li>
+  </ul>
+  <div class="tip">If a team is clearly optimizing the number instead of thinking, gently redirect: "Forget the score for a second — what did the org <i>feel</i> like to run this quarter?" The score is bait; the reasoning is the lesson.</div>
+
+  <h2>Closing</h2>
+  <p>Reveal the feedback loops they couldn't see, tied to each team's own choices. Then turn the room to reality: which moves from any playthrough do we actually make, and who owns them. End with an anonymous keep/kill/change on the game itself.</p>
+</div>
+</body>
+</html>
