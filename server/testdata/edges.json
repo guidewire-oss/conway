@@ -1,0 +1,77 @@
+[
+ {
+  "from": "Delta",
+  "to": "Atlas",
+  "count": 11
+ },
+ {
+  "from": "Delta",
+  "to": "Beacon",
+  "count": 6
+ },
+ {
+  "from": "Fjord",
+  "to": "Beacon",
+  "count": 8
+ },
+ {
+  "from": "Harbor",
+  "to": "Cascade",
+  "count": 5
+ },
+ {
+  "from": "Ember",
+  "to": "Beacon",
+  "count": 4
+ },
+ {
+  "from": "Ibis",
+  "to": "Delta",
+  "count": 9
+ },
+ {
+  "from": "Juniper",
+  "to": "Cascade",
+  "count": 7
+ },
+ {
+  "from": "Granite",
+  "to": "Atlas",
+  "count": 3
+ },
+ {
+  "from": "Fjord",
+  "to": "Granite",
+  "count": 4
+ },
+ {
+  "from": "Harbor",
+  "to": "Atlas",
+  "count": 2
+ },
+ {
+  "from": "Ember",
+  "to": "Granite",
+  "count": 2
+ },
+ {
+  "from": "Ibis",
+  "to": "Fjord",
+  "count": 3
+ },
+ {
+  "from": "Cascade",
+  "to": "Atlas",
+  "count": 6
+ },
+ {
+  "from": "Juniper",
+  "to": "Beacon",
+  "count": 2
+ },
+ {
+  "from": "Delta",
+  "to": "Granite",
+  "count": 5
+ }
+]

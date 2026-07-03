@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Conway — Standings</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>
+  :root{--bg:#0f1419;--panel:#18202a;--panel2:#1f2937;--text:#e5eef7;--muted:#8aa0b4;
+    --accent:#4cc2ff;--green:#3ecf8e;--amber:#f5b94c;--red:#f4655f;--gold:#ffd76a;--border:#2b3a4a;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font:18px/1.4 'Segoe UI',system-ui,sans-serif;}
+  header{display:flex;justify-content:space-between;align-items:center;padding:28px 48px 14px;}
+  h1{font-size:40px;margin:0;letter-spacing:-.5px;}
+  h1 .sub{color:var(--accent);font-size:18px;font-weight:600;letter-spacing:2px;text-transform:uppercase;display:block;margin-bottom:4px;}
+  .updated{color:var(--muted);font-size:15px;}
+  .board{padding:8px 48px 48px;display:flex;flex-direction:column;gap:14px;max-width:1400px;margin:0 auto;}
+  .row{display:grid;grid-template-columns:64px 1fr 150px;align-items:center;gap:24px;
+    background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:20px 28px;
+    transition:transform .4s ease, background .4s ease;}
+  .row.lead{border-color:var(--gold);background:linear-gradient(180deg,rgba(255,215,106,.10),transparent);}
+  .rank{font-size:42px;font-weight:800;color:var(--muted);text-align:center;}
+  .row.lead .rank{color:var(--gold);}
+  .name{font-size:30px;font-weight:700;}
+  .name .meta{display:block;font-size:15px;color:var(--muted);font-weight:400;margin-top:2px;}
+  .total{font-size:48px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums;}
+  .bars{grid-column:2 / 4;display:flex;gap:18px;margin-top:10px;flex-wrap:wrap;}
+  .b{font-size:14px;color:var(--muted);}
+  .b i{font-style:normal;display:inline-block;width:74px;}
+  .b .track{display:inline-block;width:120px;height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;vertical-align:middle;margin:0 8px;}
+  .b .track span{display:block;height:100%;}
+  .empty{color:var(--muted);text-align:center;padding:80px;font-size:22px;}
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="sub">Conway · The Flow Game</span>Standings</h1>
+  <div class="updated" id="updated">connecting…</div>
+</header>
+<div class="board" id="board"><div class="empty">Waiting for teams to play their first quarter…</div></div>
+
+<script>
+const COMP = [['roi','ROI'],['trust','Trust'],['delight','Delight'],['teamHealth','Team'],['innovation','Innov']];
+function col(v){return v>=66?'var(--green)':v>=40?'var(--amber)':'var(--red)';}
+const GAME_ID = new URLSearchParams(location.search).get('game');
+const LB_URL = GAME_ID ? '/api/games/'+encodeURIComponent(GAME_ID)+'/leaderboard' : '/api/leaderboard';
+async function tick(){
+  let data;
+  const tok = localStorage.getItem('conway_token');
+  try{
+    const r = await fetch(LB_URL,{cache:'no-store', headers: tok?{Authorization:'Bearer '+tok}:{}});
+    if(r.status===401||r.status===403){ document.getElementById('updated').textContent='sign in as admin (open Conway in this browser and log in) to project standings'; return; }
+    data = await r.json();
+  }
+  catch{ document.getElementById('updated').textContent='waiting for server…'; return; }
+  const rows = data.map(d=>{
+    let st={}; try{ st = d.state ? d.state : {}; }catch{ st={}; }
+    const s = st.score || {};
+    return { team:d.team, round:st.round, total:(s.total??0), s };
+  }).sort((a,b)=> b.total-a.total);
+  const board=document.getElementById('board');
+  if(!rows.length){ board.innerHTML='<div class="empty">Waiting for teams to play their first quarter…</div>'; }
+  else {
+    board.innerHTML = rows.map((r,i)=>`
+      <div class="row ${i===0&&r.total>0?'lead':''}">
+        <div class="rank">${i+1}</div>
+        <div class="name">${r.team}<span class="meta">${r.round?('through quarter '+(r.round-1>0?r.round-1:r.round)):'not started'}</span></div>
+        <div class="total">${Math.round(r.total)}</div>
+        <div class="bars">${COMP.map(([k,lbl])=>{const v=r.s[k]??0;return `<span class="b"><i>${lbl}</i><span class="track"><span style="width:${v}%;background:${col(v)}"></span></span>${Math.round(v)}</span>`;}).join('')}</div>
+      </div>`).join('');
+  }
+  const t=new Date();
+  document.getElementById('updated').textContent='updated '+t.toLocaleTimeString();
+}
+tick(); setInterval(tick, 4000);
+</script>
+</body>
+</html>

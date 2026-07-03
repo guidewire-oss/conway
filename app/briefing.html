@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Conway — Player Briefing</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>
+  :root{
+    --bg:#0f1419;--panel:#18202a;--panel2:#1f2937;--text:#e5eef7;--muted:#8aa0b4;
+    --accent:#4cc2ff;--green:#3ecf8e;--amber:#f5b94c;--red:#f4655f;--violet:#b58cff;--border:#2b3a4a;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:16px/1.65 'Segoe UI',system-ui,-apple-system,sans-serif;}
+  .wrap{max-width:820px;margin:0 auto;padding:48px 24px 80px;}
+  header.hero{border-bottom:1px solid var(--border);padding-bottom:24px;margin-bottom:8px;}
+  .kicker{color:var(--accent);letter-spacing:2px;text-transform:uppercase;font-size:12px;font-weight:700;}
+  h1{font-size:34px;margin:6px 0 8px;letter-spacing:-.5px;}
+  .lede{font-size:18px;color:var(--muted);margin:0;}
+  h2{font-size:21px;margin:38px 0 10px;padding-top:18px;border-top:1px solid var(--border);}
+  h2 .n{color:var(--accent);font-variant-numeric:tabular-nums;margin-right:10px;}
+  h3{font-size:15px;margin:20px 0 6px;color:var(--accent);}
+  p{margin:10px 0;}
+  .muted{color:var(--muted);}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 22px;margin:16px 0;}
+  .goal{background:linear-gradient(180deg,rgba(76,194,255,.08),transparent);border-color:rgba(76,194,255,.35);}
+  ul{margin:10px 0;padding-left:22px;}
+  li{margin:7px 0;}
+  .term{display:grid;grid-template-columns:160px 1fr;gap:6px 18px;margin:14px 0;}
+  .term dt{color:var(--text);font-weight:600;}
+  .term dd{margin:0;color:var(--muted);}
+  .lever{border-left:3px solid var(--border);padding:4px 0 4px 16px;margin:14px 0;}
+  .lever b{color:var(--text);}
+  .lever .for{color:var(--muted);}
+  .lever .fine{display:block;margin-top:3px;color:var(--muted);font-size:13.5px;font-style:italic;opacity:.72;}
+  .pill{display:inline-block;font-size:11px;padding:2px 9px;border-radius:10px;border:1px solid var(--border);color:var(--muted);margin-left:6px;vertical-align:2px;}
+  .scoredims{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0;}
+  .dim{background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:11px 14px;}
+  .dim b{display:block;margin-bottom:2px;}
+  .dim span{color:var(--muted);font-size:14px;}
+  .whisper{background:var(--panel2);border:1px dashed var(--border);border-radius:10px;padding:14px 18px;margin:18px 0;color:var(--muted);font-style:italic;}
+  .books{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+  .book{font-size:13px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:5px 11px;color:var(--muted);}
+  footer{margin-top:48px;padding-top:18px;border-top:1px solid var(--border);color:var(--muted);font-size:13px;}
+  @media print{body{background:#fff;color:#111;}.card,.whisper,.dim{background:#fff;}*{color:#111 !important;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="kicker">The Flow Game · Player Briefing</div>
+  <h1>You are about to run a platform org for a year.</h1>
+  <p class="lede">Not your team — the whole thing. Every pod, every dependency, every tired on-call rotation.
+  Your job is to make it flow. This page tells you how to play. It does not tell you what to do — that's the fun.</p>
+</header>
+
+<h2><span class="n">1</span>The setup</h2>
+<p>You and your teammates take the controls of a real platform organization, frozen as it actually is today:
+its teams (we call them <b>pods</b>), spread across several cities and time zones, each carrying real work,
+real backlogs, and real people. From there, the future is yours to steer.</p>
+<p>Time moves in <b>quarters</b>. Each quarter you make a small number of leadership moves, then hit
+<b>Resolve</b> and watch three months play out — work ships, queues build or drain, people thrive or tire,
+surprises arrive. Then you read what happened, learn from it, and decide the next quarter. After your final
+quarter, the org keeps running <b>on its own for another year</b> — living with whatever you left behind.</p>
+
+<div class="card goal">
+  <h3 style="margin-top:0">What you're trying to do</h3>
+  <p style="margin-bottom:0">Get the <b>most value out of the whole organization for the least total cost</b> — while keeping
+  promises, delighting the people who depend on you (inside and outside the company), and keeping your teams
+  healthy enough to do it again next year. There is no single dial to crank. A quarter that ships a lot but burns
+  out a team, or breaks a promise, or quietly stores up trouble for later, is not a good quarter.</p>
+</div>
+
+<h2><span class="n">2</span>Reading the world</h2>
+<p>You don't need to be a metrics expert. You just need to read a few signals the way a doctor reads vitals —
+roughly, at a glance, knowing what "off" looks like. Here's the whole vocabulary:</p>
+
+<dl class="term">
+  <dt>Pod</dt><dd>A team. It has a size, a home city, and work on its plate.</dd>
+  <dt>WIP</dt><dd>Work in progress — how many things a pod has open at once. More isn't more done.</dd>
+  <dt>Queue load</dt><dd>How full a pod's plate is relative to what it can comfortably carry. Think of a motorway:
+    it stays fast until it gets full, then a little more traffic makes everything crawl. Watch for pods running hot.</dd>
+  <dt>Cycle time</dt><dd>How long a piece of work takes to get done. Long cycle times usually mean a full plate, not lazy people.</dd>
+  <dt>Morale</dt><dd>How the people are holding up. It is slow to earn and quick to lose, and tired teams get slower and make more mistakes.</dd>
+  <dt>Upkeep &amp; firefighting</dt><dd>The standing "tax" every pod pays to keep existing things running and to answer
+    interruptions. It comes off the top, before any new work gets done.</dd>
+  <dt>Readiness</dt><dd>How prepared shipped work is for real life — monitoring, hand-off, the unglamorous parts.
+    Low readiness feels free at launch and expensive later.</dd>
+  <dt>Dependencies</dt><dd>Who waits on whom. Some pods sit upstream of many others. Some hand-offs cross time zones
+    where the working days barely overlap — those are the slow, costly seams.</dd>
+</dl>
+<p class="muted">That's it. If you can spot "this pod is overloaded," "these two are tired," "this hand-off is painful,"
+and "we keep shipping things that aren't ready," you can play well.</p>
+
+<h2><span class="n">3</span>How a quarter works</h2>
+<ul>
+  <li><b>Look.</b> Read the board. Where is it red? Who's drowning, who's tired, what's overdue, which hand-offs hurt?</li>
+  <li><b>Choose.</b> You have a <b>tight budget of actions</b> each quarter — only a few. You cannot do everything;
+    that's the whole point. Pick the moves you believe will help most, <em>given everything else</em>.</li>
+  <li><b>Resolve.</b> The quarter plays out. You'll get a short written story of what happened and why — treat it as
+    your most valuable feedback. A running <b>decision log</b> remembers every quarter's choices and consequences.</li>
+  <li><b>Adjust.</b> Use what the story told you to plan the next quarter. Between quarters, the world will also throw
+    something at you — the kind of thing that really happens to platform teams serving big customers.</li>
+</ul>
+
+<h2><span class="n">4</span>Your levers</h2>
+<p>These are the moves available to you. Each one is described by <b>what it's for</b>. Each also has fine print —
+read it twice. Every lever buys you something and quietly asks for something back. The skill is not in knowing
+which levers are "good"; they are all good somewhere and wasteful elsewhere. The skill is in <b>which ones you
+choose, on which pods, in which order, alongside which others.</b></p>
+
+<div class="lever"><b>Freeze work</b> — <span class="for">pause some of a swamped pod's open work to relieve the queue.</span>
+  <span class="fine">Relief you don't anchor has a way of drifting back.</span></div>
+<div class="lever"><b>Cap work-in-progress</b> — <span class="for">limit how much a pod takes on at once.</span>
+  <span class="fine">A limit set without easing what's already there can starve as surely as it soothes.</span></div>
+<div class="lever"><b>Hygiene sprint</b> — <span class="for">spend a pod's effort cleaning up its tracking, sizing and quality.</span>
+  <span class="fine">A quarter spent tidying is a quarter not spent shipping — which is sometimes exactly right.</span></div>
+<div class="lever"><b>Invest in an interface</b> — <span class="for">turn a recurring hand-off between pods into self-service.</span>
+  <span class="fine">It takes before it gives. Whether it ever gives depends on what you do around it.</span></div>
+<div class="lever"><b>Change interrupt handling</b> — <span class="for">alter how a pod absorbs firefighting and interruptions.</span>
+  <span class="fine">Freeing a team's hands can move the fire rather than put it out.</span></div>
+<div class="lever"><b>Reassign scope</b> — <span class="for">move some work — and its ongoing upkeep — from one pod to another.</span>
+  <span class="fine">Work travels faster than the knowledge to do it, and upkeep never travels alone.</span></div>
+<div class="lever"><b>Ship an MVP</b> — <span class="for">deliver a smaller version, sooner.</span>
+  <span class="fine">What you choose to leave out has its own opinion about when it comes back.</span></div>
+<div class="lever"><b>Require full readiness before starting</b> — <span class="for">insist work is fully prepared before a pod begins it.</span>
+  <span class="fine">Discipline slows the first step to steady all the others. The bill and the benefit arrive on different days.</span></div>
+<div class="lever"><b>Place a backfill</b> — <span class="for">add one new person to a pod of your choice.</span>
+  <span class="fine">People arrive sooner than they ramp; where you place them matters more than that you placed them.</span></div>
+<div class="lever"><b>Make an innovation bet</b> — <span class="for">invest a pod's effort in something that pays off later.</span>
+  <span class="fine">The fastest-looking wins and the longest-lasting ones rarely resemble each other at the start.</span></div>
+<div class="lever"><b>Commit a date</b> — <span class="for">make a promise about when something lands.</span>
+  <span class="fine">A promise kept compounds quietly; a promise missed echoes louder and longer than you'd expect.</span></div>
+
+<div class="whisper">
+  A quiet word on the art of it: moves interact. Some pairs pull in the same direction and become more than their sum;
+  others pull against each other and you pay for both while gaining little. Change is itself a load — pile on too much
+  at once and the org strains under the churn alone, no matter how sensible each piece looked. The leaders who do best
+  are rarely the ones who pull the most levers. They're the ones who feel the difference between a move that
+  <em>compounds</em> and a move that merely <em>shuffles</em> — and who let one change settle before reaching for the next.
+</div>
+
+<h2><span class="n">5</span>How you're judged</h2>
+<p>At the end of every quarter, and at the very end, your stewardship is read across several dimensions at once.
+You're never told a formula, and no single dimension wins the game. Doing obviously well on one by quietly
+wrecking another is how good-looking quarters turn into bad years.</p>
+<div class="scoredims">
+  <div class="dim"><b>Return</b><span>Value delivered against the total cost of delivering it.</span></div>
+  <div class="dim"><b>Trust</b><span>Did you keep the promises you made, on time?</span></div>
+  <div class="dim"><b>Delight</b><span>Did the people who depend on you — inside and out — get something solid?</span></div>
+  <div class="dim"><b>Team health</b><span>Are your people sustainable, or running on fumes?</span></div>
+  <div class="dim"><b>Holistic progress</b><span>Did you move the whole system forward, or just patch corners?</span></div>
+  <div class="dim"><b>The year after</b><span>The org runs on its own once you stop. What you leave behind is part of your score.</span></div>
+</div>
+<p class="muted">That last one matters more than it looks. Short-term cleverness that leaves a fragile org behind
+does not survive the year that follows.</p>
+
+<h2><span class="n">6</span>The spirit of it</h2>
+<p>This is a flight simulator for running an organization, built on ideas you've been reading about. It is for
+<b>learning, not testing</b>. You will make trade-offs every single quarter — that's not a flaw in the game, it's
+the job. When a quarter goes sideways, read it as a signal, not a verdict. The teams that learn fastest, not the
+ones who guess a magic opening, tend to finish strongest.</p>
+<p>Three habits travel well, in the game and at your desk:</p>
+<ul>
+  <li><b>Look before you act</b> — find the one thing most holding the system back this quarter.</li>
+  <li><b>Read the story</b> — the game explains cause and effect after every quarter; let it teach you.</li>
+  <li><b>Mind the people</b> — flow and happy teams are the same problem, not competing ones.</li>
+</ul>
+<p>If you've read these, you already have the mental models you need:</p>
+<div class="books">
+  <span class="book">The Goal</span>
+  <span class="book">The Phoenix Project</span>
+  <span class="book">The Unicorn Project</span>
+  <span class="book">Goldratt's Rules of Flow</span>
+</div>
+
+<footer>
+  You won't get a manual of right answers, and that's deliberate — the answers depend on the situation in front of you,
+  which is exactly the skill we're here to practice. Look, choose, resolve, learn. Good luck.
+</footer>
+
+</div>
+</body>
+</html>

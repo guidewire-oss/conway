@@ -1,0 +1,29 @@
+# keep the build context (and image) lean — only server/ and app/ are needed
+.git
+.gitignore
+.github
+.claude
+.envrc
+.run
+**/__pycache__
+**/*.pyc
+*.log
+
+# local build outputs / state (never bake into the image)
+server/conway
+server/store.json
+
+# repo material not served at runtime
+docs
+tests
+scripts
+data
+deploy
+Dockerfile
+.dockerignore
+*.md
+*.csv
+*.vtt
+facilitator.html
+flow-rules.html
+flow-rules-notes.md
