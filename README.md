@@ -84,6 +84,17 @@ node --test tests/sim.test.mjs   # engine (JS)
 cd server && go test ./...       # Go
 ```
 
+## Authentication
+
+By default an **admin** manages accounts and shares credentials manually
+(passwords are PBKDF2-hashed; sessions are short-lived HMAC-signed tokens).
+
+For org sign-in, Conway supports **SSO via OpenID Connect** (Okta, Google,
+Entra ID, Auth0). Staff roles (admin / facilitator / manager) are derived from
+a group claim, and accounts are provisioned just-in-time on first login. The
+built-in admin password stays as a break-glass fallback; teams still join games
+by code. See [docs/sso-oidc.md](docs/sso-oidc.md) for setup and configuration.
+
 ## Views
 
 - **Flow Actions** — the constraint (five focusing steps), WIP freeze

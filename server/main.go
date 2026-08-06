@@ -20,6 +20,7 @@ import (
 	"conway/auth"
 	"conway/db"
 	"conway/game"
+	"conway/oidc"
 )
 
 // Play state is scoped per game (gameID -> team -> …). The legacy single game is
@@ -45,6 +46,10 @@ type server struct {
 
 	importMu   sync.Mutex            // guards importJobs
 	importJobs map[string]*importJob // async Jira-import jobs by id
+
+	oidc      *oidc.Provider       // nil = SSO not configured (password login only)
+	oidcMu    sync.Mutex           // guards oidcFlows
+	oidcFlows map[string]*oidcFlow // pending SSO logins keyed by state (PKCE + nonce)
 }
 
 // sess/gmap/tmap return the per-game maps, creating them on first use. Caller holds s.mu.
@@ -295,6 +300,8 @@ func main() {
 		}
 		log.Printf("Jira OAuth configured (redirect %s/api/jira/oauth/callback)", s.jiraOAuth.PublicURL)
 	}
+	s.oidcFlows = map[string]*oidcFlow{}
+	s.oidc = buildOIDC(context.Background(), env("CONWAY_PUBLIC_URL", "http://localhost:8741"))
 	// CONWAY_SEED_BASELINE=false skips writing the demo dataset; either way,
 	// the default world (see defaultWorld below) is resolved the same way
 	// from whatever's actually in the DB — seeded or real, never special-cased.
@@ -319,9 +326,13 @@ func main() {
 		writeJSON(w, map[string]any{"server": true, "authRequired": true, "serverGame": true,
 			"gameOpen": sess.Open, "rounds": sess.Rounds, "ap": sess.Ap,
 			"openRound": sess.OpenRound, "timerSecs": sess.TimerSecs, "deadline": sess.Deadline,
-			"jiraBaseUrl": s.jiraBaseURL})
+			"jiraBaseUrl": s.jiraBaseURL, "oidc": s.oidcEnabled()})
 	})
 	mux.HandleFunc("/api/login", s.handleLogin)
+	// SSO (OIDC) — both public: start returns the authorize URL, callback is the
+	// browser redirect target identified by the signed state (no bearer header).
+	mux.HandleFunc("/api/oidc/start", s.handleOIDCStart)
+	mux.HandleFunc("/api/oidc/callback", s.handleOIDCCallback)
 	mux.HandleFunc("/api/me", s.withAuth(s.handleMe, ""))
 	// account & role management is admin-only; running the game is facilitator
 	// (admin passes too, as a superuser).
@@ -405,7 +416,7 @@ func (s *server) handleUsers(w http.ResponseWriter, r *http.Request, _ auth.Clai
 		for _, u := range s.store.Users {
 			out = append(out, map[string]any{
 				"username": u.Username, "display": u.Display, "roles": u.Roles,
-				"expiresAt": u.ExpiresAt, "expired": s.store.Expired(u),
+				"expiresAt": u.ExpiresAt, "expired": s.store.Expired(u), "sso": u.SSO,
 				"hasState": s.tmap(defaultGameID)[u.Username] != nil,
 				"hasGame":  s.gmap(defaultGameID)[u.Username] != nil,
 			})

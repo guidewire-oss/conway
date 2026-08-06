@@ -36,7 +36,37 @@ async function api(path, opts = {}) {
 }
 export { api as authFetch };
 
+// After an SSO round-trip the server bounces back to /#sso=<token>. Read it,
+// persist it, and strip the fragment so a reload or shared URL can't leak or
+// replay the token. Returns true when a token was picked up.
+function pickUpSSOToken() {
+  const h = location.hash || '';
+  const m = h.match(/[#&]sso=([^&]+)/);
+  if (!m) return false;
+  try { localStorage.setItem(TOKEN_KEY, decodeURIComponent(m[1])); } catch { return false; }
+  history.replaceState(null, '', location.pathname + location.search);
+  return true;
+}
+
+// A denied/failed SSO attempt returns to /?sso_error=<reason>. Map it to a
+// human message for the login overlay, and strip the param.
+function ssoErrorMessage() {
+  const p = new URLSearchParams(location.search);
+  const reason = p.get('sso_error');
+  if (!reason) return '';
+  const msg = {
+    no_role: 'Your account has no Conway role. Ask an admin to grant access in your identity provider.',
+    invalid_token: 'Sign-in failed: the identity provider response could not be verified.',
+    exchange_failed: 'Sign-in failed while contacting the identity provider. Try again.',
+    invalid_request: 'Sign-in link was invalid or expired. Try again.',
+    access_denied: 'Sign-in was cancelled.',
+  }[reason] || 'Single sign-on failed. Try again.';
+  const u = new URL(location.href); u.searchParams.delete('sso_error'); history.replaceState(null, '', u);
+  return msg;
+}
+
 export async function initAuth() {
+  pickUpSSOToken();
   const linkToken = new URLSearchParams(location.search).get('testtoken');
   if (linkToken) {
     testToken = linkToken;
@@ -57,13 +87,13 @@ export async function initAuth() {
   // probe for a server (clean 200, no console noise)
   try {
     const r = await fetch('/api/config');
-    if (r.ok) { await showLogin(); return mountChip(); }
+    if (r.ok) { const cfg = await r.json(); await showLogin(cfg); return mountChip(); }
   } catch { /* no server */ }
   mode = 'none';
   return Promise.resolve();
 }
 
-function showLogin() {
+function showLogin(cfg = {}) {
   return new Promise((resolve) => {
     const safeCode = (new URLSearchParams(location.search).get('join') || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
     const joinFirst = safeCode !== '';
@@ -78,6 +108,8 @@ function showLogin() {
         </div>
         <form id="signin-form" ${joinFirst ? 'hidden' : ''}>
           <p class="hint">Facilitators, managers &amp; admins.</p>
+          ${cfg.oidc ? `<button type="button" id="login-sso" class="primary sso-btn">Sign in with SSO</button>
+          <div class="sso-divider"><span>or</span></div>` : ''}
           <input id="login-user" placeholder="username" autocomplete="username">
           <input id="login-pass" type="password" placeholder="password" autocomplete="current-password">
           <button type="submit" class="primary">Sign in</button>
@@ -92,6 +124,16 @@ function showLogin() {
       </div>`;
     document.body.appendChild(ov);
     const err = (m) => { ov.querySelector('#login-err').textContent = m; };
+    const ssoBtn = ov.querySelector('#login-sso');
+    if (ssoBtn) ssoBtn.addEventListener('click', async () => {
+      err('');
+      try {
+        const r = await fetch('/api/oidc/start');
+        if (!r.ok) { err('SSO is unavailable right now.'); return; }
+        const d = await r.json();
+        location.assign(d.url); // hand off to the identity provider
+      } catch { err('Cannot reach server.'); }
+    });
     const show = (which) => {
       ov.querySelector('#signin-form').hidden = which !== 'signin';
       ov.querySelector('#join-form').hidden = which !== 'join';
@@ -101,6 +143,9 @@ function showLogin() {
     };
     ov.querySelector('#tab-signin').addEventListener('click', () => show('signin'));
     ov.querySelector('#tab-join').addEventListener('click', () => show('join'));
+    // Surface a denied/failed SSO round-trip (e.g. no recognized role).
+    const ssoErr = ssoErrorMessage();
+    if (ssoErr) { if (!joinFirst) show('signin'); err(ssoErr); }
     ov.querySelector('#signin-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const u = ov.querySelector('#login-user').value.trim();
@@ -234,10 +279,11 @@ async function refreshUsers() {
   document.getElementById('admin-users').innerHTML = `
     <thead><tr><th>Username</th><th>Name</th><th>Roles</th><th>Expires</th><th>Status</th><th></th></tr></thead>
     <tbody>${users.map((u) => `<tr>
-      <td>${u.username}</td><td>${u.display}</td><td>${roleBadges(u.roles)}</td><td>${fmt(u.expiresAt)}</td>
+      <td>${u.username}${u.sso ? ' <span class="flag" style="color:var(--violet)">SSO</span>' : ''}</td>
+      <td>${u.display}</td><td>${roleBadges(u.roles)}</td><td>${u.sso ? '<span class="hint">via IdP</span>' : fmt(u.expiresAt)}</td>
       <td>${u.expired ? '<span class="flag red">expired</span>' : '<span class="flag" style="color:var(--green)">active</span>'}
           ${u.hasState ? '<span class="hint">playing</span>' : ''}</td>
-      <td><button data-ext="${u.username}">+24h</button>${u.username === 'admin' ? '' : ` <button data-del="${u.username}">revoke</button>`}</td>
+      <td>${u.sso ? '' : `<button data-ext="${u.username}">+24h</button>`}${u.username === 'admin' ? '' : ` <button data-del="${u.username}">revoke</button>`}</td>
     </tr>`).join('') || '<tr><td colspan="6" class="hint">No accounts yet.</td></tr>'}`;
   document.querySelectorAll('#admin-users [data-ext]').forEach((b) => b.addEventListener('click', async () => {
     await api(`/api/admin/users/${b.dataset.ext}/extend`, { method: 'POST' }); refreshUsers();
