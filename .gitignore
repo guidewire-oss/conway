@@ -49,3 +49,6 @@ deploy/
 # real deploy-target env values (internal hostnames, governance labels) —
 # source this from .envrc locally; never commit it
 .envrc.local
+
+# JetBrains IDE project files
+.idea/

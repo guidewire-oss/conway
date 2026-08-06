@@ -1,0 +1,208 @@
+package main
+
+import (
+	"context"
+	"log"
+	"net/http"
+	"net/url"
+	"os"
+	"strings"
+	"time"
+
+	"conway/oidc"
+)
+
+// SSO (OpenID Connect) login. The browser starts at /api/oidc/start, is sent to
+// the org IdP, and returns to /api/oidc/callback with an authorization code. The
+// server verifies the ID token, maps a groups claim to Conway roles, provisions
+// the account just-in-time, and mints the same HMAC session token the password
+// path issues — so everything downstream (withAuth, role gates) is unchanged.
+//
+// Only staff roles (admin/facilitator/manager) come from SSO. Teams still join a
+// game by code. The built-in admin password account is retained as break-glass.
+
+// oidcFlow is one in-flight login, held server-side (the callback carries no
+// bearer). Keyed by the opaque state; short-lived.
+type oidcFlow struct {
+	nonce    string
+	verifier string
+	expires  time.Time
+}
+
+const oidcFlowTTL = 10 * time.Minute
+
+// buildOIDC constructs an OIDC provider from CONWAY_OIDC_* env, or returns nil
+// (with a log line) when SSO is not configured or discovery fails — the server
+// then runs with password login only rather than refusing to boot.
+func buildOIDC(ctx context.Context, publicURL string) *oidc.Provider {
+	issuer := os.Getenv("CONWAY_OIDC_ISSUER")
+	clientID := os.Getenv("CONWAY_OIDC_CLIENT_ID")
+	if issuer == "" || clientID == "" {
+		return nil
+	}
+	cfg := oidc.Config{
+		Issuer:       strings.TrimRight(issuer, "/"),
+		ClientID:     clientID,
+		ClientSecret: os.Getenv("CONWAY_OIDC_CLIENT_SECRET"),
+		RedirectURI:  strings.TrimRight(publicURL, "/") + "/api/oidc/callback",
+		GroupsClaim:  os.Getenv("CONWAY_OIDC_GROUPS_CLAIM"),
+		RoleMap:      oidc.ParseRoleMap(os.Getenv("CONWAY_OIDC_ROLE_MAP")),
+	}
+	if s := os.Getenv("CONWAY_OIDC_SCOPES"); s != "" {
+		cfg.Scopes = strings.Fields(s)
+	}
+	if len(cfg.RoleMap) == 0 {
+		log.Printf("warning: CONWAY_OIDC_ROLE_MAP is empty — no SSO user can be granted a role; SSO disabled")
+		return nil
+	}
+	p, err := oidc.NewProvider(ctx, cfg)
+	if err != nil {
+		log.Printf("warning: OIDC discovery failed (%v) — SSO disabled, password login still works", err)
+		return nil
+	}
+	authMode := "public client, PKCE only"
+	if cfg.ClientSecret != "" {
+		authMode = "confidential client, PKCE + secret"
+	}
+	log.Printf("OIDC SSO configured (issuer %s, redirect %s, %s)", cfg.Issuer, cfg.RedirectURI, authMode)
+	return p
+}
+
+// oidcEnabled reports whether SSO is available (for /api/config and the UI).
+func (s *server) oidcEnabled() bool { return s.oidc != nil }
+
+// handleOIDCStart begins a login: mint state/nonce/PKCE, stash the flow, and
+// return the provider authorize URL for the browser to navigate to.
+func (s *server) handleOIDCStart(w http.ResponseWriter, _ *http.Request) {
+	if s.oidc == nil {
+		http.Error(w, "SSO is not configured", http.StatusServiceUnavailable)
+		return
+	}
+	state, err := oidc.NewState()
+	if err != nil {
+		http.Error(w, "internal error", 500)
+		return
+	}
+	nonce, err := oidc.NewState()
+	if err != nil {
+		http.Error(w, "internal error", 500)
+		return
+	}
+	pkce, err := oidc.NewPKCE()
+	if err != nil {
+		http.Error(w, "internal error", 500)
+		return
+	}
+	s.putFlow(state, &oidcFlow{nonce: nonce, verifier: pkce.Verifier, expires: time.Now().Add(oidcFlowTTL)})
+	writeJSON(w, map[string]string{"url": s.oidc.AuthURL(state, nonce, pkce.Challenge)})
+}
+
+// handleOIDCCallback is the IdP redirect target (no bearer). It validates state,
+// exchanges the code, verifies the ID token, maps roles, JIT-provisions the
+// account, and bounces back into the SPA with a freshly minted session token in
+// the URL fragment (stripped client-side). A user with no recognized role is
+// denied — no account is created.
+func (s *server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
+	if s.oidc == nil {
+		http.Error(w, "SSO is not configured", http.StatusServiceUnavailable)
+		return
+	}
+	if e := r.URL.Query().Get("error"); e != "" {
+		redirectSSOError(w, r, e)
+		return
+	}
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+	flow := s.takeFlow(state)
+	if code == "" || flow == nil {
+		redirectSSOError(w, r, "invalid_request")
+		return
+	}
+	ctx := r.Context()
+	rawID, err := s.oidc.Exchange(ctx, code, flow.verifier)
+	if err != nil {
+		log.Printf("oidc: code exchange failed: %v", err)
+		redirectSSOError(w, r, "exchange_failed")
+		return
+	}
+	id, err := s.oidc.VerifyIDToken(ctx, rawID, flow.nonce)
+	if err != nil {
+		log.Printf("oidc: id token verification failed: %v", err)
+		redirectSSOError(w, r, "invalid_token")
+		return
+	}
+	roles := s.oidc.Roles(id)
+	if len(roles) == 0 {
+		// Authenticated, but no group maps to a Conway role: deny, and log who
+		// tried and what groups they presented so an admin can fix the mapping.
+		log.Printf("oidc: access denied for %s (sub %s) — no recognized role from groups %v", id.Email, id.Subject, id.Groups)
+		redirectSSOError(w, r, "no_role")
+		return
+	}
+	username := ssoUsername(id)
+	s.mu.Lock()
+	u := s.store.UpsertSSO(username, ssoDisplay(id), roles)
+	tok := s.store.Token(u)
+	err = s.store.Save()
+	s.mu.Unlock()
+	if err != nil {
+		log.Printf("oidc: could not persist account %s: %v", username, err)
+		redirectSSOError(w, r, "server_error")
+		return
+	}
+	log.Printf("oidc: signed in %s as %v", username, roles)
+	// Deliver the token in the fragment so it never reaches the server logs or
+	// Referer headers; auth.js reads it, stores it, and strips it.
+	http.Redirect(w, r, "/#sso="+url.QueryEscape(tok), http.StatusFound)
+}
+
+// ssoUsername prefers the email as the stable account key (human-readable in the
+// admin panel), falling back to the immutable subject when email is absent.
+func ssoUsername(id *oidc.Identity) string {
+	if e := strings.TrimSpace(strings.ToLower(id.Email)); e != "" {
+		return e
+	}
+	return "sso:" + id.Subject
+}
+
+func ssoDisplay(id *oidc.Identity) string {
+	if n := strings.TrimSpace(id.Name); n != "" {
+		return n
+	}
+	return ssoUsername(id)
+}
+
+func redirectSSOError(w http.ResponseWriter, r *http.Request, reason string) {
+	http.Redirect(w, r, "/?sso_error="+url.QueryEscape(reason), http.StatusFound)
+}
+
+// --- flow store (state -> pending login), with lazy expiry ----------------
+
+func (s *server) putFlow(state string, f *oidcFlow) {
+	s.oidcMu.Lock()
+	defer s.oidcMu.Unlock()
+	if s.oidcFlows == nil {
+		s.oidcFlows = map[string]*oidcFlow{}
+	}
+	// opportunistically evict expired flows so the map can't grow unbounded
+	now := time.Now()
+	for k, v := range s.oidcFlows {
+		if now.After(v.expires) {
+			delete(s.oidcFlows, k)
+		}
+	}
+	s.oidcFlows[state] = f
+}
+
+// takeFlow returns and removes the flow for state (single-use), or nil if absent
+// or expired.
+func (s *server) takeFlow(state string) *oidcFlow {
+	s.oidcMu.Lock()
+	defer s.oidcMu.Unlock()
+	f := s.oidcFlows[state]
+	delete(s.oidcFlows, state)
+	if f == nil || time.Now().After(f.expires) {
+		return nil
+	}
+	return f
+}

@@ -113,9 +113,9 @@ func (d *DB) Save(s *auth.Store) error {
 			primary = u.Roles[0]
 		}
 		if _, err := tx.Exec(ctx,
-			`INSERT INTO accounts(username,display,role,roles,salt,hash,expires_at,created_at)
-			 VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
-			u.Username, u.Display, primary, u.Roles, u.Salt, u.Hash, u.ExpiresAt, u.CreatedAt); err != nil {
+			`INSERT INTO accounts(username,display,role,roles,salt,hash,expires_at,created_at,sso)
+			 VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+			u.Username, u.Display, primary, u.Roles, u.Salt, u.Hash, u.ExpiresAt, u.CreatedAt, u.SSO); err != nil {
 			return err
 		}
 	}
@@ -136,7 +136,7 @@ func (d *DB) Load(s *auth.Store) error {
 	}
 	// COALESCE migrates any legacy single-role rows into the roles[] array.
 	rows, err := d.pool.Query(ctx,
-		`SELECT username,display,COALESCE(roles, ARRAY[role]),salt,hash,expires_at,created_at FROM accounts`)
+		`SELECT username,display,COALESCE(roles, ARRAY[role]),salt,hash,expires_at,created_at,sso FROM accounts`)
 	if err != nil {
 		return err
 	}
@@ -146,7 +146,7 @@ func (d *DB) Load(s *auth.Store) error {
 	}
 	for rows.Next() {
 		u := &auth.User{}
-		if err := rows.Scan(&u.Username, &u.Display, &u.Roles, &u.Salt, &u.Hash, &u.ExpiresAt, &u.CreatedAt); err != nil {
+		if err := rows.Scan(&u.Username, &u.Display, &u.Roles, &u.Salt, &u.Hash, &u.ExpiresAt, &u.CreatedAt, &u.SSO); err != nil {
 			return err
 		}
 		s.Users[u.Username] = u
