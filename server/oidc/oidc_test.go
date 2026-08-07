@@ -45,6 +45,29 @@ func TestExtractGroups(t *testing.T) {
 	}
 }
 
+// --- scopes --------------------------------------------------------------
+
+func TestScopesDefault(t *testing.T) {
+	if got := (&Config{}).scopes(); strings.Join(got, " ") != "openid profile email groups" {
+		t.Fatalf("default scopes: got %v", got)
+	}
+}
+
+func TestScopesAlwaysIncludeOpenIDDeduped(t *testing.T) {
+	// custom list omitting openid -> openid forced in, first
+	got := (&Config{Scopes: []string{"profile", "email", "groups"}}).scopes()
+	if got[0] != "openid" {
+		t.Fatalf("openid must be forced in first: got %v", got)
+	}
+	if strings.Join(got, " ") != "openid profile email groups" {
+		t.Fatalf("custom scopes: got %v", got)
+	}
+	// duplicates and blanks are dropped
+	if got := (&Config{Scopes: []string{"openid", "openid", "", "email"}}).scopes(); strings.Join(got, " ") != "openid email" {
+		t.Fatalf("dedup/blank handling: got %v", got)
+	}
+}
+
 // --- role mapping --------------------------------------------------------
 
 func TestParseRoleMap(t *testing.T) {

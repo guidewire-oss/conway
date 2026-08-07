@@ -66,11 +66,57 @@ Set these environment variables on the `conway` service:
 | `CONWAY_OIDC_CLIENT_SECRET` | no | **Leave unset.** Only for providers that force a confidential client — PKCE is the default and recommended auth method (see below). |
 | `CONWAY_OIDC_ROLE_MAP` | yes | `group=role,group=role,…` e.g. `conway-admins=admin,conway-facils=facilitator`. Group names match **case-insensitively**. Empty ⇒ SSO stays disabled. |
 | `CONWAY_OIDC_GROUPS_CLAIM` | no | Token claim holding groups. Default `groups`. |
-| `CONWAY_OIDC_SCOPES` | no | Space-separated scopes. Default `openid profile email groups`. |
+| `CONWAY_OIDC_SCOPES` | no | Space-separated scopes. Default `openid profile email groups`. `openid` is always requested even if you omit it. |
 
 SSO turns on only when `CONWAY_OIDC_ISSUER`, `CONWAY_OIDC_CLIENT_ID`, and a
 non-empty `CONWAY_OIDC_ROLE_MAP` are all present **and** discovery succeeds at
 boot. Otherwise Conway logs a warning and runs with password login only.
+
+### Scopes and the claims they carry
+
+`CONWAY_OIDC_SCOPES` controls what the ID token contains. Each scope unlocks the
+claims Conway reads; get this wrong and login either fails or every user is
+denied. Defaults to `openid profile email groups`.
+
+| Scope | Claim it provides | Conway uses it for |
+|-------|-------------------|--------------------|
+| `openid` (**mandatory**) | `sub` | The immutable per-user id; the account key fallback. Always requested even if omitted from the list. |
+| `email` | `email` | The JIT account username (see below) and display. |
+| `profile` | `name` | The display name in the Admin panel. |
+| `groups`¹ | `groups` (or `CONWAY_OIDC_GROUPS_CLAIM`) | **RBAC.** Without it every user maps to no role and is **denied**. |
+
+¹ **`groups` is the one to watch.** It is not a standard OIDC scope. IdPs differ:
+some (e.g. an Okta **custom** authorization server) release the groups claim only
+when a matching scope is requested; others (e.g. an Okta **org** server) attach
+the claim to the app directly and will **reject** an unknown `groups` scope with
+`invalid_scope`. So:
+
+- If your IdP delivers groups via a **claim mapping** (no scope), drop it:
+  `CONWAY_OIDC_SCOPES="openid profile email"`, and point
+  `CONWAY_OIDC_GROUPS_CLAIM` at the claim name it emits.
+- If your IdP gates groups behind a **scope**, keep `groups` (or set the exact
+  scope name your IdP expects, e.g. a custom `groups` scope).
+
+Conway always forces `openid` into the request, so a custom list can never
+accidentally break the flow by omitting it.
+
+### How the JIT account username is derived
+
+On first login Conway provisions an account. Its **username** (the primary key,
+and the owner key for that user's plans, snapshots, rosters, and games) is:
+
+1. the `email` claim, lower-cased, when present (requires the `email` scope); else
+2. `sso:<sub>` — the immutable subject.
+
+The **display name** is the `name` claim (requires `profile`), falling back to
+the username. Roles are re-synced from the groups claim on every login.
+
+> **Known limitation (accepted for EA):** because the username prefers the
+> mutable email, if a user's email changes at the IdP their next login creates a
+> new account and the old one — with any data it owned — is orphaned. This is a
+> rare, single-user event; keying on the immutable `sub` instead is the
+> post-EA fix. Note that IdPs which emit no `email` claim (only
+> `preferred_username`) already key on `sso:<sub>` and are unaffected.
 
 ### Client authentication: PKCE, not a client secret
 
