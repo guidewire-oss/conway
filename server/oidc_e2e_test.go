@@ -111,8 +111,9 @@ func newOIDCServer(t *testing.T, m *mockIdP, roleMap string) *server {
 	return &server{store: st, oidc: p, oidcFlows: map[string]*oidcFlow{}}
 }
 
-// startFlow calls /api/oidc/start and returns the state the server stashed.
-func startFlow(t *testing.T, s *server) string {
+// startFlow calls /api/oidc/start and returns the state plus the browser-binding
+// cookie the server set (nil if none) — the callback must present that cookie.
+func startFlow(t *testing.T, s *server) (string, *http.Cookie) {
 	t.Helper()
 	rec := httptest.NewRecorder()
 	s.handleOIDCStart(rec, httptest.NewRequest("GET", "/api/oidc/start", nil))
@@ -126,7 +127,26 @@ func startFlow(t *testing.T, s *server) string {
 	if state == "" || u.Query().Get("code_challenge_method") != "S256" {
 		t.Fatalf("authorize url missing state/PKCE: %s", body.URL)
 	}
-	return state
+	var cookie *http.Cookie
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == oidcStateCookie {
+			cookie = c
+		}
+	}
+	return state, cookie
+}
+
+// doCallback drives /api/oidc/callback with the given state and (optional)
+// binding cookie, returning the recorder.
+func doCallback(t *testing.T, s *server, state string, cookie *http.Cookie) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/oidc/callback?code=xyz&state="+state, nil)
+	if cookie != nil {
+		req.AddCookie(cookie)
+	}
+	s.handleOIDCCallback(rec, req)
+	return rec
 }
 
 func TestOIDCLoginEndToEnd(t *testing.T) {
@@ -134,7 +154,7 @@ func TestOIDCLoginEndToEnd(t *testing.T) {
 	defer m.close()
 	s := newOIDCServer(t, m, "conway-facilitators=facilitator,conway-admins=admin")
 
-	state := startFlow(t, s)
+	state, cookie := startFlow(t, s)
 	// The IdP echoes the flow's nonce back in the id_token.
 	nonce := s.oidcFlows[state].nonce
 	m.nextClaims = func() map[string]any {
@@ -146,9 +166,7 @@ func TestOIDCLoginEndToEnd(t *testing.T) {
 		}
 	}
 
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/oidc/callback?code=xyz&state="+state, nil)
-	s.handleOIDCCallback(rec, req)
+	rec := doCallback(t, s, state, cookie)
 
 	if rec.Code != http.StatusFound {
 		t.Fatalf("callback status %d, body %s", rec.Code, rec.Body.String())
@@ -170,9 +188,9 @@ func TestOIDCLoginEndToEnd(t *testing.T) {
 	if u == nil || !u.SSO || !u.Has("facilitator") || u.Hash != "" {
 		t.Fatalf("JIT account wrong: %+v", u)
 	}
-	// The login flow is single-use: replaying the same state fails.
-	rec2 := httptest.NewRecorder()
-	s.handleOIDCCallback(rec2, httptest.NewRequest("GET", "/api/oidc/callback?code=xyz&state="+state, nil))
+	// The login flow is single-use: replaying the same state (even with the same
+	// binding cookie) fails because the flow was consumed.
+	rec2 := doCallback(t, s, state, cookie)
 	if got := rec2.Header().Get("Location"); !strings.Contains(got, "sso_error") {
 		t.Fatalf("state replay should fail, got %q", got)
 	}
@@ -183,7 +201,7 @@ func TestOIDCLoginDeniedNoRole(t *testing.T) {
 	defer m.close()
 	s := newOIDCServer(t, m, "conway-admins=admin")
 
-	state := startFlow(t, s)
+	state, cookie := startFlow(t, s)
 	nonce := s.oidcFlows[state].nonce
 	m.nextClaims = func() map[string]any {
 		return map[string]any{
@@ -192,8 +210,7 @@ func TestOIDCLoginDeniedNoRole(t *testing.T) {
 			"email": "nobody@acme.com", "groups": []string{"everyone"},
 		}
 	}
-	rec := httptest.NewRecorder()
-	s.handleOIDCCallback(rec, httptest.NewRequest("GET", "/api/oidc/callback?code=xyz&state="+state, nil))
+	rec := doCallback(t, s, state, cookie)
 
 	loc := rec.Header().Get("Location")
 	if !strings.Contains(loc, "sso_error=no_role") {
@@ -208,7 +225,7 @@ func TestOIDCCallbackRejectsForgedToken(t *testing.T) {
 	m := newMockIdP(t)
 	defer m.close()
 	s := newOIDCServer(t, m, "conway-admins=admin")
-	state := startFlow(t, s)
+	state, cookie := startFlow(t, s)
 	// Sign the id_token with a foreign key while JWKS still advertises the real
 	// one — RS256 verification against the published key must fail.
 	forger, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -224,12 +241,43 @@ func TestOIDCCallbackRejectsForgedToken(t *testing.T) {
 			"email": "attacker@acme.com", "groups": []string{"conway-admins"},
 		}
 	}
-	rec := httptest.NewRecorder()
-	s.handleOIDCCallback(rec, httptest.NewRequest("GET", "/api/oidc/callback?code=xyz&state="+state, nil))
+	rec := doCallback(t, s, state, cookie)
 	if !strings.Contains(rec.Header().Get("Location"), "sso_error") {
 		t.Fatalf("forged-token login must be rejected, got %q", rec.Header().Get("Location"))
 	}
 	if len(s.store.Users) != 0 {
 		t.Fatal("forged login must not provision an account")
+	}
+}
+
+// Login-CSRF / session-swap: a callback carrying a valid state but NOT the
+// browser-binding cookie (the attacker's callback URL replayed in a victim's
+// browser) must be rejected and provision nothing — even though the code would
+// otherwise exchange and verify cleanly.
+func TestOIDCCallbackRejectsUnboundState(t *testing.T) {
+	m := newMockIdP(t)
+	defer m.close()
+	s := newOIDCServer(t, m, "conway-admins=admin")
+	state, _ := startFlow(t, s)
+	nonce := s.oidcFlows[state].nonce
+	m.nextClaims = func() map[string]any {
+		return map[string]any{
+			"iss": m.issuer, "sub": "00u-attacker", "aud": "conway-client",
+			"exp": time.Now().Add(time.Hour).Unix(), "nonce": nonce,
+			"email": "attacker@acme.com", "groups": []string{"conway-admins"},
+		}
+	}
+	// No binding cookie — mimics a victim's browser opening the attacker's URL.
+	rec := doCallback(t, s, state, nil)
+	if !strings.Contains(rec.Header().Get("Location"), "sso_error") {
+		t.Fatalf("unbound state must be rejected, got %q", rec.Header().Get("Location"))
+	}
+	if len(s.store.Users) != 0 {
+		t.Fatalf("login-CSRF attempt must not provision an account, got %d", len(s.store.Users))
+	}
+	// A wrong cookie value must also fail.
+	rec2 := doCallback(t, s, state, &http.Cookie{Name: oidcStateCookie, Value: "not-the-state"})
+	if !strings.Contains(rec2.Header().Get("Location"), "sso_error") {
+		t.Fatalf("mismatched binding cookie must be rejected, got %q", rec2.Header().Get("Location"))
 	}
 }

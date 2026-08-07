@@ -31,6 +31,13 @@ type oidcFlow struct {
 
 const oidcFlowTTL = 10 * time.Minute
 
+// oidcStateCookie binds a login flow to the browser that started it. Its value
+// must equal the callback's state param, defeating login-CSRF / session-swap
+// (an attacker's callback URL replayed in a victim's browser carries no matching
+// cookie). HttpOnly + SameSite=Lax: JS never needs it, and Lax still sends it on
+// the top-level GET redirect back from the IdP.
+const oidcStateCookie = "conway_oidc_state"
+
 // buildOIDC constructs an OIDC provider from CONWAY_OIDC_* env, or returns nil
 // (with a log line) when SSO is not configured or discovery fails — the server
 // then runs with password login only rather than refusing to boot.
@@ -55,7 +62,12 @@ func buildOIDC(ctx context.Context, publicURL string) *oidc.Provider {
 		log.Printf("warning: CONWAY_OIDC_ROLE_MAP is empty — no SSO user can be granted a role; SSO disabled")
 		return nil
 	}
-	p, err := oidc.NewProvider(ctx, cfg)
+	// Bound discovery so an unreachable IdP can't hang server startup (go-oidc
+	// uses http.DefaultClient, which has no timeout). Later JWKS fetches run on
+	// the request context, not this one.
+	dctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	p, err := oidc.NewProvider(dctx, cfg)
 	if err != nil {
 		log.Printf("warning: OIDC discovery failed (%v) — SSO disabled, password login still works", err)
 		return nil
@@ -88,13 +100,10 @@ func (s *server) handleOIDCStart(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "internal error", 500)
 		return
 	}
-	pkce, err := oidc.NewPKCE()
-	if err != nil {
-		http.Error(w, "internal error", 500)
-		return
-	}
-	s.putFlow(state, &oidcFlow{nonce: nonce, verifier: pkce.Verifier, expires: time.Now().Add(oidcFlowTTL)})
-	writeJSON(w, map[string]string{"url": s.oidc.AuthURL(state, nonce, pkce.Challenge)})
+	verifier := oidc.NewVerifier()
+	s.putFlow(state, &oidcFlow{nonce: nonce, verifier: verifier, expires: time.Now().Add(oidcFlowTTL)})
+	s.setStateCookie(w, state)
+	writeJSON(w, map[string]string{"url": s.oidc.AuthURL(state, nonce, verifier)})
 }
 
 // handleOIDCCallback is the IdP redirect target (no bearer). It validates state,
@@ -113,6 +122,17 @@ func (s *server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	code := r.URL.Query().Get("code")
 	state := r.URL.Query().Get("state")
+	// Login-CSRF defense: the callback must come from the same browser that
+	// started the flow, proven by the binding cookie matching the state param.
+	// Without this, an attacker's callback URL replayed in a victim's browser
+	// would log the victim into the attacker's account. Clear the cookie either
+	// way — it is single-use.
+	bound := s.stateCookieMatches(r, state)
+	s.clearStateCookie(w)
+	if !bound {
+		redirectSSOError(w, r, "invalid_request")
+		return
+	}
 	flow := s.takeFlow(state)
 	if code == "" || flow == nil {
 		redirectSSOError(w, r, "invalid_request")
@@ -174,6 +194,43 @@ func ssoDisplay(id *oidc.Identity) string {
 
 func redirectSSOError(w http.ResponseWriter, r *http.Request, reason string) {
 	http.Redirect(w, r, "/?sso_error="+url.QueryEscape(reason), http.StatusFound)
+}
+
+// --- state-binding cookie (login-CSRF defense) ---------------------------
+
+// oidcCookieSecure marks the binding cookie Secure when Conway is served over
+// HTTPS (inferred from the configured redirect URI), so it isn't sent in the
+// clear. Left off for plain-HTTP local dev so the flow still works there.
+func (s *server) oidcCookieSecure() bool {
+	return s.oidc != nil && strings.HasPrefix(s.oidc.Config().RedirectURI, "https://")
+}
+
+func (s *server) stateCookie(value string, maxAge int) *http.Cookie {
+	return &http.Cookie{
+		Name:     oidcStateCookie,
+		Value:    value,
+		Path:     "/api/oidc",
+		MaxAge:   maxAge,
+		HttpOnly: true,
+		Secure:   s.oidcCookieSecure(),
+		SameSite: http.SameSiteLaxMode,
+	}
+}
+
+func (s *server) setStateCookie(w http.ResponseWriter, state string) {
+	http.SetCookie(w, s.stateCookie(state, int(oidcFlowTTL/time.Second)))
+}
+
+// clearStateCookie expires the binding cookie (single-use, whatever the outcome).
+func (s *server) clearStateCookie(w http.ResponseWriter) {
+	http.SetCookie(w, s.stateCookie("", -1))
+}
+
+// stateCookieMatches reports whether the request carries a binding cookie equal
+// to the callback's state param — the same browser that started the flow.
+func (s *server) stateCookieMatches(r *http.Request, state string) bool {
+	c, err := r.Cookie(oidcStateCookie)
+	return err == nil && c.Value != "" && state != "" && c.Value == state
 }
 
 // --- flow store (state -> pending login), with lazy expiry ----------------

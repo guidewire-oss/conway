@@ -25,9 +25,12 @@ Browser ──▶ /api/oidc/start ──▶ (Authorization Code + PKCE) ──�
    authorize URL.
 3. After the user authenticates at the IdP, the browser returns to
    `/api/oidc/callback` with a code. The server:
-   - validates `state` (CSRF), exchanges the code (with the PKCE verifier),
-   - **verifies the ID token**: RS256 signature against the provider JWKS, plus
-     `iss` / `aud` / `exp` (60s skew) / `nonce`,
+   - validates `state` against an HttpOnly, SameSite=Lax **binding cookie** set
+     at `/start` (login-CSRF / session-swap defense — the callback must come
+     from the browser that began the flow), exchanges the code (with the PKCE
+     verifier),
+   - **verifies the ID token** via `coreos/go-oidc`: signature against the
+     provider JWKS, plus `iss` / `aud` / `exp`, and then the `nonce`,
    - reads the groups claim and maps it to Conway roles,
    - **denies** the login if no group maps to a role (no account is created),
    - otherwise **JIT-provisions** a passwordless account (roles re-synced from
@@ -133,7 +136,10 @@ CONWAY_OIDC_ROLE_MAP=conway-admins=admin,conway-facilitators=facilitator,conway-
 - **Admin panel:** SSO accounts show an `SSO` badge and no expiry/extend control
   (they're governed by the IdP). "Revoke" deletes the row; it will be recreated
   on their next successful SSO login if they still map to a role.
-- **Security posture:** RS256-only ID-token verification, JWKS cached 1h with a
-  forced refresh on an unknown `kid`; PKCE S256; single-use, expiring login
-  state; token delivered via fragment. Stdlib-only crypto, matching the rest of
-  the auth package.
+- **Security posture:** ID-token verification (signature/JWKS with key
+  rotation, `iss`/`aud`/`exp`) and the PKCE code exchange are delegated to the
+  vetted `coreos/go-oidc` and `golang.org/x/oauth2` libraries rather than
+  hand-rolled. Conway owns only the parts that are genuinely app-specific: the
+  `nonce` check, the single-use expiring login state bound to the initiating
+  browser via an HttpOnly SameSite=Lax cookie (login-CSRF defense), the token
+  delivered via URL fragment, and the group-claim → role mapping.
