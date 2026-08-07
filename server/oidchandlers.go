@@ -176,8 +176,13 @@ func (s *server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/#sso="+url.QueryEscape(tok), http.StatusFound)
 }
 
-// ssoUsername prefers the email as the stable account key (human-readable in the
-// admin panel), falling back to the immutable subject when email is absent.
+// ssoUsername derives the JIT account key: the email claim (needs the "email"
+// scope; human-readable in the admin panel) when present, else the immutable
+// "sso:<sub>". See docs/sso-oidc.md "How the JIT account username is derived".
+//
+// Known limitation (accepted for EA): keying on the mutable email means an IdP
+// email change orphans the old account and its data. Keying on the immutable
+// sub is the post-EA fix.
 func ssoUsername(id *oidc.Identity) string {
 	if e := strings.TrimSpace(strings.ToLower(id.Email)); e != "" {
 		return e

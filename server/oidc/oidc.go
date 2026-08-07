@@ -42,11 +42,27 @@ func (c *Config) Enabled() bool {
 	return c != nil && c.Issuer != "" && c.ClientID != "" && c.RedirectURI != ""
 }
 
+// scopes returns the requested OAuth scopes: the operator's CONWAY_OIDC_SCOPES
+// list, or a sensible default. "openid" is mandatory for OIDC (no id_token
+// without it), so it is always forced in and placed first even when a custom
+// list omits it; the result is de-duped. The default requests "groups" as a
+// scope — some IdPs release the groups claim only behind a scope, others via a
+// claim mapping and reject an unknown scope; override the list per your IdP.
 func (c *Config) scopes() []string {
-	if len(c.Scopes) > 0 {
-		return c.Scopes
+	raw := c.Scopes
+	if len(raw) == 0 {
+		raw = []string{gooidc.ScopeOpenID, "profile", "email", "groups"}
 	}
-	return []string{gooidc.ScopeOpenID, "profile", "email", "groups"}
+	out := []string{gooidc.ScopeOpenID}
+	seen := map[string]bool{gooidc.ScopeOpenID: true}
+	for _, s := range raw {
+		if s == "" || seen[s] {
+			continue
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	return out
 }
 
 func (c *Config) groupsClaim() string {
