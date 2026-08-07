@@ -48,9 +48,14 @@ services:
       # facilitator, manager. Group names match case-insensitively. Example:
       #   conway-admins=admin,conway-facilitators=facilitator,conway-managers=manager
       CONWAY_OIDC_ROLE_MAP: ${CONWAY_OIDC_ROLE_MAP:-}
-      # Optional extras: CONWAY_OIDC_GROUPS_CLAIM (default "groups"),
-      # CONWAY_OIDC_SCOPES, and CONWAY_OIDC_CLIENT_SECRET (only if your provider
-      # requires a confidential client; PKCE is used with or without it).
+      # Optional extras (unset = server defaults apply):
+      #   CONWAY_OIDC_GROUPS_CLAIM — token claim holding groups (default "groups")
+      #   CONWAY_OIDC_SCOPES       — space-separated (default "openid profile email groups")
+      #   CONWAY_OIDC_CLIENT_SECRET — only if your provider requires a confidential
+      #                               client; PKCE is used with or without it
+      CONWAY_OIDC_GROUPS_CLAIM: ${CONWAY_OIDC_GROUPS_CLAIM:-}
+      CONWAY_OIDC_SCOPES: ${CONWAY_OIDC_SCOPES:-}
+      CONWAY_OIDC_CLIENT_SECRET: ${CONWAY_OIDC_CLIENT_SECRET:-}
     volumes:
       - conway-data:/data
 

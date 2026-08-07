@@ -190,7 +190,7 @@ function mountChip() {
   const chip = document.createElement('span');
   chip.className = 'auth-chip';
   const label = testToken ? `testing as ${username.replace(/^__test__:/, '')}` : username;
-  chip.innerHTML = `${label} · <a id="auth-logout">sign out</a>`;
+  chip.innerHTML = `${esc(label)} · <a id="auth-logout">sign out</a>`;
   nav.appendChild(chip);
   chip.querySelector('#auth-logout').addEventListener('click', logout);
   // facilitators (and admins, as superusers) get the game-ops console, grouped
@@ -264,9 +264,18 @@ async function addUser() {
   const r = await api('/api/admin/users', { method: 'POST', body: JSON.stringify({ display: disp, expiryHours: exp, roles }) });
   const d = await r.json();
   document.getElementById('admin-new').innerHTML =
-    `created <b>${d.username}</b> (${(d.roles || []).join(', ')}) · password <code>${d.password}</code> <span class="hint">(copy now — not shown again)</span>`;
+    `created <b>${esc(d.username)}</b> (${esc((d.roles || []).join(', '))}) · password <code>${esc(d.password)}</code> <span class="hint">(copy now — not shown again)</span>`;
   document.getElementById('admin-disp').value = '';
   refreshUsers();
+}
+
+// HTML-escape untrusted values before interpolating into innerHTML. Account
+// fields like display name and username are IdP-controlled for SSO users (the
+// name claim is often self-editable), so they must never be treated as markup.
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
 }
 
 async function refreshUsers() {
@@ -275,15 +284,15 @@ async function refreshUsers() {
   const fmt = (ts) => (ts ? new Date(ts * 1000).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'never');
   const BADGE = { admin: 'var(--violet)', facilitator: 'var(--accent)', manager: 'var(--green)', player: 'var(--muted)' };
   const label = (r) => r === 'player' ? 'team' : r;
-  const roleBadges = (rs) => (rs || []).map((r) => `<span class="flag" style="color:${BADGE[r] || 'var(--muted)'}">${label(r)}</span>`).join(' ');
+  const roleBadges = (rs) => (rs || []).map((r) => `<span class="flag" style="color:${BADGE[r] || 'var(--muted)'}">${esc(label(r))}</span>`).join(' ');
   document.getElementById('admin-users').innerHTML = `
     <thead><tr><th>Username</th><th>Name</th><th>Roles</th><th>Expires</th><th>Status</th><th></th></tr></thead>
     <tbody>${users.map((u) => `<tr>
-      <td>${u.username}${u.sso ? ' <span class="flag" style="color:var(--violet)">SSO</span>' : ''}</td>
-      <td>${u.display}</td><td>${roleBadges(u.roles)}</td><td>${u.sso ? '<span class="hint">via IdP</span>' : fmt(u.expiresAt)}</td>
+      <td>${esc(u.username)}${u.sso ? ' <span class="flag" style="color:var(--violet)">SSO</span>' : ''}</td>
+      <td>${esc(u.display)}</td><td>${roleBadges(u.roles)}</td><td>${u.sso ? '<span class="hint">via IdP</span>' : fmt(u.expiresAt)}</td>
       <td>${u.expired ? '<span class="flag red">expired</span>' : '<span class="flag" style="color:var(--green)">active</span>'}
           ${u.hasState ? '<span class="hint">playing</span>' : ''}</td>
-      <td>${u.sso ? '' : `<button data-ext="${u.username}">+24h</button>`}${u.username === 'admin' ? '' : ` <button data-del="${u.username}">revoke</button>`}</td>
+      <td>${u.sso ? '' : `<button data-ext="${esc(u.username)}">+24h</button>`}${u.username === 'admin' ? '' : ` <button data-del="${esc(u.username)}">revoke</button>`}</td>
     </tr>`).join('') || '<tr><td colspan="6" class="hint">No accounts yet.</td></tr>'}`;
   document.querySelectorAll('#admin-users [data-ext]').forEach((b) => b.addEventListener('click', async () => {
     await api(`/api/admin/users/${b.dataset.ext}/extend`, { method: 'POST' }); refreshUsers();
