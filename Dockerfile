@@ -2,7 +2,10 @@
 # Conway — single static Go binary that serves the SPA (app/) + the game/auth API.
 # Build context is the repo root.
 
-FROM golang:1.26 AS build
+# Pinned to the patch, not golang:1.26: govulncheck found five stdlib
+# vulnerabilities in go1.26.5, all fixed in 1.26.6, and a floating minor tag
+# silently builds the shipped binary against whichever patch is cached.
+FROM golang:1.26.6 AS build
 WORKDIR /src
 # deps are vendored (vendor/ at the repo root, alongside go.mod) so the build is
 # hermetic — no module proxy needed at build time (the corp TLS proxy can block
