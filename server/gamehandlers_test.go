@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"conway/auth"
-	"conway/game"
+	"conway/server/auth"
+	"conway/server/game"
 )
 
 // testWorld builds a World from the fixture JSON under testdata/ — the same

@@ -8,16 +8,11 @@ __pycache__/
 *.pyc
 .DS_Store
 
-# server runtime artifacts
-server/store.json
-server/conway
-conway-server
-server/game-state.json
+# Everything written at runtime — binary, pid, log, local JSON store, game
+# state. The Makefile creates it and `make clean` removes it.
+var/
 
-# process pids/logs from the Makefile
-.run/
-
-# local-only helper scripts and env (Makefile is the committed interface)
+# local-only helper scripts and env (the Makefile is the committed interface)
 scripts/local/
 
 # real deploy-target env values — source this from .envrc locally; never commit
@@ -31,9 +26,6 @@ data/*.jsonl
 data/*.json
 data/*.txt
 data/mining_summary.md
-
-# a pod directory is your org's roster — supply your own, never commit it
-pod-directory*.csv
 
 # real deploy-target env values — source this from .envrc locally; never commit
 .envrc.local

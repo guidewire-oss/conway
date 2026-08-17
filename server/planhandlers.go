@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"conway/auth"
-	"conway/db"
-	"conway/game"
-	"conway/planning"
+	"conway/server/auth"
+	"conway/server/db"
+	"conway/server/game"
+	"conway/server/planning"
 )
 
 const maxUpload = 20 << 20 // 20 MB

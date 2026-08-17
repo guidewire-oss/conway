@@ -1,15 +1,20 @@
 # Conway — canonical task interface. Self-contained: a fresh clone needs only
-# this file. Local conveniences (secrets, shortcuts) live in scripts/local/
-# (git-excluded) and just call these targets.
+# this file and a Go toolchain.
 #
 # Fastest way to try Conway: `docker compose up` (app + Postgres, seeded with
 # a small demo org). The targets below are for local Go development against
 # a Postgres you already have running (e.g. `docker compose up -d postgres`).
+#
+# Everything this Makefile or the server writes at runtime goes under var/ —
+# binary, pid, log, and the local JSON store. One directory, one ignore rule.
 SHELL := /bin/bash
 PORT ?= 8741
 APP_DIR := app
-RUN := .run
-SERVER_PID := $(RUN)/server.pid
+VAR := var
+BIN := $(VAR)/conway
+SERVER_PID := $(VAR)/server.pid
+SERVER_LOG := $(VAR)/server.log
+STORE := $(VAR)/store.json
 DATABASE_URL ?= postgres://conway:conway@localhost:5432/conway?sslmode=disable
 
 .PHONY: help build test server stop status logs clean
@@ -21,21 +26,21 @@ help: ## Show this help
 	@echo
 	@echo "Vars: PORT=$(PORT)  DATABASE_URL=$(DATABASE_URL)  (CONWAY_ADMIN_PASSWORD for 'server')"
 
-$(RUN):
-	@mkdir -p $(RUN)
+$(VAR):
+	@mkdir -p $(VAR)
 
-build: ## Build the Go server binary (server/conway)
-	cd server && go build -o conway .
+build: | $(VAR) ## Build the Go server binary (var/conway)
+	go build -o $(BIN) ./server
 
-test: ## Run engine (JS) and auth (Go) tests
+test: ## Run engine (JS) and server (Go) tests
 	node --test tests/sim.test.mjs
-	cd server && go test ./...
+	go test ./...
 
-server: build | $(RUN) ## Go server against DATABASE_URL (needs Postgres reachable — see docker-compose.yml)
-	@CONWAY_ADDR=:$(PORT) CONWAY_APP_DIR=$(APP_DIR) DATABASE_URL=$(DATABASE_URL) \
-	  nohup server/conway >$(RUN)/server.log 2>&1 & echo $$! >$(SERVER_PID)
+server: build ## Go server against DATABASE_URL (needs Postgres reachable — see docker-compose.yml)
+	@CONWAY_ADDR=:$(PORT) CONWAY_APP_DIR=$(APP_DIR) CONWAY_STORE=$(STORE) DATABASE_URL=$(DATABASE_URL) \
+	  nohup $(BIN) >$(SERVER_LOG) 2>&1 & echo $$! >$(SERVER_PID)
 	@sleep 1; echo "conway server -> http://localhost:$(PORT)  (pid $$(cat $(SERVER_PID)))"
-	@grep -i 'admin password' $(RUN)/server.log || true
+	@grep -i 'admin password' $(SERVER_LOG) || true
 
 stop: ## Stop the server started by `make server`
 	@if [ -f $(SERVER_PID) ]; then kill $$(cat $(SERVER_PID)) 2>/dev/null && echo "stopped $$(cat $(SERVER_PID))"; rm -f $(SERVER_PID); fi
@@ -45,9 +50,8 @@ status: ## Show whether the server is running
 	  else echo "down: $(SERVER_PID)"; fi
 
 logs: ## Tail the server log
-	@tail -n 40 -f $(RUN)/server.log
+	@tail -n 40 -f $(SERVER_LOG)
 
-clean: stop ## Stop, remove binary, logs, pids, pycaches
-	@rm -f server/conway; rm -rf $(RUN)
-	@find . -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
+clean: stop ## Stop and remove everything under var/ (binary, logs, pids, local store)
+	@rm -rf $(VAR)
 	@echo cleaned

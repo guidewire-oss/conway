@@ -73,15 +73,15 @@ dataset lives in `server/db/seed/baseline.sql` (applied when
 `CONWAY_SEED_BASELINE` is unset or `true`; set to `false` for an empty
 first-run and import your own org from Jira instead).
 
-For your own real org's data, either use **Import from Jira** in the app
-(OAuth or an API token), or see `data/`/`scripts/` for the legacy offline
-mining pipeline (a one-shot Jira crawl → JSON, pre-dating the Postgres-backed
-import — kept for reference, not the primary path).
+For your own real org's data, use **Import from Jira** in the app (OAuth or an
+API token). The legacy offline mining pipeline it replaced — a one-shot Jira
+crawl to JSON, predating the Postgres-backed import — was removed in favour of
+that flow; `git log` has it if you ever want to look.
 
 Tests:
 ```
 node --test tests/sim.test.mjs   # engine (JS)
-cd server && go test ./...       # Go
+go test ./...                    # Go (module root is the repo root)
 ```
 
 ## Authentication
