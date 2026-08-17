@@ -28,8 +28,14 @@ jobs:
           go install github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 
+      # The action's major version must match the golangci-lint major it installs:
+      # v6 is golangci-lint v1 only, v7+ are v2 only. The pack shipped v6 with a
+      # v2.x pin, so this step failed before the linter ran at all. v8 supports
+      # v2 and requires >= v2.1.0, which the pin below satisfies; v9 additionally
+      # moves the action to the Node 24 runtime.
+      # Verified 2026-08-17 against github.com/golangci/golangci-lint-action/releases
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v8
         with:
           version: v2.12.2
 
