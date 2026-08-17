@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"conway/oidc"
+	"conway/server/oidc"
 )
 
 // SSO (OpenID Connect) login. The browser starts at /api/oidc/start, is sent to

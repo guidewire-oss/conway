@@ -16,8 +16,8 @@ import (
 	"testing"
 	"time"
 
-	"conway/auth"
-	"conway/oidc"
+	"conway/server/auth"
+	"conway/server/oidc"
 )
 
 // mockIdP is a minimal OIDC provider (discovery + JWKS + token) that signs ID
