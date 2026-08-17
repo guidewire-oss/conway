@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"conway/auth"
-	"conway/db"
+	"conway/server/auth"
+	"conway/server/db"
 )
 
 // NetworkFile is the human-editable representation of an org network — the

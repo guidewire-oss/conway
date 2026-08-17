@@ -4,12 +4,14 @@
 
 FROM golang:1.26 AS build
 WORKDIR /src
-# deps are vendored (server/vendor) so the build is hermetic — no module proxy
-# needed at build time (the corp TLS proxy can block it).
+# deps are vendored (vendor/ at the repo root, alongside go.mod) so the build is
+# hermetic — no module proxy needed at build time (the corp TLS proxy can block
+# it). The module root is the repo root; the Go packages live under server/.
+COPY go.mod go.sum ./
+COPY vendor/ ./vendor/
 COPY server/ ./server/
-WORKDIR /src/server
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -mod=vendor -trimpath -ldflags="-s -w" -o /out/conway .
+    go build -mod=vendor -trimpath -ldflags="-s -w" -o /out/conway ./server
 # stage the SPA and normalize perms so the non-root runtime user can always read
 # every file (Go's FileServer 403s on an unreadable file — e.g. a stray 0600).
 COPY app/ /out/app

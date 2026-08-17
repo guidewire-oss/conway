@@ -4,7 +4,7 @@ import (
 	"sort"
 	"testing"
 
-	"conway/game"
+	"conway/server/game"
 )
 
 // Headless balance diagnosis: run the real engine through a few strategies and

@@ -17,10 +17,10 @@ import (
 	"sync"
 	"time"
 
-	"conway/auth"
-	"conway/db"
-	"conway/game"
-	"conway/oidc"
+	"conway/server/auth"
+	"conway/server/db"
+	"conway/server/game"
+	"conway/server/oidc"
 )
 
 // Play state is scoped per game (gameID -> team -> …). The legacy single game is
@@ -236,9 +236,20 @@ func loadLegacyStore(path string) *auth.Store {
 }
 
 func main() {
+	// Defaults assume the repo root as the working directory (the module root
+	// since go.mod moved there): the SPA is ./app, and everything written at
+	// runtime — this store plus the game state beside it — goes under ./var.
 	addr := env("CONWAY_ADDR", ":8741")
-	appDir := env("CONWAY_APP_DIR", "../app")
-	storePath := env("CONWAY_STORE", "./store.json")
+	appDir := env("CONWAY_APP_DIR", "./app")
+	storePath := env("CONWAY_STORE", "./var/store.json")
+	// The store and the game state beside it are plain files; their directory is
+	// no longer guaranteed to exist (it used to be the working directory), so
+	// create it rather than failing on the first write.
+	if dir := filepath.Dir(storePath); dir != "" && dir != "." {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			log.Fatalf("create store directory %s: %v", dir, err)
+		}
+	}
 
 	url := os.Getenv("DATABASE_URL")
 	if url == "" {

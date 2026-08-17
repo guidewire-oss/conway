@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"conway/auth"
-	"conway/db"
+	"conway/server/auth"
+	"conway/server/db"
 )
 
 func TestImportStructureRequiresRoster(t *testing.T) {

@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"conway/auth"
-	"conway/db"
-	"conway/jira"
-	"conway/planning"
+	"conway/server/auth"
+	"conway/server/db"
+	"conway/server/jira"
+	"conway/server/planning"
 )
 
 // jiraCreds is the use-and-discard credential set for an import. Never persisted.
