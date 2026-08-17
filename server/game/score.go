@@ -38,7 +38,6 @@ func scoreOf(g *Game) Score {
 
 func RunEpilogue(g *Game) Epilogue {
 	value, cost := 0.0, 0.0
-	type pc struct{ Pod }
 	pods := make([]Pod, 0, len(g.Pods))
 	for _, n := range g.PodOrder {
 		pods = append(pods, *g.Pods[n])
@@ -401,7 +400,8 @@ var scenarios = []scenario{
 }
 
 func seededScenarioOrder(n, count, seed int) []int {
-	r := rng(uint32(seed) ^ 0x9e3779b9)
+	// G115: same as hashSeed — seeding a PRNG, so wrap-around is intended.
+	r := rng(uint32(seed) ^ 0x9e3779b9) //nolint:gosec // G115: deliberate seed truncation
 	var out []int
 	for len(out) < count {
 		a := make([]int, n)

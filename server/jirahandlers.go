@@ -272,7 +272,7 @@ func (s *server) handleParseRoster(w http.ResponseWriter, r *http.Request, _ aut
 		http.Error(w, "method", 405)
 		return
 	}
-	data, err := readUpload(r)
+	data, err := readUpload(w, r)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return

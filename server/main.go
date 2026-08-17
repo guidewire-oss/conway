@@ -391,7 +391,19 @@ func main() {
 	mux.Handle("/", noCache(http.FileServer(http.Dir(filepath.Clean(appDir)))))
 
 	log.Printf("Conway server on %s serving %s", addr, appDir)
-	log.Fatal(http.ListenAndServe(addr, mux))
+	// An explicit server rather than http.ListenAndServe, so a header-read
+	// timeout bounds slowloris-style connections that would otherwise be held
+	// open indefinitely. ReadTimeout and WriteTimeout are deliberately unset:
+	// uploads run to maxUpload (20MB) over links we do not control, and nothing
+	// here streams, so capping whole-request duration would only break large
+	// imports. IdleTimeout reaps keep-alive connections instead.
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 20 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+	log.Fatal(srv.ListenAndServe())
 }
 
 // ---- handlers -----------------------------------------------------------
@@ -580,7 +592,10 @@ func (s *server) armAutoSubmit(gid string, round int, deadline int64) {
 		// NEVER let a bad round-resolution crash the process — recover, log, keep going.
 		defer func() {
 			if e := recover(); e != nil {
-				log.Printf("auto-submit %s (round %d) recovered from panic: %v", gid, round, e)
+				// G706 is a false positive once the verb is %q: fmt quotes via
+				// strconv.Quote, so a newline in gid renders as \n and cannot forge
+				// a log line. Verified: %s emits a second line, %q does not.
+				log.Printf("auto-submit %q (round %d) recovered from panic: %v", gid, round, e) //nolint:gosec // G706: %q escapes newlines
 			}
 		}()
 		s.mu.Lock()
@@ -597,7 +612,7 @@ func (s *server) armAutoSubmit(gid string, round int, deadline int64) {
 				func() { // isolate each team so one bad submit can't skip the rest
 					defer func() {
 						if e := recover(); e != nil {
-							log.Printf("auto-submit %s/%s (round %d) recovered: %v", gid, team, round, e)
+							log.Printf("auto-submit %q/%q (round %d) recovered: %v", gid, team, round, e) //nolint:gosec // G706: %q escapes newlines, see armAutoSubmit above
 						}
 					}()
 					s.submitRound(gid, g, team)
