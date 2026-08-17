@@ -61,9 +61,9 @@ What happens without it: order is settled in a spreadsheet by whoever argues
 best, dates are committed without any feasibility check, the constraint pod
 receives work in arrival order rather than value order, and the collision is
 discovered in month four when the buffer is already gone. The org's own
-retrospective language for this is in `flow-rules-notes.md`: *"too many
-priorities means no priority"*, and *"these started, the clock ran, the work
-never began"*.
+retrospective language for this, from the flow review that motivated Conway, is
+*"too many priorities means no priority"*, and *"these started, the clock ran,
+the work never began"*.
 
 The pain is felt by the planning manager who owns the period, the PM who sold a
 date, and the pod lead who discovers in month four that they are on five
@@ -793,7 +793,7 @@ today.
 
 - Scheduling below pod granularity: no per-person assignment, no task-level plans, no individual capacity or velocity. Named leads are modelled only as a concurrency limit on how many initiatives can be *started*.
 - Becoming a project-management tool. No dependency editing UI beyond the sequencing attributes, no percent-complete tracking during the period, no export to MS Project.
-- Being a system of record for commitments. Dates entered here are planning inputs; Jira and Aha remain the commitment vehicles, per the commitment-modelling recommendation in `requester-tiers.md`.
+- Being a system of record for commitments. Dates entered here are planning inputs; the issue tracker and the roadmap tool remain the commitment vehicles.
 - Optimisation search (metaheuristics, MILP). See Decision 1.
 - Monte Carlo over the schedule. Uncertainty is represented by explicit buffers in this iteration; probabilistic finish distributions are a candidate follow-up.
 - **Automatic** re-planning from actuals. Conway reports drift against the baseline and offers a per-pod calibration factor; deciding to re-plan, and accepting any calibration, stays a human action.
@@ -812,14 +812,14 @@ today.
 |---|----------|-------|-------------|------------|
 | Q1 | Where does the working-hours overlap between two sites come from for plan rosters? Observe has a site overlap matrix from the pod directory; plan Teams carry only a site string. Reuse the directory matrix, add a site table to the plan, or fall back to a default same-site/different-site pair of values? | Anoop | — | [NEEDS CLARIFICATION] |
 | Q2 | Cost of delay units: currency per week, or an unitless 1–10 scale? Recommendation is unitless, since real CoD is rarely known and the objective only needs relative weights. | Anoop | — | [NEEDS CLARIFICATION] |
-| Q3 | Default concurrent-initiative capacity per lead role. Proposed defaults: PM 2, engineering lead 2, architect 3, programme 4. Are these plausible for the reference plan? | Anoop | — | [NEEDS CLARIFICATION] |
+| Q3 | Default concurrent-initiative capacity per lead role. Proposed defaults: PM 2, engineering lead 2, architect 3, programme 4. Are these plausible for a real org? | Anoop | — | [NEEDS CLARIFICATION] |
 | Q4 | Can a pod run one initiative's work slice across two tracks to halve its duration? The spec assumes no (a slice occupies one track). If some pods genuinely parallelise within an initiative, the model needs a per-slice track count. | Anoop | — | [NEEDS CLARIFICATION] |
 | Q5 | Buffer sizing: a flat percentage of the chain, or the classic square-root-of-sum-of-squares over slice estimates? Flat is easier to explain; SSQ rewards initiatives with many small slices. | Anoop | — | [NEEDS CLARIFICATION] |
 | Q6 | Is one target date per initiative sufficient, or do initiatives carry intermediate milestones (early access, GA) with their own dates? | Anoop | — | [NEEDS CLARIFICATION] |
 | Q7 | Should the org WIP limit default to a number, or be derived (for example, tracks at the constraint pod)? A wrong default here is the single most visible knob in the feature. | Anoop | — | [NEEDS CLARIFICATION] |
 | Q8 | Does the priority column allow ties, and is 1 the highest? Spec assumes yes and yes, with ties broken by the ranking rule. | Anoop | — | [NEEDS CLARIFICATION] |
 | Q9 | Who owns the initiative-to-epic binding, and where is it entered — an Epics column in the FullKit sheet (stays with the planning artefact, rots between periods) or in-app on the plan (stays with the plan, invisible to the sheet's owner)? Recommendation is both, with the sheet winning on upload. | Anoop | — | [NEEDS CLARIFICATION] |
-| Q10 | Is the Parent Epic convention from `requester-tiers.md` actually in use yet? If feature epics already hang off a dated Parent Epic, binding is nearly free and target dates can be seeded from it. If not, every binding starts as manual entry. | Anoop | — | [NEEDS CLARIFICATION] |
+| Q10 | Is the Parent Epic convention actually in use in the target Jira yet — a dated parent epic carrying the commitment, with feature epics as its children? If so, binding is nearly free and target dates can be seeded from it. If not, every binding starts as manual entry. | Anoop | — | [NEEDS CLARIFICATION] |
 | Q11 | Does the Jira import capture changelogs? Without transition history, "actual start" can only be inferred (earliest child activity), which weakens every schedule-variance figure. `docs/v2-spec.md` lists changelog ingestion as a later phase — this feature is a strong reason to pull it forward. | Anoop | — | [NEEDS CLARIFICATION] |
 | Q12 | Percent complete by issue count or by story points? Counts are always available; points are better but hygiene-dependent. Recommendation is counts, with points used where present and the choice labelled. | Anoop | — | [NEEDS CLARIFICATION] |
 | Q13 | How often should actuals refresh, and who triggers it — on demand from the plan, or automatically with each snapshot import? | Anoop | — | [NEEDS CLARIFICATION] |
@@ -1366,10 +1366,10 @@ Reached from `[bind ▾]`, or as a bulk step after a snapshot import.
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ Bind initiatives to Jira epics          snapshot: 14 Mar 09:12               │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│  Telemetry GA          PROJ-101572  ✓ confirmed          via parent epic     │
-│  Managed database MVP  PROJ-101790  ✓ confirmed          entered manually    │
-│  Tenant isolation      PROJ-102014  ? suggested  78%     name similarity     │
-│                        "‑ Tenant isolation (Revelstoke)" · Ember · 22 open   │
+│  Telemetry GA          PLAT-4021    ✓ confirmed          via parent epic     │
+│  Managed database MVP  PLAT-4088    ✓ confirmed          entered manually    │
+│  Tenant isolation      PLAT-4130    ? suggested  78%     name similarity     │
+│                        "Tenant isolation — phase 2" · Ember · 22 open        │
 │                                                    [confirm]  [pick another] │
 │  DR event streaming    — no candidate —                       [search Jira]  │
 ├──────────────────────────────────────────────────────────────────────────────┤
