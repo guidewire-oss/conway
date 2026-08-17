@@ -86,6 +86,14 @@ jobs:
       - name: hook-existence-check
         run: ./scripts/hooks/hook-existence-check.sh
 
+      # Ordered BEFORE diff-aware-check on purpose. diff-aware-check writes
+      # memory/.parity-stale whenever .opencode/plugin/factory-hooks.ts is in the
+      # diff range, and this step blocks on that flag — so running it afterwards
+      # tests a flag its own sibling just created, not the committed state.
+      # Recorded upstream as specs/002-factory-adoption.md FR-021.
+      - name: pending-lessons-push-block
+        run: ./scripts/hooks/pending-lessons-push-block.sh
+
       - name: diff-aware-check
         run: ./scripts/hooks/diff-aware-check.sh origin/${{ github.base_ref || 'main' }} HEAD
 
@@ -93,8 +101,6 @@ jobs:
         if: github.event_name == 'pull_request'
         run: ./scripts/hooks/decision-log-gate.sh origin/${{ github.base_ref }} ${{ github.event.pull_request.head.sha }}
 
-      - name: pending-lessons-push-block
-        run: ./scripts/hooks/pending-lessons-push-block.sh
 
       - name: commit-message-lint
         if: github.event_name == 'pull_request'
