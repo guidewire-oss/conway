@@ -217,7 +217,7 @@ func (s *server) handleNetworkImport(w http.ResponseWriter, r *http.Request, c a
 		http.Error(w, "templates require the database", 503)
 		return
 	}
-	data, err := readUpload(r)
+	data, err := readUpload(w, r)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return
