@@ -34,6 +34,28 @@ services:
       # Optional — see README.md "Configuration reference":
       # CONWAY_JIRA_BASE_URL, CONWAY_JIRA_SITE_HINT, CONWAY_PUBLIC_URL,
       # CONWAY_JIRA_CLIENT_ID, CONWAY_JIRA_CLIENT_SECRET
+      #
+      # Optional — SSO (OpenID Connect). When CONWAY_OIDC_ISSUER + _CLIENT_ID +
+      # a non-empty _ROLE_MAP are set, staff can "Sign in with SSO"; the local
+      # admin password stays as a break-glass. See docs/sso-oidc.md.
+      # CONWAY_PUBLIC_URL is required (the redirect URI is <it>/api/oidc/callback).
+      # Register a PUBLIC client with PKCE — no client secret to manage.
+      CONWAY_PUBLIC_URL: ${CONWAY_PUBLIC_URL:-}
+      CONWAY_OIDC_ISSUER: ${CONWAY_OIDC_ISSUER:-}
+      CONWAY_OIDC_CLIENT_ID: ${CONWAY_OIDC_CLIENT_ID:-}
+      # CONWAY_OIDC_ROLE_MAP maps IdP group names to Conway roles, as a
+      # comma-separated list of <idp-group>=<role> pairs. Roles: admin,
+      # facilitator, manager. Group names match case-insensitively. Example:
+      #   conway-admins=admin,conway-facilitators=facilitator,conway-managers=manager
+      CONWAY_OIDC_ROLE_MAP: ${CONWAY_OIDC_ROLE_MAP:-}
+      # Optional extras (unset = server defaults apply):
+      #   CONWAY_OIDC_GROUPS_CLAIM — token claim holding groups (default "groups")
+      #   CONWAY_OIDC_SCOPES       — space-separated (default "openid profile email groups")
+      #   CONWAY_OIDC_CLIENT_SECRET — only if your provider requires a confidential
+      #                               client; PKCE is used with or without it
+      CONWAY_OIDC_GROUPS_CLAIM: ${CONWAY_OIDC_GROUPS_CLAIM:-}
+      CONWAY_OIDC_SCOPES: ${CONWAY_OIDC_SCOPES:-}
+      CONWAY_OIDC_CLIENT_SECRET: ${CONWAY_OIDC_CLIENT_SECRET:-}
     volumes:
       - conway-data:/data
 

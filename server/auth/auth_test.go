@@ -124,3 +124,49 @@ func TestSignTokenGameRoundTrip(t *testing.T) {
 		t.Fatalf("plain token should have no game id: %q", c2.GameID)
 	}
 }
+
+func TestUpsertSSOCreatesAndUpdates(t *testing.T) {
+	now := int64(1000)
+	s := NewStore([]byte("secret"))
+	s.NowUnix = func() int64 { return now }
+
+	// first login: creates a passwordless account with the mapped roles
+	u := s.UpsertSSO("dana@acme.com", "Dana Ops", []string{"facilitator"})
+	if u.Username != "dana@acme.com" || u.Display != "Dana Ops" {
+		t.Fatalf("unexpected account: %+v", u)
+	}
+	if !u.Has("facilitator") || u.Has("admin") {
+		t.Fatalf("roles not set from IdP: %v", u.Roles)
+	}
+	if u.Hash != "" || u.Salt != "" {
+		t.Fatal("SSO account must have no password hash/salt")
+	}
+	if u.SSO != true {
+		t.Fatal("SSO account must be flagged")
+	}
+
+	// second login with changed roles: same row, roles re-synced from IdP
+	u2 := s.UpsertSSO("dana@acme.com", "Dana O", []string{"manager", "admin"})
+	if len(s.Users) != 1 {
+		t.Fatalf("re-login must not duplicate accounts: %d", len(s.Users))
+	}
+	if !u2.Has("admin") || !u2.Has("manager") || u2.Has("facilitator") {
+		t.Fatalf("roles not re-synced: %v", u2.Roles)
+	}
+	if u2.CreatedAt != u.CreatedAt {
+		t.Fatal("createdAt should be preserved across re-login")
+	}
+}
+
+func TestSSOAccountRejectsPasswordLogin(t *testing.T) {
+	s := NewStore([]byte("secret"))
+	s.NowUnix = func() int64 { return 1000 }
+	s.UpsertSSO("dana@acme.com", "Dana", []string{"admin"})
+	// empty password / any password must never authenticate an SSO account
+	if _, err := s.Authenticate("dana@acme.com", ""); err == nil {
+		t.Fatal("SSO account must reject empty-password login")
+	}
+	if _, err := s.Authenticate("dana@acme.com", "guess"); err == nil {
+		t.Fatal("SSO account must reject password login")
+	}
+}
