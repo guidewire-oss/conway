@@ -144,8 +144,9 @@ type User struct {
 	Roles     []string `json:"roles"` // any of: admin, facilitator, manager, player
 	Salt      string   `json:"salt"`
 	Hash      string   `json:"hash"`
-	ExpiresAt int64    `json:"expiresAt"` // unix seconds; 0 = never (admin)
+	ExpiresAt int64    `json:"expiresAt"` // unix seconds; 0 = never (admin, SSO)
 	CreatedAt int64    `json:"createdAt"`
+	SSO       bool     `json:"sso,omitempty"` // provisioned via OIDC; has no password
 }
 
 // Has reports exact role membership (admin-superuser logic lives at the gate).
@@ -235,6 +236,27 @@ func (s *Store) CreateUser(display string, roles []string, expiryHours int) (*Us
 	return u, pw
 }
 
+// UpsertSSO creates or updates a passwordless account for an OIDC-authenticated
+// user. Roles are (re)synced from the IdP on every login so group changes take
+// effect immediately; a pre-existing account's CreatedAt is preserved. The
+// account never expires (ExpiresAt 0) — access is really gated at each login by
+// the IdP, and the minted session token still carries its own 12h cap.
+func (s *Store) UpsertSSO(username, display string, roles []string) *User {
+	now := s.NowUnix()
+	u := s.Users[username]
+	if u == nil {
+		u = &User{Username: username, CreatedAt: now}
+		s.Users[username] = u
+	}
+	u.Display = display
+	u.Roles = roles
+	u.Salt = ""
+	u.Hash = ""
+	u.ExpiresAt = 0
+	u.SSO = true
+	return u
+}
+
 // SetAdmin creates or replaces the admin account with a known password.
 func (s *Store) SetAdmin(password string) *User {
 	salt := randString(16)
@@ -252,7 +274,9 @@ var ErrAuth = errors.New("invalid credentials or expired account")
 // Authenticate verifies password and expiry; returns the user on success.
 func (s *Store) Authenticate(username, pw string) (*User, error) {
 	u := s.Users[username]
-	if u == nil || !VerifyPassword(pw, u.Salt, u.Hash) {
+	// SSO accounts carry no password material; reject them from this path
+	// outright so an empty stored hash can never be matched.
+	if u == nil || u.SSO || u.Hash == "" || !VerifyPassword(pw, u.Salt, u.Hash) {
 		return nil, ErrAuth
 	}
 	if u.ExpiresAt != 0 && s.NowUnix() >= u.ExpiresAt {

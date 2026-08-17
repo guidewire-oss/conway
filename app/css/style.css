@@ -72,6 +72,9 @@ main { padding: 16px 20px; }
 #login-box h2 { margin: 0; }
 #login-box input { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 9px 11px; font-size: 14px; }
 .login-err { color: var(--red); font-size: 12px; min-height: 14px; }
+.sso-btn { width: 100%; }
+.sso-divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; margin: 2px 0; }
+.sso-divider::before, .sso-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
 .auth-chip { color: var(--muted); font-size: 12px; padding: 7px 4px 7px 12px; }
 .auth-chip a { color: var(--accent); cursor: pointer; }
 .admin-tab { color: var(--amber); border-color: var(--amber) !important; }
