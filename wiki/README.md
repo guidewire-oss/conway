@@ -20,3 +20,7 @@ must resolve, or the build fails (this index page is exempt from the citation
 rule) — it runs in CI, in `make check`, and shows up in
 `factory doctor`. That is the "lint" half of the pattern; writing and querying
 the pages is the agent's job.
+
+## Pages
+
+- [opencode harness parity](opencode-harness.md) — why the opencode enforcement claim is OPEN in this repo, and what would close it
