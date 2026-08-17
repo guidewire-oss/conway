@@ -3,7 +3,12 @@
 # live in .git/info/exclude instead — they are not the project's business, and
 # listing them here would publish internal names in a public repo.
 
-.claude/
+# .claude/ is tracked, like .opencode/ and .codex/ — whoever clones this repo may
+# be working in any of the three harnesses, and .claude/settings.json is what
+# wires the test-edit-denial hook for Claude Code. Only local runtime state is
+# ignored here; settings.local.json is listed with the factory's rules below.
+.claude/scheduled_tasks.lock
+
 __pycache__/
 *.pyc
 .DS_Store
