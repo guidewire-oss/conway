@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"conway/jira"
+	"conway/server/jira"
 )
 
 func TestPickJiraSite(t *testing.T) {
