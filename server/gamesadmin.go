@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"conway/auth"
-	"conway/db"
+	"conway/server/auth"
+	"conway/server/db"
 )
 
 // --- per-game team roster (option A: facilitator pre-adds teams, each with a code) ---

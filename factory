@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# factory — the software factory control surface. A thin, auditable shell
+# dispatcher (Decision 14): no compiled binary, nothing to install. Every
+# subcommand is a shell script you can read.
+
+DIR="$(cd "$(dirname "$0")" && pwd)"
+
+usage() {
+  cat <<'EOF'
+factory — software factory control surface
+
+Usage: factory <command> [args]
+
+  init        Set up the factory in the current repo (writes factory.yaml, installs hooks)
+  doctor      Report the health of an installed factory: armed/inert/stale gates,
+              hook + adapter integrity, and a break/fix proof that every gate fires
+  upgrade     Pull framework updates (hooks, scripts, docs) over this repo; never
+              touches your factory.yaml, content, or customized files
+  check       Run the full pre-push gate suite
+  selftest    Run the break/fix self-test (watch every gate fire)
+  review-lane Enable or disable the advisory adversarial PR review (opt-in, costs tokens)
+  metrics     What the factory is doing to this repo (--json, --html); local only
+  report      Cost report: gates enforced at 0 tokens, blocks caught, one labeled
+              estimate (factory report --clear resets the block log)
+  migrate-config  Move a legacy factory.config into factory.yaml (--dry-run to preview)
+  help        Show this message
+
+Everything here is plain shell. `less` any of it: scripts/factory-doctor.sh, scripts/hooks/*.sh.
+EOF
+}
+
+CMD="${1:-help}"
+[ "$#" -gt 0 ] && shift || true
+
+case "$CMD" in
+  init)     SCRIPT="$DIR/scripts/factory-init.sh" ;;
+  doctor)   SCRIPT="$DIR/scripts/factory-doctor.sh" ;;
+  upgrade)  SCRIPT="$DIR/scripts/factory-upgrade.sh" ;;
+  check)    SCRIPT="$DIR/scripts/pre-push-check.sh" ;;
+  selftest) SCRIPT="$DIR/scripts/selftest/run.sh" ;;
+  report)   SCRIPT="$DIR/scripts/factory-report.sh" ;;
+  metrics)  SCRIPT="$DIR/scripts/factory-metrics.sh" ;;
+  review-lane) SCRIPT="$DIR/scripts/factory-review-lane.sh" ;;
+  migrate-config) SCRIPT="$DIR/scripts/factory-migrate-config.sh" ;;
+  help|-h|--help) usage; exit 0 ;;
+  *) echo "factory: unknown command '$CMD' (try: factory help)" >&2; exit 2 ;;
+esac
+
+if [ ! -x "$SCRIPT" ]; then
+  echo "factory: '$CMD' is not available in this repo ($SCRIPT is missing or not executable)" >&2
+  exit 2
+fi
+
+exec "$SCRIPT" "$@"

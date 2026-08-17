@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"conway/db"
-	"conway/planning"
+	"conway/server/db"
+	"conway/server/planning"
 )
 
 // A plan's team structure can be sourced from a saved roster (netPodsToTeams)

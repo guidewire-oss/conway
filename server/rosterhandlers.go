@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"conway/auth"
-	"conway/db"
+	"conway/server/auth"
+	"conway/server/db"
 )
 
 // Rosters are reusable, editable team-structure definitions (pods). They feed

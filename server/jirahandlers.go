@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"conway/auth"
-	"conway/db"
-	"conway/jira"
-	"conway/planning"
+	"conway/server/auth"
+	"conway/server/db"
+	"conway/server/jira"
+	"conway/server/planning"
 )
 
 // jiraCreds is the use-and-discard credential set for an import. Never persisted.
@@ -272,7 +272,7 @@ func (s *server) handleParseRoster(w http.ResponseWriter, r *http.Request, _ aut
 		http.Error(w, "method", 405)
 		return
 	}
-	data, err := readUpload(r)
+	data, err := readUpload(w, r)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return

@@ -1,0 +1,106 @@
+name: Image
+
+# Builds the container image on every pull request and publishes it to GHCR on
+# main and on version tags. Deliberately a separate workflow from the factory's
+# ci.yml / go-pack.yml: those are pack files the factory owns and refreshes, this
+# one is Conway's.
+#
+# Until this existed, nothing verified the Dockerfile at all — it could break and
+# only a human running `deploy/build-push.sh` would find out. Pull requests build
+# without pushing, so the build is checked before merge and credentials are never
+# needed for a PR (including from forks, where GITHUB_TOKEN cannot push anyway).
+#
+# Action versions checked against each repository's latest release, 2026-08-17.
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+# GITHUB_TOKEN is enough to publish to GHCR in the same org — no PAT, no secret
+# to rotate. packages: write is what allows the push; everything else stays read.
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v4.2.0
+
+      # Skipped on pull requests: nothing is pushed there, so there is no reason
+      # to authenticate.
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Package name is the last path segment: ghcr.io/<owner>/conway.
+      #
+      # Tagging follows the convention docker/metadata-action documents: `edge`
+      # is the last commit of the default branch (the same meaning official
+      # images like Alpine give it), and `latest` is reserved for releases. The
+      # action's default `latest=auto` flavour attaches `latest` to semver tag
+      # events by itself, so it is deliberately not set here — an earlier version
+      # of this workflow pinned `latest` to main, which would have made `latest`
+      # mean "tip of development" to anyone pulling it.
+      #
+      # So: a merge to main publishes `edge` and `sha-<full-commit>`; a v* tag
+      # publishes the semver trio plus `latest`.
+      - name: Image tags and labels
+        id: meta
+        uses: docker/metadata-action@v6.2.0
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/conway
+          tags: |
+            type=edge,branch=main
+            type=sha,format=long
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+
+      # Layer cache in the Actions cache service. No extra workflow permissions:
+      # it authenticates with ACTIONS_RUNTIME_TOKEN, which build-push-action
+      # populates itself. It does require a non-default driver, which
+      # setup-buildx-action above provides.
+      #
+      # mode=max, not the default min: this is a multi-stage build, and min only
+      # exports layers of the final image — the golang stage that does the actual
+      # compiling is intermediate and would never be cached.
+      #
+      # scope is set explicitly rather than left at the default "buildkit", so a
+      # second image added later cannot overwrite this one's cache.
+      #
+      # The Dockerfile's COPY order already suits this: go.mod/go.sum and the
+      # ~350-file vendor tree come before server/, so a code-only change reuses
+      # those layers instead of re-sending the vendor tree.
+      - name: Build and push
+        uses: docker/build-push-action@v7.3.0
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=conway-image
+          cache-to: type=gha,scope=conway-image,mode=max
+
+      - name: Report
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "Built the image without pushing (pull request)."
+          else
+            echo "Pushed:"
+            echo "${{ steps.meta.outputs.tags }}"
+          fi
