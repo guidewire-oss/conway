@@ -232,6 +232,8 @@ Requirements on Conway, unless marked upstream.
 | FR-018 | (upstream) `ginkgo-only-check.sh` MUST fail closed when `rg` is absent | MUST |
 | FR-019 | (upstream) Packs SHOULD NOT overwrite each other's `Makefile.pack`; a polyglot install currently keeps only the last pack's copy | SHOULD |
 | FR-020 | (upstream) `Makefile.pack` SHOULD be included by the generated Makefile, or not installed; today it is inert | SHOULD |
+| FR-021 | (upstream) `pre-push-check.sh` SHOULD be satisfiable on a first install. Step 5 (`diff-aware-check`) writes `memory/.parity-stale` whenever `.opencode/plugin/factory-hooks.ts` is in the diff range, and step 7 blocks on that flag — so on the install commit itself, which adds that file, the suite cannot reach 7/7 in a single run regardless of what the adopter does | SHOULD |
+| FR-022 | (upstream) `factory-init` SHOULD NOT overwrite the adopter's `README.md` with the template's own product README. It names no adopter and links to eight docs the installer does not copy, so every link is broken on arrival | SHOULD |
 
 ---
 
