@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"conway/auth"
-	"conway/db"
+	"conway/server/auth"
+	"conway/server/db"
 )
 
 // baselineSnapshotID is the snapshot seeded once from server/db/seed/baseline.sql

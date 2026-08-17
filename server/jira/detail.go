@@ -43,8 +43,6 @@ func (d DetailedIssue) IsOpen() bool { return d.StatusCat != "done" }
 // InProgress reports whether the issue is actively in flight (WIP).
 func (d DetailedIssue) InProgress() bool { return d.StatusCat == "indeterminate" }
 
-const outcomeMinDescLen = 40 // a description this long counts as a stated outcome
-
 // SearchDetailed runs a JQL query returning the rich field set. pointsField
 // defaults to customfield_10014 (story points in this instance). onProgress (if
 // non-nil) is called after each page with the running issue count.

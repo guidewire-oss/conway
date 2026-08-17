@@ -1,53 +1,76 @@
-# Conway — canonical task interface. Self-contained: a fresh clone needs only
-# this file. Local conveniences (secrets, shortcuts) live in scripts/local/
-# (git-excluded) and just call these targets.
-#
-# Fastest way to try Conway: `docker compose up` (app + Postgres, seeded with
-# a small demo org). The targets below are for local Go development against
-# a Postgres you already have running (e.g. `docker compose up -d postgres`).
-SHELL := /bin/bash
-PORT ?= 8741
-APP_DIR := app
-RUN := .run
-SERVER_PID := $(RUN)/server.pid
-DATABASE_URL ?= postgres://conway:conway@localhost:5432/conway?sslmode=disable
+.PHONY: selftest doctor check eval golden-eval sync-opencode sync-claude sync-codex sync-harnesses check-drift lint-commits prereq-check pre-push diff-aware decision-log pending-lessons
 
-.PHONY: help build test server stop status logs clean
+# Core factory targets — language-agnostic. Language packs contribute their
+# own test/lint/build targets via packs/<language>/Makefile.pack at init time.
 
-help: ## Show this help
-	@echo "Conway targets:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
-	  | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-10s\033[0m %s\n",$$1,$$2}'
-	@echo
-	@echo "Vars: PORT=$(PORT)  DATABASE_URL=$(DATABASE_URL)  (CONWAY_ADMIN_PASSWORD for 'server')"
+# Conway's own task interface (build, test, server, stop, status, logs, clean).
+# factory-init replaces this file wholesale, so if `make build` disappears after
+# an install or upgrade, this is the line to put back.
+include Makefile.conway
 
-$(RUN):
-	@mkdir -p $(RUN)
+selftest:
+	./scripts/selftest/run.sh
 
-build: ## Build the Go server binary (server/conway)
-	cd server && go build -o conway .
+doctor:
+	./scripts/factory-doctor.sh
 
-test: ## Run engine (JS) and auth (Go) tests
-	node --test tests/sim.test.mjs
-	cd server && go test ./...
+check: selftest
+	./scripts/citation-lint.sh
+	./scripts/hooks/shared-script-enforcement.sh
+	./scripts/hooks/hook-existence-check.sh
+	./scripts/hooks/copy-manifest-check.sh
+	./scripts/hooks/gate-instrumentation-check.sh
+	./scripts/hooks/wiki-lint.sh
+	./scripts/hooks/workflow-lint.sh
 
-server: build | $(RUN) ## Go server against DATABASE_URL (needs Postgres reachable — see docker-compose.yml)
-	@CONWAY_ADDR=:$(PORT) CONWAY_APP_DIR=$(APP_DIR) DATABASE_URL=$(DATABASE_URL) \
-	  nohup server/conway >$(RUN)/server.log 2>&1 & echo $$! >$(SERVER_PID)
-	@sleep 1; echo "conway server -> http://localhost:$(PORT)  (pid $$(cat $(SERVER_PID)))"
-	@grep -i 'admin password' $(RUN)/server.log || true
+prereq-check:
+	./scripts/prereq-check.sh
 
-stop: ## Stop the server started by `make server`
-	@if [ -f $(SERVER_PID) ]; then kill $$(cat $(SERVER_PID)) 2>/dev/null && echo "stopped $$(cat $(SERVER_PID))"; rm -f $(SERVER_PID); fi
+eval:
+	./scripts/harness-structural-eval.sh --harness=opencode
+	./scripts/harness-structural-eval.sh --harness=claude
+	./scripts/harness-structural-eval.sh --harness=codex
 
-status: ## Show whether the server is running
-	@if [ -f $(SERVER_PID) ] && kill -0 $$(cat $(SERVER_PID)) 2>/dev/null; then echo "up: $(SERVER_PID) ($$(cat $(SERVER_PID)))"; \
-	  else echo "down: $(SERVER_PID)"; fi
+golden-eval:
+	./scripts/golden-task-eval.sh
 
-logs: ## Tail the server log
-	@tail -n 40 -f $(RUN)/server.log
+sync-opencode:
+	./scripts/sync-opencode.sh
 
-clean: stop ## Stop, remove binary, logs, pids, pycaches
-	@rm -f server/conway; rm -rf $(RUN)
-	@find . -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
-	@echo cleaned
+sync-claude:
+	./scripts/sync-claude.sh
+
+sync-codex:
+	./scripts/sync-codex.sh
+
+sync-harnesses: sync-opencode sync-claude sync-codex
+
+lint-commits:
+	./scripts/hooks/commit-message-lint.sh HEAD
+
+check-drift: sync-harnesses
+	@if ! git diff --quiet .claude/settings.json .mcp.json .claude/agents/ 2>/dev/null; then \
+		echo "DRIFT: Claude config files do not match sync output. Run 'make sync-claude' and commit."; \
+		exit 1; \
+	fi
+	@if ! git diff --quiet .codex/config.toml .codex/agents/ 2>/dev/null; then \
+		echo "DRIFT: Codex config files do not match sync output. Run 'make sync-codex' and commit."; \
+		exit 1; \
+	fi
+
+diff-aware:
+	./scripts/hooks/diff-aware-check.sh
+
+decision-log:
+	./scripts/hooks/decision-log-gate.sh
+
+pending-lessons:
+	./scripts/hooks/pending-lessons-push-block.sh
+
+pre-push: check check-drift
+	./scripts/hooks/commit-message-lint.sh HEAD || true
+	./scripts/hooks/diff-aware-check.sh origin/main HEAD || true
+	./scripts/hooks/decision-log-gate.sh origin/main HEAD || true
+	./scripts/hooks/pending-lessons-push-block.sh
+	@echo ""
+	@echo "pre-push: all checks passed — run ./scripts/pre-push-check.sh for the full gate"

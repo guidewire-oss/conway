@@ -25,7 +25,11 @@ func rng(seed uint32) func() float64 {
 }
 
 func hashSeed(seed, round int) uint32 {
-	return uint32((int64(seed) * 73856093) ^ (int64(round) * 19349663))
+	// G115: truncation to 32 bits is the point — this is a hash mixer, and
+	// wrap-around is how it spreads the seed. No arithmetic meaning is lost.
+	// #nosec G115 -- gosec reads its own annotation; golangci-lint reads the
+	// trailing //nolint. Both are needed because the CI runs gosec twice.
+	return uint32((int64(seed) * 73856093) ^ (int64(round) * 19349663)) //nolint:gosec // G115: deliberate hash truncation
 }
 
 // ---- types --------------------------------------------------------------

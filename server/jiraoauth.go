@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"conway/auth"
-	"conway/jira"
+	"conway/server/auth"
+	"conway/server/jira"
 )
 
 // jiraOAuthConfig holds the registered OAuth app credentials + the public URL

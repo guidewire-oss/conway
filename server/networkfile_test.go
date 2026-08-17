@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"conway/db"
+	"conway/server/db"
 )
 
 // A NetworkFile converts to snapshot table rows: pods, edges (between known

@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"conway/auth"
-	"conway/game"
+	"conway/server/auth"
+	"conway/server/game"
 )
 
 // --- sanitized client view: observable state only, never the rule internals
