@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"conway/oidc"
+	"conway/server/oidc"
 )
 
 func TestFlowStoreSingleUse(t *testing.T) {
