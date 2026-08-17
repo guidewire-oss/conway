@@ -25,6 +25,14 @@ priority, it must show the trade in the planner's own terms ("this cannot hit
 human makes the call. Priority the planner marks non-negotiable is a constraint
 the engine routes around, never an argument it wins.
 
+An accepted order is saved as an immutable **baseline** and opens as a
+**timeline**: a portfolio view of every initiative's span, and a per-pod view
+telling each team when its work starts, when it must start at the latest, and
+how much slack it has. Once the period is running, the baseline is compared
+against **actuals** mined from the Jira epics bound to each initiative, so the
+question shifts from "what should the order be" to "where are we drifting from
+it, and were our estimates honest". Wireframes for all of this are in §13.
+
 ---
 
 ## 2. Problem
@@ -100,6 +108,30 @@ critical paths at once.
 **As a** leadership audience
 **I want** to see what my own stated priority order costs against the engine's proposal
 **So that** the disagreement is about a number rather than about opinions
+
+### Story 7: Save the order as a baseline
+
+**As a** planning manager
+**I want** to save an accepted order, with the inputs and parameters that produced it, under a name
+**So that** the period has one agreed reference that later re-plans and actuals are measured against
+
+### Story 8: Open the plan as a timeline
+
+**As a** planning manager or leadership audience
+**I want** one button that opens the saved order as a timeline of every initiative and the pods inside it
+**So that** I can see the shape of the period — overlaps, gaps, buffers and dates — in a single screen
+
+### Story 9: See one team's work in order
+
+**As a** pod lead
+**I want** my pod's own timeline: every slice assigned to me, in order, with the latest date I can start each without hurting anyone downstream
+**So that** I know what to start, when, and how much slack I actually have
+
+### Story 10: Track actuals against the baseline
+
+**As a** planning manager or PM
+**I want** the baseline compared against what the Jira epics actually did
+**So that** I can see where we are drifting, which estimates were wrong and by how much, and carry that correction into the next period
 
 ---
 
@@ -287,6 +319,195 @@ critical paths at once.
 > Then the schedule follows the stated order exactly
 > And the report shows only date verdicts and constraint attributions, with no priority-change proposals
 
+### Story 7: Save the order as a baseline
+
+**AC 7.1: A baseline captures everything needed to reproduce it**
+
+> Given a computed order the planner accepts
+> When they save it under a name
+> Then the baseline stores the schedule, the scheduling parameters, the initiative attributes and the roster as they were at that moment
+> And recomputing from the stored inputs reproduces the stored schedule exactly
+
+**AC 7.2: Baselines are immutable**
+
+> Given a saved baseline
+> When the plan's initiatives, roster or parameters are later edited
+> Then the baseline is unchanged
+> And it is marked as diverged from the plan's current inputs
+
+**AC 7.3: One baseline is active**
+
+> Given several saved baselines on a plan
+> When the planner marks one active
+> Then actuals and variance are reported against that one
+> And the others remain readable as history
+
+**AC 7.4: A new plan can be compared against a baseline**
+
+> Given an active baseline and a freshly computed order
+> When the planner compares them
+> Then each initiative shows baseline start/commit versus current start/commit and the delta in weeks
+> And initiatives added or removed since the baseline are listed separately
+
+### Story 8: Open the plan as a timeline
+
+**AC 8.1: The timeline opens from the order view in one action**
+
+> Given a computed or saved order
+> When the planner presses the timeline button
+> Then the timeline opens showing one row per initiative across the period, with bar = scheduled span, appended buffer segment, and a target-date marker where one exists
+
+**AC 8.2: The whole period always fits the width**
+
+> Given any horizon from 4 to 104 weeks
+> When the timeline renders at any viewport width down to 1024px
+> Then the entire period is visible without horizontal scrolling
+> And the time axis aggregates (weeks, fortnights, months) so that column labels never overlap
+
+**AC 8.3: Rows fit the height or degrade predictably**
+
+> Given a plan with more initiatives than fit at the default row height
+> When the timeline renders
+> Then rows are shown at a reduced density before any vertical scrolling is introduced
+> And when even the minimum density does not fit, the row area scrolls with the time axis and row labels pinned
+
+**AC 8.4: An initiative expands into its pods**
+
+> Given an initiative row
+> When the planner expands it
+> Then one sub-row appears per pod slice in dependency order, each with its own span
+> And the dependency arrows between those slices are drawn for that initiative only
+
+**AC 8.5: Calendar and today context are visible**
+
+> Given freeze windows, site non-working windows and a period in progress
+> When the timeline renders
+> Then freeze and non-working windows appear as marked vertical bands
+> And today is marked with a line, positioned by date
+
+**AC 8.6: Bars stay readable at any scale**
+
+> Given a one-week slice on a 104-week horizon
+> When the timeline renders
+> Then that bar is still visible and clickable at a minimum width
+> And labels that do not fit are truncated rather than overflowing their bar
+
+### Story 9: See one team's work in order
+
+**AC 9.1: A pod's slices are shown in scheduled order**
+
+> Given a pod appearing in several initiatives
+> When the planner or pod lead opens that pod's timeline
+> Then every slice assigned to it is listed in start order, labelled with its initiative
+> And concurrent slices are drawn in separate track lanes, never more lanes than the pod has tracks
+
+**AC 9.2: Latest start and slack are explicit**
+
+> Given a slice with slack between its earliest and latest possible start
+> When the pod lead views it
+> Then the row shows earliest start, latest start, and the slack in weeks
+> And latest start is defined as the last week the slice can begin without moving its initiative's commit date
+
+**AC 9.3: Zero-slack work is marked**
+
+> Given a slice on its initiative's critical chain
+> When the pod lead views it
+> Then it is marked as having no slack
+> And it is visually distinguished from slices that can safely wait
+
+**AC 9.4: A pod lead sees what they are waiting on and who waits on them**
+
+> Given a slice with upstream and downstream dependencies in other pods
+> When the pod lead selects it
+> Then the upstream pods and their finish weeks are named, including any cross-site handoff allowance
+> And the downstream pods waiting on this slice are named
+
+**AC 9.5: One team's view is shareable on its own**
+
+> Given a pod lead who only cares about their pod
+> When they open the pod view
+> Then it renders without requiring the portfolio view to be open
+> And it can be exported or linked so it can be taken to a team meeting
+
+### Story 10: Track actuals against the baseline
+
+**AC 10.1: Initiatives are bound to epics before any actuals are claimed**
+
+> Given an initiative with no Jira epic bound to it
+> When actuals are requested
+> Then that initiative reports "not tracked" rather than a variance
+> And it appears in a list of unbound initiatives with a prompt to bind
+
+**AC 10.2: Binding is proposed but never silently applied**
+
+> Given a Jira snapshot containing an epic whose summary closely matches an initiative's name
+> When Conway proposes bindings
+> Then the match is offered as a suggestion with its evidence and a confidence indicator
+> And no binding takes effect until a human confirms it
+
+**AC 10.3: Actuals are derived per pod slice, not only per initiative**
+
+> Given an epic whose child issues carry pod assignments
+> When actuals are computed
+> Then each pod's actual start, actual finish and percent complete are derived from that pod's own child issues
+> And they are compared against that pod's baseline slice
+
+**AC 10.4: Schedule variance is reported in weeks against the baseline**
+
+> Given a slice that the baseline scheduled to start in week 4 and whose first child issue actually started in week 7
+> When variance is computed
+> Then that slice reports a 3-week late start
+> And the initiative aggregates its slices' variance into a schedule position
+
+**AC 10.5: Estimate variance is separated from schedule variance**
+
+> Given a slice estimated at 6 weeks that actually consumed 9 weeks of elapsed time
+> When variance is computed
+> Then the estimate variance is reported as +50% against estimate
+> And it is reported separately from whether the slice started late
+
+**AC 10.6: Estimate bias is aggregated per pod**
+
+> Given several completed slices for one pod across initiatives
+> When variance is computed
+> Then that pod reports a systematic estimate bias
+> And the bias is offered as a calibration factor for the next period's plan, never applied automatically
+
+**AC 10.7: Order adherence is measured**
+
+> Given a baseline order and the actual start dates of each slice
+> When variance is computed
+> Then the number of slices started out of baseline order is reported
+> And the pods where it happened are named
+
+**AC 10.8: Buffer consumption drives the status, not percent complete**
+
+> Given an initiative that is 50% complete and has consumed 90% of its buffer
+> When its status is shown
+> Then it is reported in the red zone of a fever chart
+> And the status is derived from buffer consumed against chain progress, not from percent complete alone
+
+**AC 10.9: Scope change since the baseline is surfaced**
+
+> Given epics added to or removed from an initiative's binding after the baseline was saved
+> When variance is computed
+> Then the added and removed work is listed as scope change
+> And variance attributable to it is separated from variance against the original scope
+
+**AC 10.10: Missing or poor Jira data degrades honestly**
+
+> Given epics with no status-transition history, or children with no pod assignment
+> When actuals are computed
+> Then the affected figures are marked low-confidence with the specific gap named
+> And no derived date is presented as measured when it was inferred
+
+**AC 10.11: Refreshing actuals never rewrites the baseline**
+
+> Given an active baseline and a fresh Jira pull
+> When actuals are refreshed
+> Then only the actuals and variance change
+> And the baseline schedule, dates and estimates are untouched
+
 ### Cross-cutting edge cases
 
 **AC X.1: Cyclic dependencies**
@@ -347,10 +568,56 @@ critical paths at once.
 | FR-022 | The system MUST leave the plan unchanged until the planner explicitly accepts a proposal or remedy | MUST |
 | FR-023 | The system SHOULD present the order as both a ranked table and a time view showing each initiative's span, buffer and target date | SHOULD |
 | FR-024 | The system SHOULD offer a fever-chart view of buffer consumption per initiative against its commit date, consistent with the existing Observe fever chart | SHOULD |
-| FR-025 | The system SHOULD allow an accepted order to be saved as a named baseline and a later recomputation to be compared against it | SHOULD |
+| FR-025 | The system MUST allow an accepted order to be saved as a named baseline and a later recomputation to be compared against it | MUST |
 | FR-026 | The system SHOULD cap the number of initiatives that may start in any single quarter, to model the org's limited capacity to absorb change | SHOULD |
 | FR-027 | The system MAY seed initiative attributes from Jira (epic due date, commitment label, requester tier) where the plan is linked to an imported snapshot | MAY |
 | FR-028 | The system MUST NOT schedule below pod granularity or assign work to named individuals other than the lead-availability constraint in FR-009 | MUST NOT |
+
+### Baseline (Story 7)
+
+| ID | Requirement | Priority |
+|----|------------|----------|
+| FR-029 | A baseline MUST store the schedule together with the scheduling parameters, initiative attributes, calendar and roster that produced it, such that recomputation from the stored inputs reproduces the stored schedule | MUST |
+| FR-030 | Baselines MUST be immutable once saved, and MUST be flagged when the plan's current inputs have diverged from the stored ones | MUST |
+| FR-031 | A plan MUST support several baselines with exactly one marked active; actuals and variance MUST be reported against the active baseline | MUST |
+| FR-032 | The system MUST compare any computed order against a chosen baseline, reporting per-initiative start and commit deltas and listing initiatives added or removed since | MUST |
+| FR-033 | The system SHOULD record who saved a baseline and when, so a period's agreed order is attributable | SHOULD |
+
+### Timeline views (Stories 8 and 9)
+
+| ID | Requirement | Priority |
+|----|------------|----------|
+| FR-034 | The system MUST provide a portfolio timeline: one row per initiative, bar spanning its scheduled weeks, an appended buffer segment, and a marker for its target date | MUST |
+| FR-035 | The system MUST render the entire horizon within the container width at all supported viewport sizes, without horizontal scrolling; time zoom MUST be achieved by aggregating the axis (weeks, fortnights, months), never by widening beyond the container | MUST |
+| FR-036 | The system MUST reduce row density before introducing vertical scrolling, and when scrolling is unavoidable MUST pin the time axis and the row labels | MUST |
+| FR-037 | An initiative row MUST expand into one sub-row per pod slice in dependency order, with dependency arrows drawn for the expanded initiative only | MUST |
+| FR-038 | The timeline MUST mark today, freeze windows, site non-working windows and period boundaries | MUST |
+| FR-039 | Bars MUST have a minimum rendered width so short slices stay visible and clickable, and labels MUST truncate rather than overflow | MUST |
+| FR-040 | The system MUST provide a per-pod timeline: one lane per track, slices placed in scheduled order and labelled by initiative | MUST |
+| FR-041 | The per-pod view MUST show, for every slice, earliest start, latest start and slack in weeks, where latest start is the last week the slice can begin without moving its initiative's commit date | MUST |
+| FR-042 | The per-pod view MUST mark zero-slack slices distinctly, and MUST name each slice's upstream dependencies (with any cross-site handoff allowance) and downstream waiters | MUST |
+| FR-043 | The per-pod view MUST be reachable and readable on its own, without the portfolio view open, and SHOULD be exportable for use in a team meeting | MUST |
+| FR-044 | Timeline colour MUST NOT be the only carrier of meaning; status MUST also be conveyed by position, pattern or label, and the palette MUST follow the app's existing red/amber/green utilization semantics | MUST |
+
+### Actuals and variance (Story 10)
+
+| ID | Requirement | Priority |
+|----|------------|----------|
+| FR-045 | The system MUST support binding each initiative to one or more Jira epics, resolved in this order of precedence: explicit epic keys entered by a human, a parent-epic hierarchy, a label convention, then a name-similarity suggestion | MUST |
+| FR-046 | The system MUST NOT apply a name-similarity binding without human confirmation, and MUST show the evidence and a confidence indicator for every suggestion | MUST |
+| FR-047 | The system MUST source actuals from an imported Jira snapshot rather than requiring a separate integration, and MUST record which snapshot and what time the actuals came from | MUST |
+| FR-048 | The system MUST derive actual start, actual finish and percent complete per pod slice from that pod's own child issues, and per initiative by aggregation | MUST |
+| FR-049 | The system MUST report schedule variance (baseline start/finish versus actual, in weeks) separately from estimate variance (estimated weeks versus consumed weeks, as a percentage) | MUST |
+| FR-050 | The system MUST report buffer consumption against chain progress per initiative, and MUST derive the initiative's status from that relationship rather than from percent complete alone | MUST |
+| FR-051 | The system MUST report order adherence: how many slices started out of baseline order, and in which pods | MUST |
+| FR-052 | The system MUST aggregate estimate bias per pod across completed slices and offer it as a calibration factor for the next period, applied only on explicit acceptance | MUST |
+| FR-053 | The system MUST identify scope change since the baseline (epics added to or removed from a binding) and separate variance attributable to it from variance against the original scope | MUST |
+| FR-054 | The system MUST mark any actual that was inferred rather than measured as low-confidence, naming the specific data gap, and MUST NOT present an inferred date as measured | MUST |
+| FR-055 | Refreshing actuals MUST NOT modify the baseline in any way | MUST |
+| FR-056 | The system MUST report an initiative as "not tracked" where no binding exists, and MUST list unbound initiatives rather than omitting them | MUST |
+| FR-057 | The system SHOULD account for capacity consumed by unplanned or interrupt work during the period, so estimate variance is not charged with time the pod never had | SHOULD |
+| FR-058 | The system SHOULD detect roster drift during the period (pods gaining or losing capacity versus the baseline) and report it as a cause of variance | SHOULD |
+| FR-059 | Variance output MUST be framed as system diagnosis: it MUST NOT attribute delay to named individuals, and MUST carry the same audit note the app's other leadership-visible metrics carry | MUST |
 
 ---
 
@@ -368,6 +635,12 @@ critical paths at once.
 | NFR-008 | Estimate honesty | The UI states that weeks are estimates and that the order is a decision aid, not a forecast, consistent with existing Plan copy | Copy review |
 | NFR-009 | Framing | No output attributes delay to a named individual; lead constraints are reported by role and initiative, never as personal throughput | Copy and output review |
 | NFR-010 | Pure engine | Scheduling logic lives in a dependency-free package with no I/O, mirroring the existing `sim.js` and `planning` conventions | Package review; unit tests without a database |
+| NFR-011 | No horizontal scroll | The full horizon fits the container at viewport widths from 1024px to 2560px, for horizons of 4–104 weeks | Render test at both bounds for 4, 26, 52 and 104 weeks |
+| NFR-012 | Vertical fit | Up to 30 collapsed initiative rows fit a 900px-tall viewport without scrolling, using density reduction; beyond that, scrolling with pinned axis and labels | Render test at 10, 30 and 80 initiatives |
+| NFR-013 | Legibility floor | Minimum bar width 6px and minimum row height 8px; axis labels never overlap at any aggregation level | Visual regression test at each aggregation level |
+| NFR-014 | Timeline render time | < 300ms to first paint for 200 initiatives expanded to 600 slices | Browser performance measurement |
+| NFR-015 | Actuals freshness | Every actuals figure is labelled with its source snapshot and the time that snapshot was taken | Output review; assertion in actuals tests |
+| NFR-016 | Colour independence | The timeline is fully interpretable in greyscale and passes contrast requirements in both light and dark themes | Greyscale render check; contrast audit |
 
 ---
 
@@ -433,7 +706,45 @@ critical paths at once.
 - resultingVerdict, objectiveDelta, affectedInitiatives with week deltas
 
 **Baseline**
-- name, createdAt, the accepted Schedule and the parameters that produced it
+- name: string, createdAt: datetime, createdBy: string
+- active: boolean — exactly one per plan
+- schedule: the accepted Schedule, frozen
+- inputs: the SchedulingParams, initiative attributes, calendar and roster as they were at save time
+- inputsFingerprint: string — lets the plan's current inputs be flagged as diverged
+- comparedTo: optional reference to the baseline this one superseded
+
+**EpicBinding** _(initiative → Jira)_
+- initiative: reference
+- epicKeys: list of strings
+- source: enum (manual, parent-epic, label, name-match)
+- confidence: number 0–1 — only meaningful for name-match
+- confirmedBy, confirmedAt — a name-match binding is inert until these are set
+- addedAfterBaseline, removedAfterBaseline: lists of epic keys — the scope-change record
+
+**SliceActual** _(derived, one per baseline slice)_
+- initiative, pod: references
+- actualStartWeek, actualFinishWeek: integer — measured where transition history exists, inferred otherwise
+- percentComplete: number 0–1
+- consumedWeeks: number — elapsed working weeks
+- issueCounts: total, done, in progress, blocked
+- confidence: enum (measured, inferred, unavailable) with a named reason when not measured
+
+**SliceVariance** _(derived)_
+- startVarianceWeeks, finishVarianceWeeks: number — actual minus baseline
+- estimateVariancePct: number — consumed versus estimated
+- startedOutOfOrder: boolean
+- attributedTo: enum (contention, dependency, scope-change, interrupt, roster-drift, unknown)
+
+**PodCalibration** _(derived, per pod per period)_
+- completedSlices: integer
+- estimateBias: number — systematic over- or under-estimate factor
+- proposedCalibration: number — offered for the next period, never auto-applied
+
+**PortfolioStatus** _(derived, per initiative)_
+- chainProgressPct, bufferConsumedPct: number
+- feverZone: enum (green, amber, red)
+- schedulePositionWeeks: number — ahead or behind baseline
+- scopeChange: summary of added and removed work
 
 ### Relationships
 
@@ -441,7 +752,10 @@ critical paths at once.
 - An Initiative has many WorkSlices, one per pod in its path; a WorkSlice belongs to one pod.
 - An Initiative may have many predecessor Initiatives.
 - A Schedule has one ScheduledInitiative per Initiative and many podWeek entries.
-- A Plan may have many Baselines.
+- A Plan may have many Baselines; exactly one is active.
+- An Initiative has zero or one EpicBinding; a binding names one or more Jira epics.
+- A Baseline has one SliceActual and one SliceVariance per slice, and one PortfolioStatus per initiative, all derived from a named Jira snapshot.
+- A Pod accumulates one PodCalibration per completed period.
 
 ---
 
@@ -457,7 +771,15 @@ that never mutate the plan, plus explicit save endpoints.
 | PATCH | /api/plan/{id}/initiatives | Edit the sequencing attributes of one or more initiatives in place | initiative name plus attributes from §7 | updated initiatives |
 | PATCH | /api/plan/{id}/scheduling | Save plan-level scheduling params and calendar windows | SchedulingParams, CalendarWindows | ok |
 | POST | /api/plan/{id}/baseline | Save the current schedule as a named baseline | name, schedule request | baseline id |
-| GET | /api/plan/{id}/baseline/{bid} | Retrieve a baseline for comparison | — | Baseline |
+| GET | /api/plan/{id}/baseline | List baselines with their active flag and divergence state | — | list of Baseline metadata |
+| GET | /api/plan/{id}/baseline/{bid} | Retrieve a baseline for comparison or timeline rendering | — | Baseline |
+| PATCH | /api/plan/{id}/baseline/{bid} | Mark a baseline active, or rename it | active, name | ok |
+| POST | /api/plan/{id}/baseline/{bid}/compare | Compare a computed order against this baseline | schedule request | per-initiative deltas, added and removed initiatives |
+| GET | /api/plan/{id}/bindings | List initiative-to-epic bindings and unbound initiatives | — | list of EpicBinding |
+| POST | /api/plan/{id}/bindings/suggest | Propose bindings from a snapshot, by hierarchy, label and name similarity | snapshot id | suggestions with evidence and confidence |
+| PATCH | /api/plan/{id}/bindings | Confirm, edit or remove a binding | initiative, epic keys, source | updated EpicBinding |
+| POST | /api/plan/{id}/baseline/{bid}/actuals | Recompute actuals and variance against a snapshot | snapshot id | SliceActual, SliceVariance, PortfolioStatus, PodCalibration |
+| GET | /api/plan/{id}/baseline/{bid}/actuals | Retrieve the last computed actuals with their snapshot provenance | — | as above, plus source snapshot and timestamp |
 
 The uploaded initiatives matrix gains optional columns recognised by header
 name — priority, priority fixed, target date, date fixed, tier, cost of delay,
@@ -474,8 +796,12 @@ today.
 - Being a system of record for commitments. Dates entered here are planning inputs; Jira and Aha remain the commitment vehicles, per the commitment-modelling recommendation in `requester-tiers.md`.
 - Optimisation search (metaheuristics, MILP). See Decision 1.
 - Monte Carlo over the schedule. Uncertainty is represented by explicit buffers in this iteration; probabilistic finish distributions are a candidate follow-up.
-- Continuous re-planning against actuals. The baseline comparison in FR-025 is manual, not a live burn-up.
+- **Automatic** re-planning from actuals. Conway reports drift against the baseline and offers a per-pod calibration factor; deciding to re-plan, and accepting any calibration, stays a human action.
+- A separate Jira integration for actuals. Actuals come from the snapshots the existing import already produces (§11 Decision 15), on demand — not from a live polling connection or a webhook.
+- Writing anything back to Jira. Conway reads epics; it never updates dates, statuses or fields there.
+- Task-level or sub-task-level tracking. Actuals resolve to the pod slice, from the epic's children; nothing finer.
 - Automatic derivation of tier or cost of delay from Jira. FR-027 is a MAY, deferred to a later phase.
+- Interactive Gantt editing. The timeline is a rendering of the computed order — bars are not dragged to reschedule. Changing the plan is done through attributes and levers, which recompute.
 - Changing anything in the Observe or Train lenses. The plan-to-game seeding path stays as it is.
 
 ---
@@ -492,6 +818,13 @@ today.
 | Q6 | Is one target date per initiative sufficient, or do initiatives carry intermediate milestones (early access, GA) with their own dates? | Anoop | — | [NEEDS CLARIFICATION] |
 | Q7 | Should the org WIP limit default to a number, or be derived (for example, tracks at the constraint pod)? A wrong default here is the single most visible knob in the feature. | Anoop | — | [NEEDS CLARIFICATION] |
 | Q8 | Does the priority column allow ties, and is 1 the highest? Spec assumes yes and yes, with ties broken by the ranking rule. | Anoop | — | [NEEDS CLARIFICATION] |
+| Q9 | Who owns the initiative-to-epic binding, and where is it entered — an Epics column in the FullKit sheet (stays with the planning artefact, rots between periods) or in-app on the plan (stays with the plan, invisible to the sheet's owner)? Recommendation is both, with the sheet winning on upload. | Anoop | — | [NEEDS CLARIFICATION] |
+| Q10 | Is the Parent Epic convention from `requester-tiers.md` actually in use yet? If feature epics already hang off a dated Parent Epic, binding is nearly free and target dates can be seeded from it. If not, every binding starts as manual entry. | Anoop | — | [NEEDS CLARIFICATION] |
+| Q11 | Does the Jira import capture changelogs? Without transition history, "actual start" can only be inferred (earliest child activity), which weakens every schedule-variance figure. `docs/v2-spec.md` lists changelog ingestion as a later phase — this feature is a strong reason to pull it forward. | Anoop | — | [NEEDS CLARIFICATION] |
+| Q12 | Percent complete by issue count or by story points? Counts are always available; points are better but hygiene-dependent. Recommendation is counts, with points used where present and the choice labelled. | Anoop | — | [NEEDS CLARIFICATION] |
+| Q13 | How often should actuals refresh, and who triggers it — on demand from the plan, or automatically with each snapshot import? | Anoop | — | [NEEDS CLARIFICATION] |
+| Q14 | An epic's children may carry pods that were never in the initiative's plan. Is that unplanned scope, a planning miss, or a mis-assignment? It changes whether it counts as variance or as scope change. | Anoop | — | [NEEDS CLARIFICATION] |
+| Q15 | Can a pod lead be given access to only their own pod's timeline without seeing the whole portfolio? Today's roles are manager, admin and facilitator; a pod-lead role would be new. | Anoop | — | [NEEDS CLARIFICATION] |
 
 ---
 
@@ -710,6 +1043,133 @@ reordering, capacity or transfer are live options.
 
 **Consequences:** One extra cheap pass, and a materially better conversation.
 
+### Decision 13: The baseline is immutable and self-contained
+
+**Context:** Variance is only meaningful against a fixed reference. If the
+baseline moves when the plan is edited, "we are three weeks late" quietly
+becomes "we were always going to be here".
+
+**Decision:** A baseline freezes the schedule *and* its inputs — parameters,
+initiative attributes, calendar, roster. It is never edited. When the plan's
+current inputs drift from the stored ones, the baseline is flagged as diverged
+rather than updated. Re-planning creates a new baseline that records which one
+it superseded.
+
+**Alternatives considered:**
+- Store only the schedule — rejected because a schedule whose inputs are gone cannot be re-derived or audited, and "why did it say week 4" becomes unanswerable.
+- Auto-update the baseline on plan edits — rejected as the failure mode described above.
+
+**Consequences:** Baselines are heavier to store (a full input snapshot each).
+Cheap relative to the alternative, and it makes AC 7.1's reproducibility test
+possible.
+
+### Decision 14: Bind initiatives to epics through a precedence ladder, never a fuzzy guess
+
+**Context:** An initiative is a spreadsheet row with a name; an epic is a Jira
+key. Nothing connects them today, and actuals are impossible without that link.
+Name matching is tempting and unreliable — "Telemetry GA" could match three
+epics or none.
+
+**Decision:** Resolve bindings by precedence: explicit epic keys entered by a
+human first; then a parent-epic hierarchy where the org has adopted it; then a
+label convention; then name similarity, which is only ever a *suggestion*
+requiring confirmation. Unbound initiatives report "not tracked" rather than a
+fabricated variance.
+
+**Alternatives considered:**
+- Name matching alone — rejected: a wrong binding produces confident, wrong variance, which is worse than no variance.
+- Requiring the parent-epic hierarchy — rejected because Q10 is open; the ladder degrades to manual entry where the convention is not in use, rather than blocking.
+
+**Consequences:** Someone has to do the binding work for the first period. The
+ladder means that cost falls if the org adopts the parent-epic convention its
+own commitment-modelling note already recommends.
+
+### Decision 15: Actuals come from the existing snapshot pipeline, not a new integration
+
+**Context:** Conway already imports Jira into Postgres as dated snapshots, with
+per-issue pod assignment and status categories. Building a second, live Jira path
+for actuals would duplicate authentication, rate limiting and field configuration.
+
+**Decision:** Compute actuals from an imported snapshot, chosen explicitly, and
+label every figure with which snapshot and when it was taken. Refreshing actuals
+means importing a newer snapshot and recomputing.
+
+**Alternatives considered:**
+- A live Jira query per view — rejected: duplicated integration surface, rate-limit exposure, and figures that change under the reader mid-conversation.
+- Asking PMs to enter actual dates by hand — rejected as the primary path: it is the data Jira already holds, and hand-entered actuals drift toward optimism. Retained only as the fallback for initiatives with no bindable epic.
+
+**Consequences:** Actuals are as fresh as the last import, which must be stated
+on screen (NFR-015). Snapshot cadence becomes a planning-hygiene question (Q13).
+
+### Decision 16: Separate schedule variance from estimate variance
+
+**Context:** "This slice took 9 weeks instead of 6" and "this slice started 3
+weeks late" are different failures with different remedies, and collapsing them
+into one number hides both.
+
+**Decision:** Report them separately: schedule variance in weeks against the
+baseline's start and finish, and estimate variance as a percentage of the
+estimate. Attribute each where possible to contention, dependency, scope change,
+interrupt load or roster drift. Aggregate estimate variance per pod into a bias
+figure offered as next period's calibration.
+
+**Consequences:** More numbers on screen, needing careful UI hierarchy (§13).
+In exchange the planning loop closes: this period's measured bias improves next
+period's estimates, which is the compounding value of the whole feature.
+
+### Decision 17: Status comes from buffer consumption, not percent complete
+
+**Context:** Percent complete is the most-quoted and least-informative progress
+number: 90% complete with no buffer left is in trouble, 40% complete with most
+of the buffer intact is fine.
+
+**Decision:** Derive an initiative's status from buffer consumed against chain
+progress, rendered as the fever chart Observe already uses, and show percent
+complete as a supporting figure rather than the headline.
+
+**Consequences:** Consistent with an idiom the app already teaches, and it makes
+the buffers from Decision 9 do real work rather than being decoration.
+
+### Decision 18: The timeline never scrolls horizontally; zoom is aggregation
+
+**Context:** Every Gantt tool defaults to a fixed pixels-per-day scale and a
+horizontally scrolling canvas. For a planning conversation this is the wrong
+default: the whole point is seeing the period at once, and a reader who has to
+scroll loses the overlaps that matter.
+
+**Decision:** The horizon always fits the container width. Zooming out is done by
+aggregating the time axis (weeks, fortnights, months) so labels stay legible;
+zooming in filters the row set rather than widening the canvas. Vertically,
+density reduces before scrolling starts, and if scrolling becomes unavoidable the
+axis and row labels pin.
+
+**Alternatives considered:**
+- Conventional scrolling canvas with pixels-per-day zoom — rejected as above.
+- Virtualised infinite canvas — rejected as far more machinery than a 26-to-104-week horizon needs.
+
+**Consequences:** Bars for short slices get small, so a minimum width and
+truncating labels are requirements (FR-039), not polish. A very long horizon with
+very many initiatives will still need scrolling; the spec bounds when that starts
+(NFR-012) instead of pretending it never happens.
+
+### Decision 19: Two timeline lenses, one computed schedule
+
+**Context:** A portfolio audience asks "what is the shape of the period"; a pod
+lead asks "what do I start, and when at the latest". These want different rows
+from the same data.
+
+**Decision:** Ship both lenses over one schedule: by initiative (rows are
+initiatives, expandable to pod slices) and by pod (rows are pods, lanes are
+tracks, bars are slices coloured by initiative). The pod lens adds earliest
+start, latest start and slack, which the portfolio lens does not need.
+
+**Alternatives considered:**
+- One view with a grouping toggle — rejected because the pod lens needs columns (latest start, slack, upstream/downstream) the portfolio lens has no room for.
+- Pod view only — rejected: leadership needs the portfolio shape to make trade-offs.
+
+**Consequences:** Two renderings to keep consistent. They must share one layout
+computation, or they will drift and show different weeks for the same slice.
+
 ---
 
 ## 12. Success Metrics
@@ -721,6 +1181,213 @@ reordering, capacity or transfer are live options.
 | Date misses discovered during planning rather than in-period | Discovered in-period | Majority discovered at plan time | Missed dates flagged at plan time vs raised as escalations later |
 | Constraint pods sequenced by value rather than arrival | Not visible | Drum pods identified and their slice order explained in every plan | Presence of a drum set and per-slice constraint attribution in saved schedules |
 | Priority disagreements resolved with a number | Opinion-based | Each deviation carries a cost figure | Reconciliation rows with a cost, per accepted schedule |
+| Estimate quality improving period over period | Unknown — never measured | Per-pod estimate bias shrinking across periods | PodCalibration bias trend across baselines |
+| Teams knowing their latest safe start | Not available | Every pod lead can see latest start and slack for their slices | Pod timeline views opened per period |
+
+---
+
+## 13. UI Representation
+
+Wireframes, not visual design. They fix layout, information hierarchy and the
+scaling behaviour required by FR-034 to FR-044; typography, spacing and exact
+colour come later. All views reuse the app's existing red/amber/green
+utilization semantics and its card/table idiom.
+
+### 13.1 Where this lives
+
+Plan gains a view switcher inside an open plan. Network is today's view; the
+other three are new.
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ ← all plans   FY27 H1 — Platform          horizon [26]w  loss [10]%  [Save]  │
+│                                                                              │
+│  ⌗ Network    ≣ Order    ▦ Timeline    ◷ Actuals          baseline: ● v2 ▾   │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+`baseline: ● v2 ▾` is always visible: which baseline is active, with a dot that
+turns amber when the plan's inputs have diverged from it (FR-030).
+
+### 13.2 Order view — the proposal and its reconciliation
+
+The table that answers "what order, and where did you overrule me".
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Execution order          rule: tardiness-cost (best of 5)   [Open timeline ▸] │
+│ your stated order: 14.0 weighted weeks late  ·  proposed: 3.5  ·  Δ −10.5     │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ #  Initiative              Stated  Start  Commit  Target   Verdict    Binds   │
+│ 1  Telemetry GA              2 →1    w1     w17    w20    ● on time   Delta   │
+│ 2  Managed database MVP      4 →2    w1     w19    w18    ▲ late 1w   Delta   │
+│    └ raise to #1 lands it, pushes Telemetry GA +3w        [options ▾]         │
+│ 3  Self-service app platform 1 →3 🔒 w3     w22     —     ● no date   Delta   │
+│ 4  Tenant isolation          5 →4    w6     w24    w22    ▲ late 2w   Ember   │
+│ 5  Secrets rotation          3 →5    w9     w26     —     ● no date   Ember   │
+│ …                                                                            │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ ⚠ 1 structurally infeasible: DR for event streaming (chain 30w, target w12)   │
+│                                          [Save as baseline]  [Open timeline ▸]│
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+`Stated 1 →3 🔒` reads as "you said 1, I propose 3" with a padlock to pin it
+(AC 6.2). `Binds` names the constraint that set the start. The one-line
+explanation appears under any row whose proposed rank differs from its stated
+rank; `[options ▾]` expands the priced remedies (AC 5.1).
+
+### 13.3 Timeline — portfolio lens (default, collapsed)
+
+One row per initiative. The whole horizon fits the width; there is no
+horizontal scrollbar at any horizon (Decision 18).
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ ▦ Timeline    ◉ by initiative  ○ by pod      density [comfortable ▾]  [⤓ PNG]│
+│                          Jan      Feb      Mar      Apr      May      Jun    │
+│                       │w1  w5 │w6  w9 │w10 w13│w14 w17│w18 w21│w22 w26│      │
+│                       ├───────┼───────┼───────┼───────┼───────┼───────┤      │
+│ ▸ Telemetry GA        │███████████████████████░░░░│        ◆w20              │
+│ ▸ Managed db MVP      │███████████████████████████░░░│      ◆w18             │
+│ ▾ Self-service platf. │  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░│                      │
+│     └ Delta      10w  │  ████████████████│                                   │
+│     └ Atlas       5w  │                  →████████│                          │
+│     └ Cascade     4w  │                          →██████░░│                  │
+│ ▸ Tenant isolation    │        ████████████████████████░░░░│    ◆w22         │
+│ ▸ Secrets rotation    │              ██████████████████████░░│               │
+│ ▸ BYO-auth (EA)       │                    ████████████████░░│               │
+│                       │       ▒▒▒│               │           │  ░freeze░│    │
+│                       └───────┴───────┴───────┴───────┴───────┴───────┘      │
+│                              ↑today                                          │
+│ █ scheduled   ░ buffer   ◆ target date   → handoff   ▒ site non-working       │
+│ ░freeze░ change freeze   ▸ expand to pods                                     │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+Reading it: the bar is scheduled work, the lighter tail is the buffer, and the
+diamond is the promise. A diamond sitting inside the buffer tail is a date with
+no margin left; a diamond to the left of the tail's end is late — visible at a
+glance without reading a number. `Self-service platform` is expanded, so its
+pod slices show underneath with handoff arrows between them (FR-037).
+
+### 13.4 Timeline — pod lens
+
+Rows are pods, sub-lanes are tracks. A pod with 2 tracks can never show 3
+stacked bars, which is the capacity constraint made visual.
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ ▦ Timeline    ○ by initiative  ◉ by pod       density [compact ▾]            │
+│                          Jan      Feb      Mar      Apr      May      Jun    │
+│                       ├───────┼───────┼───────┼───────┼───────┼───────┤      │
+│ Delta      ρ1.05 ●    │                                                      │
+│   track 1             │[Telemetry GA 12w ]│[Autoscaling 10w ]│               │
+│   track 2             │[Self-serv 10w]│[Managed db 9w]│[DR 8w  ]│            │
+│ Ember      ρ0.98 ▲    │                                                      │
+│   track 1             │[Secrets 12w      ]│[Tenant isol. 13w    ]│           │
+│   track 2             │[BYO-auth 10w  ]│[SCIM 11w        ]│                  │
+│ Atlas      ρ0.31 ●    │                                                      │
+│   track 1             │      [S-s 5w]│    [BYO 4w]│                          │
+│   tracks 2–6          │  · idle ·                                            │
+│ …                                                                            │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+Idle tracks are shown, not hidden — visible slack on non-constraint pods is the
+point the app already argues for, and hiding it would make every pod look busy.
+
+### 13.5 Single pod — the team's own sheet
+
+What a pod lead takes to their team. Reachable on its own (FR-043).
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ ← timeline      Delta — 2 tracks · Remote · ρ 1.05 ● over capacity            │
+│                 5 initiatives · 49w demand vs 46.8w capacity   [⤓ share]      │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                       ├───────┼───────┼───────┼───────┼───────┼───────┤      │
+│  track 1              │[Telemetry GA    ]│[Autoscaling     ]│                │
+│  track 2              │[Self-service ]│[Managed db  ]│[DR event str.]│        │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Your work, in order                                                          │
+│                                                                              │
+│  Initiative          Weeks  Start   Start by   Slack  Waiting on  Blocks     │
+│  Telemetry GA          12     w1       w1      none ⚠   —         Granite    │
+│  Self-service platf.   10     w1       w1      none ⚠   —         Atlas      │
+│  Managed database       9     w11      w13      2w      —         Harbor     │
+│  Autoscaling rollout   10     w13      w13     none ⚠   —         Fjord      │
+│  DR event streaming     8     w20      w18   late ▲     —         Ibis       │
+│                                                                              │
+│  ⚠ no slack: starting later moves the initiative's commit date               │
+│  ▲ DR event streaming cannot start early enough — see options in Order       │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+`Start by` is the answer to "when at the latest" (FR-041): the last week the
+slice can begin without moving its initiative's commit date. `Blocks` tells the
+team who is waiting on them, which is the thing pods most often cannot see.
+
+### 13.6 Actuals — variance against the baseline
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ ◷ Actuals    baseline ● v2 (saved 12 Jan)   snapshot: 14 Mar 09:12  [refresh]│
+│ week 11 of 26 · 18 of 21 initiatives bound · 3 not tracked                    │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  Initiative          Plan ▸ Actual        Sched   Est    Buffer  Status      │
+│  Telemetry GA        ████████░░  planned  −0w    +8%     34%   ● on track    │
+│                      ████████▓   actual                                      │
+│  Managed db MVP      ███░░░░░░░  planned  +3w    +42%    91%   ▲ at risk     │
+│                      ██▓░░░░░░   actual                                      │
+│    └ Delta   9w est / 13w so far · started w7 vs w4 planned · contention     │
+│  Self-service platf. ██████░░░░  planned  −1w    −5%     12%   ● on track    │
+│  DR event streaming  ─ not tracked ─ no epic bound            [bind ▾]       │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  Order adherence  4 of 17 slices started out of order (Delta ×2, Ember ×2)    │
+│  Scope change     +2 epics on Tenant isolation since baseline (+6w est)       │
+│  Estimate bias    Delta +38% · Ember +21% · Atlas −4%   [use for next plan]   │
+│  ⓘ Actual start inferred for 3 slices — no transition history in Jira        │
+│  ⓘ System diagnosis, not individual performance.                             │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+Each initiative shows a doubled bar — planned above, actual below — so drift is
+read by comparing two lines rather than parsing a number. `Sched` is weeks
+against baseline, `Est` is percentage against estimate; they are deliberately
+separate columns (Decision 16). Status comes from the buffer column, not from
+completion (Decision 17).
+
+### 13.7 Binding initiatives to epics
+
+Reached from `[bind ▾]`, or as a bulk step after a snapshot import.
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Bind initiatives to Jira epics          snapshot: 14 Mar 09:12               │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  Telemetry GA          GWCP-101572  ✓ confirmed          via parent epic     │
+│  Managed database MVP  GWCP-101790  ✓ confirmed          entered manually    │
+│  Tenant isolation      GWCP-102014  ? suggested  78%     name similarity     │
+│                        "‑ Tenant isolation (Revelstoke)" · Ember · 22 open   │
+│                                                    [confirm]  [pick another] │
+│  DR event streaming    — no candidate —                       [search Jira]  │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  ⓘ Suggestions never bind on their own. 1 awaiting confirmation.             │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 13.8 Scaling rules the wireframes assume
+
+| Situation | Behaviour |
+|---|---|
+| Horizon 4–104 weeks | Axis aggregates: ≤16w weekly labels, ≤40w fortnightly, beyond that monthly. Bars keep week precision regardless of label density |
+| Viewport narrows | Time axis compresses first; row-label column has a floor, then truncates with a tooltip |
+| More rows than fit | Density steps comfortable → compact → dense (row heights roughly 28 → 18 → 10px); only past dense does the row area scroll, with axis and labels pinned |
+| Slice shorter than the minimum bar width | Rendered at the 6px floor with its label moved outside the bar |
+| Initiative expanded | Only the expanded initiative's dependency arrows draw, so the view never becomes a web of lines |
+| Many pods in the pod lens | Pods sort hottest-first by ρ, matching the Constraints table; below-threshold pods collapse into a "quiet pods" group |
+| Export | The current lens renders to PNG or SVG at the on-screen layout, so what was discussed is what gets circulated |
 
 ---
 
@@ -729,7 +1396,7 @@ reordering, capacity or transfer are live options.
 - [x] Problem is clearly stated and justified
 - [x] User stories represent real user value
 - [x] Acceptance criteria are in Given/When/Then format
-- [x] Edge cases and error scenarios are covered (cycles, unknown pods, unestimated work, conflicting locks, past dates, freeze windows, carryover)
+- [x] Edge cases and error scenarios are covered (cycles, unknown pods, unestimated work, conflicting locks, past dates, freeze windows, carryover, unbound initiatives, missing transition history, scope change)
 - [x] Requirements use MUST/SHOULD/MAY language
 - [x] Non-functional requirements have measurable thresholds
 - [x] Out of Scope is explicit
