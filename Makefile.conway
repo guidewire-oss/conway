@@ -17,7 +17,7 @@ SERVER_LOG := $(VAR)/server.log
 STORE := $(VAR)/store.json
 DATABASE_URL ?= postgres://conway:conway@localhost:5432/conway?sslmode=disable
 
-.PHONY: help build test server stop status logs clean
+.PHONY: help build test guard preflight server stop status logs clean
 
 help: ## Show this help
 	@echo "Conway targets:"
@@ -32,9 +32,16 @@ $(VAR):
 build: | $(VAR) ## Build the Go server binary (var/conway)
 	go build -o $(BIN) ./server
 
-test: ## Run engine (JS) and server (Go) tests
+test: guard ## Run engine (JS) and server (Go) tests
 	node --test tests/sim.test.mjs
 	go test ./...
+
+guard: ## Check internal paths are still git-ignored (see the hook's header)
+	@./scripts/hooks/internal-paths-ignored.sh
+
+preflight: guard ## Pre-push checks: strict guard + the factory gate suite
+	@./scripts/hooks/internal-paths-ignored.sh --strict
+	./scripts/pre-push-check.sh
 
 server: build ## Go server against DATABASE_URL (needs Postgres reachable — see docker-compose.yml)
 	@CONWAY_ADDR=:$(PORT) CONWAY_APP_DIR=$(APP_DIR) CONWAY_STORE=$(STORE) DATABASE_URL=$(DATABASE_URL) \

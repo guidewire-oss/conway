@@ -18,9 +18,29 @@
 # nothing would say so. This hook is what turns that silence into a failure —
 # hence a missing or empty block is an error, never a skip.
 #
-# Registered via factory.yaml `local_hooks` so `factory upgrade` preserves it.
-# Runs standalone too: it reads no factory config.
+# WHERE THIS RUNS. It is a local gate, deliberately not a CI one: the pattern
+# list lives in .git/info/exclude, which is never pushed, so in a CI checkout
+# there is no list — and no internal files either, since a fresh clone only has
+# tracked ones. Running it there could only ever fail for the wrong reason.
+# `make test` runs it, and `make preflight` runs it in --strict mode.
+#
+# Registering it in factory.yaml `local_hooks` makes hook-existence-check assert
+# it stays present and executable across upgrades; that registration does not
+# execute it, which is why the Makefile wiring above matters.
+#
+# TWO LEVELS. Default: every pattern in the block still resolves as ignored —
+# cheap, no false alarms, catches an installer replacing an ignore file.
+# --strict: additionally require a clean tree, which closes the hole where
+# deleting a pattern would delete its own assertion. Strict is for pre-push,
+# where work in progress should already be committed.
 set -euo pipefail
+
+STRICT=0
+case "${1:-}" in
+  --strict) STRICT=1 ;;
+  "") : ;;
+  *) echo "usage: $0 [--strict]" >&2; exit 2 ;;
+esac
 
 # Event logging, so `factory metrics` can report what this gate blocked. Falls
 # back to a no-op when the lib is absent, matching every shipped hook — a gate's
@@ -92,7 +112,8 @@ fi
 # Intended for pre-push and CI, where the tree should already be clean. Running
 # it mid-edit will flag work in progress, which is the point: stage it, or ignore
 # it, but do not push with the question open.
-UNTRACKED="$(git ls-files --others --exclude-standard)"
+UNTRACKED=""
+[ "$STRICT" = "1" ] && UNTRACKED="$(git ls-files --others --exclude-standard)"
 if [ -n "$UNTRACKED" ]; then
   echo "internal-paths-ignored: FAIL — untracked files present:" >&2
   printf '  %s\n' $UNTRACKED >&2
@@ -101,4 +122,8 @@ if [ -n "$UNTRACKED" ]; then
   do not add it to .gitignore, which is public and which installers overwrite."
 fi
 
-echo "internal-paths-ignored: OK ($checked existing internal path(s) verified ignored, no untracked files)"
+if [ "$STRICT" = "1" ]; then
+  echo "internal-paths-ignored: OK ($checked internal path(s) ignored, tree clean)"
+else
+  echo "internal-paths-ignored: OK ($checked internal path(s) ignored; --strict also requires a clean tree)"
+fi

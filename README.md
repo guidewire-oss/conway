@@ -115,12 +115,16 @@ Arm the local push gate once per clone — it is not on by default:
 git config core.hooksPath .githooks
 ```
 
+`make preflight` runs the strict internal-paths guard plus the full factory gate
+suite, which is what CI will run. `make test` runs the guard in its lenient mode,
+so an ignore file being replaced is caught on the next test run.
+
 What will block you:
 
 - **Commit messages** are conventional (`feat|fix|chore|docs|refactor|test|ci|build|perf: subject`, no trailing period), with a body of at most 6 bullets of 25 words or fewer. Any claim of "verified" or "fixed" must cite the command run and its output; if you did not run it, write "written but NOT verified".
 - **Direct pushes to `main`** are rejected. Push a branch and open a PR.
 - **Specs** live in `specs/`, named `NNN-name.md`, following `specs/SPEC_TEMPLATE.md`.
-- **Internal data stays out.** `scripts/hooks/internal-paths-ignored.sh` fails if any local-only internal path stops being git-ignored, or if untracked files are present. Those patterns live in `.git/info/exclude` — per-clone and never pushed, so re-create that block after a fresh clone before copying working files in.
+- **Internal data stays out.** `scripts/hooks/internal-paths-ignored.sh` fails if any local-only internal path stops being git-ignored; `--strict` also requires a clean tree. Its patterns live in `.git/info/exclude` — per-clone and never pushed, so re-create that block after a fresh clone before copying working files in. It runs locally only, for that reason: a CI checkout has no list and no internal files.
 
 Two gates are deliberately not armed, both recorded in
 [specs/002-factory-adoption.md](specs/002-factory-adoption.md): the Go pack's

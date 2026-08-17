@@ -74,8 +74,10 @@ jobs:
       # OPEN where ripgrep is absent, reporting success while checking nothing.
       # See specs/002-factory-adoption.md Decision 4 and Q2.
 
-      - name: internal-paths-ignored
-        run: ./scripts/hooks/internal-paths-ignored.sh
+      # internal-paths-ignored is deliberately NOT run here. Its pattern list is
+      # in .git/info/exclude, which is never pushed, so a CI checkout has no list
+      # and no internal files to protect — it could only fail for the wrong
+      # reason. It is a local gate, wired into `make test` and `make preflight`.
 
 
       - name: shared-script-enforcement
