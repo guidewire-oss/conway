@@ -269,6 +269,19 @@ from forks and would let an unmerged branch publish.
 verification gap above. The image is single-architecture: the Dockerfile hardcodes
 `GOARCH=amd64`, so a multi-arch build needs `TARGETARCH` plumbing first.
 
+*Amended 2026-08-17, tagging:* the first version pinned `latest` to `main`. That
+is against the convention `docker/metadata-action` documents — `edge` means the
+last commit of the default branch, `latest` means the newest release — and would
+have made `latest` mean "tip of development" to anyone pulling it. Main now
+publishes `edge` plus a full-SHA tag; `latest` arrives with the semver tags on a
+`v*` push, via the action's default `latest=auto` flavour.
+
+*Surveyed for precedent:* `guidewire-oss/fern-platform` builds images in CI on
+pull requests and main but publishes only from a tag-triggered `release.yml`,
+which is the stricter end of the same idea. Conway keeps an `edge` image from main
+because it has no releases yet and a deployable tip is useful; moving to
+publish-on-tag-only later is a one-line change to the trigger.
+
 *Not settled:* ECR remains the deploy path, so there are now two registries with
 different purposes — GHCR for consumption, ECR for internal deploys. Whether
 `deploy/` should pull from GHCR instead of building locally is a separate

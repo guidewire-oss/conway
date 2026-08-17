@@ -48,18 +48,28 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # Package name is the last path segment: ghcr.io/<owner>/conway.
-      # Tags produced: the branch name, a full-SHA tag for exact traceability,
-      # `latest` only on the default branch, and a bare semver on v* tags.
+      #
+      # Tagging follows the convention docker/metadata-action documents: `edge`
+      # is the last commit of the default branch (the same meaning official
+      # images like Alpine give it), and `latest` is reserved for releases. The
+      # action's default `latest=auto` flavour attaches `latest` to semver tag
+      # events by itself, so it is deliberately not set here — an earlier version
+      # of this workflow pinned `latest` to main, which would have made `latest`
+      # mean "tip of development" to anyone pulling it.
+      #
+      # So: a merge to main publishes `edge` and `sha-<full-commit>`; a v* tag
+      # publishes the semver trio plus `latest`.
       - name: Image tags and labels
         id: meta
         uses: docker/metadata-action@v6.2.0
         with:
           images: ghcr.io/${{ github.repository_owner }}/conway
           tags: |
-            type=ref,event=branch
+            type=edge,branch=main
             type=sha,format=long
             type=semver,pattern={{version}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
 
       # Layer cache in the Actions cache service. No extra workflow permissions:
       # it authenticates with ACTIONS_RUNTIME_TOKEN, which build-push-action
