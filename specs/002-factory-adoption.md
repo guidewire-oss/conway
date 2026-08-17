@@ -161,9 +161,9 @@ lies.
 
 **AC 3.1: Go checks run where the module is**
 
-> Given Conway's Go module in `server/`
-> When the configured check command and the pack's CI workflow run
-> Then every Go step executes inside the module
+> Given the Go module at the repository root, with packages under `server/`
+> When the pack's unmodified check command and CI workflow run from the root
+> Then every Go step resolves the module
 > And none reports "go.mod not found"
 
 **AC 3.2: No pack is installed without a codebase to act on**
@@ -218,7 +218,7 @@ Requirements on Conway, unless marked upstream.
 | FR-004b | Ignore rules MUST be split by audience: paths a fresh clone can produce stay in `.gitignore`; paths that exist only on one maintainer's machine live in `.git/info/exclude` | MUST |
 | FR-005 | The install MUST be performed on a non-default branch with a clean tree, and reviewed as a diff before merge | MUST |
 | FR-006 | The install MUST be followed by a documented post-install checklist that verifies ignore rules, build interface, doctor health and the existing test suite | MUST |
-| FR-007 | `check_command` and the Go pack's CI workflow MUST execute Go steps inside `server/` | MUST |
+| FR-007 | ~~`check_command` and the Go pack's CI workflow MUST execute Go steps inside `server/`~~ **Superseded 2026-08-17 (Decision 7):** the module moved to the repo root, so the pack's unmodified `go test -race ./...` works as shipped. No wrapping needed. | — |
 | FR-008 | The TypeScript pack MUST NOT be installed while the repository has no TypeScript sources | MUST |
 | FR-009 | The Go dialect gate MUST either be disarmed or satisfied; it MUST NOT be left armed against a suite that violates it | MUST |
 | FR-010 | `citation_prefix` MUST be either empty or consistent with the actual spec file naming | MUST |
@@ -363,21 +363,32 @@ file that is never pushed and never backed up: **re-clone the repository and it
 is gone, silently**. The exclude file carries a warning header saying so, and the
 Decision 2 guard is what turns that silence into a failure.
 
-### Decision 3: Configure around the module layout; do not move the module
+### Decision 3: ~~Configure around the module layout~~ — superseded by Decision 7
 
-**Context:** The Go pack assumes a module at the repository root. Conway's is in
-`server/`, with the frontend, data pipeline and docs alongside it.
+Originally: wrap the Go steps so they execute inside `server/`, and do not move
+the module. Reversed on 2026-08-17 — see Decision 7.
 
-**Decision:** Wrap the Go steps so they execute inside `server/` — in
-`check_command` and in the pack's CI workflow, both of which the upgrade path
-leaves alone.
+### Decision 7: Move the Go module to the repository root
+
+**Context:** The Go pack's `check_command` and CI workflow run `go test -race
+./...`, `gosec ./...` and `govulncheck ./...` at the repository root with no
+working directory. Conway's module was in `server/`, so every one of those steps
+failed. Decision 3 proposed wrapping each step; that leaves two files carrying
+the layout knowledge and every future pack step needing the same treatment.
+
+**Decision:** Move `go.mod`, `go.sum` and `vendor/` to the repository root,
+keeping the Go packages under `server/`. Internal imports become
+`conway/server/*`. The pack then works unmodified.
 
 **Alternatives considered:**
-- Move `go.mod` to the root — rejected: it would restructure a working repository to suit an installer's assumption, and pull the frontend and Python pipeline into the Go module's directory tree.
+- Wrapping every Go step (Decision 3) — rejected once the cost was clear: it is per-step, forever, and silently wrong for any step added later by an upgrade.
+- Moving the Go packages themselves to the root — rejected: it would scatter Go packages among `app/`, `data/`, `docs/` and `specs/`. Keeping them under `server/` with the module root above them is the smaller change.
 
-**Consequences:** Two places carry the `server/` knowledge and must stay in step.
-Both are files the factory does not overwrite on upgrade, so the divergence is
-stable once set.
+**Consequences:** A one-time import rewrite across 19 files, done and verified
+(`go build`/`vet` clean, all packages' tests pass, `make test` green). `go test
+./...` now works from the root, which is both the Go convention and what every
+pack step assumes. The Dockerfile needed its copy paths and build target
+updated; that edit is **not** verified, as no Docker daemon was available.
 
 ### Decision 4: Do not arm a gate this codebase violates
 
@@ -443,7 +454,7 @@ boring.
 **After, before committing**
 
 7. Register the guard in `local_hooks`; restore the `include` line in `Makefile`; re-merge the `.gitignore` block from the backup.
-8. Point the Go steps at `server/` in `check_command` and in `.github/workflows/go-pack.yml`.
+8. ~~Point the Go steps at `server/`.~~ **Done 2026-08-17:** the module moved to the repo root (Decision 7), so the pack's Go steps work unmodified. Verify `go test ./...` from the root after install rather than patching anything.
 9. Disarm the Ginkgo dialect gate (Q2).
 10. Resolve the two spec templates (Q4) and the `.claude/` tracking question (Q3).
 11. Run the checklist: internal paths ignored; `make help` complete; `make test` green; `./factory doctor` healthy with no armed gate violated; `git status` clean of internal data.
