@@ -1,53 +1,41 @@
+# Everything here is produced by this repository's own code or tooling, so it
+# applies to every clone. Files that exist only on one maintainer's machine
+# live in .git/info/exclude instead — they are not the project's business, and
+# listing them here would publish internal names in a public repo.
+
 .claude/
 __pycache__/
 *.pyc
 .DS_Store
+
 # server runtime artifacts
 server/store.json
 server/conway
 conway-server
-# process pids/logs from the Makefile
-.run/
-# local-only helper scripts and env (Makefile is the committed interface)
-scripts/local/
-# downloaded transcripts / scratch media (not source)
-*.vtt
-
-# local scratch (contains secrets) — never commit
-pd.txt
 server/game-state.json
 
-# user-provided planning data (contains internal names) — keep out of git
-project_planning.xlsx
-project_planning_v2.xlsx
-the FY27 initiatives workbook
+# process pids/logs from the Makefile
+.run/
 
-# internal open-source readiness plan — not for the public repo
-OSS_READINESS_PLAN.md
+# local-only helper scripts and env (Makefile is the committed interface)
+scripts/local/
 
-# real org data — regenerate your own via data/extract.py + the scripts/ pipeline
-# (legacy v1 mining pipeline; the demo/seed dataset lives in server/db/seed/ now)
+# real deploy-target env values — source this from .envrc locally; never commit
+.envrc.local
+
+# Output of the legacy v1 mining pipeline (data/extract.py + scripts/). Whoever
+# runs it against their own Jira generates their own org's data here — keeping
+# it ignored stops anyone committing it. The demo/seed dataset lives in
+# server/db/seed/ instead.
 data/*.jsonl
 data/*.json
 data/*.txt
 data/mining_summary.md
+
+# a pod directory is your org's roster — supply your own, never commit it
 pod-directory*.csv
 
-# internal planning notes and speaker decks tied to real people/teams
-requester-tiers.md
-flow-rules.html
-flow-rules-notes.md
-
-# AI session continuity notes — not for external contributors
-claude-progress.md
-
-# ***REMOVED***
-internal deployment targets (generic labels, — kept locally for internal use, not part of the OSS repo.
-# Open-source deployment is docker-compose.yml at the repo root instead.
-deploy/
-
-# real deploy-target env values (internal hostnames, governance labels) —
-# source this from .envrc locally; never commit it
+# real deploy-target env values — source this from .envrc locally; never commit
 .envrc.local
 
 # JetBrains IDE project files
