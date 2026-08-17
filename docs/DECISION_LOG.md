@@ -42,7 +42,7 @@ one.
 **Ignore rules are split by audience.**
 
 *Context:* `.gitignore` mixed artifacts every clone produces with files that exist
-only on one maintainer's machine. Conway is a public repository holding internal
+only on one maintainer's machine. Conway is a repository slated for open-source release, holding internal
 planning data locally, and `factory-init` replaces `.gitignore` wholesale — so
 that mixture made an installer a disclosure risk. Listing internal filenames in a
 public file was itself a disclosure.
@@ -66,7 +66,7 @@ clone has no protection and nothing says so — which is why Decision 3 exists.
 **An internal-path guard, reading its list from `.git/info/exclude`.**
 
 *Context:* The `.gitignore` overwrite of 2026-08-17 was caught by inspection.
-Inspection does not scale, and publishing internal data from a public repository
+Inspection does not scale, and publishing internal data from a repository headed for release
 is irreversible.
 
 *Decision:* `scripts/hooks/internal-paths-ignored.sh` asserts, via
