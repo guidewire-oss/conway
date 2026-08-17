@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Assert that every internal path is still ignored by git.
 #
-# Conway is a public repository that holds internal planning data locally: mined
+# Conway is slated for open-source release and holds internal planning data
+# locally: mined
 # Jira output, planning workbooks, an org roster, internal notes, a deployment
 # tree with real hostnames, and files carrying secrets. Publishing any of them is
 # irreversible, so it must not depend on anyone remembering.
@@ -10,7 +11,7 @@
 # for two reasons: that file is never touched by any installer (the software
 # factory's factory-init replaces .gitignore wholesale, which is what motivated
 # this hook), and it is not committed, so the list of sensitive names is not
-# itself published in a public repo.
+# itself published when the repo opens up.
 #
 # The trade-off that makes this hook necessary: .git/info/exclude is per-clone
 # and never pushed or backed up. A fresh clone has no protection at all, and
@@ -45,7 +46,7 @@ fail() {
 
 grep -qF "$BEGIN_MARKER" "$EXCLUDE_FILE" \
   || fail "no '$BEGIN_MARKER' block in $EXCLUDE_FILE.
-  Without it the internal paths are unprotected in a public repository."
+  Without it nothing stops these paths being committed and later published."
 
 # Patterns between the markers, minus comments and blank lines.
 PATTERNS="$(sed -n "/$BEGIN_MARKER/,/$END_MARKER/p" "$EXCLUDE_FILE" \
