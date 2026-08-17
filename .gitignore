@@ -1,7 +1,7 @@
 # Everything here is produced by this repository's own code or tooling, so it
 # applies to every clone. Files that exist only on one maintainer's machine
 # live in .git/info/exclude instead — they are not the project's business, and
-# listing them here would publish internal names in a public repo.
+# listing them here would publish internal names when this repo opens up.
 
 # .claude/ is tracked, like .opencode/ and .codex/ — whoever clones this repo may
 # be working in any of the three harnesses, and .claude/settings.json is what

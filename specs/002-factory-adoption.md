@@ -13,7 +13,8 @@
 Installing the software factory into Conway is destructive today: an attempt on
 2026-08-17 replaced `.gitignore` and `Makefile` wholesale, deleted `CLAUDE.md`,
 and armed language gates that cannot pass against this codebase. The install was
-reverted.
+reverted. The repository is private today but headed for open-source release,
+which is what makes the ignore-file damage the most severe of the four.
 
 This spec says what has to change in Conway — and what has to be understood
 about the installer — for a second attempt to be safe and to leave every armed
@@ -29,13 +30,19 @@ Analysis is against template **v0.1.5**, the pinned release `install.sh` fetches
 
 The install of 2026-08-17 caused four failures, in descending order of severity.
 
-**A public repo nearly leaked internal data.** `factory-init` copies its own
-`.gitignore` over the adopter's. Conway's excluded `data/*.jsonl` (mined Jira),
-the planning workbook, the pod-directory CSV, `deploy/` (internal hostnames),
-`.envrc.local` and `pd.txt` (secrets). After the install, all of these showed as
-untracked in a repository whose remote is public. A single `git add -A` would
-have published them. A backup was written, so this was recoverable — but only by
-someone who noticed.
+**Internal data became committable.** `factory-init` copies its own `.gitignore`
+over the adopter's. Conway's excluded `data/*.jsonl` (mined Jira), the planning
+workbook, the pod-directory CSV, `deploy/` (internal hostnames), `.envrc.local`
+and `pd.txt` (secrets). After the install, all of these showed as untracked, and
+a single `git add -A` would have committed them. A backup was written, so this
+was recoverable — but only by someone who noticed.
+
+The remote (`guidewire-oss/conway`) is **private today**, so nothing was
+disclosed. It carries an MIT licence, an `OSS_READINESS_PLAN.md` and a
+release-oriented README, so it is headed for public release — at which point
+anything already committed goes with it, including through history. That is why
+this is treated as the most severe item: the window between committing internal
+data and noticing is unbounded, and the fix is only cheap before the repo opens.
 
 This one is now largely defused ahead of the install: the ignore rules have been
 split by audience (Decision 6), so the local-only internal paths live in
@@ -70,7 +77,7 @@ A gate that fails open is worse than an absent one: `factory doctor` lists it as
 `[ARMED]`, and the install attestation counts it as proven.
 
 The cost of not fixing this: the factory's governance is worth having on a repo
-that is increasingly agent-authored, but adoption currently trades a public-repo
+that is increasingly agent-authored, but adoption currently trades a
 data-exposure risk and a broken build interface for it, and pays in a gate that
 lies.
 
@@ -86,7 +93,7 @@ lies.
 
 ### Story 2: Never re-expose internal data
 
-**As the** maintainer of a public repository holding internal planning data locally
+**As the** maintainer of a repository slated for release, holding internal planning data locally
 **I want** a check that fails if the internal paths stop being ignored
 **So that** no install, upgrade or careless edit can quietly make them committable
 
@@ -286,7 +293,7 @@ are specified in §5 and §11.
 |---|----------|-------|-------------|------------|
 | Q1 | Does Conway adopt the pull-request flow? `direct-main-push-block` rejects direct pushes to `main`, which is how the repo is pushed today. Adopting it means branch-and-PR for every change, including one-line doc edits. | Anoop | — | [NEEDS CLARIFICATION] |
 | Q2 | Is the Ginkgo dialect gate disarmed permanently, or is the suite converted later? The Go pack is "battle-tested" specifically under that stack, so disarming it means adopting the pack minus its main opinion. | Anoop | — | [NEEDS CLARIFICATION] |
-| Q3 | Should `.claude/` become tracked? The factory generates it deterministically from `opencode.json` and drift-checks it; Conway currently ignores it. Tracking it is the factory's assumption, but it puts harness config in a public repo. | Anoop | — | [NEEDS CLARIFICATION] |
+| Q3 | Should `.claude/` become tracked? The factory generates it deterministically from `opencode.json` and drift-checks it; Conway currently ignores it. Tracking it is the factory's assumption, but it puts harness config in a repo headed for public release. | Anoop | — | [NEEDS CLARIFICATION] |
 | Q4 | Which spec template survives — the ai-craft `SPEC_TEMPLATE.md` chosen for spec 001, or the factory's shorter `specs/TEMPLATE.md`? Keeping both guarantees drift. | Anoop | — | [NEEDS CLARIFICATION] |
 | Q5 | Do the upstream fixes (FR-016 to FR-020) get raised against `software-factory-template` before Conway installs, or does Conway work around them? Fixing upstream first means every future adopter benefits and Conway's install gets simpler. | Anoop | — | [NEEDS CLARIFICATION] |
 | Q6 | `protected_paths` was left empty. `server/game/` is the natural candidate — the game rules must stay server-side per `GAME-SPEC.md` — but empty means the decision-log gate treats only factory surfaces as governance-sensitive. Revisit after the install is stable? | Anoop | — | [NEEDS CLARIFICATION] |
@@ -317,7 +324,7 @@ independently defensible, so the cost is low.
 ### Decision 2: The ignore guard is a test, not a note
 
 **Context:** The `.gitignore` overwrite was caught by inspection. Inspection does
-not scale, and the consequence — internal data in a public repository — is
+not scale, and the consequence — internal data committed to a repo headed for release — is
 permanent once it happens.
 
 **Decision:** Add a hook asserting that every internal path is still ignored,
@@ -328,7 +335,7 @@ The guard asks `git check-ignore` rather than reading `.gitignore`, so it does
 not care which mechanism provides the ignore — and it therefore also catches the
 residual risk introduced by Decision 6, a `.git/info/exclude` lost to a fresh
 clone. It reads its path list from that same exclude file, so the list of
-sensitive names is never itself committed to a public repository.
+sensitive names is never itself committed.
 
 **Alternatives considered:**
 - A checklist item in `AGENTS.md` — rejected: the same class of protection that just failed.
@@ -344,7 +351,7 @@ the only gate on this list that protects against something irreversible.
 **Context:** Conway's `.gitignore` mixed two unrelated things: artifacts every
 clone produces, and files that exist only on one maintainer's machine. The second
 group is what made a `.gitignore` overwrite dangerous — and, separately, listing
-those names in a public file discloses internal document and programme naming to
+those names in a tracked file discloses internal document and programme naming to
 anyone reading the repository.
 
 **Decision:** Split by one test — would a fresh clone by an outside contributor
