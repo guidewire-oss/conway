@@ -66,7 +66,7 @@ them.
 One capability has not yet been ported to Go: the site → UTC-offset table and the
 overlap-hours matrix derived from it, which is why cross-site handoff latency in
 the plan model is still approximated by same-site/different-site. `build_pods.py`
-is kept until that port lands — see `specs/003-repo-layout-and-pipeline.md`.
+is kept until that port lands — see `specs/003-site-timezone-overlap.md`.
 
 ## UI (single-page, vanilla JS + vendored d3, no build step)
 
