@@ -82,6 +82,7 @@ Tests:
 ```
 node --test tests/sim.test.mjs   # engine (JS)
 go test ./...                    # Go (module root is the repo root)
+make test                        # both of the above
 ```
 
 ## Authentication
@@ -94,6 +95,37 @@ Entra ID, Auth0). Staff roles (admin / facilitator / manager) are derived from
 a group claim, and accounts are provisioned just-in-time on first login. The
 built-in admin password stays as a break-glass fallback; teams still join games
 by code. See [docs/sso-oidc.md](docs/sso-oidc.md) for setup and configuration.
+
+## Contributing — the gates
+
+This repo is governed by the [software factory](https://github.com/anoop2811/software-factory-template):
+the rules below are shell hooks and CI checks that reject a bad commit or push,
+not conventions to remember. `docs/FACTORY_RULES.md` is the full rulebook and
+`AGENTS.md` is the contract every coding agent reads; project-specific values
+(test patterns, docs root, the check command) live in `factory.yaml`.
+
+```
+./factory doctor    # which gates are armed vs inert, then prove each one fires
+make check          # the checks CI runs
+./factory report    # what the gates have blocked
+```
+
+Arm the local push gate once per clone — it is not on by default:
+```
+git config core.hooksPath .githooks
+```
+
+What will block you:
+
+- **Commit messages** are conventional (`feat|fix|chore|docs|refactor|test|ci|build|perf: subject`, no trailing period), with a body of at most 6 bullets of 25 words or fewer. Any claim of "verified" or "fixed" must cite the command run and its output; if you did not run it, write "written but NOT verified".
+- **Direct pushes to `main`** are rejected. Push a branch and open a PR.
+- **Specs** live in `specs/`, named `NNN-name.md`, following `specs/SPEC_TEMPLATE.md`.
+- **Internal data stays out.** `scripts/hooks/internal-paths-ignored.sh` fails if any local-only internal path stops being git-ignored, or if untracked files are present. Those patterns live in `.git/info/exclude` — per-clone and never pushed, so re-create that block after a fresh clone before copying working files in.
+
+Two gates are deliberately not armed, both recorded in
+[specs/002-factory-adoption.md](specs/002-factory-adoption.md): the Go pack's
+Ginkgo dialect check (this suite uses stdlib `testing`) and citation linting
+(nothing cites specs by `file:line` yet).
 
 ## Views
 
