@@ -21,11 +21,20 @@
 # Runs standalone too: it reads no factory config.
 set -euo pipefail
 
+# Event logging, so `factory metrics` can report what this gate blocked. Falls
+# back to a no-op when the lib is absent, matching every shipped hook — a gate's
+# job is enforcement, not bookkeeping, and missing bookkeeping must never be why
+# enforcement fails to run.
+_EVDIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=../lib/events.sh
+if [ -f "$_EVDIR/../lib/events.sh" ]; then . "$_EVDIR/../lib/events.sh"; else factory_log_event() { :; }; fi
+
 EXCLUDE_FILE="$(git rev-parse --git-dir)/info/exclude"
 BEGIN_MARKER='# BEGIN conway-internal'
 END_MARKER='# END conway-internal'
 
 fail() {
+  factory_log_event "internal-paths-ignored" "internal path not ignored"
   echo "internal-paths-ignored: FAIL — $1" >&2
   exit 1
 }
