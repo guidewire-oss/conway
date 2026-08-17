@@ -162,7 +162,7 @@ func (s *server) handlePlanItem(w http.ResponseWriter, r *http.Request, c auth.C
 }
 
 func (s *server) uploadPlanTeams(w http.ResponseWriter, r *http.Request, p *db.PlanRow) {
-	data, err := readUpload(r)
+	data, err := readUpload(w, r)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return
@@ -283,7 +283,7 @@ func teamNames(teams []planning.Team) []string {
 }
 
 func (s *server) uploadPlanInitiatives(w http.ResponseWriter, r *http.Request, p *db.PlanRow) {
-	data, err := readUpload(r)
+	data, err := readUpload(w, r)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return
@@ -317,7 +317,7 @@ func (s *server) uploadPlanInitiatives(w http.ResponseWriter, r *http.Request, p
 // manager can see a still-in-progress sheet before deciding to keep it; the
 // existing (saved) initiatives are untouched until an explicit save.
 func (s *server) previewPlanInitiatives(w http.ResponseWriter, r *http.Request, p *db.PlanRow) {
-	data, err := readUpload(r)
+	data, err := readUpload(w, r)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return
@@ -505,9 +505,17 @@ func (s *server) planWorld(planID string) (*World, error) {
 	return w, nil
 }
 
-func readUpload(r *http.Request) ([]byte, error) {
+// readUpload reads an uploaded file, bounded at maxUpload. The body is wrapped
+// in a MaxBytesReader first: ParseMultipartForm's argument caps only what is
+// buffered in memory, spilling the rest to disk, so on its own it does not stop
+// an oversized body. Passing w lets the reader close the connection on overrun.
+func readUpload(w http.ResponseWriter, r *http.Request) ([]byte, error) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxUpload)
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/") {
-		if err := r.ParseMultipartForm(maxUpload); err != nil {
+		// G120 no longer applies: r.Body is wrapped in a MaxBytesReader above, so
+		// reads past maxUpload fail and parsing cannot consume an unbounded body.
+		// gosec matches the call pattern and cannot see the wrapper.
+		if err := r.ParseMultipartForm(maxUpload); err != nil { //nolint:gosec // G120: body bounded by MaxBytesReader
 			return nil, err
 		}
 		f, _, err := r.FormFile("file")
