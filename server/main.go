@@ -17,10 +17,10 @@ import (
 	"sync"
 	"time"
 
-	"conway/auth"
-	"conway/db"
-	"conway/game"
-	"conway/oidc"
+	"conway/server/auth"
+	"conway/server/db"
+	"conway/server/game"
+	"conway/server/oidc"
 )
 
 // Play state is scoped per game (gameID -> team -> …). The legacy single game is
@@ -236,9 +236,22 @@ func loadLegacyStore(path string) *auth.Store {
 }
 
 func main() {
+	// Defaults assume the repo root as the working directory (the module root
+	// since go.mod moved there): the SPA is ./app, and everything written at
+	// runtime — this store plus the game state beside it — goes under ./var.
 	addr := env("CONWAY_ADDR", ":8741")
-	appDir := env("CONWAY_APP_DIR", "../app")
-	storePath := env("CONWAY_STORE", "./store.json")
+	appDir := env("CONWAY_APP_DIR", "./app")
+	storePath := env("CONWAY_STORE", "./var/store.json")
+	// The store and the game state beside it are plain files; their directory is
+	// no longer guaranteed to exist (it used to be the working directory), so
+	// create it rather than failing on the first write.
+	if dir := filepath.Dir(storePath); dir != "" && dir != "." {
+		// 0o750, not 0o755: this holds the credential store and game state, so
+		// there is no reason for it to be world-readable (gosec G301).
+		if err := os.MkdirAll(dir, 0o750); err != nil {
+			log.Fatalf("create store directory %s: %v", dir, err)
+		}
+	}
 
 	url := os.Getenv("DATABASE_URL")
 	if url == "" {
@@ -380,7 +393,19 @@ func main() {
 	mux.Handle("/", noCache(http.FileServer(http.Dir(filepath.Clean(appDir)))))
 
 	log.Printf("Conway server on %s serving %s", addr, appDir)
-	log.Fatal(http.ListenAndServe(addr, mux))
+	// An explicit server rather than http.ListenAndServe, so a header-read
+	// timeout bounds slowloris-style connections that would otherwise be held
+	// open indefinitely. ReadTimeout and WriteTimeout are deliberately unset:
+	// uploads run to maxUpload (20MB) over links we do not control, and nothing
+	// here streams, so capping whole-request duration would only break large
+	// imports. IdleTimeout reaps keep-alive connections instead.
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 20 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+	log.Fatal(srv.ListenAndServe())
 }
 
 // ---- handlers -----------------------------------------------------------
@@ -569,7 +594,10 @@ func (s *server) armAutoSubmit(gid string, round int, deadline int64) {
 		// NEVER let a bad round-resolution crash the process — recover, log, keep going.
 		defer func() {
 			if e := recover(); e != nil {
-				log.Printf("auto-submit %s (round %d) recovered from panic: %v", gid, round, e)
+				// G706 is a false positive once the verb is %q: fmt quotes via
+				// strconv.Quote, so a newline in gid renders as \n and cannot forge
+				// a log line. Verified: %s emits a second line, %q does not.
+				log.Printf("auto-submit %q (round %d) recovered from panic: %v", gid, round, e) //nolint:gosec // G706: %q escapes newlines
 			}
 		}()
 		s.mu.Lock()
@@ -586,7 +614,7 @@ func (s *server) armAutoSubmit(gid string, round int, deadline int64) {
 				func() { // isolate each team so one bad submit can't skip the rest
 					defer func() {
 						if e := recover(); e != nil {
-							log.Printf("auto-submit %s/%s (round %d) recovered: %v", gid, team, round, e)
+							log.Printf("auto-submit %q/%q (round %d) recovered: %v", gid, team, round, e) //nolint:gosec // G706: %q escapes newlines, see armAutoSubmit above
 						}
 					}()
 					s.submitRound(gid, g, team)

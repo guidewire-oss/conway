@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"conway/game"
+	"conway/server/game"
 )
 
 func newPersistServer(sp string) *server {

@@ -50,18 +50,23 @@ and (c) locate where calendar time is lost (queues, handoffs, timezone gaps).
   criticality index (fraction of trials a task/pod lies on the critical path),
   sensitivity (per-pod: mean completion with that pod accelerated 25% vs base).
 
-## Data pipeline (v1, superseded by the Postgres-backed Jira import)
+## Data pipeline (v1, removed — superseded by the Postgres-backed Jira import)
 
-- `scripts/build_pods.py`: pod CSV → `pods.json` (name, area, location,
-  devCount, tz offset, site overlap hours matrix).
-- Background Jira crawl → `data/*.jsonl` → `data/edges.json`, `data/pod_stats.json`.
-- App falls back to synthetic stats for pods missing mined data (flagged
-  in the UI as low-confidence).
+The v1 pipeline was a background Jira crawl producing `data/*.jsonl`, aggregated
+into `data/edges.json` and `data/pod_stats.json`, plus `scripts/build_pods.py`
+turning the pod CSV into `pods.json` (name, area, location, devCount, tz offset,
+site overlap hours matrix).
 
-The output of this pipeline is no longer wired into the running app (see
-`docs/v2-architecture.md`) — the demo/seed dataset lives in
-`server/db/seed/baseline.sql` now, and a real org's data comes from the
-in-app **Import from Jira** flow, which writes straight to Postgres.
+Its output was never wired into the running app (see `docs/v2-architecture.md`):
+the demo/seed dataset lives in `server/db/seed/baseline.sql`, and a real org's
+data comes from the in-app **Import from Jira** flow, which writes straight to
+Postgres. The crawl and aggregation scripts were therefore deleted; `git log` has
+them.
+
+One capability has not yet been ported to Go: the site → UTC-offset table and the
+overlap-hours matrix derived from it, which is why cross-site handoff latency in
+the plan model is still approximated by same-site/different-site. `build_pods.py`
+is kept until that port lands — see `specs/003-site-timezone-overlap.md`.
 
 ## UI (single-page, vanilla JS + vendored d3, no build step)
 

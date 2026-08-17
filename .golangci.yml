@@ -1,0 +1,39 @@
+version: "2"
+linters:
+  enable:
+    - bodyclose
+    - errorlint
+    - gocritic
+    - gosec
+    - nilerr
+    - revive
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  # Brownfield baseline. This suite had never been linted: the first run reported
+  # 66 issues. The 7 gosec findings and 2 dead declarations were fixed; the
+  # remaining 57 stylistic ones (errcheck 18, staticcheck 23, revive 12,
+  # gocritic 3, errorlint 1) are pre-existing debt, tracked rather than fixed
+  # inside a governance PR. Only issues introduced relative to the merge base
+  # fail the build, so the linter gates new code from now on.
+  #
+  # This is only honest if it still catches something: a break/fix proof is in
+  # the commit that added it. The CI job checks out with fetch-depth: 0, without
+  # which there is no merge base and this would silently pass everything.
+  new-from-merge-base: origin/main

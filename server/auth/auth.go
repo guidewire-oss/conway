@@ -322,7 +322,9 @@ func (s *Store) Save() error {
 	if s.Path == "" {
 		return errors.New("no store path")
 	}
-	b, err := json.MarshalIndent(s, "", " ")
+	// G117: this file *is* the credential store — serialising Secret is the
+	// purpose, and the write below is 0600. Not a leak into logs or a response.
+	b, err := json.MarshalIndent(s, "", " ") //nolint:gosec // G117: intentional, see above
 	if err != nil {
 		return err
 	}

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"conway/game"
+	"conway/server/game"
 )
 
 // World is the org snapshot the engine builds games from — always sourced

@@ -1,0 +1,94 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "username": "conway-founder",
+  "default_agent": "build",
+  "instructions": [
+    "AGENTS.md"
+  ],
+  "permission": {
+    "edit": "ask",
+    "bash": {
+      "go *": "allow",
+      "make *": "allow",
+      "git status": "allow",
+      "git diff *": "allow",
+      "git log *": "allow",
+      "git add *": "allow",
+      "git commit *": "ask",
+      "rm *": "deny",
+      "*": "ask"
+    },
+    "external_directory": {
+      "specs/**": "allow",
+      "*": "ask"
+    }
+  },
+  "skills": {
+    "paths": [
+      ".opencode/skills"
+    ]
+  },
+  "references": {
+    "spec": {
+      "path": "specs",
+      "description": "The Conway spec source — immutable docs. Source of truth for all decisions."
+    }
+  },
+  "agent": {
+    "spec-writer": {
+      "description": "Writes Ginkgo acceptance specs from the formal spec. Use for story-loop red phase. Frontier model.",
+      "mode": "subagent",
+      "permission": {
+        "edit": "ask",
+        "bash": "ask"
+      }
+    },
+    "implementer": {
+      "description": "Makes failing tests pass. Cannot edit test files (test-edit denial hook).",
+      "mode": "subagent",
+      "permission": {
+        "edit": "ask",
+        "bash": "ask"
+      }
+    },
+    "refactorer": {
+      "description": "Cleans up code while keeping tests green without changing behavior.",
+      "mode": "subagent",
+      "permission": {
+        "edit": "ask",
+        "bash": "ask"
+      }
+    },
+    "wiki-maintainer": {
+      "description": "Reads your spec source and writes wiki/ pages. Supervised — every edit is a PR and requires human review.",
+      "mode": "subagent",
+      "permission": {
+        "edit": "ask",
+        "bash": "deny"
+      }
+    },
+    "reviewer": {
+      "description": "Adversarial code review. Frontier model. Never the same model that wrote the code.",
+      "mode": "subagent",
+      "permission": {
+        "edit": "deny",
+        "bash": "ask"
+      }
+    }
+  },
+  "mcp": {
+    "playwright": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@playwright/mcp"
+      ],
+      "enabled": true,
+      "env": {}
+    }
+  },
+  "plugin": [
+    ".opencode/plugin/factory-hooks.ts"
+  ]
+}

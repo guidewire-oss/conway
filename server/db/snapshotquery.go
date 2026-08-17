@@ -177,6 +177,9 @@ type FeverEpic struct {
 func (d *DB) FeverEpics(snapshotID string, n int) ([]FeverEpic, error) {
 	ctx := context.Background()
 	rows, err := d.pool.Query(ctx, `
+		-- desc_len >= 40: an epic description this long counts as a stated
+		-- outcome. The threshold used to be documented by an unused constant in
+		-- the jira package; it lives here because this is where it is applied.
 		SELECT e.key, e.summary, e.due_date, (e.desc_len >= 40)
 		FROM snapshot_issues e
 		WHERE e.snapshot_id=$1 AND e.issue_type IN ('Epic','Parent Epic') AND e.status_cat <> 'done'

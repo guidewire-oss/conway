@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 
-	"conway/db"
+	"conway/server/db"
 )
 
 // The small "dynamic docs" (pods/pod_stats/edges/hygiene) are no longer stored
