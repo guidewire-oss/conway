@@ -50,6 +50,11 @@ optional `pairs`/`tracks`); initiatives: the FullKit matrix (paired
 
 ## Run
 
+Prebuilt images are published to `ghcr.io/guidewire-oss/conway` on every push to
+`main` (tagged `latest` and `sha-<commit>`) and on `v*` tags. The package inherits
+this repository's visibility. `docker compose` builds from source rather than
+pulling, so local development needs no registry access.
+
 Postgres is required — Conway has no local-file fallback. Fastest way to try it:
 
 ```

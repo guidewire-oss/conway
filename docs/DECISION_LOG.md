@@ -241,3 +241,36 @@ wiring, no credentials — reviewed before tracking.
 *Still open:* Enforcement has only been observed on one harness. See
 `wiki/opencode-harness.md`; the parity claim stays OPEN per harness until someone
 runs the eval on the one in front of them.
+
+## Decision 11
+
+**The container image is built on every pull request and published to GHCR.**
+
+*Context:* Nothing in the repository built the image. `docker compose up --build`
+builds locally, and `deploy/build-push.sh` pushes to AWS ECR from a maintainer's
+machine with AWS credentials — and `deploy/` is git-ignored, so that script is not
+even part of the repo. The consequence showed up during the factory adoption: the
+Dockerfile was edited three times (copy paths for the module move, a pinned Go
+patch) with nothing verifying it built.
+
+*Decision:* A separate `.github/workflows/image.yml` builds on every pull request
+without pushing, and publishes `ghcr.io/guidewire-oss/conway` on `main` and on
+`v*` tags. Authentication uses the built-in `GITHUB_TOKEN` with `packages: write`
+— no PAT, no secret to rotate. Tags are the branch name, a full-SHA tag for exact
+traceability, `latest` on the default branch only, and bare semver on version
+tags.
+
+*Rejected:* Adding the steps to the factory's `go-pack.yml`, which is a pack file
+the factory owns and refreshes. Publishing on every branch, which fills the
+registry with images nobody deploys. Pushing from pull requests, which cannot work
+from forks and would let an unmerged branch publish.
+
+*Consequences:* The Dockerfile is now covered by CI, which is what closes the
+verification gap above. The image is single-architecture: the Dockerfile hardcodes
+`GOARCH=amd64`, so a multi-arch build needs `TARGETARCH` plumbing first.
+
+*Not settled:* ECR remains the deploy path, so there are now two registries with
+different purposes — GHCR for consumption, ECR for internal deploys. Whether
+`deploy/` should pull from GHCR instead of building locally is a separate
+decision. The GHCR package inherits the repository's visibility, which is private
+today.
