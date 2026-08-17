@@ -246,7 +246,9 @@ func main() {
 	// no longer guaranteed to exist (it used to be the working directory), so
 	// create it rather than failing on the first write.
 	if dir := filepath.Dir(storePath); dir != "" && dir != "." {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		// 0o750, not 0o755: this holds the credential store and game state, so
+		// there is no reason for it to be world-readable (gosec G301).
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			log.Fatalf("create store directory %s: %v", dir, err)
 		}
 	}

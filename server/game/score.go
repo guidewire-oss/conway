@@ -401,6 +401,7 @@ var scenarios = []scenario{
 
 func seededScenarioOrder(n, count, seed int) []int {
 	// G115: same as hashSeed — seeding a PRNG, so wrap-around is intended.
+	// #nosec G115 -- same as hashSeed; see the note there.
 	r := rng(uint32(seed) ^ 0x9e3779b9) //nolint:gosec // G115: deliberate seed truncation
 	var out []int
 	for len(out) < count {

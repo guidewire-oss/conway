@@ -42,8 +42,14 @@ jobs:
       - name: actionlint
         run: actionlint
 
+      # -severity medium, not the default: the 60 LOW findings here are all G104
+      # (unhandled errors), the same pre-existing debt errcheck reports, and
+      # standalone gosec has no new-code baseline to hold them behind. Medium and
+      # high still fail the build immediately rather than only on changed code,
+      # and errcheck covers the LOW class under .golangci.yml's merge-base
+      # baseline. Note gosec reads #nosec annotations, not //nolint.
       - name: gosec
-        run: gosec ./...
+        run: gosec -severity medium ./...
 
       - name: govulncheck
         run: govulncheck ./...
