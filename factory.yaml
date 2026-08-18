@@ -20,7 +20,7 @@ language_packs: "go"
 check_command: "go test -race ./... && golangci-lint run ./... && node --test tests/sim.test.mjs"
 # Your own hooks go here, not in hook-existence-check.sh (a framework file
 # that upgrade overwrites). Space-separated paths.
-local_hooks: "scripts/hooks/internal-paths-ignored.sh"
+local_hooks: "scripts/hooks/internal-paths-ignored.sh --strict"
 wiki_root: wiki
 wiki_staleness: false
 
