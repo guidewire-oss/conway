@@ -14,7 +14,19 @@ selftest:
 doctor:
 	./scripts/factory-doctor.sh
 
+# Runs the configured product checks as well as the factory's own gates. Without
+# this, a green `make check` said nothing about whether Conway's code compiled or
+# its tests passed — it only meant the factory's own machinery was intact.
+# check_command comes from factory.yaml.
 check: selftest
+	@CMD="$$(FACTORY_CONFIG=factory.yaml bash -c '. scripts/lib/config.sh; factory_config_get check_command')"; \
+	if [ -n "$$CMD" ]; then \
+		echo "check: running the configured product checks"; \
+		echo "  $$CMD"; \
+		sh -c "$$CMD"; \
+	else \
+		echo "check: no check_command configured"; \
+	fi
 	./scripts/citation-lint.sh
 	./scripts/hooks/shared-script-enforcement.sh
 	./scripts/hooks/hook-existence-check.sh
