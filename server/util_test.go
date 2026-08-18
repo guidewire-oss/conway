@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"strings"
 	"testing"
 )
@@ -34,5 +35,25 @@ func TestReadAllRejectsOversizedBody(t *testing.T) {
 				t.Fatalf("%d bytes with a %d-byte limit: got %d bytes back, want all of them", tc.size, limit, len(got))
 			}
 		})
+	}
+}
+
+// The +1 that makes an oversized body observable must not wrap. At MaxInt64
+// there is no larger limit to read, and a negative limit would make
+// io.LimitReader hand back an empty body with no error — a body silently lost
+// rather than rejected.
+func TestReadAllExtremeLimits(t *testing.T) {
+	body := strings.Repeat("x", 32)
+
+	got, err := readAll(strings.NewReader(body), math.MaxInt64)
+	if err != nil {
+		t.Fatalf("MaxInt64 limit: unexpected error: %v", err)
+	}
+	if len(got) != len(body) {
+		t.Fatalf("MaxInt64 limit: got %d bytes, want %d", len(got), len(body))
+	}
+
+	if _, err := readAll(strings.NewReader(body), -1); err == nil {
+		t.Fatal("negative limit: want an error, got none")
 	}
 }
