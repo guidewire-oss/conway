@@ -9,8 +9,13 @@ name: Image
 # only a human running `deploy/build-push.sh` would find out.
 #
 # The build and publish jobs are split so the pull-request path never receives a
-# token that can write packages. Only one runs per event, and both share a build
-# cache scope, so the publish job on main reuses layers a PR build populated.
+# token that can write packages. Only one runs per event.
+#
+# Both jobs use the same BuildKit cache scope, but that is not a claim that a PR
+# build warms main: GitHub Actions caches are keyed by ref, and a cache written on
+# a PR ref is not readable from a later push to main — only the reverse (a PR can
+# read its base branch's cache). What the shared scope does buy is that pushes to
+# main reuse each other's layers, and PR builds reuse what main last published.
 #
 # Action versions checked against each repository's latest release, 2026-08-17.
 
@@ -100,6 +105,8 @@ jobs:
       # exports layers of the final image — the golang stage that does the actual
       # compiling is intermediate and would never be cached. The scope is set
       # explicitly so a second image added later cannot overwrite this cache.
+      # Writes from this job land on the default branch's cache, which is the one
+      # PR builds are allowed to read.
       - name: Build and push
         uses: docker/build-push-action@v7.3.0
         with:
