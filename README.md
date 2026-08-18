@@ -123,9 +123,12 @@ Arm the local push gate once per clone — it is not on by default:
 git config core.hooksPath .githooks
 ```
 
-`make preflight` runs the strict internal-paths guard plus the full factory gate
-suite, which is what CI will run. `make test` runs the guard in its lenient mode,
-so an ignore file being replaced is caught on the next test run.
+`make preflight` runs the strict internal-paths guard plus the factory gate suite,
+locally, before you push. It is not identical to CI: the internal-paths guard is
+local-only by design (its pattern list lives in `.git/info/exclude`, which is
+never pushed), and CI additionally runs lint, security scanners and the image
+build. `make test` runs the guard in its lenient mode, so an ignore file being
+replaced is caught on the next test run.
 
 What will block you:
 
