@@ -120,9 +120,13 @@ DIRTY=""
 if [ -n "$DIRTY" ]; then
   echo "internal-paths-ignored: FAIL — tree is not clean:" >&2
   printf '%s\n' "$DIRTY" >&2
-  fail "commit, stash or ignore each of these before pushing.
-  If one is internal, add it to the conway-internal block in .git/info/exclude —
-  not to .gitignore, which is tracked and which installers overwrite."
+  fail "each entry above needs a decision before pushing, and which one depends
+  on the status letter.
+  Tracked changes (M, A, D, R): commit them or stash them. Ignoring cannot help —
+  git is already tracking those paths.
+  Untracked files (??): commit them, remove them, or — if the file is internal —
+  add a pattern to the conway-internal block in .git/info/exclude. Not to
+  .gitignore, which is tracked and which installers overwrite."
 fi
 
 if [ "$STRICT" = "1" ]; then

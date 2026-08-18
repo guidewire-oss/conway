@@ -14,7 +14,19 @@ selftest:
 doctor:
 	./scripts/factory-doctor.sh
 
+# Runs the configured product checks as well as the factory's own gates. Without
+# this, a green `make check` said nothing about whether Conway's code compiled or
+# its tests passed — it only meant the factory's own machinery was intact.
+# check_command comes from factory.yaml.
 check: selftest
+	@CMD="$$(FACTORY_CONFIG=factory.yaml bash -c '. scripts/lib/config.sh; factory_config_get check_command')"; \
+	if [ -n "$$CMD" ]; then \
+		echo "check: running the configured product checks"; \
+		echo "  $$CMD"; \
+		sh -c "$$CMD"; \
+	else \
+		echo "check: no check_command configured"; \
+	fi
 	./scripts/citation-lint.sh
 	./scripts/hooks/shared-script-enforcement.sh
 	./scripts/hooks/hook-existence-check.sh
@@ -67,10 +79,15 @@ decision-log:
 pending-lessons:
 	./scripts/hooks/pending-lessons-push-block.sh
 
+# No `|| true` on the gates below. With it, a failing commit-message, diff-aware
+# or decision-log check was swallowed and the target still printed "all checks
+# passed" — a pre-push target that could not block a bad push, which is the one
+# thing it exists to do. If a gate cannot run here (no origin/main in a fresh
+# clone, say), fetch it rather than ignoring the result.
 pre-push: check check-drift
-	./scripts/hooks/commit-message-lint.sh HEAD || true
-	./scripts/hooks/diff-aware-check.sh origin/main HEAD || true
-	./scripts/hooks/decision-log-gate.sh origin/main HEAD || true
+	./scripts/hooks/commit-message-lint.sh HEAD
+	./scripts/hooks/diff-aware-check.sh origin/main HEAD
+	./scripts/hooks/decision-log-gate.sh origin/main HEAD
 	./scripts/hooks/pending-lessons-push-block.sh
 	@echo ""
 	@echo "pre-push: all checks passed — run ./scripts/pre-push-check.sh for the full gate"

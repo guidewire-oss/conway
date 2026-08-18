@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"math"
 )
 
 func randRead(b []byte) (int, error) { return rand.Read(b) }
@@ -39,7 +40,17 @@ func newJoinCode() string {
 // complete file, so a 30MB spreadsheet would be parsed as a 20MB one. Reading
 // one byte past the limit is what makes the overflow observable.
 func readAll(r io.Reader, max int64) ([]byte, error) {
-	b, err := io.ReadAll(io.LimitReader(r, max+1))
+	if max < 0 {
+		return nil, fmt.Errorf("readAll: negative limit %d", max)
+	}
+	// max+1 is the whole trick, so it must not wrap. At MaxInt64 there is no
+	// larger limit to read, and a negative max would make LimitReader see a
+	// non-positive limit and hand back an empty body with no error at all.
+	limit := max + 1
+	if max == math.MaxInt64 {
+		limit = max
+	}
+	b, err := io.ReadAll(io.LimitReader(r, limit))
 	if err != nil {
 		return nil, err
 	}
