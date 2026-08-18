@@ -112,14 +112,17 @@ fi
 # Intended for pre-push and CI, where the tree should already be clean. Running
 # it mid-edit will flag work in progress, which is the point: stage it, or ignore
 # it, but do not push with the question open.
-UNTRACKED=""
-[ "$STRICT" = "1" ] && UNTRACKED="$(git ls-files --others --exclude-standard)"
-if [ -n "$UNTRACKED" ]; then
-  echo "internal-paths-ignored: FAIL — untracked files present:" >&2
-  printf '  %s\n' $UNTRACKED >&2
-  fail "each of these must be either committed or ignored.
+# `git ls-files --others` alone would only see untracked files, so a staged or
+# modified tracked file would still be reported as "tree clean" — a claim the
+# check had not actually verified. --porcelain covers all three.
+DIRTY=""
+[ "$STRICT" = "1" ] && DIRTY="$(git status --porcelain --untracked-files=all)"
+if [ -n "$DIRTY" ]; then
+  echo "internal-paths-ignored: FAIL — tree is not clean:" >&2
+  printf '%s\n' "$DIRTY" >&2
+  fail "commit, stash or ignore each of these before pushing.
   If one is internal, add it to the conway-internal block in .git/info/exclude —
-  do not add it to .gitignore, which is public and which installers overwrite."
+  not to .gitignore, which is tracked and which installers overwrite."
 fi
 
 if [ "$STRICT" = "1" ]; then
