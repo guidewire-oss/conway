@@ -6,9 +6,11 @@ name: Image
 # one is Conway's.
 #
 # Until this existed, nothing verified the Dockerfile at all — it could break and
-# only a human running `deploy/build-push.sh` would find out. Pull requests build
-# without pushing, so the build is checked before merge and credentials are never
-# needed for a PR (including from forks, where GITHUB_TOKEN cannot push anyway).
+# only a human running `deploy/build-push.sh` would find out.
+#
+# The build and publish jobs are split so the pull-request path never receives a
+# token that can write packages. Only one runs per event, and both share a build
+# cache scope, so the publish job on main reuses layers a PR build populated.
 #
 # Action versions checked against each repository's latest release, 2026-08-17.
 
@@ -19,28 +21,51 @@ on:
   pull_request:
     branches: [main]
 
-# GITHUB_TOKEN is enough to publish to GHCR in the same org — no PAT, no secret
-# to rotate. packages: write is what allows the push; everything else stays read.
+# Least privilege at the top: no job gets more than this unless it asks.
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: image-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  image:
+  # Pull requests: prove the Dockerfile builds. No registry, no credentials, and
+  # no packages: write — a same-repository PR cannot publish an image from here.
+  build:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
       - uses: docker/setup-buildx-action@v4.2.0
 
-      # Skipped on pull requests: nothing is pushed there, so there is no reason
-      # to authenticate.
+      - name: Build (no push)
+        uses: docker/build-push-action@v7.3.0
+        with:
+          context: .
+          push: false
+          cache-from: type=gha,scope=conway-image
+          cache-to: type=gha,scope=conway-image,mode=max
+
+      - run: echo "Built the image without pushing (pull request)."
+
+  # main and v* tags: build and publish. GITHUB_TOKEN with packages: write is
+  # enough for GHCR in the same org — no PAT, nothing to rotate.
+  publish:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v4.2.0
+
       - name: Log in to GHCR
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v4.6.0
         with:
           registry: ghcr.io
@@ -71,26 +96,15 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
 
-      # Layer cache in the Actions cache service. No extra workflow permissions:
-      # it authenticates with ACTIONS_RUNTIME_TOKEN, which build-push-action
-      # populates itself. It does require a non-default driver, which
-      # setup-buildx-action above provides.
-      #
       # mode=max, not the default min: this is a multi-stage build, and min only
       # exports layers of the final image — the golang stage that does the actual
-      # compiling is intermediate and would never be cached.
-      #
-      # scope is set explicitly rather than left at the default "buildkit", so a
-      # second image added later cannot overwrite this one's cache.
-      #
-      # The Dockerfile's COPY order already suits this: go.mod/go.sum and the
-      # ~350-file vendor tree come before server/, so a code-only change reuses
-      # those layers instead of re-sending the vendor tree.
+      # compiling is intermediate and would never be cached. The scope is set
+      # explicitly so a second image added later cannot overwrite this cache.
       - name: Build and push
         uses: docker/build-push-action@v7.3.0
         with:
           context: .
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=conway-image
@@ -98,9 +112,5 @@ jobs:
 
       - name: Report
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "Built the image without pushing (pull request)."
-          else
-            echo "Pushed:"
-            echo "${{ steps.meta.outputs.tags }}"
-          fi
+          echo "Pushed:"
+          echo "${{ steps.meta.outputs.tags }}"
