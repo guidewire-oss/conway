@@ -654,8 +654,9 @@ critical paths at once.
 - targetDate: date — the single date this initiative is wanted by (Decision 21)
 - dateLocked: boolean — the date is a commitment, not an aspiration
 - tier: integer 1–4 — requester tier, per the existing tier semantics (T1 contractual … T4 aspirational)
-- costOfDelayPerWeek: number — value lost per week late, in unitless points
-  (1-10 typical); relative weight is all the objective uses
+- costOfDelayPerWeek: number — value lost per week late, expressed as unitless
+  points on a 1–10 scale, because the ranking rule uses only the ratios between
+  initiatives and never the absolute figure
 - earliestStart: date — not before, for external funding, hiring or upstream events
 - afterInitiatives: list of initiative names — cross-initiative precedence
 - kitPct: number 0–1 — full-kit readiness at period start
@@ -671,8 +672,10 @@ critical paths at once.
 - bufferPct, feedingBufferPct: number — flat percentages of the chain and of each
   feeding path (Decision 20)
 - maxStartsPerQuarter: integer — change-absorption cap
-- leadCapacity: map of role → integer — concurrent initiatives per named lead;
-  defaults PM 2, engineering lead 2, architect 3, programme 4
+- leadCapacity: map of role → integer — concurrent initiatives per named lead.
+  Optional: an omitted map, or a role absent from a supplied map, takes the
+  defaults PM 2, engineering lead 2, architect 3, programme 4. A supplied role
+  always wins, including a 0, which means that lead cannot take on an initiative
 - allowTransfers: boolean, transferRampWeeks: integer
 
 **CalendarWindow**
@@ -815,20 +818,20 @@ today.
 | # | Question | Owner | Target Date | Resolution |
 |---|----------|-------|-------------|------------|
 | Q1 | Where does the working-hours overlap between two sites come from for plan rosters? Observe has a site overlap matrix from the pod directory; plan Teams carry only a site string. Reuse the directory matrix, add a site table to the plan, or fall back to a default same-site/different-site pair of values? | Anoop | 2026-08-18 | **Resolved 2026-08-18 — deferred.** Slices 1-2 apply no overlap factor. When it lands, the source is the plan-level site table in spec 003, not the pod directory. Blocked on spec 003 Q1-Q4. |
-| Q2 | Cost of delay units: currency per week, or an unitless 1–10 scale? Recommendation is unitless, since real CoD is rarely known and the objective only needs relative weights. | Anoop | 2026-08-18 | **Resolved 2026-08-18.** Unitless points, 1-10 typical. The objective needs relative weights only, and a currency figure nobody can source is worse than an honest score. |
+| Q2 | Cost of delay units: currency per week, or an unitless 1–10 scale? Recommendation is unitless, since real CoD is rarely known and the objective only needs relative weights. | Anoop | 2026-08-18 | **Resolved 2026-08-18.** Unitless points on a 1–10 scale. The objective needs relative weights only, and a currency figure nobody can source is worse than an honest score. |
 | Q3 | Default concurrent-initiative capacity per lead role. Proposed defaults: PM 2, engineering lead 2, architect 3, programme 4. Are these plausible for a real org? | Anoop | 2026-08-18 | **Resolved 2026-08-18.** Defaults PM 2, engineering lead 2, architect 3, programme 4, each overridable per plan through `leadCapacity`. |
 | Q4 | Can a pod run one initiative's work slice across two tracks to halve its duration? The spec assumes no (a slice occupies one track). If some pods genuinely parallelise within an initiative, the model needs a per-slice track count. | Anoop | 2026-08-18 | **Resolved 2026-08-18 — no.** A slice occupies one track. A per-slice track count is a later extension if a real pod is shown to parallelise within one initiative. |
-| Q5 | Buffer sizing: a flat percentage of the chain, or the classic square-root-of-sum-of-squares over slice estimates? Flat is easier to explain; SSQ rewards initiatives with many small slices. | Anoop | 2026-08-18 | **Resolved 2026-08-18.** Flat `bufferPct` of the chain; SSQ stays available as a later parameter. See Decision 20. |
-| Q6 | Is one target date per initiative sufficient, or do initiatives carry intermediate milestones (early access, GA) with their own dates? | Anoop | 2026-08-18 | **Resolved 2026-08-18.** One `targetDate` per initiative. See Decision 21. |
-| Q7 | Should the org WIP limit default to a number, or be derived (for example, tracks at the constraint pod)? A wrong default here is the single most visible knob in the feature. | Anoop | 2026-08-18 | **Resolved 2026-08-18 — derived.** Absent or 0 means tracks at the drum pod. See Decision 22. |
-| Q8 | Does the priority column allow ties, and is 1 the highest? Spec assumes yes and yes, with ties broken by the ranking rule. | Anoop | 2026-08-18 | **Resolved 2026-08-18 — yes and yes.** Ties are allowed, 1 is highest, and ties break on the ranking rule in Decision 2. |
-| Q9 | Who owns the initiative-to-epic binding, and where is it entered — an Epics column in the FullKit sheet (stays with the planning artefact, rots between periods) or in-app on the plan (stays with the plan, invisible to the sheet's owner)? Recommendation is both, with the sheet winning on upload. | Anoop | 2026-08-18 | **Resolved 2026-08-18 — both, sheet wins on upload.** This is the precedence ladder already recorded in Decision 14. |
-| Q10 | Is the Parent Epic convention actually in use in the target Jira yet — a dated parent epic carrying the commitment, with feature epics as its children? If so, binding is nearly free and target dates can be seeded from it. If not, every binding starts as manual entry. | Anoop | 2026-08-18 | [NEEDS CLARIFICATION] — a fact about the target Jira, not a design choice, so it cannot be defaulted. Decision 14's ladder works either way: without the convention every binding starts as manual entry and target dates are entered in-app. Needed before slice 6, not before slice 1. |
-| Q11 | Does the Jira import capture changelogs? Without transition history, "actual start" can only be inferred (earliest child activity), which weakens every schedule-variance figure. `docs/v2-spec.md` lists changelog ingestion as a later phase — this feature is a strong reason to pull it forward. | Anoop | 2026-08-18 | **Resolved 2026-08-18 by inspection — not captured.** `server/jira/client.go:170` and `server/jira/detail.go:66` request `fields=` only, with no `expand=changelog`, so no transition history reaches a snapshot. Actual start is inferred and labelled as inferred. See Decision 23. |
+| Q5 | Buffer sizing: a flat percentage of the chain, or the classic square-root-of-sum-of-squares over slice estimates? Flat is easier to explain; SSQ rewards initiatives with many small slices. | Anoop | 2026-08-18 | **Resolved 2026-08-18.** Flat `bufferPct` of the chain; SSQ stays available as a later parameter. See §11 D20. |
+| Q6 | Is one target date per initiative sufficient, or do initiatives carry intermediate milestones (early access, GA) with their own dates? | Anoop | 2026-08-18 | **Resolved 2026-08-18.** One `targetDate` per initiative. See §11 D21. |
+| Q7 | Should the org WIP limit default to a number, or be derived (for example, tracks at the constraint pod)? A wrong default here is the single most visible knob in the feature. | Anoop | 2026-08-18 | **Resolved 2026-08-18 — derived.** Absent or 0 means tracks at the drum pod. See §11 D22. |
+| Q8 | Does the priority column allow ties, and is 1 the highest? Spec assumes yes and yes, with ties broken by the ranking rule. | Anoop | 2026-08-18 | **Resolved 2026-08-18 — yes and yes.** Ties are allowed, 1 is highest, and ties break on the ranking rule in §11 D2. |
+| Q9 | Who owns the initiative-to-epic binding, and where is it entered — an Epics column in the FullKit sheet (stays with the planning artefact, rots between periods) or in-app on the plan (stays with the plan, invisible to the sheet's owner)? Recommendation is both, with the sheet winning on upload. | Anoop | 2026-08-18 | **Resolved 2026-08-18 — both entry points, and an uploaded sheet wins.** A binding may be entered in an Epics column of the FullKit sheet or in-app on the plan. When a sheet carrying that column is uploaded, its bindings replace the in-app ones for the initiatives it names; initiatives absent from the column keep their in-app bindings. This is about where a binding is *entered*, which the §11 D14 ladder does not cover — that ladder ranks how a binding is *resolved* once entered. See the D14 amendment. |
+| Q10 | Is the Parent Epic convention actually in use in the target Jira yet — a dated parent epic carrying the commitment, with feature epics as its children? If so, binding is nearly free and target dates can be seeded from it. If not, every binding starts as manual entry. | Anoop | — | [NEEDS CLARIFICATION] — a fact about the target Jira, not a design choice, so it cannot be defaulted. the §11 D14 ladder works either way: without the convention every binding starts as manual entry and target dates are entered in-app. Needed before slice 6, not before slice 1. |
+| Q11 | Does the Jira import capture changelogs? Without transition history, "actual start" can only be inferred (earliest child activity), which weakens every schedule-variance figure. `docs/v2-spec.md` lists changelog ingestion as a later phase — this feature is a strong reason to pull it forward. | Anoop | 2026-08-18 | **Resolved 2026-08-18 by inspection — not captured.** `server/jira/client.go:170` and `server/jira/detail.go:66` request `fields=` only, with no `expand=changelog`, so no transition history reaches a snapshot. Actual start is inferred and labelled as inferred. See §11 D23. |
 | Q12 | Percent complete by issue count or by story points? Counts are always available; points are better but hygiene-dependent. Recommendation is counts, with points used where present and the choice labelled. | Anoop | 2026-08-18 | **Resolved 2026-08-18.** Issue counts, story points where present, and the basis labelled wherever a percentage is shown. |
-| Q13 | How often should actuals refresh, and who triggers it — on demand from the plan, or automatically with each snapshot import? | Anoop | 2026-08-18 | **Resolved 2026-08-18 — on demand from the plan.** See Decision 24. |
-| Q14 | An epic's children may carry pods that were never in the initiative's plan. Is that unplanned scope, a planning miss, or a mis-assignment? It changes whether it counts as variance or as scope change. | Anoop | 2026-08-18 | **Resolved 2026-08-18 — scope change, reported separately from variance.** See Decision 25. |
-| Q15 | Can a pod lead be given access to only their own pod's timeline without seeing the whole portfolio? Today's roles are manager, admin and facilitator; a pod-lead role would be new. | Anoop | 2026-08-18 | **Resolved 2026-08-18 — no new role in this feature.** See Decision 26. |
+| Q13 | How often should actuals refresh, and who triggers it — on demand from the plan, or automatically with each snapshot import? | Anoop | 2026-08-18 | **Resolved 2026-08-18 — on demand from the plan.** See §11 D24. |
+| Q14 | An epic's children may carry pods that were never in the initiative's plan. Is that unplanned scope, a planning miss, or a mis-assignment? It changes whether it counts as variance or as scope change. | Anoop | 2026-08-18 | **Resolved 2026-08-18 — scope change, reported separately from variance.** See §11 D25. |
+| Q15 | Can a pod lead be given access to only their own pod's timeline without seeing the whole portfolio? Today's roles are manager, admin and facilitator; a pod-lead role would be new. | Anoop | 2026-08-18 | **Resolved 2026-08-18 — no new role in this feature.** See §11 D26. |
 
 ---
 
@@ -1087,6 +1090,15 @@ fabricated variance.
 **Consequences:** Someone has to do the binding work for the first period. The
 ladder means that cost falls if the org adopts the parent-epic convention its
 own commitment-modelling note already recommends.
+
+**Amended 2026-08-18, where a binding is entered (§10 Q9):** the ladder above
+ranks binding *sources* once a binding exists; it says nothing about where a human
+enters one. Both locations are supported — an Epics column in the FullKit sheet,
+and in-app on the plan — and an uploaded sheet wins for the initiatives its column
+names, leaving in-app bindings intact for initiatives it does not mention. The
+sheet wins because it is the artefact the planner edits deliberately, while an
+in-app binding is often a one-off correction; a silent in-app override of a fresh
+upload would be invisible to the person who owns the sheet.
 
 ### Decision 15: Actuals come from the existing snapshot pipeline, not a new integration
 
