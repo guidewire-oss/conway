@@ -324,6 +324,9 @@ func (s *Store) Save() error {
 	}
 	// G117: this file *is* the credential store — serialising Secret is the
 	// purpose, and the write below is 0600. Not a leak into logs or a response.
+	// #nosec G117 -- standalone gosec reads this form; golangci-lint reads the
+	// trailing //nolint. Below the CI severity threshold today, annotated anyway
+	// so lowering that threshold does not surface a finding with no explanation.
 	b, err := json.MarshalIndent(s, "", " ") //nolint:gosec // G117: intentional, see above
 	if err != nil {
 		return err
