@@ -67,15 +67,83 @@ factory_config_get() {
 # sourced first when it exists, and the YAML overlays whatever it defines. That
 # fallback is deliberately quiet here; `factory doctor` is where it is reported,
 # so a deprecation cannot live forever by going unnoticed.
+# factory_config_load_legacy <file>: export the settings a pre-YAML factory.config
+# defines, by PARSING it — never by sourcing it.
+#
+# Sourcing was the original implementation and it undid the property the move to
+# factory.yaml exists to provide. factory.config lives in the repository, so it
+# can arrive from a branch, a patch or a pull request; sourcing it executed
+# whatever it contained, with the privileges of whatever called this — including
+# CI. `factory migrate-config` already parsed the same file for exactly this
+# reason ("parsing it beats sourcing it"), so this only makes the library agree
+# with the tool that replaces it.
+#
+# Same grammar as that parser: KEY=value, optional single or double quotes, a
+# trailing ` #` comment on unquoted values only, and keys restricted to shell
+# identifiers. Only the fixed key list below is exported, so an unexpected name
+# in the file cannot set an arbitrary variable.
+# The settings the factory recognises. Both the YAML and the legacy reader are
+# restricted to this list, so neither file can set a variable the factory did
+# not ask for.
+FACTORY_CONFIG_KEYS="COST_PROFILE MODEL_PROVIDER \
+OPENCODE_FRONTIER_MODEL OPENCODE_DEFAULT_MODEL OPENCODE_ECONOMY_MODEL \
+CLAUDE_FRONTIER_MODEL CLAUDE_DEFAULT_MODEL CLAUDE_ECONOMY_MODEL \
+CODEX_FRONTIER_MODEL CODEX_DEFAULT_MODEL CODEX_ECONOMY_MODEL \
+REVIEW_LANE REVIEW_MODEL REVIEW_API_KEY_SECRET"
+
+factory_config_load_legacy() {
+  local file="$1" line key value upper
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      ''|'#'*) continue ;;
+      *=*) : ;;
+      *) continue ;;
+    esac
+    key="${line%%=*}"
+    value="${line#*=}"
+    # Strip `export ` and surrounding whitespace, so `export FOO=bar` is read too.
+    key="${key#export }"
+    key="$(printf '%s' "$key" | tr -d '[:space:]')"
+    case "$key" in
+      ''|*[!A-Za-z0-9_]*) continue ;;
+    esac
+    case "$value" in
+      \"*) value="${value#\"}"; value="${value%%\"*}" ;;
+      \'*) value="${value#\'}"; value="${value%%\'*}" ;;
+      *) value="$(printf '%s' "$value" | sed 's/[[:space:]]#.*$//; s/^[[:space:]]*//; s/[[:space:]]*$//')" ;;
+    esac
+    upper="$(printf '%s' "$key" | tr '[:lower:]' '[:upper:]')"
+    case " $FACTORY_CONFIG_KEYS " in
+      *" $upper "*) : ;;
+      *) continue ;;
+    esac
+    # Assign indirectly without re-parsing the value, as the YAML path does.
+    eval "$upper=\$value"
+    export "${upper?}"
+  done < "$file"
+}
+
 factory_config_export() {
   local file legacy root
   file="$(factory_config_file)"
   root="$(dirname "$file")"
   legacy="$root/factory.config"
 
+  # Precedence has three sources, and they are not interchangeable:
+  #   caller environment  >  factory.yaml  >  legacy factory.config
+  # So the caller's variables have to be identified BEFORE the legacy file is
+  # loaded — once it exports, "already set" can no longer tell a deliberate
+  # override apart from the legacy value, and treating them alike would let the
+  # legacy file beat the YAML, which is the opposite of the documented order.
+  local caller_set="" k v
+  for k in $FACTORY_CONFIG_KEYS; do
+    if [ -n "${!k+set}" ]; then
+      caller_set="$caller_set $k"
+    fi
+  done
+
   if [ -f "$legacy" ]; then
-    # shellcheck source=/dev/null
-    . "$legacy"
+    factory_config_load_legacy "$legacy"
   fi
 
   local key var value
@@ -89,6 +157,18 @@ factory_config_export() {
     value="$(factory_config_get "$key")"
     [ -n "$value" ] || continue
     var="$(printf '%s' "$key" | tr '[:lower:]' '[:upper:]')"
+    # A value the caller put in the environment wins, which is what the comment
+    # above this function promises — "anything already in the environment still
+    # wins ... that is what lets a caller override a model tier for one run". The
+    # assignment below used to overwrite it whenever the YAML had anything, so
+    # `MODEL_PROVIDER=anthropic ./script` silently used the file's value. Only
+    # variables recorded before the legacy load count, so the YAML still wins
+    # over factory.config.
+    case " $caller_set " in
+      *" $var "*)
+        export "${var?}"
+        continue ;;
+    esac
     # `eval "$var=\$value"` assigns indirectly. The backslash matters: it defers
     # $value to assignment time, where it is not re-parsed, so a model string
     # containing spaces or shell metacharacters lands verbatim rather than being
