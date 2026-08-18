@@ -89,8 +89,12 @@ while IFS= read -r line || [ -n "$line" ]; do
 
   yaml_key="$(printf '%s' "$key" | tr '[:upper:]' '[:lower:]')"
 
-  if factory_config_has "$yaml_key"; then
-    printf '  keeping yours: %s (already in factory.yaml)\n' "$yaml_key"
+  # Present-but-blank is not "already configured". The runtime treats a blank
+  # model key as unset and falls back to the legacy file — so skipping the legacy
+  # value here, and then renaming that file, silently dropped the setting
+  # altogether. A key only counts as yours if it has a value.
+  if factory_config_has "$yaml_key" && [ -n "$(factory_config_get "$yaml_key")" ]; then
+    printf '  keeping yours: %s (already set in factory.yaml)\n' "$yaml_key"
     skipped=$((skipped + 1))
     continue
   fi
@@ -117,6 +121,18 @@ factory_config_set config_migrated "yes"
 # Renamed, not deleted. The rename is what stops the fallback from reading it,
 # and keeping the file means a migration that got something wrong is one `git mv`
 # from being undone.
+# Refuse rather than overwrite. The point of the rename is that a migration which
+# got something wrong is one `git mv` from being undone — and an unconditional mv
+# destroyed exactly the backup that promise depends on, if a previous migration
+# had already made one.
+if [ -e "$LEGACY.migrated" ]; then
+  echo "" >&2
+  echo "factory migrate-config: $LEGACY.migrated already exists." >&2
+  echo "  Refusing to overwrite it — it is the backup from an earlier migration," >&2
+  echo "  and the recovery path documented below depends on it surviving." >&2
+  echo "  Move or remove that file, then run this again." >&2
+  exit 1
+fi
 mv "$LEGACY" "$LEGACY.migrated"
 
 echo ""

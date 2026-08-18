@@ -56,6 +56,21 @@ check "space-separated list" "a b c" "$(factory_config_get list)"
 check "missing key default" "fallback" "$(factory_config_get absent fallback)"
 unset FACTORY_CONFIG
 
+# A legacy factory.config must be READ, never RUN. It lives in the repository, so
+# it can arrive from a branch or a pull request; sourcing it executed whatever it
+# contained with the privileges of the caller, CI included. The break/fix proof is
+# a command planted in the file: it must not run, and the real settings must still
+# load around it.
+LEGDIR="$SANDBOX/legacy"
+mkdir -p "$LEGDIR"
+printf 'project_name: t\n' > "$LEGDIR/factory.yaml"
+printf 'COST_PROFILE=economy\ntouch %s/EXECUTED\nMODEL_PROVIDER="anthropic"\n' "$LEGDIR" > "$LEGDIR/factory.config"
+LEGOUT="$(FACTORY_CONFIG="$LEGDIR/factory.yaml" bash -c '. "'"$TEMPLATE_ROOT"'/scripts/lib/config.sh"; factory_config_export; printf "%s|%s" "$COST_PROFILE" "$MODEL_PROVIDER"')"
+check "a legacy factory.config is parsed, not executed" "absent" \
+  "$([ -e "$LEGDIR/EXECUTED" ] && echo present || echo absent)"
+check "legacy settings still load around the planted command" "economy|anthropic" "$LEGOUT"
+rm -rf "$LEGDIR"
+
 echo "[2/5] test-edit-denial"
 CFG="$SANDBOX/denial.yaml"
 printf 'test_file_patterns: "_test\\.go([^[:alnum:]_]|$) \\.spec\\.ts$"\n' > "$CFG"
@@ -75,7 +90,48 @@ check "allow unset role on test file" 0 \
 printf 'test_file_patterns: ""\n' > "$CFG"
 check "allow when no patterns configured" 0 \
   "$(FACTORY_AGENT_ROLE=implementer run_status "$HOOKS/test-edit-denial.sh" "pkg/parser_test.go")"
+# A payload the hook cannot parse must not be treated as "no test file here".
+# It used to exit 0, so a missing jq or an unfamiliar payload shape silently
+# permitted the edit this gate exists to block.
+printf 'test_file_patterns: "_test\\.go([^[:alnum:]_]|\$)"\n' > "$CFG"
+check "deny implementer when the payload cannot be parsed" 2 \
+  "$(printf 'not json' | FACTORY_AGENT_ROLE=implementer run_status "$HOOKS/test-edit-denial.sh")"
+check "allow an unset role on the same unparseable payload" 0 \
+  "$(printf 'not json' | run_status "$HOOKS/test-edit-denial.sh")"
 unset FACTORY_CONFIG
+
+# Verification Contract: a hedge covers the statement it hedges, not every claim
+# sharing the line, and a bare header is not evidence.
+CMLR="$SANDBOX/cml"
+mkdir -p "$CMLR"
+(
+  cd "$CMLR"
+  git init -q -b main
+  git config user.email selftest@example.invalid
+  git config user.name selftest
+  printf 'x\n' > f.txt
+  git add -A && git commit -qm "chore: base"
+)
+cml_case() { # <message> -> status
+  ( cd "$CMLR" && git commit -q --allow-empty -m "$1" && run_status "$TEMPLATE_ROOT/scripts/hooks/commit-message-lint.sh" HEAD )
+}
+check "a bare 'Verified:' header with nothing beneath it fails" 1 \
+  "$(cml_case 'fix: thing
+
+Verified:')"
+check "a 'Verified:' header with evidence beneath it passes" 0 \
+  "$(cml_case 'fix: thing
+
+Verified:
+- `make test` passes')"
+check "a hedge does not excuse another claim on the same line" 1 \
+  "$(cml_case 'fix: thing
+
+- fixed the parser; the database part is NOT verified')"
+check "a fully hedged line still passes" 0 \
+  "$(cml_case 'fix: thing
+
+- written but NOT verified: no daemon available here')"
 
 echo "[3/5] citation-lint"
 CITE_DIR="$SANDBOX/cite"
@@ -113,6 +169,11 @@ mkdir -p "$GATE_DIR"
 )
 BASE_SHA="$(git -C "$GATE_DIR" rev-parse HEAD~1)"
 export FACTORY_CONFIG="$GATE_DIR/factory.yaml"
+# A range the gate cannot enumerate is a range it cannot vouch for. This used to
+# swallow the error and pass, so a typo'd base or a shallow clone read as "no
+# governance commits".
+check "unresolvable commit range fails instead of passing" 1 \
+  "$(cd "$GATE_DIR" && run_status "$TEMPLATE_ROOT/scripts/hooks/decision-log-gate.sh" nosuchref HEAD)"
 # BREAK: protected-path commit without a Decision reference must fail.
 check "protected path without Decision ref fails" 1 \
   "$(cd "$GATE_DIR" && run_status "$TEMPLATE_ROOT/scripts/hooks/decision-log-gate.sh" "$BASE_SHA" HEAD)"
@@ -455,6 +516,12 @@ printf 'project_name: t\ncost_profile: "economy"\n' > "$CFGROOT/factory.yaml"
 printf 'COST_PROFILE="standard"\nCLAUDE_FRONTIER_MODEL="claude-opus-4-8"\n' > "$CFGROOT/factory.config"
 check "factory.yaml wins over a legacy factory.config" "economy" \
   "$( cd "$CFGROOT" && . scripts/lib/config.sh && factory_config_export && printf '%s' "${COST_PROFILE:-}" )"
+# The caller's environment outranks both files — that is what makes a one-off
+# override possible — but only the caller's, so the YAML still beats the legacy.
+# cost_profile is set to "economy" in the YAML above, so this genuinely tests the
+# precedence rather than a key the file happens to omit.
+check "the caller's environment beats factory.yaml" "standard" \
+  "$( cd "$CFGROOT" && COST_PROFILE=standard bash -c '. scripts/lib/config.sh; factory_config_export; printf "%s" "${COST_PROFILE:-}"' )"
 check "a legacy factory.config still fills the gaps" "claude-opus-4-8" \
   "$( cd "$CFGROOT" && . scripts/lib/config.sh && factory_config_export && printf '%s' "${CLAUDE_FRONTIER_MODEL:-}" )"
 
@@ -692,6 +759,30 @@ if [ -f "$TEMPLATE_ROOT/install.sh" ]; then
           --ref v9.9.9-does-not-exist >/dev/null 2>&1; echo $? ) )"
 fi
 
+# Break/fix: no shipped CI job may require a credential the factory never asked
+# for. A pack's eval job ran `--harness=opencode` unconditionally, so every
+# adopter's CI failed on day one for want of a key — and because that key is also
+# the review lane's, declining the review lane looked like it should have helped.
+# Two features, one secret name, no relationship.
+for PACK_CI in "$TEMPLATE_ROOT"/packs/*/workflows/ci.yml; do
+  [ -f "$PACK_CI" ] || continue
+  PACK_NAME="$(basename "$(dirname "$(dirname "$PACK_CI")")")"
+  # The invariant: naming a real harness is allowed, running it unconditionally
+  # is not. So wherever a real harness appears, the key guard must appear too.
+  # (Grepping for "an unguarded call" cannot distinguish the guarded one two
+  # lines below it — this states the requirement instead of the symptom.)
+  # Scoped to the golden-task eval specifically. The same workflow also runs
+  # harness-structural-eval against opencode, which reads committed config and
+  # needs no credentials — matching that line would tie the credential-guard
+  # invariant to a check that has nothing to do with credentials.
+  if grep -q 'golden-task-eval\.sh --harness[= ]opencode' "$PACK_CI"; then
+    check "pack '$PACK_NAME' CI guards its real-harness eval on the key" "1" \
+      "$(grep -c 'OPENROUTER_API_KEY:-' "$PACK_CI" || true)"
+    check "pack '$PACK_NAME' CI still runs the eval without a key" "1" \
+      "$(grep -cE '\./scripts/golden-task-eval\.sh$' "$PACK_CI" || true)"
+  fi
+done
+
 # Break/fix: pack dialect gates are upgradeable. They are the one thing the
 # template stores somewhere other than where the adopter keeps it — upstream in
 # packs/<lang>/hooks/, installed to scripts/hooks/ — so the copy needs an
@@ -838,6 +929,14 @@ check "hook allows with events.sh missing" 0 \
 ( cd "$HPROOT" && git config core.hooksPath .githooks )
 check "hookspath: armed when it points at .githooks" "armed" \
   "$(hookspath_status "$HPROOT" | cut -f1)"
+# Git ignores a hook without the execute bit, so a path match alone is not a live
+# gate: doctor would report an armed push gate that never fires.
+chmod -x "$HPROOT/.githooks/pre-push"
+check "hookspath: inert when the hook is not executable" "inert" \
+  "$(hookspath_status "$HPROOT" | cut -f1)"
+chmod +x "$HPROOT/.githooks/pre-push"
+check "hookspath: armed again once it is executable" "armed" \
+  "$(hookspath_status "$HPROOT" | cut -f1)"
 ( cd "$HPROOT" && git config core.hooksPath "$SANDBOX/elsewhere-hooks" )
 check "hookspath: hijacked when it points elsewhere" "hijacked" \
   "$(hookspath_status "$HPROOT" | cut -f1)"
@@ -969,6 +1068,22 @@ metrics_run --html >/dev/null 2>&1 || HTML_RC=$?
 # Generation must survive the odd name, not just avoid executing it. A crash here
 # would leave a stale page behind and every check below would read the old file.
 check "an odd gate name does not break page generation" "0" "$HTML_RC"
+# --html opens the page, but only where a human is watching. These two are the
+# cases that could do harm: a browser launched from CI, or from a run whose
+# output someone is redirecting into a file.
+check "a piped --html run does not open a browser" "0" \
+  "$( metrics_run --html 2>&1 | grep -c 'opening it' || true )"
+check "--no-open does not open a browser" "0" \
+  "$( metrics_run --html --no-open 2>&1 | grep -c 'opening it' || true )"
+check "--no-open still writes the page" "1" \
+  "$([ -f "$MROOT/.factory/metrics.html" ] && echo 1 || echo 0)"
+# A terminal is not proof a human is watching: CI runners can allocate a pty.
+check "CI set means no browser, terminal or not" "0" \
+  "$( ( cd "$MROOT" && CI=true FACTORY_EVENT_LOG="$MLOG" ./scripts/factory-metrics.sh --html 2>&1 ) |
+      grep -c 'opening it' || true )"
+# A flag that cannot do anything should say so rather than be quietly accepted.
+check "--no-open without --html is a usage error" "2" \
+  "$( ( cd "$MROOT" && ./scripts/factory-metrics.sh --no-open >/dev/null 2>&1; echo $? ) )"
 check "a gate name cannot execute as shell" "0" \
   "$([ -e "$MARK" ] && echo 1 || echo 0)"
 check "a gate name cannot close the script element" "0" \
