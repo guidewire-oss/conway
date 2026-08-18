@@ -651,10 +651,11 @@ critical paths at once.
 **Initiative** _(extends the existing entity; all attributes optional)_
 - statedPriority: integer — planner's rank, 1 = highest; 0 or absent = unranked
 - priorityLocked: boolean — stated priority is non-negotiable
-- targetDate: date — the date this initiative is wanted by
+- targetDate: date — the single date this initiative is wanted by (Decision 21)
 - dateLocked: boolean — the date is a commitment, not an aspiration
 - tier: integer 1–4 — requester tier, per the existing tier semantics (T1 contractual … T4 aspirational)
-- costOfDelayPerWeek: number — value lost per week late; unitless points are acceptable
+- costOfDelayPerWeek: number — value lost per week late, in unitless points
+  (1-10 typical); relative weight is all the objective uses
 - earliestStart: date — not before, for external funding, hiring or upstream events
 - afterInitiatives: list of initiative names — cross-initiative precedence
 - kitPct: number 0–1 — full-kit readiness at period start
@@ -662,13 +663,16 @@ critical paths at once.
 
 **SchedulingParams** _(plan-level)_
 - periodStart: date — maps to week 0
-- maxConcurrentInitiatives: integer — org WIP limit
+- maxConcurrentInitiatives: integer — org WIP limit; absent or 0 derives it from
+  the tracks at the drum pod (Decision 22)
 - maxInitiativesPerPod: integer — per-pod concurrency cap
 - kitGate: number 0–1 — minimum readiness to release
 - targetUtilization: number — the ceiling the release rule staggers against
-- bufferPct, feedingBufferPct: number — buffer sizing
+- bufferPct, feedingBufferPct: number — flat percentages of the chain and of each
+  feeding path (Decision 20)
 - maxStartsPerQuarter: integer — change-absorption cap
-- leadCapacity: map of role → integer — concurrent initiatives per named lead
+- leadCapacity: map of role → integer — concurrent initiatives per named lead;
+  defaults PM 2, engineering lead 2, architect 3, programme 4
 - allowTransfers: boolean, transferRampWeeks: integer
 
 **CalendarWindow**
@@ -810,21 +814,21 @@ today.
 
 | # | Question | Owner | Target Date | Resolution |
 |---|----------|-------|-------------|------------|
-| Q1 | Where does the working-hours overlap between two sites come from for plan rosters? Observe has a site overlap matrix from the pod directory; plan Teams carry only a site string. Reuse the directory matrix, add a site table to the plan, or fall back to a default same-site/different-site pair of values? | Anoop | — | [NEEDS CLARIFICATION] |
-| Q2 | Cost of delay units: currency per week, or an unitless 1–10 scale? Recommendation is unitless, since real CoD is rarely known and the objective only needs relative weights. | Anoop | — | [NEEDS CLARIFICATION] |
-| Q3 | Default concurrent-initiative capacity per lead role. Proposed defaults: PM 2, engineering lead 2, architect 3, programme 4. Are these plausible for a real org? | Anoop | — | [NEEDS CLARIFICATION] |
-| Q4 | Can a pod run one initiative's work slice across two tracks to halve its duration? The spec assumes no (a slice occupies one track). If some pods genuinely parallelise within an initiative, the model needs a per-slice track count. | Anoop | — | [NEEDS CLARIFICATION] |
-| Q5 | Buffer sizing: a flat percentage of the chain, or the classic square-root-of-sum-of-squares over slice estimates? Flat is easier to explain; SSQ rewards initiatives with many small slices. | Anoop | — | [NEEDS CLARIFICATION] |
-| Q6 | Is one target date per initiative sufficient, or do initiatives carry intermediate milestones (early access, GA) with their own dates? | Anoop | — | [NEEDS CLARIFICATION] |
-| Q7 | Should the org WIP limit default to a number, or be derived (for example, tracks at the constraint pod)? A wrong default here is the single most visible knob in the feature. | Anoop | — | [NEEDS CLARIFICATION] |
-| Q8 | Does the priority column allow ties, and is 1 the highest? Spec assumes yes and yes, with ties broken by the ranking rule. | Anoop | — | [NEEDS CLARIFICATION] |
-| Q9 | Who owns the initiative-to-epic binding, and where is it entered — an Epics column in the FullKit sheet (stays with the planning artefact, rots between periods) or in-app on the plan (stays with the plan, invisible to the sheet's owner)? Recommendation is both, with the sheet winning on upload. | Anoop | — | [NEEDS CLARIFICATION] |
-| Q10 | Is the Parent Epic convention actually in use in the target Jira yet — a dated parent epic carrying the commitment, with feature epics as its children? If so, binding is nearly free and target dates can be seeded from it. If not, every binding starts as manual entry. | Anoop | — | [NEEDS CLARIFICATION] |
-| Q11 | Does the Jira import capture changelogs? Without transition history, "actual start" can only be inferred (earliest child activity), which weakens every schedule-variance figure. `docs/v2-spec.md` lists changelog ingestion as a later phase — this feature is a strong reason to pull it forward. | Anoop | — | [NEEDS CLARIFICATION] |
-| Q12 | Percent complete by issue count or by story points? Counts are always available; points are better but hygiene-dependent. Recommendation is counts, with points used where present and the choice labelled. | Anoop | — | [NEEDS CLARIFICATION] |
-| Q13 | How often should actuals refresh, and who triggers it — on demand from the plan, or automatically with each snapshot import? | Anoop | — | [NEEDS CLARIFICATION] |
-| Q14 | An epic's children may carry pods that were never in the initiative's plan. Is that unplanned scope, a planning miss, or a mis-assignment? It changes whether it counts as variance or as scope change. | Anoop | — | [NEEDS CLARIFICATION] |
-| Q15 | Can a pod lead be given access to only their own pod's timeline without seeing the whole portfolio? Today's roles are manager, admin and facilitator; a pod-lead role would be new. | Anoop | — | [NEEDS CLARIFICATION] |
+| Q1 | Where does the working-hours overlap between two sites come from for plan rosters? Observe has a site overlap matrix from the pod directory; plan Teams carry only a site string. Reuse the directory matrix, add a site table to the plan, or fall back to a default same-site/different-site pair of values? | Anoop | 2026-08-18 | **Resolved 2026-08-18 — deferred.** Slices 1-2 apply no overlap factor. When it lands, the source is the plan-level site table in spec 003, not the pod directory. Blocked on spec 003 Q1-Q4. |
+| Q2 | Cost of delay units: currency per week, or an unitless 1–10 scale? Recommendation is unitless, since real CoD is rarely known and the objective only needs relative weights. | Anoop | 2026-08-18 | **Resolved 2026-08-18.** Unitless points, 1-10 typical. The objective needs relative weights only, and a currency figure nobody can source is worse than an honest score. |
+| Q3 | Default concurrent-initiative capacity per lead role. Proposed defaults: PM 2, engineering lead 2, architect 3, programme 4. Are these plausible for a real org? | Anoop | 2026-08-18 | **Resolved 2026-08-18.** Defaults PM 2, engineering lead 2, architect 3, programme 4, each overridable per plan through `leadCapacity`. |
+| Q4 | Can a pod run one initiative's work slice across two tracks to halve its duration? The spec assumes no (a slice occupies one track). If some pods genuinely parallelise within an initiative, the model needs a per-slice track count. | Anoop | 2026-08-18 | **Resolved 2026-08-18 — no.** A slice occupies one track. A per-slice track count is a later extension if a real pod is shown to parallelise within one initiative. |
+| Q5 | Buffer sizing: a flat percentage of the chain, or the classic square-root-of-sum-of-squares over slice estimates? Flat is easier to explain; SSQ rewards initiatives with many small slices. | Anoop | 2026-08-18 | **Resolved 2026-08-18.** Flat `bufferPct` of the chain; SSQ stays available as a later parameter. See Decision 20. |
+| Q6 | Is one target date per initiative sufficient, or do initiatives carry intermediate milestones (early access, GA) with their own dates? | Anoop | 2026-08-18 | **Resolved 2026-08-18.** One `targetDate` per initiative. See Decision 21. |
+| Q7 | Should the org WIP limit default to a number, or be derived (for example, tracks at the constraint pod)? A wrong default here is the single most visible knob in the feature. | Anoop | 2026-08-18 | **Resolved 2026-08-18 — derived.** Absent or 0 means tracks at the drum pod. See Decision 22. |
+| Q8 | Does the priority column allow ties, and is 1 the highest? Spec assumes yes and yes, with ties broken by the ranking rule. | Anoop | 2026-08-18 | **Resolved 2026-08-18 — yes and yes.** Ties are allowed, 1 is highest, and ties break on the ranking rule in Decision 2. |
+| Q9 | Who owns the initiative-to-epic binding, and where is it entered — an Epics column in the FullKit sheet (stays with the planning artefact, rots between periods) or in-app on the plan (stays with the plan, invisible to the sheet's owner)? Recommendation is both, with the sheet winning on upload. | Anoop | 2026-08-18 | **Resolved 2026-08-18 — both, sheet wins on upload.** This is the precedence ladder already recorded in Decision 14. |
+| Q10 | Is the Parent Epic convention actually in use in the target Jira yet — a dated parent epic carrying the commitment, with feature epics as its children? If so, binding is nearly free and target dates can be seeded from it. If not, every binding starts as manual entry. | Anoop | 2026-08-18 | [NEEDS CLARIFICATION] — a fact about the target Jira, not a design choice, so it cannot be defaulted. Decision 14's ladder works either way: without the convention every binding starts as manual entry and target dates are entered in-app. Needed before slice 6, not before slice 1. |
+| Q11 | Does the Jira import capture changelogs? Without transition history, "actual start" can only be inferred (earliest child activity), which weakens every schedule-variance figure. `docs/v2-spec.md` lists changelog ingestion as a later phase — this feature is a strong reason to pull it forward. | Anoop | 2026-08-18 | **Resolved 2026-08-18 by inspection — not captured.** `server/jira/client.go:170` and `server/jira/detail.go:66` request `fields=` only, with no `expand=changelog`, so no transition history reaches a snapshot. Actual start is inferred and labelled as inferred. See Decision 23. |
+| Q12 | Percent complete by issue count or by story points? Counts are always available; points are better but hygiene-dependent. Recommendation is counts, with points used where present and the choice labelled. | Anoop | 2026-08-18 | **Resolved 2026-08-18.** Issue counts, story points where present, and the basis labelled wherever a percentage is shown. |
+| Q13 | How often should actuals refresh, and who triggers it — on demand from the plan, or automatically with each snapshot import? | Anoop | 2026-08-18 | **Resolved 2026-08-18 — on demand from the plan.** See Decision 24. |
+| Q14 | An epic's children may carry pods that were never in the initiative's plan. Is that unplanned scope, a planning miss, or a mis-assignment? It changes whether it counts as variance or as scope change. | Anoop | 2026-08-18 | **Resolved 2026-08-18 — scope change, reported separately from variance.** See Decision 25. |
+| Q15 | Can a pod lead be given access to only their own pod's timeline without seeing the whole portfolio? Today's roles are manager, admin and facilitator; a pod-lead role would be new. | Anoop | 2026-08-18 | **Resolved 2026-08-18 — no new role in this feature.** See Decision 26. |
 
 ---
 
@@ -1169,6 +1173,170 @@ start, latest start and slack, which the portfolio lens does not need.
 
 **Consequences:** Two renderings to keep consistent. They must share one layout
 computation, or they will drift and show different weeks for the same slice.
+
+### Decision 20: Buffers are a flat percentage of the chain, not square-root-of-sum-of-squares
+
+**Context:** CCPM sizes a project buffer from the variance of the chain's tasks,
+classically the square root of the sum of squares of the individual safety
+margins. Conway's slices are whole-week estimates entered in a spreadsheet, and
+the fever chart only needs a denominator that everyone reads the same way.
+
+**Decision:** `bufferPct` is a flat percentage of the chain length, and
+`feedingBufferPct` the same for each feeding path. SSQ remains available as a
+later parameter if a plan's estimates ever carry per-slice uncertainty.
+
+**Alternatives considered:**
+- SSQ from the start — rejected because it rewards an initiative for being
+  chopped into many small slices, which is an artefact of how the sheet was
+  filled in rather than a statement about risk, and no planner can reproduce the
+  number in their head when they are asked why the buffer is nine weeks.
+- No buffer, commit on the raw finish — rejected: the whole point of the buffer
+  is that the raw finish is a fiction nobody should promise (Decision 4).
+
+**Consequences:** Two initiatives with the same total length get the same buffer
+regardless of shape, which is wrong in theory and legible in practice. If real
+per-slice uncertainty ever arrives, the switch is a parameter, not a rewrite —
+so keep buffer sizing behind one function.
+
+---
+
+### Decision 21: One target date per initiative
+
+**Context:** Real initiatives often carry more than one committed date — early
+access, then GA — and each could in principle have its own verdict.
+
+**Decision:** One `targetDate` per initiative, with `dateLocked` marking a
+commitment. Multiple milestones are out of scope for this feature.
+
+**Alternatives considered:**
+- A list of dated milestones per initiative — rejected for now: it multiplies
+  every downstream surface (a verdict per milestone, a buffer per milestone, a
+  fever chart per milestone) for a modelling gain nobody has asked for yet.
+- Model the second date as a separate initiative with a precedence edge —
+  available today via `afterInitiatives`, and honest: two commitments with
+  different scope really are two pieces of work.
+
+**Consequences:** An initiative with an early-access and a GA date must either
+pick the one that governs sequencing or be split. The second option already
+works, so this is a modelling instruction rather than a missing feature.
+
+---
+
+### Decision 22: The org WIP limit is derived from the drum, not defaulted to a number
+
+**Context:** `maxConcurrentInitiatives` is the most visible knob in the feature.
+A shipped default of, say, 5 is a number the tool cannot justify, and every
+planner who sees it will either trust it or fight it.
+
+**Decision:** When `maxConcurrentInitiatives` is absent or 0, derive it from the
+tracks at the drum pod — the constraint the release rule already staggers
+against (Decision 5). An explicit value always wins, and the UI shows which of
+the two is in force.
+
+**Alternatives considered:**
+- A fixed default — rejected: it invents a capacity claim about an org the tool
+  has never seen, and it is the one number a reviewer will quote back.
+- No default, force the planner to choose — rejected: the first run of the
+  feature would then need a value nobody has a basis for yet, which is a worse
+  first impression than a derived one that can be explained in a sentence.
+
+**Consequences:** The limit moves when the roster moves, which is correct and
+also surprising, so the derived value must always be labelled as derived and
+show the pod it came from.
+
+---
+
+### Decision 23: Actual start is inferred, and labelled as inferred
+
+**Context:** Schedule variance wants the date work actually started. That comes
+from a status transition, and the Jira client requests `fields=` only — see
+`server/jira/client.go:170` and `server/jira/detail.go:66` — so no changelog
+reaches a snapshot today.
+
+**Decision:** Infer actual start from the earliest child activity in the bound
+epic, and label every figure derived from it as inferred. Do not present an
+inferred start as an observed one.
+
+**Alternatives considered:**
+- Pull changelog ingestion forward into this feature — rejected as scope: it is
+  a snapshot-pipeline change with its own volume and rate-limit questions
+  (`docs/v2-spec.md` has it as a later phase). This decision is a strong reason
+  to prioritise it, and that argument is better made with the variance view
+  already shipped and visibly hedged.
+- Omit schedule variance until changelogs exist — rejected: an inferred start
+  still catches the case the feature exists for, an initiative that began weeks
+  after its baseline said it would.
+
+**Consequences:** Schedule variance is directional, not exact, until changelog
+ingestion lands. Every surface that shows it carries that qualification, and the
+qualification is removed in one place when the data improves.
+
+---
+
+### Decision 24: Actuals refresh on demand, from the plan
+
+**Context:** Actuals could recompute with every snapshot import, or when someone
+asks for them.
+
+**Decision:** On demand from the plan, through
+`POST /api/plan/{id}/baseline/{bid}/actuals`, recording the source snapshot and
+timestamp with the result.
+
+**Alternatives considered:**
+- Automatic on every import — rejected for this slice: an import serves Observe
+  and has no idea which plans are bound to which epics, so it would do work
+  nobody asked for and make the import slower for the common case.
+- A schedule — rejected: nothing here is time-critical, and a cron makes
+  provenance harder to read, not easier.
+
+**Consequences:** A tracking view can be stale, so the stored snapshot id and
+timestamp are part of the response and shown next to the figures rather than
+implied.
+
+---
+
+### Decision 25: Pods outside the plan are scope change, not variance
+
+**Context:** A bound epic's children may carry pods the initiative never planned
+for. That is either a planning miss, a mis-assignment, or genuine new scope, and
+the three want different treatment.
+
+**Decision:** Report unplanned pods as scope change, in their own section,
+separate from estimate and schedule variance. The estimate variance figures stay
+about slices the plan actually contains.
+
+**Alternatives considered:**
+- Count them as estimate variance — rejected: it makes a pod look
+  under-estimated when the truth is that nobody estimated it at all, and it
+  quietly corrupts the pod calibration figures that variance feeds.
+- Ignore them — rejected: unplanned pods are exactly the signal a planner wants
+  before the next period.
+
+**Consequences:** Three categories to keep distinct in the UI. Pod calibration
+must exclude scope-change slices, or the calibration learns from work that was
+never planned.
+
+---
+
+### Decision 26: No pod-lead role in this feature
+
+**Context:** The per-pod timeline is written for a pod lead, and today's roles
+are manager, admin and facilitator. A pod lead who should see only their own
+lane would need a new role.
+
+**Decision:** Ship the per-pod lens as a filtered view for the existing roles.
+No new role, no new permission surface.
+
+**Alternatives considered:**
+- Add a pod-lead role now — rejected: a new role touches auth, JIT provisioning
+  and the claim mapping, which is a larger and riskier change than the view it
+  would gate, and it is not needed to prove the feature.
+
+**Consequences:** A pod lead either gets manager access, which shows them the
+whole portfolio, or receives their lane another way. If narrow access turns out
+to matter, it is a separate spec against `server/auth`, not a change here.
+
+---
 
 ---
 
