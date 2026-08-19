@@ -15,6 +15,7 @@
 package planning
 
 import (
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -33,11 +34,11 @@ type TeamWork struct {
 // The sequencing attributes below are all optional, and a plan carrying none of
 // them schedules exactly as it behaves today (spec 001 FR-002).
 //
-// Nothing populates them from an uploaded sheet yet: ParseMatrix does not read
-// §8's optional columns, and there is no in-app editing endpoint. Today they
-// reach the scheduler only through the draft override on POST
-// /api/plan/{id}/schedule. Both entry points are still to be built, so an
-// uploaded plan cannot yet honour its own priorities or dates.
+// ParseMatrix reads them from §8's optional columns, so an uploaded sheet can
+// carry them, and the draft override on POST /api/plan/{id}/schedule can supply
+// them for an unsaved plan. In-app editing (PATCH /api/plan/{id}/initiatives) is
+// the entry point still to be built; §10 Q9 resolved that both exist, with an
+// uploaded sheet winning for the initiatives it names.
 type Initiative struct {
 	Name        string              `json:"name"`
 	Description string              `json:"description,omitempty"`
@@ -165,6 +166,58 @@ func attrKey(h string) string {
 	return ""
 }
 
+// splitInitiativeList parses the predecessor cell. It is comma-separated like a
+// pod dependency cell, but an initiative name is prose a person typed and may well
+// contain a comma ("Payments, phase 2"), so a name may be double-quoted to hold
+// itself together — the same convention CSV uses, and the one WriteInitiativesXLSX
+// emits. Without it, one comma'd predecessor silently becomes two names that match
+// no initiative, and an unmatched predecessor is ignored, so the precedence would
+// be lost without a word.
+func splitInitiativeList(cell string) []string {
+	s := strings.TrimSpace(cell)
+	if s == "" || strings.HasPrefix(strings.ToLower(s), "replace this with") {
+		return nil
+	}
+	var out []string
+	seen := map[string]bool{}
+	var cur strings.Builder
+	inQuotes := false
+	flush := func() {
+		name := strings.TrimSpace(cur.String())
+		cur.Reset()
+		if name == "" || strings.EqualFold(name, "none") {
+			return
+		}
+		key := strings.ToLower(name)
+		if seen[key] {
+			return
+		}
+		seen[key] = true
+		out = append(out, name)
+	}
+	for _, r := range s {
+		switch {
+		case r == '"':
+			inQuotes = !inQuotes
+		case r == ',' && !inQuotes:
+			flush()
+		default:
+			cur.WriteRune(r)
+		}
+	}
+	flush()
+	return out
+}
+
+// quoteInitiativeName wraps a name containing a comma so splitInitiativeList reads
+// it back as one predecessor. Kept next to the parser it has to agree with.
+func quoteInitiativeName(name string) string {
+	if strings.ContainsAny(name, `",`) {
+		return `"` + strings.ReplaceAll(name, `"`, "") + `"`
+	}
+	return name
+}
+
 // initiativeAttrCols locates the sequencing columns, searching only to the left of
 // limit — the full-kit total column. §8 places them there, and the bound is what
 // keeps a pod legitimately named "Tier" or "Priority" from being read as one: team
@@ -217,7 +270,8 @@ func parseSheetDate(cell string) string {
 			return t.Format("2006-01-02")
 		}
 	}
-	if serial, err := strconv.ParseFloat(s, 64); err == nil && serial >= minExcelSerial {
+	serial, err := strconv.ParseFloat(s, 64)
+	if err == nil && !math.IsInf(serial, 0) && serial >= minExcelSerial {
 		return excelEpoch.AddDate(0, 0, int(serial)).Format("2006-01-02")
 	}
 	return ""
@@ -232,7 +286,7 @@ func parseSheetFraction(cell string) float64 {
 		return 0
 	}
 	n, err := strconv.ParseFloat(s, 64)
-	if err != nil {
+	if err != nil || math.IsNaN(n) || math.IsInf(n, 0) {
 		return 0
 	}
 	if n > 1 {
@@ -261,7 +315,7 @@ func parseWeeks(cell string) (float64, bool) {
 		return 0, false
 	}
 	n, err := strconv.ParseFloat(numCleaner.Replace(s), 64)
-	if err != nil {
+	if err != nil || math.IsNaN(n) || math.IsInf(n, 0) {
 		return 0, false
 	}
 	return n, true
@@ -294,7 +348,12 @@ func ParseMatrix(rows [][]string, roster []string, strict bool) *Plan {
 	for i, h := range hdr {
 		l := strings.ToLower(strings.TrimSpace(h))
 		switch {
-		case initIdx < 0 && strings.Contains(l, "initiative"):
+		// A header the attribute scan claims cannot also be the name column:
+		// "Depends on Initiative" contains "initiative", so without this guard it would
+		// take the name whenever it happened to sit further left. The guard is scoped to
+		// this case on purpose — a full-kit total column named "Full Kit % Estimate"
+		// also matches an attribute, and it still has to be found as the total.
+		case initIdx < 0 && strings.Contains(l, "initiative") && attrKey(h) == "":
 			initIdx = i
 		case strings.Contains(l, "lead"):
 			if k := leadKey(h); k != "" {
@@ -402,9 +461,7 @@ func readInitiativeAttrs(init *Initiative, row []string, attrs map[string]int, a
 		init.CostOfDelayPerWeek = n
 	}
 	init.EarliestStart = parseSheetDate(cell("earliestStart"))
-	// Reuse the dependency-cell parser: this column is the same free text, with the
-	// same commas, the same "NONE" and the same unfilled placeholder.
-	init.AfterInitiatives = cleanDeps(cell("afterInitiatives"))
+	init.AfterInitiatives = splitInitiativeList(cell("afterInitiatives"))
 	init.KitPct = parseSheetFraction(cell("kitPct"))
 	init.InFlight = truthy(cell("inFlight"))
 	init.ProgressPct = parseSheetFraction(cell("progressPct"))

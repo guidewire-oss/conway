@@ -110,7 +110,7 @@ func WriteInitiativesXLSX(teams []Team, inits []Initiative) []byte {
 		row[10] = intCell(it.Tier)
 		row[11] = numCell(it.CostOfDelayPerWeek)
 		row[12] = it.EarliestStart
-		row[13] = strings.Join(it.AfterInitiatives, ", ")
+		row[13] = joinInitiativeNames(it.AfterInitiatives)
 		row[14] = numCell(it.KitPct)
 		row[15] = boolCell(it.InFlight)
 		row[16] = numCell(it.ProgressPct)
@@ -172,4 +172,17 @@ func boolCell(b bool) string {
 		return "yes"
 	}
 	return ""
+}
+
+// joinInitiativeNames writes the predecessor cell, quoting any name that contains
+// a comma so splitInitiativeList reads it back as one name rather than two.
+func joinInitiativeNames(names []string) string {
+	if len(names) == 0 {
+		return ""
+	}
+	quoted := make([]string, 0, len(names))
+	for _, n := range names {
+		quoted = append(quoted, quoteInitiativeName(n))
+	}
+	return strings.Join(quoted, ", ")
 }

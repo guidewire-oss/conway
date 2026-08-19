@@ -1,6 +1,7 @@
 package planning
 
 import (
+	"encoding/json"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -130,6 +131,37 @@ var _ = Describe("ParseMatrix with the sequencing columns", func() {
 		Expect(it.EarliestStart).To(BeEmpty())
 	})
 
+	// The header scan matches on substrings, and "Depends on Initiative" contains
+	// "initiative". Whichever column comes first must not be able to claim the name.
+	It("does not mistake the depends-on column for the initiative name column", func() {
+		plan := ParseMatrix([][]string{
+			{"Depends on Initiative", "Initiative", "Full Kit Estimate total", "Alpha"},
+			{"Platform base", "Real name", "6", "6"},
+		}, nil, false)
+
+		Expect(plan.Initiatives).To(HaveLen(1))
+		Expect(plan.Initiatives[0].Name).To(Equal("Real name"))
+		Expect(plan.Initiatives[0].AfterInitiatives).To(Equal([]string{"Platform base"}))
+	})
+
+	// encoding/json cannot marshal NaN or Inf, so letting one into a field turns the
+	// upload response into a dropped request — the same hazard InfiniteRho exists for.
+	It("refuses a non-finite number rather than poisoning the response", func() {
+		plan := ParseMatrix([][]string{
+			{"Initiative", "Kit %", "% Complete", "Cost of Delay", "Full Kit Estimate total", "Alpha"},
+			{"Not a number", "NaN", "+Inf", "NaN", "6", "Inf"},
+		}, nil, false)
+
+		it := plan.Initiatives[0]
+		Expect(it.KitPct).To(BeZero())
+		Expect(it.ProgressPct).To(BeZero())
+		Expect(it.CostOfDelayPerWeek).To(BeZero())
+		Expect(it.Work["Alpha"].Weeks).To(BeZero(), "the team estimate has the same hazard")
+
+		_, err := json.Marshal(plan)
+		Expect(err).NotTo(HaveOccurred(), "a plan carrying NaN cannot be sent to the browser")
+	})
+
 	It("ignores a blank or unparseable cell rather than inventing a value", func() {
 		plan := ParseMatrix([][]string{
 			{"Initiative", "Priority", "Target Date", "Tier", "Kit %", "Full Kit Estimate total", "Alpha"},
@@ -225,6 +257,27 @@ var _ = Describe("the sample initiatives workbook", func() {
 		Expect(plain.Tier).To(BeZero())
 		Expect(plain.KitPct).To(BeZero())
 		Expect(plain.InFlight).To(BeFalse())
+	})
+
+	// The predecessor cell is comma-separated, so a name containing a comma would
+	// otherwise come back as two predecessors that match nothing — and an unmatched
+	// predecessor is ignored, so the precedence would be lost in silence.
+	It("round-trips a predecessor whose name contains a comma", func() {
+		commaNamed := []Initiative{
+			{Name: "Payments, phase 2", Work: map[string]TeamWork{"Alpha": {Weeks: 4, Estimated: true, InPath: true}}},
+			{
+				Name:             "Depends on it",
+				Work:             map[string]TeamWork{"Alpha": {Weeks: 2, Estimated: true, InPath: true}},
+				AfterInitiatives: []string{"Payments, phase 2", "Card rails"},
+			},
+		}
+		grid, err := ReadGrid(WriteInitiativesXLSX(teams, commaNamed), "")
+		Expect(err).NotTo(HaveOccurred())
+		plan := ParseMatrix(grid, []string{"Alpha", "Beta"}, true)
+
+		Expect(plan.Initiatives).To(HaveLen(2))
+		Expect(plan.Initiatives[0].Name).To(Equal("Payments, phase 2"))
+		Expect(plan.Initiatives[1].AfterInitiatives).To(Equal([]string{"Payments, phase 2", "Card rails"}))
 	})
 
 	It("names each column so a planner can see what to fill in", func() {
