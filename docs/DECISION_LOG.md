@@ -305,7 +305,9 @@ because it needed new tests either way.
 `server/server_suite_test.go` are the first two. `github.com/onsi/ginkgo/v2`
 v2.32.1 and `github.com/onsi/gomega` v1.42.1 are vendored. The pre-existing stdlib
 tests are left alone, and `ginkgo-only-check.sh` stays out of the gate chain while
-they remain, since arming it would fail on files this decision does not convert.
+they remain, since arming it would fail on the 23 files this decision does not
+convert (counted the way the gate counts on 2026-08-19, the two new bootstraps
+excluded; spec 002 Decision 4's "19" was accurate when written).
 This partly answers spec 002 Q2; whether those 19 files are ever converted, and by
 whom, is still open.
 

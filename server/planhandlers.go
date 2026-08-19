@@ -412,8 +412,16 @@ func (s *server) schedulePlan(w http.ResponseWriter, r *http.Request, p *db.Plan
 	}
 	// An empty body is legal — it means "schedule the saved plan with defaults" —
 	// but a malformed one must not quietly become that same request.
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
+	dec := json.NewDecoder(r.Body)
+	if err := dec.Decode(&body); err != nil && !errors.Is(err, io.EOF) {
 		http.Error(w, "could not read the schedule request: "+err.Error(), 400)
+		return
+	}
+	// Anything after the first JSON value means the caller sent something other
+	// than the one object this endpoint takes, and scheduling the part we happened
+	// to parse would answer a question nobody asked.
+	if dec.More() {
+		http.Error(w, "the schedule request must be a single JSON object", 400)
 		return
 	}
 
