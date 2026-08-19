@@ -195,27 +195,36 @@ func splitInitiativeList(cell string) []string {
 		seen[key] = true
 		out = append(out, name)
 	}
-	for _, r := range s {
-		switch {
-		case r == '"':
+	// Byte-wise, with a one-byte lookahead for the doubled quote. Safe for UTF-8:
+	// every byte of a multi-byte rune is >= 0x80, so none can be mistaken for a
+	// quote or a comma, and copying bytes through leaves the rune intact.
+	for i := 0; i < len(s); i++ {
+		switch c := s[i]; {
+		case c == '"' && inQuotes && i+1 < len(s) && s[i+1] == '"':
+			cur.WriteByte('"') // "" inside quotes is one literal quote, as in CSV
+			i++
+		case c == '"':
 			inQuotes = !inQuotes
-		case r == ',' && !inQuotes:
+		case c == ',' && !inQuotes:
 			flush()
 		default:
-			cur.WriteRune(r)
+			cur.WriteByte(c)
 		}
 	}
 	flush()
 	return out
 }
 
-// quoteInitiativeName wraps a name containing a comma so splitInitiativeList reads
-// it back as one predecessor. Kept next to the parser it has to agree with.
+// quoteInitiativeName wraps a name containing a comma or a quote so
+// splitInitiativeList reads it back as one predecessor, doubling any embedded quote
+// the way CSV does. Kept next to the parser it has to agree with: stripping the
+// quote instead would rename the initiative, which loses the precedence edge just
+// as silently as splitting on the comma did.
 func quoteInitiativeName(name string) string {
-	if strings.ContainsAny(name, `",`) {
-		return `"` + strings.ReplaceAll(name, `"`, "") + `"`
+	if !strings.ContainsAny(name, `",`) {
+		return name
 	}
-	return name
+	return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
 }
 
 // initiativeAttrCols locates the sequencing columns, searching only to the left of
