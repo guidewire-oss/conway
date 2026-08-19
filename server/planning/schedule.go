@@ -341,7 +341,10 @@ func ComputeSchedule(teams []Team, inits []Initiative, params Params, sp Schedul
 	}
 	sched.Reconciliation = reconcile(sched.Initiatives)
 	sched.Assumptions, sched.Warnings = notices(prepared)
-	sched.Assumptions = append(sched.Assumptions, precedenceCycles(prepared)...)
+	// From the winning run, not from a fresh walk of the plan: which edge closes a
+	// cycle depends on the traversal, so a sheet-order detector would name an edge
+	// this schedule did not break, and blame the wrong initiative for skipping it.
+	sched.Assumptions = append(sched.Assumptions, best.assumptions...)
 	return sched
 }
 
@@ -763,6 +766,7 @@ type runResult struct {
 	initiatives []ScheduledInitiative
 	pods        []PodSchedule
 	objective   float64
+	assumptions []string // precedence edges this run had to break
 }
 
 // podCalendar tracks one pod's occupancy week by week.
@@ -805,8 +809,10 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 		}
 	}
 
+	seq, brokenPrecedence := releaseSequence(order)
+
 	results := map[string]*ScheduledInitiative{}
-	for _, in := range releaseSequence(order) {
+	for _, in := range seq {
 		rank := ranks[in.init.Name]
 		release, reason := releaseFloor(in, sp, commitOf, horizon)
 
@@ -864,7 +870,8 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 			weights[in.init.Name] = in.weight
 		}
 	}
-	return &runResult{initiatives: out, pods: podSchedules(cal, tracks, out, horizon), objective: objectiveOf(out, weights)}
+	return &runResult{initiatives: out, pods: podSchedules(cal, tracks, out, horizon),
+		objective: objectiveOf(out, weights), assumptions: brokenPrecedence}
 }
 
 // releaseSequence is the order releases are actually processed in, which is not
@@ -879,9 +886,9 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 //
 // A cycle in afterInitiatives is broken at the edge that closes it, on the same
 // reasoning as a pod cycle (AC X.1): scheduling something and saying so beats
-// refusing to schedule at all. precedenceCycles does the saying, once per plan, so
-// the reported cycle does not depend on which rule's order got here first.
-func releaseSequence(order []*schedInput) []*schedInput {
+// refusing to schedule at all. The broken edges come back with the sequence so the
+// assumption describes the order that was actually returned.
+func releaseSequence(order []*schedInput) ([]*schedInput, []string) {
 	byName := map[string]*schedInput{}
 	var ranked []*schedInput
 	for _, in := range order {
@@ -898,6 +905,7 @@ func releaseSequence(order []*schedInput) []*schedInput {
 	)
 	state := map[string]int{}
 	var seq []*schedInput
+	var brokenEdges []string
 	var visit func(in *schedInput)
 	visit = func(in *schedInput) {
 		if state[in.init.Name] == done {
@@ -908,7 +916,16 @@ func releaseSequence(order []*schedInput) []*schedInput {
 			p := byName[pred]
 			// An unknown predecessor is not in this plan, so there is nothing to wait
 			// for; releaseFloor already ignores it for the same reason.
-			if p == nil || p == in || state[pred] == visiting {
+			if p == nil || p == in {
+				continue
+			}
+			if state[pred] == visiting {
+				// This edge closes a cycle. Breaking it is the only way to produce an
+				// order at all, and it means this initiative will be released without
+				// its predecessor's finish, which AC X.1 requires us to say out loud.
+				brokenEdges = append(brokenEdges,
+					"broke an initiative precedence cycle at "+pred+" -> "+in.init.Name+
+						", so "+in.init.Name+" is ordered without waiting for it")
 				continue
 			}
 			visit(p)
@@ -925,56 +942,7 @@ func releaseSequence(order []*schedInput) []*schedInput {
 	for _, in := range ranked {
 		visit(in)
 	}
-	return seq
-}
-
-// precedenceCycles names every afterInitiatives cycle in the plan. releaseSequence
-// has to break one edge per cycle to produce any order at all, and AC X.1's rule
-// for pod cycles applies here too: an order built on a dropped edge must say so,
-// or it reads as fully precedence-compliant when it is not.
-//
-// Detection runs once over the plan in sheet order rather than inside
-// releaseSequence, so the reported cycle is the same whichever dispatch rule wins.
-func precedenceCycles(ins []*schedInput) []string {
-	byName := map[string]*schedInput{}
-	for _, in := range ins {
-		byName[in.init.Name] = in
-	}
-	const (
-		visiting = 1
-		done     = 2
-	)
-	state := map[string]int{}
-	var found []string
-	seen := map[string]bool{}
-	var visit func(in *schedInput)
-	visit = func(in *schedInput) {
-		if state[in.init.Name] == done {
-			return
-		}
-		state[in.init.Name] = visiting
-		for _, pred := range in.init.AfterInitiatives {
-			p := byName[pred]
-			if p == nil || p == in {
-				continue
-			}
-			if state[pred] == visiting {
-				msg := "broke an initiative precedence cycle at " + pred + " -> " + in.init.Name +
-					", so " + in.init.Name + " is ordered without waiting for it"
-				if !seen[msg] {
-					seen[msg] = true
-					found = append(found, msg)
-				}
-				continue
-			}
-			visit(p)
-		}
-		state[in.init.Name] = done
-	}
-	for _, in := range ins {
-		visit(in)
-	}
-	return found
+	return seq, brokenEdges
 }
 
 // releaseFloor is the earliest week an initiative could be released, before

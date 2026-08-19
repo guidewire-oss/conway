@@ -468,6 +468,34 @@ var _ = Describe("ComputeSchedule", func() {
 		Expect(joined).To(ContainSubstring("cycle"))
 	})
 
+	// The edge that gets broken depends on the traversal, so the assumption has to
+	// come from the run that was actually returned. Naming the edge a sheet-order
+	// walk would have broken points at the wrong initiative.
+	It("names the edge the winning order actually broke", func() {
+		teams := []Team{{Name: "Atlas", Tracks: 4}}
+		inits := []Initiative{
+			// Sheet order is Chicken first, but Egg outranks it by delay weight, so the
+			// winning rule releases the pair in the opposite order to the sheet.
+			{Name: "Chicken", Work: map[string]TeamWork{"Atlas": podWork(3)},
+				AfterInitiatives: []string{"Egg"}, Tier: 4, CostOfDelayPerWeek: 1},
+			{Name: "Egg", Work: map[string]TeamWork{"Atlas": podWork(3)},
+				AfterInitiatives: []string{"Chicken"}, Tier: 1, CostOfDelayPerWeek: 10},
+		}
+		sched := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0},
+			SchedulingParams{PeriodStart: specPeriodStart, MaxConcurrentInitiatives: 2, BufferPct: pctOf(0.25)})
+
+		chicken := scheduledFor(sched, "Chicken")
+		egg := scheduledFor(sched, "Egg")
+		Expect(egg.ProposedRank).To(Equal(1), "Egg carries the delay weight")
+
+		// Exactly one of the pair can honour its precedence; the assumption must name
+		// whichever one did not.
+		Expect(egg.StartWeek).To(BeNumerically(">=", chicken.CommitWeek),
+			"Egg waited for Chicken, so Chicken is the edge that was broken")
+		Expect(strings.Join(sched.Assumptions, " | ")).To(
+			ContainSubstring("Chicken is ordered without waiting for it"))
+	})
+
 	// AC 1.4 again: Utilization sorts on rho alone over a map, so equal-rho pods can
 	// arrive in either order. The drum must not depend on that.
 	It("picks the same drum on every run when two pods are equally loaded", func() {
