@@ -422,6 +422,52 @@ var _ = Describe("ComputeSchedule", func() {
 		})
 	})
 
+	// Ranking moved to residual work, so drum selection has to move with it or the
+	// scheduler constrains a pod that is nearly done.
+	It("picks the drum from residual work, not the original estimates", func() {
+		teams := []Team{{Name: "Heavy", Tracks: 1}, {Name: "Real", Tracks: 1}}
+		inits := []Initiative{
+			{Name: "Nearly finished", Work: map[string]TeamWork{"Heavy": podWork(20)},
+				InFlight: true, ProgressPct: 0.9},
+			{Name: "All still ahead", Work: map[string]TeamWork{"Real": podWork(6)}},
+		}
+		sched := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0},
+			SchedulingParams{PeriodStart: specPeriodStart, BufferPct: pctOf(0.25)})
+
+		// Heavy carries 20 weeks on paper but only 2 are left; Real has all 6 to go.
+		Expect(sched.DrumPods).To(ConsistOf("Real"))
+		Expect(sched.WipLimit.FromPod).To(Equal("Real"))
+	})
+
+	It("does not hold carryover behind the full-kit gate either", func() {
+		teams := []Team{{Name: "Atlas", Tracks: 4}}
+		inits := []Initiative{{Name: "Running already", Work: map[string]TeamWork{"Atlas": podWork(8)},
+			InFlight: true, ProgressPct: 0.5, KitPct: 0.1}}
+		sched := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0},
+			SchedulingParams{PeriodStart: specPeriodStart, KitGate: 0.8, BufferPct: pctOf(0.25)})
+
+		si := scheduledFor(sched, "Running already")
+		Expect(si.StartWeek).To(Equal(0), "a readiness gate cannot un-start work that is already running")
+		Expect(si.BindingConstraint).NotTo(Equal("kit-gate"))
+	})
+
+	// AC X.1 for cross-initiative precedence: a broken edge has to be reported, or
+	// the order reads as fully precedence-compliant when it is not.
+	It("reports a cycle in afterInitiatives instead of silently dropping an edge", func() {
+		teams := []Team{{Name: "Atlas", Tracks: 4}}
+		inits := []Initiative{
+			{Name: "Chicken", Work: map[string]TeamWork{"Atlas": podWork(3)}, AfterInitiatives: []string{"Egg"}},
+			{Name: "Egg", Work: map[string]TeamWork{"Atlas": podWork(3)}, AfterInitiatives: []string{"Chicken"}},
+		}
+		sched := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0},
+			SchedulingParams{PeriodStart: specPeriodStart, MaxConcurrentInitiatives: 2, BufferPct: pctOf(0.25)})
+
+		joined := strings.Join(sched.Assumptions, " | ")
+		Expect(joined).To(ContainSubstring("Chicken"))
+		Expect(joined).To(ContainSubstring("Egg"))
+		Expect(joined).To(ContainSubstring("cycle"))
+	})
+
 	// AC 1.4 again: Utilization sorts on rho alone over a map, so equal-rho pods can
 	// arrive in either order. The drum must not depend on that.
 	It("picks the same drum on every run when two pods are equally loaded", func() {

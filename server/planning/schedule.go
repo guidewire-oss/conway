@@ -290,12 +290,19 @@ func ComputeSchedule(teams []Team, inits []Initiative, params Params, sp Schedul
 		tracks[t.Name] = t.EffectiveTracks()
 	}
 
-	drumPods, drum := drumsOf(Utilization(&Plan{Initiatives: inits}, teams, params))
-	wip := deriveWipLimit(sp, tracks, drum)
-
+	// Two passes, because the drum has to be chosen from the same residual work the
+	// ranking uses: durations first, then the drum they imply, then the per-initiative
+	// drum consumption. Utilization is deliberately not the source here — it reports
+	// full demand for the existing flat-rho views, whose numbers must not move
+	// (AC 1.1), so a nearly-finished carryover would otherwise crown the wrong pod.
 	prepared := make([]*schedInput, 0, len(inits))
 	for i, it := range inits {
-		prepared = append(prepared, prepareInitiative(i, it, tracks, params, sp, drumPods))
+		prepared = append(prepared, prepareInitiative(i, it, tracks, params, sp))
+	}
+	drumPods, drum := drumsOf(residualLoads(prepared, tracks, params))
+	wip := deriveWipLimit(sp, tracks, drum)
+	for _, in := range prepared {
+		in.setDrumWeeks(drumPods)
 	}
 
 	pBar := meanProcessing(prepared)
@@ -334,6 +341,7 @@ func ComputeSchedule(teams []Team, inits []Initiative, params Params, sp Schedul
 	}
 	sched.Reconciliation = reconcile(sched.Initiatives)
 	sched.Assumptions, sched.Warnings = notices(prepared)
+	sched.Assumptions = append(sched.Assumptions, precedenceCycles(prepared)...)
 	return sched
 }
 
@@ -378,7 +386,7 @@ func deriveWipLimit(sp SchedulingParams, tracks map[string]int, drum string) Wip
 	return WipLimit{Value: n, Derived: true, FromPod: drum}
 }
 
-func prepareInitiative(idx int, it Initiative, tracks map[string]int, params Params, sp SchedulingParams, drumPods []string) *schedInput {
+func prepareInitiative(idx int, it Initiative, tracks map[string]int, params Params, sp SchedulingParams) *schedInput {
 	in := &schedInput{idx: idx, init: it, durations: map[string]int{}, weight: initiativeWeight(it)}
 
 	inPath := map[string]bool{}
@@ -389,10 +397,6 @@ func prepareInitiative(idx int, it Initiative, tracks map[string]int, params Par
 	}
 	in.order, in.deps, in.assumptions = podOrder(it.Work, inPath)
 
-	isDrum := map[string]bool{}
-	for _, d := range drumPods {
-		isDrum[d] = true
-	}
 	for _, pod := range in.order {
 		w := it.Work[pod]
 		in.durations[pod] = sliceWeeks(w, it, params.CapacityLoss)
@@ -400,9 +404,6 @@ func prepareInitiative(idx int, it Initiative, tracks map[string]int, params Par
 		// initiative that is 80% done occupies two more weeks of the drum, not ten,
 		// and ranking it as though it were whole starves work that has more left.
 		in.totalWeeks += float64(in.durations[pod])
-		if isDrum[pod] {
-			in.drumWeeks += float64(in.durations[pod])
-		}
 		if !w.Estimated || w.Weeks <= 0 {
 			in.unestimated = append(in.unestimated, pod)
 		}
@@ -416,6 +417,55 @@ func prepareInitiative(idx int, it Initiative, tracks map[string]int, params Par
 		in.earliest = *w
 	}
 	return in
+}
+
+// setDrumWeeks records how much of the drum this initiative consumes, which is the
+// processing time the ranking index divides by (Decision 2). Separate from
+// prepareInitiative because the drum is itself derived from the durations.
+func (in *schedInput) setDrumWeeks(drumPods []string) {
+	isDrum := map[string]bool{}
+	for _, d := range drumPods {
+		isDrum[d] = true
+	}
+	in.drumWeeks = 0
+	for _, pod := range in.order {
+		if isDrum[pod] {
+			in.drumWeeks += float64(in.durations[pod])
+		}
+	}
+}
+
+// residualLoads is per-pod demand and utilization over the horizon, counting only
+// the work that is actually left to do. Same shape as Utilization so drumsOf can
+// read either, but computed from the scheduler's residual durations.
+func residualLoads(ins []*schedInput, tracks map[string]int, params Params) []PodLoad {
+	demand := map[string]float64{}
+	for _, in := range ins {
+		for _, pod := range in.order {
+			demand[pod] += float64(in.durations[pod])
+		}
+	}
+	names := make([]string, 0, len(demand))
+	for pod := range demand {
+		names = append(names, pod)
+	}
+	sort.Strings(names)
+
+	out := make([]PodLoad, 0, len(names))
+	for _, pod := range names {
+		tr := tracks[pod]
+		capw := float64(tr) * params.HorizonWeeks
+		pl := PodLoad{Team: pod, DemandWeeks: demand[pod], Tracks: tr, CapacityWeeks: capw}
+		switch {
+		case capw > 0:
+			pl.Rho = demand[pod] / capw
+		case demand[pod] > 0:
+			pl.Rho = InfiniteRho
+		}
+		pl.Constraint = pl.Rho >= 1
+		out = append(out, pl)
+	}
+	return out
 }
 
 // podOrder returns the in-path pods with dependencies first. A dependency cycle
@@ -829,7 +879,8 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 //
 // A cycle in afterInitiatives is broken at the edge that closes it, on the same
 // reasoning as a pod cycle (AC X.1): scheduling something and saying so beats
-// refusing to schedule at all.
+// refusing to schedule at all. precedenceCycles does the saying, once per plan, so
+// the reported cycle does not depend on which rule's order got here first.
 func releaseSequence(order []*schedInput) []*schedInput {
 	byName := map[string]*schedInput{}
 	var ranked []*schedInput
@@ -877,11 +928,66 @@ func releaseSequence(order []*schedInput) []*schedInput {
 	return seq
 }
 
+// precedenceCycles names every afterInitiatives cycle in the plan. releaseSequence
+// has to break one edge per cycle to produce any order at all, and AC X.1's rule
+// for pod cycles applies here too: an order built on a dropped edge must say so,
+// or it reads as fully precedence-compliant when it is not.
+//
+// Detection runs once over the plan in sheet order rather than inside
+// releaseSequence, so the reported cycle is the same whichever dispatch rule wins.
+func precedenceCycles(ins []*schedInput) []string {
+	byName := map[string]*schedInput{}
+	for _, in := range ins {
+		byName[in.init.Name] = in
+	}
+	const (
+		visiting = 1
+		done     = 2
+	)
+	state := map[string]int{}
+	var found []string
+	seen := map[string]bool{}
+	var visit func(in *schedInput)
+	visit = func(in *schedInput) {
+		if state[in.init.Name] == done {
+			return
+		}
+		state[in.init.Name] = visiting
+		for _, pred := range in.init.AfterInitiatives {
+			p := byName[pred]
+			if p == nil || p == in {
+				continue
+			}
+			if state[pred] == visiting {
+				msg := "broke an initiative precedence cycle at " + pred + " -> " + in.init.Name +
+					", so " + in.init.Name + " is ordered without waiting for it"
+				if !seen[msg] {
+					seen[msg] = true
+					found = append(found, msg)
+				}
+				continue
+			}
+			visit(p)
+		}
+		state[in.init.Name] = done
+	}
+	for _, in := range ins {
+		visit(in)
+	}
+	return found
+}
+
 // releaseFloor is the earliest week an initiative could be released, before
 // contention: its earliest-start date, its predecessor initiatives' commits, and
 // the full-kit readiness gate (FR-007).
 func releaseFloor(in *schedInput, sp SchedulingParams, commitOf map[string]int, horizon int) (int, string) {
 	week, reason := 0, ""
+	// Carryover started before the period did. An earliest-start date, a predecessor
+	// or a readiness gate can only describe work not yet begun, so reporting a later
+	// floor for it would be a statement about the past (AC X.4).
+	if in.init.InFlight {
+		return week, reason
+	}
 	if in.earliest > week {
 		week, reason = in.earliest, bindEarliestStart
 	}
@@ -890,9 +996,10 @@ func releaseFloor(in *schedInput, sp SchedulingParams, commitOf map[string]int, 
 			week, reason = c, bindPredecessor
 		}
 	}
-	// Readiness does not improve on its own inside the period — nothing here
-	// models kit work — so an initiative below the gate cannot start within it.
-	if sp.KitGate > 0 && in.init.KitPct < sp.KitGate && horizon > week {
+	// Readiness does not improve on its own inside the period — nothing here models
+	// kit work — so an initiative below the gate cannot start within it. Carryover is
+	// exempt: it is already running, and a readiness gate cannot un-start work.
+	if sp.KitGate > 0 && !in.init.InFlight && in.init.KitPct < sp.KitGate && horizon > week {
 		week, reason = horizon, bindKitGate
 	}
 	return week, reason
