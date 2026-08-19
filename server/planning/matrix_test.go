@@ -280,6 +280,28 @@ var _ = Describe("the sample initiatives workbook", func() {
 		Expect(plan.Initiatives[1].AfterInitiatives).To(Equal([]string{"Payments, phase 2", "Card rails"}))
 	})
 
+	// Quoting is what holds a comma'd name together, so the quote character itself
+	// has to survive being quoted — otherwise the fix for commas renames anything
+	// containing a quote, and drops that precedence just as silently.
+	It("round-trips a predecessor whose name contains a double quote", func() {
+		quoteNamed := []Initiative{
+			{Name: `Project "Phoenix", phase 2`, Work: map[string]TeamWork{"Alpha": {Weeks: 4, Estimated: true, InPath: true}}},
+			{
+				Name:             "Downstream",
+				Work:             map[string]TeamWork{"Alpha": {Weeks: 2, Estimated: true, InPath: true}},
+				AfterInitiatives: []string{`Project "Phoenix", phase 2`},
+			},
+		}
+		grid, err := ReadGrid(WriteInitiativesXLSX(teams, quoteNamed), "")
+		Expect(err).NotTo(HaveOccurred())
+		plan := ParseMatrix(grid, []string{"Alpha", "Beta"}, true)
+
+		Expect(plan.Initiatives).To(HaveLen(2))
+		Expect(plan.Initiatives[0].Name).To(Equal(`Project "Phoenix", phase 2`))
+		Expect(plan.Initiatives[1].AfterInitiatives).To(Equal([]string{`Project "Phoenix", phase 2`}),
+			"the predecessor must still name the same initiative after a round trip")
+	})
+
 	It("names each column so a planner can see what to fill in", func() {
 		grid, err := ReadGrid(WriteInitiativesXLSX(teams, inits), "")
 		Expect(err).NotTo(HaveOccurred())
