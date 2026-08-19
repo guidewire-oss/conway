@@ -265,3 +265,101 @@ func deltaTracks(s *planning.Schedule) int {
 	}
 	return 0
 }
+
+// The whole upload chain, end to end through HTTP: workbook bytes -> ReadGrid ->
+// ParseMatrix -> JSON -> ComputeSchedule. Until this held, spec 001's attributes
+// existed in the model but no uploaded sheet could carry them.
+var _ = Describe("an uploaded sheet carrying sequencing attributes", func() {
+	It("reaches the schedule as dates and priorities, not as no-date defaults", func() {
+		teams := []planning.Team{{Name: "Delta", Tracks: 1}, {Name: "Atlas", Tracks: 3}}
+		inits := []planning.Initiative{
+			{
+				Name: "Regulatory reporting",
+				Work: map[string]planning.TeamWork{
+					"Delta": {Weeks: 6, Estimated: true, InPath: true},
+				},
+				StatedPriority: 2, Tier: 1, CostOfDelayPerWeek: 10,
+				TargetDate: "2026-03-16", DateLocked: true,
+			},
+			{
+				Name: "Internal tooling",
+				Work: map[string]planning.TeamWork{
+					"Delta": {Weeks: 6, Estimated: true, InPath: true},
+				},
+				StatedPriority: 1, PriorityLocked: true, Tier: 4, CostOfDelayPerWeek: 1,
+			},
+		}
+		body, ct := multipartFileG("file", "initiatives.xlsx", planning.WriteInitiativesXLSX(teams, inits))
+
+		teamsB, err := json.Marshal(teams)
+		Expect(err).NotTo(HaveOccurred())
+		srv := &server{}
+		plan := &db.PlanRow{ID: "plan1", HorizonWeeks: 26, CapacityLoss: 0, Teams: teamsB}
+
+		By("uploading the workbook for preview, which parses but must not persist")
+		req := httptest.NewRequest("POST", "/api/plan/plan1/initiatives/preview", body)
+		req.Header.Set("Content-Type", ct)
+		rec := httptest.NewRecorder()
+		srv.previewPlanInitiatives(rec, req, plan)
+		Expect(rec.Code).To(Equal(200), rec.Body.String())
+
+		var preview struct {
+			Initiatives []planning.Initiative `json:"initiatives"`
+		}
+		Expect(json.Unmarshal(rec.Body.Bytes(), &preview)).To(Succeed())
+		Expect(preview.Initiatives).To(HaveLen(2))
+		Expect(plan.Initiatives).To(BeNil(), "preview must not persist")
+
+		parsed := map[string]planning.Initiative{}
+		for _, it := range preview.Initiatives {
+			parsed[it.Name] = it
+		}
+		Expect(parsed["Regulatory reporting"].TargetDate).To(Equal("2026-03-16"))
+		Expect(parsed["Regulatory reporting"].DateLocked).To(BeTrue())
+		Expect(parsed["Internal tooling"].PriorityLocked).To(BeTrue())
+
+		By("scheduling exactly those parsed initiatives")
+		schedReq, err := json.Marshal(map[string]any{
+			"params":      map[string]any{"periodStart": "2026-01-05", "maxConcurrentInitiatives": 2},
+			"initiatives": preview.Initiatives,
+		})
+		Expect(err).NotTo(HaveOccurred())
+		req = httptest.NewRequest("POST", "/api/plan/plan1/schedule", bytes.NewReader(schedReq))
+		rec = httptest.NewRecorder()
+		srv.schedulePlan(rec, req, plan)
+		Expect(rec.Code).To(Equal(200), rec.Body.String())
+
+		var sched planning.Schedule
+		Expect(json.Unmarshal(rec.Body.Bytes(), &sched)).To(Succeed())
+
+		byName := map[string]planning.ScheduledInitiative{}
+		for _, si := range sched.Initiatives {
+			byName[si.Name] = si
+		}
+		reg, tool := byName["Regulatory reporting"], byName["Internal tooling"]
+
+		By("honouring the lock the sheet declared, at a measurable cost")
+		Expect(tool.ProposedRank).To(Equal(1), "the sheet locked it to priority 1")
+		Expect(reg.TargetWeek).NotTo(BeNil(), "its target date survived the round trip")
+		Expect(*reg.TargetWeek).To(Equal(10))
+		// Alone it would commit in week 8 and make the date; behind the lock it commits
+		// in 14. So this is contention, which is the verdict that has a remedy.
+		Expect(reg.Verdict).To(Equal("late"), "the lock pushes the dated commitment out")
+		Expect(reg.WeeksLate).To(Equal(4))
+		Expect(sched.ObjectiveScore).To(BeNumerically(">", 0),
+			"a date-locked miss must show up in the objective")
+	})
+})
+
+// multipartFileG is the Gomega-side twin of multipartFile: same body, but failing
+// through Expect rather than needing a *testing.T.
+func multipartFileG(field, filename string, data []byte) (*bytes.Buffer, string) {
+	body := &bytes.Buffer{}
+	w := multipart.NewWriter(body)
+	fw, err := w.CreateFormFile(field, filename)
+	Expect(err).NotTo(HaveOccurred())
+	_, err = fw.Write(data)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(w.Close()).To(Succeed())
+	return body, w.FormDataContentType()
+}

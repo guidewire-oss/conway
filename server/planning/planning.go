@@ -17,6 +17,7 @@ package planning
 import (
 	"strconv"
 	"strings"
+	"time"
 )
 
 // TeamWork is one team's involvement in one initiative.
@@ -124,6 +125,132 @@ func filterKnownDeps(deps []string, knownPods map[string]bool) []string {
 	return out
 }
 
+// attrKey maps a header to one of the optional sequencing columns spec 001 §8
+// names, or "" for a header this parser does not recognise — which §8 says to
+// ignore, exactly as it always has.
+//
+// Order matters. "Priority Fixed" has to be tested before "Priority", and "Date
+// Fixed" before "Target Date", or the lock columns would be read as the values
+// they lock. Matching is on substrings because these headers are typed by hand and
+// arrive spelled several ways across real sheets.
+func attrKey(h string) string {
+	l := strings.ToLower(strings.TrimSpace(h))
+	fixed := strings.Contains(l, "fix") || strings.Contains(l, "lock")
+	switch {
+	case l == "":
+		return ""
+	case strings.Contains(l, "priority") && fixed:
+		return "priorityLocked"
+	case strings.Contains(l, "priority"):
+		return "statedPriority"
+	case strings.Contains(l, "date") && fixed:
+		return "dateLocked"
+	case strings.Contains(l, "target"):
+		return "targetDate"
+	case strings.Contains(l, "tier"):
+		return "tier"
+	case strings.Contains(l, "cost of delay") || l == "cod":
+		return "costOfDelay"
+	case strings.Contains(l, "earliest"):
+		return "earliestStart"
+	case strings.Contains(l, "initiative") && (strings.Contains(l, "depends") || strings.Contains(l, "after")):
+		return "afterInitiatives"
+	case strings.Contains(l, "kit") && (strings.Contains(l, "%") || strings.Contains(l, "pct") || strings.Contains(l, "readiness")):
+		return "kitPct"
+	case strings.Contains(l, "in flight") || strings.Contains(l, "in-flight"):
+		return "inFlight"
+	case strings.Contains(l, "complete"):
+		return "progressPct"
+	}
+	return ""
+}
+
+// initiativeAttrCols locates the sequencing columns, searching only to the left of
+// limit — the full-kit total column. §8 places them there, and the bound is what
+// keeps a pod legitimately named "Tier" or "Priority" from being read as one: team
+// columns live to the right of that total. First header wins for each attribute.
+func initiativeAttrCols(hdr []string, limit int) map[string]int {
+	cols := map[string]int{}
+	for i := 0; i < limit && i < len(hdr); i++ {
+		if k := attrKey(hdr[i]); k != "" {
+			if _, seen := cols[k]; !seen {
+				cols[k] = i
+			}
+		}
+	}
+	return cols
+}
+
+// minExcelSerial is 1954-10-03. Below it, a bare number in a date column is far
+// likelier to be a typo than a date — no plan targets the 1950s — and reading "5"
+// as 1900-01-05 would turn a mistyped cell into a confident, wildly wrong verdict.
+const minExcelSerial = 20000
+
+// excelEpoch is 1899-12-30, not 1899-12-31, because Excel's serial numbering
+// includes a 1900-02-29 that never existed. The offset that bug creates is baked
+// into this epoch, which is correct for every serial above minExcelSerial.
+var excelEpoch = time.Date(1899, 12, 30, 0, 0, 0, 0, time.UTC)
+
+// dateLayouts are the text forms accepted in a date cell: ISO, and the two
+// month-name forms. Purely numeric forms like 30/03/2026 are deliberately absent —
+// they cannot be told apart from 03/30/2026, and a silently wrong date is worse
+// than an unset one, which simply reads as "no date".
+var dateLayouts = []string{"2006-01-02", "2006/01/02", "02-Jan-2006", "Jan 2, 2006"}
+
+// parseSheetDate normalises a date cell to ISO yyyy-mm-dd, returning "" for blank,
+// "TBD" or anything it cannot read without guessing.
+//
+// Both forms have to be handled because ReadXLSX renders every cell as its text
+// and never reads the number format: a date a planner typed as text arrives as
+// that text, while one they formatted as a Date arrives as an Excel serial.
+//
+// Known limitation: workbooks using the 1904 date system (legacy Mac Excel) would
+// be read four years early. Detecting it means parsing xl/workbook.xml's
+// workbookPr, which the grid reader does not surface — see spec 001 §10 Q16.
+func parseSheetDate(cell string) string {
+	s := strings.TrimSpace(cell)
+	if s == "" {
+		return ""
+	}
+	for _, layout := range dateLayouts {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t.Format("2006-01-02")
+		}
+	}
+	if serial, err := strconv.ParseFloat(s, 64); err == nil && serial >= minExcelSerial {
+		return excelEpoch.AddDate(0, 0, int(serial)).Format("2006-01-02")
+	}
+	return ""
+}
+
+// parseSheetFraction reads a 0..1 fraction a planner may have written as "0.75",
+// "75" or "75%". Anything above 1 is taken as a percentage, since a fraction
+// cannot exceed 1, and the result is clamped so a stray "500" cannot escape.
+func parseSheetFraction(cell string) float64 {
+	s := strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(cell), "%"))
+	if s == "" {
+		return 0
+	}
+	n, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return 0
+	}
+	if n > 1 {
+		n /= 100
+	}
+	return clampFrac(n)
+}
+
+// parseSheetInt reads a whole number, returning 0 for blank or non-numeric — the
+// same "absent" both statedPriority and tier already use.
+func parseSheetInt(cell string) int {
+	n, err := strconv.Atoi(strings.TrimSpace(cell))
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
 var numCleaner = strings.NewReplacer(",", "", " ", "", "w", "", "W", "", "wks", "", "wk", "")
 
 // parseWeeks reads a numeric estimate cell. Non-numeric (TBD, No Dependency,
@@ -163,6 +290,7 @@ func ParseMatrix(rows [][]string, roster []string, strict bool) *Plan {
 	initIdx := -1
 	leads := map[int]string{}
 	teamStart := -1
+	fullKitIdx := -1
 	for i, h := range hdr {
 		l := strings.ToLower(strings.TrimSpace(h))
 		switch {
@@ -173,6 +301,7 @@ func ParseMatrix(rows [][]string, roster []string, strict bool) *Plan {
 				leads[i] = k
 			}
 		case teamStart < 0 && strings.Contains(l, "estimate") && strings.Contains(l, "full kit"):
+			fullKitIdx = i
 			teamStart = i + 1 // team columns begin right after the derived total
 		}
 	}
@@ -182,6 +311,13 @@ func ParseMatrix(rows [][]string, roster []string, strict bool) *Plan {
 	if teamStart < 0 {
 		teamStart = 7 // sane default for this sheet
 	}
+	// §8's sequencing columns sit to the left of the full-kit total. With no such
+	// column to anchor on, the default team start is the only bound available.
+	attrLimit := teamStart
+	if fullKitIdx >= 0 {
+		attrLimit = fullKitIdx
+	}
+	attrs := initiativeAttrCols(hdr, attrLimit)
 
 	// pair up the team columns: "<Team> Sequence" or "<Team> Dependencies" (deps,
 	// two spellings seen across FullKit sheets in the wild) then "<Team>" (estimate)
@@ -226,6 +362,7 @@ func ParseMatrix(rows [][]string, roster []string, strict bool) *Plan {
 				init.Leads[key] = v
 			}
 		}
+		readInitiativeAttrs(&init, row, attrs, at)
 		for _, c := range cols {
 			estCell := strings.TrimSpace(at(row, c.est))
 			weeks, estimated := parseWeeks(estCell)
@@ -243,4 +380,32 @@ func ParseMatrix(rows [][]string, roster []string, strict bool) *Plan {
 		plan.Initiatives = append(plan.Initiatives, init)
 	}
 	return plan
+}
+
+// readInitiativeAttrs fills the optional sequencing attributes from the columns
+// initiativeAttrCols found. Every one is absent-by-default: a blank or unreadable
+// cell leaves the field zero, so a sheet without these columns produces exactly
+// the Initiative it produced before they existed (FR-002).
+func readInitiativeAttrs(init *Initiative, row []string, attrs map[string]int, at func([]string, int) string) {
+	cell := func(key string) string {
+		if i, ok := attrs[key]; ok {
+			return at(row, i)
+		}
+		return ""
+	}
+	init.StatedPriority = parseSheetInt(cell("statedPriority"))
+	init.PriorityLocked = truthy(cell("priorityLocked"))
+	init.TargetDate = parseSheetDate(cell("targetDate"))
+	init.DateLocked = truthy(cell("dateLocked"))
+	init.Tier = parseSheetInt(cell("tier"))
+	if n, ok := parseWeeks(cell("costOfDelay")); ok {
+		init.CostOfDelayPerWeek = n
+	}
+	init.EarliestStart = parseSheetDate(cell("earliestStart"))
+	// Reuse the dependency-cell parser: this column is the same free text, with the
+	// same commas, the same "NONE" and the same unfilled placeholder.
+	init.AfterInitiatives = cleanDeps(cell("afterInitiatives"))
+	init.KitPct = parseSheetFraction(cell("kitPct"))
+	init.InFlight = truthy(cell("inFlight"))
+	init.ProgressPct = parseSheetFraction(cell("progressPct"))
 }
