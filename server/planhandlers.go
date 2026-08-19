@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"sort"
 	"strings"
@@ -146,6 +148,8 @@ func (s *server) handlePlanItem(w http.ResponseWriter, r *http.Request, c auth.C
 		s.previewPlanInitiatives(w, r, p)
 	case sub == "simulate" && r.Method == http.MethodPost:
 		s.simulatePlan(w, r, p)
+	case sub == "schedule" && r.Method == http.MethodPost:
+		s.schedulePlan(w, r, p)
 	case sub == "" && r.Method == http.MethodGet:
 		writeJSON(w, s.assemblePlan(p))
 	case sub == "" && r.Method == http.MethodPatch:
@@ -394,6 +398,52 @@ func (s *server) simulatePlan(w http.ResponseWriter, r *http.Request, p *db.Plan
 	before, after := planning.Simulate(teams, inits,
 		planning.Params{HorizonWeeks: p.HorizonWeeks, CapacityLoss: p.CapacityLoss}, body.Levers)
 	writeJSON(w, map[string]any{"before": before, "after": after, "levers": body.Levers})
+}
+
+// schedulePlan computes the execution order for a plan (spec 001 §8). Stateless
+// by design, exactly like simulatePlan: it never writes to the plan, so a planner
+// can try scheduling params and levers against an unsaved draft and see the order
+// before deciding to keep anything (FR-022).
+func (s *server) schedulePlan(w http.ResponseWriter, r *http.Request, p *db.PlanRow) {
+	var body struct {
+		Params      planning.SchedulingParams `json:"params"`
+		Initiatives []planning.Initiative     `json:"initiatives"` // optional draft override, never persisted
+		Levers      []planning.Lever          `json:"levers"`      // optional what-ifs, never persisted
+	}
+	// An empty body is legal — it means "schedule the saved plan with defaults" —
+	// but a malformed one must not quietly become that same request.
+	dec := json.NewDecoder(r.Body)
+	if err := dec.Decode(&body); err != nil && !errors.Is(err, io.EOF) {
+		http.Error(w, "could not read the schedule request: "+err.Error(), 400)
+		return
+	}
+	// Anything after the first JSON value means the caller sent something other
+	// than the one object this endpoint takes, and scheduling the part we happened
+	// to parse would answer a question nobody asked.
+	if dec.More() {
+		http.Error(w, "the schedule request must be a single JSON object", 400)
+		return
+	}
+
+	var teams []planning.Team
+	if len(p.Teams) > 0 {
+		if err := json.Unmarshal(p.Teams, &teams); err != nil {
+			http.Error(w, "the plan's stored roster is unreadable: "+err.Error(), 500)
+			return
+		}
+	}
+	inits := body.Initiatives
+	if inits == nil && len(p.Initiatives) > 0 {
+		if err := json.Unmarshal(p.Initiatives, &inits); err != nil {
+			http.Error(w, "the plan's stored initiatives are unreadable: "+err.Error(), 500)
+			return
+		}
+	}
+	if len(body.Levers) > 0 {
+		teams, inits = planning.ApplyLevers(teams, inits, body.Levers)
+	}
+	writeJSON(w, planning.ComputeSchedule(teams, inits,
+		planning.Params{HorizonWeeks: p.HorizonWeeks, CapacityLoss: p.CapacityLoss}, body.Params))
 }
 
 func (s *server) patchPlan(w http.ResponseWriter, r *http.Request, p *db.PlanRow) {
