@@ -298,12 +298,14 @@ func ComputeSchedule(teams []Team, inits []Initiative, params Params, sp Schedul
 		prepared = append(prepared, prepareInitiative(i, it, tracks, params, sp, drumPods))
 	}
 
+	pBar := meanProcessing(prepared)
+
 	var best *runResult
 	var bestRule string
 	statedObjective := 0.0
 	var tried []RuleScore
 	for _, rule := range dispatchRules {
-		run := generate(prepared, rankOrder(rule, prepared, sp), byName, tracks, sp, wip, horizon)
+		run := generate(prepared, rankOrder(rule, prepared, sp, pBar), byName, tracks, sp, wip, horizon, pBar)
 		tried = append(tried, RuleScore{Rule: rule, Objective: run.objective})
 		if rule == ruleStatedPriority {
 			statedObjective = run.objective
@@ -340,17 +342,23 @@ func ComputeSchedule(teams []Team, inits []Initiative, params Params, sp Schedul
 // tracks are skipped — they are the unknown-pod case (AC X.2), not a drum, and
 // deriving a WIP limit from a pod with zero tracks would floor it at zero.
 func drumsOf(loads []PodLoad) (pods []string, drum string) {
+	// Utilization sorts on rho alone, over a map, so two equally loaded pods can
+	// arrive in either order. Pick the drum by value with the pod name as the
+	// tiebreak instead of trusting that order, or the derived WIP limit and the
+	// whole ranking would wander between identical runs (AC 1.4).
+	hottest := -1.0
 	for _, l := range loads {
 		if l.Tracks <= 0 {
 			continue
 		}
-		if drum == "" {
-			drum = l.Team
+		if l.Rho > hottest || (l.Rho == hottest && l.Team < drum) {
+			hottest, drum = l.Rho, l.Team
 		}
 		if l.Rho >= 1 {
 			pods = append(pods, l.Team)
 		}
 	}
+	sort.Strings(pods)
 	if len(pods) == 0 && drum != "" {
 		pods = []string{drum}
 	}
@@ -388,9 +396,12 @@ func prepareInitiative(idx int, it Initiative, tracks map[string]int, params Par
 	for _, pod := range in.order {
 		w := it.Work[pod]
 		in.durations[pod] = sliceWeeks(w, it, params.CapacityLoss)
-		in.totalWeeks += w.Weeks
+		// Rank on the capacity still to be consumed, not the original estimate: an
+		// initiative that is 80% done occupies two more weeks of the drum, not ten,
+		// and ranking it as though it were whole starves work that has more left.
+		in.totalWeeks += float64(in.durations[pod])
 		if isDrum[pod] {
-			in.drumWeeks += w.Weeks
+			in.drumWeeks += float64(in.durations[pod])
 		}
 		if !w.Estimated || w.Weeks <= 0 {
 			in.unestimated = append(in.unestimated, pod)
@@ -570,19 +581,8 @@ func atcIndex(in *schedInput, pBar, k float64) (index, slack float64) {
 // Priority locks are applied last, as positions rather than scores: a locked
 // initiative is pinned to its stated rank so that its proposed rank equals its
 // stated rank relative to all others, which is what AC 3.1 asks for.
-func rankOrder(rule string, ins []*schedInput, sp SchedulingParams) []*schedInput {
+func rankOrder(rule string, ins []*schedInput, sp SchedulingParams, pBar float64) []*schedInput {
 	k := sp.lookahead()
-	pBar := 0.0
-	for _, in := range ins {
-		p := in.drumWeeks
-		if p <= 0 {
-			p = in.totalWeeks
-		}
-		pBar += p
-	}
-	if len(ins) > 0 {
-		pBar /= float64(len(ins))
-	}
 
 	score := func(in *schedInput) float64 {
 		idx, slack := atcIndex(in, pBar, k)
@@ -690,6 +690,24 @@ func freeSlotNear(out []*schedInput, want int) int {
 	return 0
 }
 
+// meanProcessing is the portfolio's average consumption of the drum, the
+// denominator the tardiness index discounts slack against. Both the ranking and
+// the terms reported alongside it have to use the same one (FR-021).
+func meanProcessing(ins []*schedInput) float64 {
+	if len(ins) == 0 {
+		return 0
+	}
+	total := 0.0
+	for _, in := range ins {
+		p := in.drumWeeks
+		if p <= 0 {
+			p = in.totalWeeks
+		}
+		total += p
+	}
+	return total / float64(len(ins))
+}
+
 // runResult is one dispatch rule's completed schedule.
 type runResult struct {
 	initiatives []ScheduledInitiative
@@ -708,7 +726,7 @@ type podCalendar struct {
 // rule's order, gate each one's release (Decision 5), then place its slices as
 // early as capacity allows. Releases are what get held back; released work runs.
 func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tracks map[string]int,
-	sp SchedulingParams, wip WipLimit, horizon int) *runResult {
+	sp SchedulingParams, wip WipLimit, horizon int, pBar float64) *runResult {
 
 	maxWeek := horizon
 	for _, in := range all {
@@ -730,17 +748,27 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 	quarterStarts := map[int]int{}
 	commitOf := map[string]int{}
 
-	results := map[string]*ScheduledInitiative{}
-	for rank, in := range order {
-		if in == nil {
-			continue
+	ranks := map[string]int{}
+	for i, in := range order {
+		if in != nil {
+			ranks[in.init.Name] = i + 1
 		}
+	}
+
+	results := map[string]*ScheduledInitiative{}
+	for _, in := range releaseSequence(order) {
+		rank := ranks[in.init.Name]
 		release, reason := releaseFloor(in, sp, commitOf, horizon)
 
 		var placed []WorkSlice
 		var start, finish int
 		for {
 			placed, start, finish = planSlices(in, release, cal, teams, tracks, sp.MaxInitiativesPerPod)
+			// Carryover is already running, so no release gate can push it later — but
+			// it does occupy its slots, which the bookkeeping below records (AC X.4).
+			if in.init.InFlight {
+				break
+			}
 			gate, ok := releaseGates(in, sp, wip, start, finish, inFlight, leadBusy, quarterStarts)
 			if ok || release > maxWeek {
 				break
@@ -771,7 +799,7 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 		}
 		quarterStarts[start/weeksPerQuarter]++
 
-		si := summarise(in, rank+1, start, finish, placed, reason, sp)
+		si := summarise(in, rank, start, finish, placed, reason, sp, pBar)
 		commitOf[in.init.Name] = si.CommitWeek
 		results[in.init.Name] = &si
 	}
@@ -787,6 +815,66 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 		}
 	}
 	return &runResult{initiatives: out, pods: podSchedules(cal, tracks, out, horizon), objective: objectiveOf(out, weights)}
+}
+
+// releaseSequence is the order releases are actually processed in, which is not
+// the same thing as the rank order:
+//
+//   - carryover first, because it is already running at the period start and its
+//     slots are taken before anything new can be released (AC X.4);
+//   - then rank order, reordered so an initiative never precedes an initiative it
+//     declares itself to be after. A predecessor may rank below its dependent, and
+//     without this the dependent would be placed while commitOf held no entry for
+//     the predecessor, so FR-007 would be skipped in silence rather than enforced.
+//
+// A cycle in afterInitiatives is broken at the edge that closes it, on the same
+// reasoning as a pod cycle (AC X.1): scheduling something and saying so beats
+// refusing to schedule at all.
+func releaseSequence(order []*schedInput) []*schedInput {
+	byName := map[string]*schedInput{}
+	var ranked []*schedInput
+	for _, in := range order {
+		if in == nil {
+			continue
+		}
+		byName[in.init.Name] = in
+		ranked = append(ranked, in)
+	}
+
+	const (
+		visiting = 1
+		done     = 2
+	)
+	state := map[string]int{}
+	var seq []*schedInput
+	var visit func(in *schedInput)
+	visit = func(in *schedInput) {
+		if state[in.init.Name] == done {
+			return
+		}
+		state[in.init.Name] = visiting
+		for _, pred := range in.init.AfterInitiatives {
+			p := byName[pred]
+			// An unknown predecessor is not in this plan, so there is nothing to wait
+			// for; releaseFloor already ignores it for the same reason.
+			if p == nil || p == in || state[pred] == visiting {
+				continue
+			}
+			visit(p)
+		}
+		state[in.init.Name] = done
+		seq = append(seq, in)
+	}
+	// Carryover is visited first so it claims its slots before any new release.
+	for _, in := range ranked {
+		if in.init.InFlight {
+			visit(in)
+		}
+	}
+	for _, in := range ranked {
+		visit(in)
+	}
+	return seq
 }
 
 // releaseFloor is the earliest week an initiative could be released, before
@@ -934,7 +1022,8 @@ func podWeekInitiatives(c *podCalendar, w int, exclude string) int {
 
 // summarise turns a placed initiative into its reported row: the buffered commit
 // week (Decision 9), the verdict, and the constraint that set its start.
-func summarise(in *schedInput, rank, start, finish int, slices []WorkSlice, releaseReason string, sp SchedulingParams) ScheduledInitiative {
+func summarise(in *schedInput, rank, start, finish int, slices []WorkSlice, releaseReason string,
+	sp SchedulingParams, pBar float64) ScheduledInitiative {
 	si := ScheduledInitiative{
 		Name: in.init.Name, ProposedRank: rank, StatedRank: in.init.StatedPriority,
 		StartWeek: start, RawFinishWeek: finish,
@@ -946,7 +1035,9 @@ func summarise(in *schedInput, rank, start, finish int, slices []WorkSlice, rele
 	si.BufferWeeks = bufferWeeksFor(finish-start, sp)
 	si.CommitWeek = finish + si.BufferWeeks
 
-	idx, slack := atcIndex(in, in.drumWeeks, sp.lookahead())
+	// pBar, not in.drumWeeks: FR-021 wants the terms that produced the position, and
+	// the ranking discounted slack against the portfolio mean.
+	idx, slack := atcIndex(in, pBar, sp.lookahead())
 	si.RankingTerms = RankingTerms{Weight: round1(in.weight), ConstraintWeeks: in.drumWeeks,
 		SlackWeeks: slack, Index: round1(idx)}
 

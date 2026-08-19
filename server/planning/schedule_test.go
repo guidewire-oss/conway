@@ -384,6 +384,101 @@ var _ = Describe("ComputeSchedule", func() {
 		})
 	})
 
+	Describe("carryover already in flight at the period start", func() {
+		// AC X.4: work that is already running cannot be un-started, so the WIP limit
+		// must not push it later — but it does occupy a slot, so it holds new work back.
+		It("is not held behind the WIP limit, but still counts toward it", func() {
+			teams := []Team{{Name: "Atlas", Tracks: 8}} // ample tracks: only WIP can bind
+			inits := []Initiative{
+				{Name: "New one", Work: map[string]TeamWork{"Atlas": podWork(4)},
+					StatedPriority: 1, PriorityLocked: true},
+				{Name: "New two", Work: map[string]TeamWork{"Atlas": podWork(4)},
+					StatedPriority: 2, PriorityLocked: true},
+				{Name: "Carryover", Work: map[string]TeamWork{"Atlas": podWork(10)},
+					InFlight: true, ProgressPct: 0.6, StatedPriority: 3, PriorityLocked: true},
+			}
+			sched := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0},
+				SchedulingParams{PeriodStart: specPeriodStart, MaxConcurrentInitiatives: 2, BufferPct: pctOf(0.25)})
+
+			carry := scheduledFor(sched, "Carryover")
+			Expect(carry.StartWeek).To(Equal(0), "it is already running; the limit cannot push it later")
+			Expect(carry.BindingConstraint).NotTo(Equal("wip-limit"))
+			Expect(carry.RawFinishWeek).To(Equal(4), "only the remaining 40% of 10 weeks is left")
+
+			Expect(scheduledFor(sched, "New one").StartWeek).To(Equal(0))
+			held := scheduledFor(sched, "New two")
+			Expect(held.StartWeek).To(Equal(4), "carryover holds the second slot until it finishes")
+			Expect(held.BindingConstraint).To(Equal("wip-limit"))
+		})
+
+		It("ranks carryover on the work that is left, not the original estimate", func() {
+			teams := []Team{{Name: "Delta", Tracks: 1}}
+			inits := []Initiative{{Name: "Nearly done", Work: map[string]TeamWork{"Delta": podWork(10)},
+				InFlight: true, ProgressPct: 0.8, CostOfDelayPerWeek: 5}}
+			sched := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0},
+				SchedulingParams{PeriodStart: specPeriodStart, BufferPct: pctOf(0.25)})
+			Expect(scheduledFor(sched, "Nearly done").RankingTerms.ConstraintWeeks).To(Equal(2.0),
+				"8 of its 10 weeks are done, so it consumes 2 weeks of the drum, not 10")
+		})
+	})
+
+	// AC 1.4 again: Utilization sorts on rho alone over a map, so equal-rho pods can
+	// arrive in either order. The drum must not depend on that.
+	It("picks the same drum on every run when two pods are equally loaded", func() {
+		teams := []Team{{Name: "Alpha", Tracks: 2}, {Name: "Zulu", Tracks: 2}}
+		inits := []Initiative{{Name: "Even", Work: map[string]TeamWork{
+			"Alpha": podWork(6), "Zulu": podWork(6),
+		}}}
+		params := Params{HorizonWeeks: 26, CapacityLoss: 0}
+		sp := SchedulingParams{PeriodStart: specPeriodStart, BufferPct: pctOf(0.25)}
+
+		first := ComputeSchedule(teams, inits, params, sp).WipLimit.FromPod
+		Expect(first).To(Equal("Alpha"), "ties break on pod name so the choice is reproducible")
+		for i := 0; i < 50; i++ {
+			Expect(ComputeSchedule(teams, inits, params, sp).WipLimit.FromPod).To(Equal(first))
+		}
+	})
+
+	// FR-007: a predecessor that ranks lower is still a predecessor.
+	It("starts an initiative after its predecessor even when the predecessor ranks lower", func() {
+		teams := []Team{{Name: "Atlas", Tracks: 4}}
+		inits := []Initiative{
+			{Name: "Dependent", Work: map[string]TeamWork{"Atlas": podWork(3)},
+				AfterInitiatives: []string{"Prerequisite"}, StatedPriority: 1, PriorityLocked: true},
+			{Name: "Prerequisite", Work: map[string]TeamWork{"Atlas": podWork(5)},
+				StatedPriority: 2, PriorityLocked: true},
+		}
+		sched := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0},
+			SchedulingParams{PeriodStart: specPeriodStart, MaxConcurrentInitiatives: 2, BufferPct: pctOf(0.25)})
+
+		pre := scheduledFor(sched, "Prerequisite")
+		dep := scheduledFor(sched, "Dependent")
+		Expect(dep.ProposedRank).To(Equal(1), "the lock still pins its rank")
+		Expect(dep.StartWeek).To(BeNumerically(">=", pre.CommitWeek),
+			"released later than its rank, because precedence outranks the dispatch order")
+		Expect(dep.BindingConstraint).To(Equal("predecessor"))
+	})
+
+	// FR-021: the terms reported must be the terms that produced the position, so
+	// the index has to use the same portfolio-average processing time the ranking did.
+	It("reports the ranking index that actually produced the order", func() {
+		teams := []Team{{Name: "Delta", Tracks: 1}, {Name: "Atlas", Tracks: 2}}
+		inits := []Initiative{
+			{Name: "Payments GA", Work: map[string]TeamWork{"Atlas": podWork(5), "Delta": podWork(6, "Atlas")},
+				Tier: 1, CostOfDelayPerWeek: 9, TargetDate: weekDate(16)},
+			{Name: "Search revamp", Work: map[string]TeamWork{"Delta": podWork(2)},
+				Tier: 3, CostOfDelayPerWeek: 2},
+		}
+		sched := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0},
+			SchedulingParams{PeriodStart: specPeriodStart, MaxConcurrentInitiatives: 2, BufferPct: pctOf(0.25)})
+
+		// weight 9x4 = 36 over 6 drum weeks = 6.0, discounted by exp(-5/(2*4)) for
+		// 5 weeks of slack against a portfolio mean of 4 drum weeks.
+		Expect(scheduledFor(sched, "Payments GA").RankingTerms.Index).To(Equal(3.2))
+		Expect(scheduledFor(sched, "Search revamp").RankingTerms.Index).To(Equal(2.0),
+			"undated work is pure WSJF: weight 2x2 = 4 over 2 drum weeks")
+	})
+
 	// §8 lets /schedule take levers, so the lever pass has to carry an initiative's
 	// sequencing attributes through untouched. Rebuilding the struct field by field
 	// would drop them and the schedule would lose the dates it exists to test.

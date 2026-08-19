@@ -30,8 +30,13 @@ type TeamWork struct {
 // Initiative is one planned feature/project for the year.
 //
 // The sequencing attributes below are all optional, and a plan carrying none of
-// them schedules exactly as it behaves today (spec 001 FR-002). They arrive
-// either as optional columns in the uploaded matrix or through in-app editing.
+// them schedules exactly as it behaves today (spec 001 FR-002).
+//
+// Nothing populates them from an uploaded sheet yet: ParseMatrix does not read
+// §8's optional columns, and there is no in-app editing endpoint. Today they
+// reach the scheduler only through the draft override on POST
+// /api/plan/{id}/schedule. Both entry points are still to be built, so an
+// uploaded plan cannot yet honour its own priorities or dates.
 type Initiative struct {
 	Name        string              `json:"name"`
 	Description string              `json:"description,omitempty"`
