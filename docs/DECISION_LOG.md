@@ -287,3 +287,38 @@ different purposes — GHCR for consumption, ECR for internal deploys. Whether
 `deploy/` should pull from GHCR instead of building locally is a separate
 decision. The GHCR package inherits the repository's visibility, which is private
 today.
+
+## Decision 12
+
+**New Go behavioural tests are Ginkgo/Gomega; the existing 19 stdlib files stay,
+and the dialect gate stays disarmed until they are converted.**
+
+*Context:* Decision 4 of `specs/002-factory-adoption.md` disarmed the Go pack's
+`ginkgo-only-check.sh` at install time, because Conway's 19 test files use the
+standard `testing` package and an armed gate the whole suite violates trains
+everyone to ignore gate failures. That left Q2 open: disarmed permanently, or
+converted later? Writing the execution-order scheduler forced the question,
+because it needed new tests either way.
+
+*Decision:* Behavioural tests written from now on are Ginkgo specs under a single
+`RunSpecs` bootstrap per package — `server/planning/planning_suite_test.go` and
+`server/server_suite_test.go` are the first two. `github.com/onsi/ginkgo/v2`
+v2.32.1 and `github.com/onsi/gomega` v1.42.1 are vendored. The pre-existing stdlib
+tests are left alone, and `ginkgo-only-check.sh` stays out of the gate chain while
+they remain, since arming it would fail on files this decision does not convert.
+This partly answers spec 002 Q2; whether those 19 files are ever converted, and by
+whom, is still open.
+
+*Rejected:* Converting all 19 files in the same change — it turns a feature PR into
+a test-framework migration, which is the coupling Decision 4 rejected for the
+install and which is no more reviewable here. Staying on stdlib — it adopts the Go
+pack while permanently declining its central opinion, and the choice was the
+user's to make, not the scheduler's to assume.
+
+*Cost:* Two dialects in `server/` and `server/planning/` until the conversion
+happens, so a reader has to recognise both. Vendoring onsi adds 750 files and
+about 462k lines under `vendor/`, and pulled `golang.org/x/sys` from v0.43.0 to
+v0.46.0 as a transitive upgrade. `revive`'s `dot-imports` rule is relaxed for
+`_test.go` only, because dot-importing Ginkgo and Gomega is how their DSL is meant
+to read; the rule stays armed for production code.
+
