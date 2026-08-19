@@ -234,6 +234,22 @@ var _ = Describe("schedulePlan", func() {
 		Expect(plan.Initiatives).To(MatchJSON(savedB), "schedulePlan must never persist")
 	})
 
+	It("rejects a body carrying more than the one object it takes", func() {
+		req := httptest.NewRequest("POST", "/api/plan/plan1/schedule",
+			strings.NewReader(`{"params":{"periodStart":"2026-01-05"}} {"params":{"maxConcurrentInitiatives":99}}`))
+		rec := httptest.NewRecorder()
+		srv.schedulePlan(rec, req, plan)
+		Expect(rec.Code).To(Equal(400))
+		Expect(rec.Body.String()).To(ContainSubstring("single JSON object"))
+	})
+
+	It("rejects a malformed body instead of silently scheduling the saved plan", func() {
+		req := httptest.NewRequest("POST", "/api/plan/plan1/schedule", strings.NewReader(`{"params":`))
+		rec := httptest.NewRecorder()
+		srv.schedulePlan(rec, req, plan)
+		Expect(rec.Code).To(Equal(400))
+	})
+
 	It("returns an empty schedule rather than failing on a plan with nothing in it", func() {
 		plan = &db.PlanRow{ID: "empty", HorizonWeeks: 26, CapacityLoss: 0.1}
 		sched := post(`{"params":{"periodStart":"2026-01-05"}}`)
