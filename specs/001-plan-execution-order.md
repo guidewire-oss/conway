@@ -670,7 +670,8 @@ critical paths at once.
 - kitGate: number 0–1 — minimum readiness to release
 - targetUtilization: number — the ceiling the release rule staggers against
 - bufferPct, feedingBufferPct: number — flat percentages of the chain and of each
-  feeding path (Decision 20)
+  feeding path (Decision 20). Absent defaults to 0.25; an explicit value wins,
+  including a 0, which commits on the raw finish
 - maxStartsPerQuarter: integer — change-absorption cap
 - leadCapacity: map of role → integer — concurrent initiatives per named lead.
   Optional: an omitted map, or a role absent from a supplied map, takes the
@@ -695,7 +696,13 @@ critical paths at once.
 - proposedRank, statedRank: integer
 - startWeek, rawFinishWeek, commitWeek: integer
 - bufferWeeks, bufferConsumedPct: number
-- verdict: enum (on-time, at-risk, late, structurally-infeasible, unschedulable, provisional)
+- verdict: enum (on-time, at-risk, late, no-date, structurally-infeasible,
+  unschedulable). `no-date` is an initiative carrying no target date, which
+  §13.2 already renders as "no date"
+- provisional: boolean — a date verdict resting on unestimated in-path work
+  (AC 2.5). Split out of the verdict enum on 2026-08-19: it qualifies any of
+  the other values rather than replacing one, so an initiative can be both
+  late and provisional
 - weeksLate: number, bindingConstraint, rankingTerms, assumptions
 
 **Schedule** _(derived; the whole result)_
@@ -1209,6 +1216,23 @@ later parameter if a plan's estimates ever carry per-slice uncertainty.
 regardless of shape, which is wrong in theory and legible in practice. If real
 per-slice uncertainty ever arrives, the switch is a parameter, not a rewrite —
 so keep buffer sizing behind one function.
+
+**Amendment 2026-08-19 — the default is 25% of the chain.** D20 fixed the shape
+of the buffer but recorded no value, and an absent `bufferPct` still has to
+produce a commit week, because FR-019 and Decision 9 make the buffered week the
+one every date verdict is read against. The default is 0.25.
+
+Not 50%, the classic CCPM project buffer, because three layers of padding
+already sit on the same uncertainty: FullKit weeks are the estimators' own safe
+estimates, which is exactly why Decision 9 refused to halve them; `capacityLoss`
+then inflates every slice duration for PTO and ramp; the buffer is the third.
+Classic CCPM earns its 50% by stripping the first layer out first. Conway does
+not, so 50% would pad the padding.
+
+25% is also reproducible without a calculator — a 12-week chain buys a 3-week
+buffer — which is the property D20 chose flat percentages for in the first
+place. An explicit `bufferPct` always wins, including a 0, which means the
+planner has chosen to commit on the raw finish.
 
 ---
 

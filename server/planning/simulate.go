@@ -175,6 +175,19 @@ func Simulate(teams []Team, inits []Initiative, params Params, levers []Lever) (
 	return
 }
 
+// ApplyLevers returns the roster and initiatives with the what-if levers applied,
+// leaving the originals untouched. The scheduler needs this because §8 lets
+// /schedule take levers, so "add a track at Delta, then re-order" is one request.
+//
+// The wipGain third return of applyLevers is deliberately dropped: it models
+// recovered multitasking waste as reduced demand, which belongs to the flat-rho
+// view. Inside a schedule, limiting work in progress is maxConcurrentInitiatives,
+// and shrinking demand as well would count the same gain twice (Decision 4).
+func ApplyLevers(teams []Team, inits []Initiative, levers []Lever) ([]Team, []Initiative) {
+	t, i, _ := applyLevers(teams, inits, levers)
+	return t, i
+}
+
 func applyLevers(teams []Team, inits []Initiative, levers []Lever) ([]Team, []Initiative, float64) {
 	t2 := append([]Team(nil), teams...) // Team has no pointer fields; value copy is a safe clone
 	i2 := make([]Initiative, 0, len(inits))
@@ -183,7 +196,13 @@ func applyLevers(teams []Team, inits []Initiative, levers []Lever) ([]Team, []In
 		for k, v := range it.Work {
 			w[k] = v
 		}
-		i2 = append(i2, Initiative{Name: it.Name, Description: it.Description, Leads: it.Leads, Work: w})
+		// Copy the whole struct and swap only the map. Listing fields here instead
+		// would silently drop every sequencing attribute an initiative carries —
+		// priorities, target dates, locks — and a levered schedule would quietly
+		// lose the dates it exists to test.
+		clone := it
+		clone.Work = w
+		i2 = append(i2, clone)
 	}
 	teamIdx := func(name string) int {
 		for i := range t2 {

@@ -18,6 +18,14 @@ linters:
       - third_party$
       - builtin$
       - examples$
+    rules:
+      # Ginkgo and Gomega are used through dot-imports by design — that is how
+      # `Describe`/`Expect` read as a DSL, and every example in their docs does
+      # it. The rule is correct for production code, so it stays armed there.
+      - path: '_test\.go$'
+        linters:
+          - revive
+        text: 'dot-imports'
 formatters:
   exclusions:
     generated: lax
