@@ -28,11 +28,32 @@ type TeamWork struct {
 }
 
 // Initiative is one planned feature/project for the year.
+//
+// The sequencing attributes below are all optional, and a plan carrying none of
+// them schedules exactly as it behaves today (spec 001 FR-002).
+//
+// Nothing populates them from an uploaded sheet yet: ParseMatrix does not read
+// §8's optional columns, and there is no in-app editing endpoint. Today they
+// reach the scheduler only through the draft override on POST
+// /api/plan/{id}/schedule. Both entry points are still to be built, so an
+// uploaded plan cannot yet honour its own priorities or dates.
 type Initiative struct {
 	Name        string              `json:"name"`
 	Description string              `json:"description,omitempty"`
 	Leads       map[string]string   `json:"leads,omitempty"`
 	Work        map[string]TeamWork `json:"work"` // team name -> involvement
+
+	StatedPriority     int      `json:"statedPriority,omitempty"`     // planner's rank, 1 = highest; 0 = unranked
+	PriorityLocked     bool     `json:"priorityLocked,omitempty"`     // stated priority is non-negotiable
+	TargetDate         string   `json:"targetDate,omitempty"`         // ISO date this is wanted by (one per initiative)
+	DateLocked         bool     `json:"dateLocked,omitempty"`         // the date is a commitment, not an aspiration
+	Tier               int      `json:"tier,omitempty"`               // requester tier 1-4; T1 contractual .. T4 aspirational
+	CostOfDelayPerWeek float64  `json:"costOfDelayPerWeek,omitempty"` // unitless points, 1-10; only ratios are used
+	EarliestStart      string   `json:"earliestStart,omitempty"`      // ISO date: not before, for funding/hiring/upstream events
+	AfterInitiatives   []string `json:"afterInitiatives,omitempty"`   // cross-initiative precedence, by name
+	KitPct             float64  `json:"kitPct,omitempty"`             // full-kit readiness at period start, 0..1
+	InFlight           bool     `json:"inFlight,omitempty"`           // carryover already running at period start
+	ProgressPct        float64  `json:"progressPct,omitempty"`        // how much of it is already done, 0..1
 }
 
 // Plan is the whole parsed sheet.

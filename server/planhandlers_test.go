@@ -8,6 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"conway/server/db"
 	"conway/server/planning"
 )
@@ -138,4 +141,127 @@ func TestSimulatePlanUsesInitiativesOverride(t *testing.T) {
 	if len(resp.Before.Initiatives) != 1 || resp.Before.Initiatives[0].Name != "Draft one" {
 		t.Fatalf("before.initiatives = %+v, want the draft override ([Draft one]), not the saved sheet", resp.Before.Initiatives)
 	}
+}
+
+// POST /api/plan/{id}/schedule — spec 001 §8. Stateless like simulate, so an
+// unsaved draft can be sequenced before anything is kept (FR-022).
+var _ = Describe("schedulePlan", func() {
+	var (
+		srv  *server
+		plan *db.PlanRow
+	)
+
+	BeforeEach(func() {
+		teams, inits := planning.Demo()
+		teamsB, err := json.Marshal(teams)
+		Expect(err).NotTo(HaveOccurred())
+		initsB, err := json.Marshal(inits)
+		Expect(err).NotTo(HaveOccurred())
+		srv = &server{}
+		plan = &db.PlanRow{ID: "plan1", HorizonWeeks: 26, CapacityLoss: 0.1, Teams: teamsB, Initiatives: initsB}
+	})
+
+	post := func(body string) *planning.Schedule {
+		req := httptest.NewRequest("POST", "/api/plan/plan1/schedule", strings.NewReader(body))
+		rec := httptest.NewRecorder()
+		srv.schedulePlan(rec, req, plan)
+		Expect(rec.Code).To(Equal(200), rec.Body.String())
+		var sched planning.Schedule
+		Expect(json.Unmarshal(rec.Body.Bytes(), &sched)).To(Succeed())
+		return &sched
+	}
+
+	It("returns the §7 Schedule shape for the demo plan", func() {
+		sched := post(`{"params":{"periodStart":"2026-01-05"}}`)
+
+		_, demoInits := planning.Demo()
+		Expect(sched.Initiatives).To(HaveLen(len(demoInits)))
+		Expect(sched.PodWeeks).NotTo(BeEmpty())
+		Expect(sched.DrumPods).To(ContainElement("Delta"))
+		Expect(sched.HorizonWeeks).To(Equal(26))
+		Expect(sched.Rule).NotTo(BeEmpty())
+		Expect(sched.RulesTried).To(HaveLen(5), "Decision 6 runs every rule and keeps the best")
+
+		By("giving every initiative a rank, a span and a commit week (FR-003)")
+		ranks := map[int]bool{}
+		for _, si := range sched.Initiatives {
+			Expect(si.Name).NotTo(BeEmpty())
+			Expect(si.ProposedRank).To(BeNumerically(">", 0))
+			Expect(ranks).NotTo(HaveKey(si.ProposedRank), "ranks must be unique")
+			ranks[si.ProposedRank] = true
+			Expect(si.CommitWeek).To(BeNumerically(">=", si.RawFinishWeek))
+			Expect(si.RawFinishWeek).To(BeNumerically(">", si.StartWeek))
+			Expect(si.Verdict).NotTo(BeEmpty())
+			Expect(si.Slices).NotTo(BeEmpty())
+		}
+
+		By("labelling the WIP limit as derived, with the pod it came from (Decision 22)")
+		Expect(sched.WipLimit.Derived).To(BeTrue())
+		Expect(sched.WipLimit.FromPod).To(Equal("Delta"))
+
+		By("reporting per-pod weekly load for the heatmap (FR-004)")
+		for _, ps := range sched.PodWeeks {
+			Expect(ps.Weeks).NotTo(BeEmpty())
+			for _, wk := range ps.Weeks {
+				Expect(wk.Busy).To(BeNumerically("<=", ps.Tracks),
+					"pod %s week %d ran %d slices on %d tracks", ps.Pod, wk.Week, wk.Busy, ps.Tracks)
+			}
+		}
+	})
+
+	It("honours an explicit WIP limit from the request", func() {
+		sched := post(`{"params":{"periodStart":"2026-01-05","maxConcurrentInitiatives":3}}`)
+		Expect(sched.WipLimit).To(Equal(planning.WipLimit{Value: 3}))
+	})
+
+	It("sequences a draft override instead of the saved sheet", func() {
+		sched := post(`{"params":{"periodStart":"2026-01-05"},
+			"initiatives":[{"name":"Draft only","work":{"Atlas":{"weeks":4,"estimated":true,"inPath":true}}}]}`)
+		Expect(sched.Initiatives).To(HaveLen(1))
+		Expect(sched.Initiatives[0].Name).To(Equal("Draft only"))
+	})
+
+	It("applies levers before ordering, and still writes nothing to the plan", func() {
+		before := post(`{"params":{"periodStart":"2026-01-05","maxConcurrentInitiatives":4}}`)
+		after := post(`{"params":{"periodStart":"2026-01-05","maxConcurrentInitiatives":4},
+			"levers":[{"type":"addCapacity","pod":"Delta","n":4}]}`)
+
+		Expect(deltaTracks(after)).To(BeNumerically(">", deltaTracks(before)),
+			"the lever should widen the drum for this computation only")
+		_, demoInits := planning.Demo()
+		savedB, err := json.Marshal(demoInits)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(plan.Initiatives).To(MatchJSON(savedB), "schedulePlan must never persist")
+	})
+
+	It("rejects a body carrying more than the one object it takes", func() {
+		req := httptest.NewRequest("POST", "/api/plan/plan1/schedule",
+			strings.NewReader(`{"params":{"periodStart":"2026-01-05"}} {"params":{"maxConcurrentInitiatives":99}}`))
+		rec := httptest.NewRecorder()
+		srv.schedulePlan(rec, req, plan)
+		Expect(rec.Code).To(Equal(400))
+		Expect(rec.Body.String()).To(ContainSubstring("single JSON object"))
+	})
+
+	It("rejects a malformed body instead of silently scheduling the saved plan", func() {
+		req := httptest.NewRequest("POST", "/api/plan/plan1/schedule", strings.NewReader(`{"params":`))
+		rec := httptest.NewRecorder()
+		srv.schedulePlan(rec, req, plan)
+		Expect(rec.Code).To(Equal(400))
+	})
+
+	It("returns an empty schedule rather than failing on a plan with nothing in it", func() {
+		plan = &db.PlanRow{ID: "empty", HorizonWeeks: 26, CapacityLoss: 0.1}
+		sched := post(`{"params":{"periodStart":"2026-01-05"}}`)
+		Expect(sched.Initiatives).To(BeEmpty())
+	})
+})
+
+func deltaTracks(s *planning.Schedule) int {
+	for _, ps := range s.PodWeeks {
+		if ps.Pod == "Delta" {
+			return ps.Tracks
+		}
+	}
+	return 0
 }
