@@ -455,6 +455,35 @@ test('the form offers no knob that does nothing', () => {
   }
 });
 
+// schedulingFormHTML is exported and takes whatever the stored policy blob holds,
+// so its values are not guaranteed to be the numbers §7 describes.
+test('a hostile value cannot break out of the value attribute', () => {
+  const html = schedulingFormHTML({
+    periodStart: '" onfocus=alert(1) x="',
+    maxConcurrentInitiatives: '"><img src=x onerror=alert(1)>',
+    maxInitiativesPerPod: '"><script>bad()</script>',
+  }, {});
+  assert.ok(!html.includes('<img'), 'markup injected through a value attribute');
+  assert.ok(!html.includes('<script'), 'script injected through a value attribute');
+  // The quotes are what would end the attribute early, so the property to assert is
+  // that they arrive escaped. The rest of the payload is then inert text.
+  assert.match(html, /value="&quot; onfocus=alert\(1\) x=&quot;"/,
+    'the quotes must be escaped, so nothing escapes the attribute');
+  assert.ok(!/value="[^"]*"[a-z]/i.test(html.replace(/&quot;/g, '')),
+    'no attribute begins immediately after a value attribute closes');
+});
+
+// These are controls, not submitters. Inside a <form> a bare button defaults to
+// type="submit" and would navigate.
+test('the form controls are explicitly type=button', () => {
+  const html = schedulingFormHTML({ periodStart: '2026-01-05' }, {});
+  const buttons = html.match(/<button[^>]*>/g) || [];
+  assert.equal(buttons.length, 2, 'save and cancel');
+  for (const b of buttons) {
+    assert.match(b, /type="button"/, `missing type: ${b}`);
+  }
+});
+
 test('a blank field is omitted so the server default applies', () => {
   const body = schedulingFromForm(reader({ 'sched-period-start': '2026-01-05' }));
   assert.deepEqual(body, { periodStart: '2026-01-05' });

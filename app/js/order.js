@@ -348,7 +348,7 @@ export function orderViewHTML(sched, opts = {}) {
 const numField = (id, label, value, placeholder, help, suffix, max) =>
   `<label class="hint sched-f">${label}
     <span class="sched-row">
-      <input id="${id}" type="number" min="0" max="${max}" step="1" value="${value}"
+      <input id="${id}" type="number" min="0" max="${max}" step="1" value="${esc(value)}"
         placeholder="${esc(placeholder)}">${suffix ? `<span class="hint">${suffix}</span>` : ''}
     </span>
     <span class="hint">${esc(help)}</span></label>`;
@@ -386,8 +386,8 @@ export function schedulingFormHTML(sp = {}, wip) {
       ${intField('sched-quarter', 'starts per quarter', asInt(sp.maxStartsPerQuarter), 'uncapped',
     'how much change the org can absorb')}
     </div>
-    <button id="sched-save" class="primary">Save assumptions</button>
-    <button id="sched-cancel">Cancel</button>
+    <button type="button" id="sched-save" class="primary">Save assumptions</button>
+    <button type="button" id="sched-cancel">Cancel</button>
   </details>`;
 }
 
