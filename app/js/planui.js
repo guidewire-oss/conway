@@ -6,7 +6,7 @@ import {
   heatColor, layoutColumns, bezierEdgePath, appendArrowMarker,
   enablePanZoom, enableNodeDrag, makeSpotlight,
 } from './netgraph.js';
-import { esc, orderViewHTML } from './order.js';
+import { esc, orderViewHTML, schedulingFromForm } from './order.js';
 
 let root, current = null;
 
@@ -131,6 +131,32 @@ function renderPlan() {
 
 const view = () => (current && current.view) === 'order' ? 'order' : 'network';
 
+// saveScheduling stores the plan-level assumptions and recomputes the order. This
+// is the only way to give a plan a period start, without which target dates cannot
+// become weeks and every initiative reads as "no date".
+async function saveScheduling() {
+  const btn = document.getElementById('sched-save');
+  const body = schedulingFromForm((id) => document.getElementById(id)?.value);
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  const r = await req('/api/plan/' + current.id + '/scheduling', {
+    method: 'PATCH', body: JSON.stringify(body),
+  });
+  if (!r || !r.ok) {
+    const why = r ? await r.text() : 'the request did not reach the server';
+    if (btn) { btn.disabled = false; btn.textContent = 'Save assumptions'; }
+    // Beside the button, not an alert: the planner needs to see it next to the field
+    // they have to change, and the form must keep what they typed.
+    document.getElementById('sched-error')?.remove();
+    btn?.insertAdjacentHTML('afterend',
+      `<span class="plan-warn" id="sched-error">${esc(why)}</span>`);
+    return;
+  }
+  const saved = await r.json();
+  current.scheduling = saved.scheduling || body;
+  staleOrder(); // the assumptions moved, so the order has to be recomputed
+  renderOrder();
+}
+
 // staleOrder drops the cached execution order. Anything that changes the inputs —
 // levers, the roster, the sheet — has to call it, or the Order view keeps showing
 // an order computed from a plan that no longer exists, which is worse than a spinner.
@@ -192,7 +218,12 @@ async function renderOrder() {
   host.innerHTML = orderViewHTML(current.schedule, {
     horizonWeeks: current.horizonWeeks,
     pod: current.orderPod,
+    // Always an object, never undefined: passing undefined is how the view is told
+    // to omit the form entirely, and on a real plan it must always be offered.
+    scheduling: current.scheduling || {},
   });
+  document.getElementById('sched-save')?.addEventListener('click', saveScheduling);
+  document.getElementById('sched-cancel')?.addEventListener('click', () => renderOrder());
   host.querySelectorAll('.ord-podlink').forEach((a) => a.addEventListener('click', () => {
     // Clicking the open pod again closes it, so the grid is never stuck behind a panel.
     current.orderPod = current.orderPod === a.dataset.pod ? null : a.dataset.pod;
