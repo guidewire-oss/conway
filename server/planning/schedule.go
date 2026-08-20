@@ -42,7 +42,9 @@ const (
 	bindDependency    = "dependency"
 	bindPodCapacity   = "pod-capacity"
 	bindLead          = "lead"
-	bindWipLimit      = "wip-limit"
+	bindWipLimit      = "wip-limit"     // the org limit
+	bindPodWipLimit   = "pod-wip-limit" // the per-pod concurrency cap
+	bindStartsCap     = "starts-cap"    // the change-absorption cap (FR-026)
 	bindKitGate       = "kit-gate"
 	bindEarliestStart = "earliest-start"
 	bindPredecessor   = "predecessor"
@@ -95,8 +97,9 @@ const (
 	// WipDrumGated counts only initiatives that consume a drum pod, so work that
 	// never touches the constraint is not held back by it.
 	WipDrumGated = "drum-gated"
-	// WipOff applies no org limit; pod tracks, leads, calendars and dependencies are
-	// the only constraints. Also the model under which AC 4.2 is checkable.
+	// WipOff applies no org WIP limit. The per-pod cap, the change-absorption cap,
+	// leads, pod tracks, calendars and dependencies all still apply: this switches
+	// off one limit, not every limit. Also the model under which AC 4.2 is checkable.
 	WipOff = "off"
 )
 
@@ -1103,12 +1106,19 @@ func releaseFloor(in *schedInput, sp SchedulingParams, commitOf map[string]int, 
 func releaseGates(in *schedInput, sp SchedulingParams, wip WipLimit, start, finish int,
 	inFlight []int, leadBusy map[string][]int, quarterStarts map[int]int) (string, bool) {
 
+	// The change-absorption cap is not the WIP limit and is not switched off with it:
+	// a planner who set it asked for it separately, and `off` removes one org limit
+	// rather than every limit. It gets its own label so FR-008's "which limit delayed
+	// this" is answerable.
 	if sp.MaxStartsPerQuarter > 0 && quarterStarts[start/weeksPerQuarter] >= sp.MaxStartsPerQuarter {
-		return bindWipLimit, false
+		return bindStartsCap, false
 	}
 	// Under drum-gated, an initiative that consumes no drum time is not what the rope
-	// is protecting, so the org limit has nothing to hold it back from. Under strict
-	// every initiative counts; under off the limit is zero and this loop never fires.
+	// is protecting, so the org limit has nothing to hold it back from; under strict
+	// every initiative counts. Under off this still iterates — the limit is zero, so
+	// the comparison never trips, rather than the check being skipped. Saying that
+	// precisely matters: a future change that stops relying on the zero would
+	// otherwise look safe.
 	counts := sp.effectiveWipModel() != WipDrumGated || in.drumWeeks > 0
 	if counts {
 		for w := start; w < finish; w++ {
@@ -1197,7 +1207,7 @@ func firstFreeWeek(c *podCalendar, tracks, from, d int, initiative string, perPo
 				break
 			}
 			if perPodCap > 0 && podWeekInitiatives(c, w, initiative) >= perPodCap {
-				fits, why = false, bindWipLimit
+				fits, why = false, bindPodWipLimit
 				break
 			}
 		}

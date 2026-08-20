@@ -456,6 +456,27 @@ var _ = Describe("ComputeSchedule", func() {
 			}
 		})
 
+		// "off" switches off one limit, not every limit. Claiming otherwise in the UI
+		// while the change-absorption cap still delays work would be a plain lie.
+		It("leaves the other org caps alone under off, each naming itself", func() {
+			teams := []Team{{Name: "Far", Tracks: 6}}
+			var inits []Initiative
+			for _, n := range []string{"One", "Two", "Three", "Four"} {
+				inits = append(inits, Initiative{Name: n, Work: map[string]TeamWork{"Far": podWork(3)},
+					StatedPriority: len(inits) + 1, PriorityLocked: true})
+			}
+			sched := ComputeSchedule(teams, inits, Params{HorizonWeeks: 40, CapacityLoss: 0},
+				SchedulingParams{PeriodStart: specPeriodStart, WipModel: WipOff,
+					MaxStartsPerQuarter: 2, BufferPct: pctOf(0.25)})
+
+			Expect(sched.WipLimit.Value).To(BeZero(), "the org WIP limit is off")
+			held := scheduledFor(sched, "Three")
+			Expect(held.StartWeek).To(BeNumerically(">", 0),
+				"the change-absorption cap is a separate setting the planner asked for")
+			Expect(held.BindingConstraint).To(Equal("starts-cap"),
+				"and it says which limit held the work, not the one that is switched off")
+		})
+
 		It("rejects a model nobody implements rather than guessing", func() {
 			sched := run("wishful")
 			Expect(sched.WipLimit.Model).To(Equal(WipUnchosen),
@@ -519,7 +540,8 @@ var _ = Describe("ComputeSchedule", func() {
 			Expect(podScheduleFor(sched, "Atlas").Weeks[0].Initiatives).To(ConsistOf("One", "Two"))
 			third := scheduledFor(sched, "Three")
 			Expect(third.StartWeek).To(Equal(3))
-			Expect(third.BindingConstraint).To(Equal("wip-limit"))
+			Expect(third.BindingConstraint).To(Equal("pod-wip-limit"),
+				"FR-008 wants which limit delayed it, and this is the pod's cap, not the org's")
 		})
 
 		It("lets an explicit value win", func() {
