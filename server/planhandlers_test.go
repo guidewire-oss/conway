@@ -424,6 +424,25 @@ var _ = Describe("the plan's sequencing inputs", func() {
 		})
 	})
 
+	// json.Unmarshal can leave fields populated before it errors, so a corrupt blob
+	// must not be able to apply half a policy.
+	Describe("reading a stored policy", func() {
+		It("falls back to no policy when the stored blob is corrupt", func() {
+			plan.Scheduling = []byte(`{"periodStart":"2026-01-05","maxConcurrentInitiatives":`)
+			Expect(planScheduling(plan)).To(Equal(planning.SchedulingParams{}),
+				"a partly-decoded policy is not a policy the planner chose")
+		})
+
+		It("reads a good blob", func() {
+			Expect(planScheduling(plan).PeriodStart).To(Equal("2026-01-05"))
+		})
+
+		It("treats an absent blob as no policy", func() {
+			plan.Scheduling = nil
+			Expect(planScheduling(plan)).To(Equal(planning.SchedulingParams{}))
+		})
+	})
+
 	Describe("PATCH /api/plan/{id}/scheduling", func() {
 		It("refuses a period start that is not a date", func() {
 			rec := patch("/api/plan/plan1/scheduling", `{"periodStart":"next quarter"}`, srv.savePlanScheduling)

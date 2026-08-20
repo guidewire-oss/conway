@@ -417,8 +417,14 @@ func (s *server) simulatePlan(w http.ResponseWriter, r *http.Request, p *db.Plan
 // policy at all does (FR-002).
 func planScheduling(p *db.PlanRow) planning.SchedulingParams {
 	var sp planning.SchedulingParams
-	if len(p.Scheduling) > 0 {
-		json.Unmarshal(p.Scheduling, &sp) //nolint:errcheck // absent or corrupt reads as "no policy set"
+	if len(p.Scheduling) == 0 {
+		return sp
+	}
+	// The error has to be checked, not ignored: json.Unmarshal populates as it goes,
+	// so a blob that fails half way through would otherwise leave a partial policy
+	// in place — knobs the planner never set, applied as though they had.
+	if err := json.Unmarshal(p.Scheduling, &sp); err != nil {
+		return planning.SchedulingParams{}
 	}
 	return sp
 }
