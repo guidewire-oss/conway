@@ -71,9 +71,10 @@ func ApplyInitiativeEdits(inits []Initiative, edits []InitiativeEdit, sp Schedul
 
 	// Validate the whole batch before touching anything.
 	type resolved struct {
-		idx        int
-		edit       InitiativeEdit
-		targetDate *string // normalised to ISO
+		idx           int
+		edit          InitiativeEdit
+		targetDate    *string // normalised to ISO
+		earliestStart *string // normalised to ISO
 	}
 	pending := make([]resolved, 0, len(edits))
 	for _, e := range edits {
@@ -83,13 +84,31 @@ func ApplyInitiativeEdits(inits []Initiative, edits []InitiativeEdit, sp Schedul
 			continue
 		}
 		r := resolved{idx: idx, edit: e}
+		bad := false
 		if e.TargetDate != nil {
 			iso, err := validDate(*e.TargetDate, start, end, bounded)
 			if err != nil {
-				problems = append(problems, fmt.Sprintf("%s: %s", e.Name, err))
-				continue
+				problems = append(problems, fmt.Sprintf("%s: target date %s", e.Name, err))
+				bad = true
+			} else {
+				r.targetDate = &iso
 			}
-			r.targetDate = &iso
+		}
+		if e.EarliestStart != nil {
+			// Readable, but not bounds-checked: AC 2.4 is about the target date, and
+			// "cannot start until after this period" is a legitimate thing to record.
+			// Readability still matters — an unreadable value would otherwise silently
+			// replace a good date with nothing, which is the loss the pointers prevent.
+			iso, err := validDate(*e.EarliestStart, "", "", false)
+			if err != nil {
+				problems = append(problems, fmt.Sprintf("%s: earliest start %s", e.Name, err))
+				bad = true
+			} else {
+				r.earliestStart = &iso
+			}
+		}
+		if bad {
+			continue
 		}
 		pending = append(pending, r)
 	}
@@ -115,11 +134,8 @@ func ApplyInitiativeEdits(inits []Initiative, edits []InitiativeEdit, sp Schedul
 		if r.targetDate != nil {
 			it.TargetDate = *r.targetDate
 		}
-		// earliestStart is deliberately not bounds-checked: AC 2.4 is about the target
-		// date, and "cannot start until after this period" is a legitimate thing to
-		// record rather than an error.
-		if e.EarliestStart != nil {
-			it.EarliestStart = parseSheetDate(*e.EarliestStart)
+		if r.earliestStart != nil {
+			it.EarliestStart = *r.earliestStart
 		}
 		if e.AfterInitiatives != nil {
 			it.AfterInitiatives = append([]string(nil), (*e.AfterInitiatives)...)

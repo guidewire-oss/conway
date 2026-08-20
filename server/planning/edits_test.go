@@ -156,6 +156,40 @@ var _ = Describe("ApplyInitiativeEdits", func() {
 			Expect(out[0].TargetDate).To(Equal("2026-03-30"))
 		})
 
+		// earliestStart is not bounds-checked, but it still has to be readable: silently
+		// replacing a good date with an empty one is the data loss the pointer fields
+		// exist to prevent.
+		It("rejects an unreadable earliest start instead of clearing the old one", func() {
+			inits[0].EarliestStart = "2026-02-02"
+			junk := "whenever"
+			out, err := ApplyInitiativeEdits(inits, []InitiativeEdit{
+				{Name: "Payments GA", EarliestStart: &junk},
+			}, params, 26)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("whenever"))
+			Expect(out).To(BeNil())
+			Expect(inits[0].EarliestStart).To(Equal("2026-02-02"))
+		})
+
+		It("still lets an earliest start outside the period through", func() {
+			outside := "2027-09-01"
+			out, err := ApplyInitiativeEdits(inits, []InitiativeEdit{
+				{Name: "Payments GA", EarliestStart: &outside},
+			}, params, 26)
+			Expect(err).NotTo(HaveOccurred(), "cannot start until after this period is a real thing to record")
+			Expect(out[0].EarliestStart).To(Equal("2027-09-01"))
+		})
+
+		It("lets an empty earliest start clear the field", func() {
+			inits[0].EarliestStart = "2026-02-02"
+			empty := ""
+			out, err := ApplyInitiativeEdits(inits, []InitiativeEdit{
+				{Name: "Payments GA", EarliestStart: &empty},
+			}, params, 26)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(out[0].EarliestStart).To(BeEmpty())
+		})
+
 		// Nothing can be measured against a period that has no start, and inventing one
 		// would reject dates on a rule the planner never set.
 		It("skips the bounds check when the plan has no period start", func() {
