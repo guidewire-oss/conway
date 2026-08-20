@@ -102,9 +102,9 @@ function renderPlan() {
       <button id="plan-draft-save" class="primary">Save initiatives</button>
       <button id="plan-draft-discard">Discard</button></p>` : ''}
     ${unknown.length ? `<p class="plan-warn">⚠ ${unknown.length} pod(s) referenced by initiatives but missing from the roster: ${unknown.map(esc).join(', ')} — fix the sheet or add them to the roster.</p>` : ''}
-    ${nTeams > 0 && nInit > 0 ? `<div class="plan-views">
-      <button class="seg ${view() === 'network' ? 'seg-on' : ''}" id="view-network">Network</button><button class="seg ${view() === 'order' ? 'seg-on' : ''}" id="view-order">Order</button>
-    </div>` : ''}
+    ${nTeams > 0 && nInit > 0 ? `<div class="plan-views"><span class="seg">
+      <button class="${view() === 'network' ? 'seg-on' : ''}" id="view-network">Network</button><button class="${view() === 'order' ? 'seg-on' : ''}" id="view-order">Order</button>
+    </span></div>` : ''}
     ${nTeams === 0 ? '<p class="hint">Step 1: pick a roster (team composition drifts over time — this pins it). Step 2: upload the initiatives matrix.</p>'
       : nInit === 0 ? '<p class="hint">Roster loaded. Now upload the initiatives matrix.</p>'
       : '<div id="plan-dash"></div>'}`;
