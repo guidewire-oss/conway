@@ -33,7 +33,7 @@ build: | $(VAR) ## Build the Go server binary (var/conway)
 	go build -o $(BIN) ./server
 
 test: guard ## Run engine (JS) and server (Go) tests
-	node --test tests/sim.test.mjs
+	node --test 'tests/*.test.mjs'
 	go test ./...
 
 guard: ## Check internal paths are still git-ignored (see the hook's header)
