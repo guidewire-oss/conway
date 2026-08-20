@@ -18,6 +18,7 @@ type PlanRow struct {
 	CapacityLoss    float64 `json:"capacityLoss"`
 	Teams           []byte  `json:"-"`               // JSON []planning.Team
 	Initiatives     []byte  `json:"-"`               // JSON []planning.Initiative
+	Scheduling      []byte  `json:"-"`               // JSON planning.SchedulingParams
 	RosterID        string  `json:"rosterId"`        // reference/label only — teams is a frozen copy, not a live join
 	TeamCount       int     `json:"teamCount"`       // populated by ListPlans
 	InitiativeCount int     `json:"initiativeCount"` // populated by ListPlans
@@ -66,9 +67,9 @@ func (d *DB) ListPlans(owner string, all bool) ([]PlanRow, error) {
 func (d *DB) GetPlan(id string) (*PlanRow, error) {
 	var p PlanRow
 	err := d.pool.QueryRow(context.Background(),
-		`SELECT id,owner,name,horizon_weeks,capacity_loss,teams,initiatives,roster_id,created_at,updated_at
+		`SELECT id,owner,name,horizon_weeks,capacity_loss,teams,initiatives,scheduling,roster_id,created_at,updated_at
 		 FROM plans WHERE id=$1`, id).
-		Scan(&p.ID, &p.Owner, &p.Name, &p.HorizonWeeks, &p.CapacityLoss, &p.Teams, &p.Initiatives, &p.RosterID, &p.CreatedAt, &p.UpdatedAt)
+		Scan(&p.ID, &p.Owner, &p.Name, &p.HorizonWeeks, &p.CapacityLoss, &p.Teams, &p.Initiatives, &p.Scheduling, &p.RosterID, &p.CreatedAt, &p.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -96,6 +97,14 @@ func (d *DB) SetPlanRosterTeams(id, rosterID string, teams []byte, updated int64
 func (d *DB) SavePlanInitiatives(id string, inits []byte, updated int64) error {
 	_, err := d.pool.Exec(context.Background(),
 		`UPDATE plans SET initiatives=$2, updated_at=$3 WHERE id=$1`, id, jsonbArg(inits), updated)
+	return err
+}
+
+// SavePlanScheduling stores the plan-level scheduling policy (§8's PATCH
+// /api/plan/{id}/scheduling). Written whole, like teams and initiatives.
+func (d *DB) SavePlanScheduling(id string, params []byte, updated int64) error {
+	_, err := d.pool.Exec(context.Background(),
+		`UPDATE plans SET scheduling=$2, updated_at=$3 WHERE id=$1`, id, jsonbArg(params), updated)
 	return err
 }
 
