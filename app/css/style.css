@@ -352,3 +352,15 @@ button:hover { filter: brightness(1.15); }
 .ord-queue { margin-top: 12px; }
 .ord-assume { margin-top: 8px; }
 .ord-assume ul, .plan-warn ul { margin: 6px 0 0 18px; padding: 0; }
+
+/* Scheduling assumptions form, inside the Order view */
+.ord-sched { margin: 8px 0 12px; padding: 10px; background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; }
+.ord-sched summary { cursor: pointer; }
+.sched-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px 18px; margin: 10px 0; }
+.sched-f { display: flex; flex-direction: column; gap: 3px; color: var(--text); font-size: 12px; }
+.sched-row { display: flex; align-items: center; gap: 5px; }
+/* Wide enough for the placeholders, which carry what a blank field means. */
+.sched-f input { background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 5px; padding: 4px 6px; flex: 1 1 auto; min-width: 0; max-width: 190px; }
+.ord-sched .plan-warn { margin-top: 8px; }
+#sched-error { display: inline-block; margin-left: 8px; }
