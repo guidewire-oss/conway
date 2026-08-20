@@ -65,13 +65,18 @@ export function objectiveView(sched) {
   // Comparability comes from the inputs, not the scores. The objective is weighted
   // lateness, so a plan where every date holds scores 0 on both runs — reading that
   // as "no dates set" would tell the planner the opposite of what just happened.
-  const dated = inits.some((si) => si.targetWeek !== null && si.targetWeek !== undefined);
+  const isDated = (si) => si.targetWeek !== null && si.targetWeek !== undefined;
+  const dated = inits.filter(isDated);
   const ranked = inits.some((si) => si.statedRank > 0);
-  const late = inits.some((si) => (si.weeksLate || 0) > 0);
   return {
     stated, proposed, delta,
-    comparable: dated || ranked,
-    allOnTime: (dated || ranked) && !late,
+    comparable: dated.length > 0 || ranked,
+    // "Every date holds" is an absolute claim, so all three have to be true: there
+    // are dates, every one of them came back on-time — weeksLate is 0 for an
+    // unschedulable row too, so the verdict is what counts — and neither order
+    // costs anything, since a stated order that was late is still a miss.
+    allOnTime: dated.length > 0 && dated.every((si) => si.verdict === 'on-time') &&
+      stated === 0 && proposed === 0,
     better: delta < 0,
   };
 }
@@ -142,7 +147,9 @@ export function rowTraceHTML(row) {
     if (t.index !== undefined) parts.push(`index ${t.index}`);
   }
   if ((si.unestimatedPods || []).length) {
-    parts.push(`no estimate from ${si.unestimatedPods.map(esc).join(', ')}`);
+    // Raw here: parts is escaped once below, and escaping twice would print the
+    // entity rather than the character ("R&amp;D" instead of "R&D").
+    parts.push(`no estimate from ${si.unestimatedPods.join(', ')}`);
   }
   const terms = parts.length ? `<div class="hint">${parts.map(esc).join(' · ')}</div>` : '';
   const assume = (si.assumptions || []).length
@@ -225,16 +232,24 @@ export function podHeatmapHTML(sched, horizonWeeks) {
     ${overrunNote(sched, weeks)}`;
 }
 
+// byteOrder compares two strings the way Go's `<` operator does, so a tie broken
+// here lands the same way it landed on the server.
+export function byteOrder(a, b) {
+  if (a === b) return 0;
+  return a < b ? -1 : 1;
+}
+
 // podQueueHTML is AC 4.3: a pod's slices in scheduled start order, each with the
 // wait before it, so a pod lead can see what they are queued behind.
 export function podQueueHTML(sched, pod) {
   const ps = (sched.podWeeks || []).find((x) => x.pod === pod);
   if (!ps) return '';
-  // Mirror podSchedules in schedule.go: start week, then initiative name. Array
-  // sort is stable, so the server's order already survived — but relying on the
-  // caller's ordering for a total order is a dependency worth not having.
+  // Mirror podSchedules in schedule.go: start week, then initiative name compared
+  // byte-wise. Go's `<` on strings is a byte comparison, so "Zulu" precedes
+  // "alpha"; localeCompare would reverse exactly that pair and disagree with the
+  // server it claims to follow.
   const slices = (ps.slices || []).slice().sort((a, b) =>
-    a.startWeek - b.startWeek || String(a.initiative).localeCompare(String(b.initiative)));
+    a.startWeek - b.startWeek || byteOrder(String(a.initiative), String(b.initiative)));
   if (!slices.length) return `<p class="hint">${esc(pod)} has no scheduled work in this plan.</p>`;
   const rows = slices.map((s) => `<tr>
     <td>${esc(s.initiative)}</td>

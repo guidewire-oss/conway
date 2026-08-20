@@ -104,6 +104,28 @@ test('objectiveView is comparable when priorities exist without any dates', () =
   assert.equal(v.comparable, true, 'a stated order can be argued with even undated');
 });
 
+// allOnTime drives a header that makes an absolute claim, so every way of not
+// being all-on-time has to defeat it.
+test('allOnTime requires dated rows that all actually held', () => {
+  const dated = (over) => ({ statedOrderObjectiveScore: 0, objectiveScore: 0, ...over });
+
+  assert.equal(objectiveView(dated({ initiatives: [{ statedRank: 1 }] })).allOnTime, false,
+    'priorities without dates: there is no date to hold');
+
+  assert.equal(objectiveView(dated({
+    initiatives: [{ targetWeek: 8, verdict: 'unschedulable' }],
+  })).allOnTime, false, 'unschedulable is not on time, and it carries no weeksLate');
+
+  assert.equal(objectiveView({
+    statedOrderObjectiveScore: 12, objectiveScore: 0,
+    initiatives: [{ targetWeek: 8, verdict: 'on-time' }],
+  }).allOnTime, false, 'the stated order was late, so not every date holds under either order');
+
+  assert.equal(objectiveView(dated({
+    initiatives: [{ targetWeek: 8, verdict: 'on-time' }, { statedRank: 2 }],
+  })).allOnTime, true, 'every dated row on time, both orders costing nothing');
+});
+
 test('wipLimitNote says whether the limit was derived, and from where (Decision 22)', () => {
   const derived = wipLimitNote({ value: 2, derived: true, fromPod: 'Delta' });
   assert.match(derived, /derived/);
@@ -302,6 +324,18 @@ test('podQueueHTML renders the queue in start order, checked in the markup', () 
     'rendered rows must climb by start week');
 });
 
+// The trace escapes once. Escaping twice shows the reader "R&amp;D".
+test('a pod name with markup characters is escaped exactly once', () => {
+  const html = rowTraceHTML({
+    si: { name: 'x', unestimatedPods: ['R&D', '<Ops>'], rankingTerms: { weight: 4, index: 1 } },
+    reason: '',
+  });
+  assert.match(html, /R&amp;D/);
+  assert.ok(!html.includes('&amp;amp;'), 'double-escaped: the entity itself is being displayed');
+  assert.match(html, /&lt;Ops&gt;/);
+  assert.ok(!html.includes('<Ops>'), 'and it must still be escaped');
+});
+
 test('podQueueHTML breaks a start-week tie the way the server does', () => {
   const sched = {
     podWeeks: [{
@@ -315,6 +349,23 @@ test('podQueueHTML breaks a start-week tie the way the server does', () => {
   const html = podQueueHTML(sched, 'Delta');
   assert.ok(html.indexOf('Alpha') < html.indexOf('Zulu'),
     'ties break on initiative name, matching podSchedules in schedule.go');
+});
+
+// Go compares strings byte-wise, so "Zulu" sorts before "alpha" ('Z' is 0x5A,
+// 'a' is 0x61). localeCompare would put them the other way round, which is the
+// opposite of the server's order the comment claims to mirror.
+test('the tie-break compares bytes, the way Go does, not by locale', () => {
+  const html = podQueueHTML({
+    podWeeks: [{
+      pod: 'Delta', tracks: 2,
+      slices: [
+        { initiative: 'alpha release', startWeek: 3, finishWeek: 5, remainingWeeks: 2, waitWeeks: 0 },
+        { initiative: 'Zulu release', startWeek: 3, finishWeek: 6, remainingWeeks: 3, waitWeeks: 0 },
+      ],
+    }],
+  }, 'Delta');
+  assert.ok(html.indexOf('Zulu release') < html.indexOf('alpha release'),
+    'uppercase sorts first byte-wise, matching sort.SliceStable in schedule.go');
 });
 
 // A pod selector that only responds to a mouse is unusable by keyboard and opaque

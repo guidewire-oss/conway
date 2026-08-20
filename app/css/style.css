@@ -246,9 +246,12 @@ table.sortable thead th.sort-desc::after { content: " ▼"; font-size: 9px; opac
 .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
 .seg button { background: transparent; color: var(--muted); border: 0; padding: 5px 12px; cursor: pointer; font-size: 12px; }
 .seg button.seg-on { background: var(--panel2); color: var(--text); }
-/* planui applies .seg to the buttons themselves rather than to a wrapper, so the
-   descendant rule above never matches there and the active state had no styling.
-   Both spellings are supported rather than rewriting the existing markup. */
+/* planui's network toggle applies .seg to the buttons themselves rather than to a
+   wrapper, so the descendant rule above never matches and its active state had no
+   styling at all. This gives that spelling a usable active state — it does NOT
+   reproduce the wrapper's joined pill, because a flat button keeps the global
+   button border. New switchers should use the wrapper form (.plan-views below),
+   which is what the rules above are written for. */
 button.seg { background: transparent; color: var(--muted); padding: 5px 12px; cursor: pointer; font-size: 12px; }
 button.seg.seg-on { background: var(--panel2); color: var(--text); }
 #netpanel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; overflow-y: auto; max-height: calc(100vh - 175px); }
