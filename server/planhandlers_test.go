@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"mime/multipart"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -363,3 +364,162 @@ func multipartFileG(field, filename string, data []byte) (*bytes.Buffer, string)
 	Expect(w.Close()).To(Succeed())
 	return body, w.FormDataContentType()
 }
+
+// §8's two save endpoints, and /schedule reading the policy they store. The DB
+// write itself needs a live Postgres, so the specs here cover what a handler can
+// be held to on its own: what it refuses, and what it reads.
+var _ = Describe("the plan's sequencing inputs", func() {
+	var srv *server
+	var plan *db.PlanRow
+
+	BeforeEach(func() {
+		teams, inits := planning.Demo()
+		teamsB, err := json.Marshal(teams)
+		Expect(err).NotTo(HaveOccurred())
+		initsB, err := json.Marshal(inits)
+		Expect(err).NotTo(HaveOccurred())
+		schedB, err := json.Marshal(planning.DemoScheduling())
+		Expect(err).NotTo(HaveOccurred())
+		srv = &server{}
+		plan = &db.PlanRow{ID: "plan1", HorizonWeeks: 26, CapacityLoss: 0.1,
+			Teams: teamsB, Initiatives: initsB, Scheduling: schedB}
+	})
+
+	patch := func(path, body string, h func(http.ResponseWriter, *http.Request, *db.PlanRow)) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("PATCH", path, strings.NewReader(body))
+		rec := httptest.NewRecorder()
+		h(rec, req, plan)
+		return rec
+	}
+
+	Describe("PATCH /api/plan/{id}/initiatives", func() {
+		// AC 2.4: rejected at entry, naming the period, and nothing recomputed. The
+		// handler must refuse before it reaches the database, or "no schedule is
+		// recomputed" would depend on the write failing too.
+		It("refuses a target date outside the period, naming the bounds", func() {
+			rec := patch("/api/plan/plan1/initiatives",
+				`{"initiatives":[{"name":"Telemetry GA","targetDate":"2027-06-01"}]}`,
+				srv.editPlanInitiatives)
+			Expect(rec.Code).To(Equal(400))
+			Expect(rec.Body.String()).To(ContainSubstring("2026-01-05"))
+			Expect(rec.Body.String()).To(ContainSubstring("2026-07-06"))
+		})
+
+		It("refuses an edit naming an initiative the plan does not have", func() {
+			rec := patch("/api/plan/plan1/initiatives",
+				`{"initiatives":[{"name":"Ghost initiative","tier":1}]}`,
+				srv.editPlanInitiatives)
+			Expect(rec.Code).To(Equal(400))
+			Expect(rec.Body.String()).To(ContainSubstring("Ghost initiative"))
+		})
+
+		It("refuses a request with no edits in it", func() {
+			rec := patch("/api/plan/plan1/initiatives", `{"initiatives":[]}`, srv.editPlanInitiatives)
+			Expect(rec.Code).To(Equal(400))
+		})
+
+		It("refuses a malformed body", func() {
+			rec := patch("/api/plan/plan1/initiatives", `{"initiatives":`, srv.editPlanInitiatives)
+			Expect(rec.Code).To(Equal(400))
+		})
+	})
+
+	// json.Unmarshal can leave fields populated before it errors, so a corrupt blob
+	// must not be able to apply half a policy.
+	Describe("reading a stored policy", func() {
+		It("falls back to no policy when the stored blob is corrupt", func() {
+			plan.Scheduling = []byte(`{"periodStart":"2026-01-05","maxConcurrentInitiatives":`)
+			Expect(planScheduling(plan)).To(Equal(planning.SchedulingParams{}),
+				"a partly-decoded policy is not a policy the planner chose")
+		})
+
+		It("reads a good blob", func() {
+			Expect(planScheduling(plan).PeriodStart).To(Equal("2026-01-05"))
+		})
+
+		It("treats an absent blob as no policy", func() {
+			plan.Scheduling = nil
+			Expect(planScheduling(plan)).To(Equal(planning.SchedulingParams{}))
+		})
+	})
+
+	Describe("PATCH /api/plan/{id}/scheduling", func() {
+		It("refuses a period start that is not a date", func() {
+			rec := patch("/api/plan/plan1/scheduling", `{"periodStart":"next quarter"}`, srv.savePlanScheduling)
+			Expect(rec.Code).To(Equal(400))
+			Expect(rec.Body.String()).To(ContainSubstring("YYYY-MM-DD"))
+		})
+
+		It("refuses a malformed body", func() {
+			rec := patch("/api/plan/plan1/scheduling", `{"periodStart":`, srv.savePlanScheduling)
+			Expect(rec.Code).To(Equal(400))
+		})
+	})
+
+	Describe("POST /api/plan/{id}/schedule", func() {
+		schedule := func(body string) *planning.Schedule {
+			req := httptest.NewRequest("POST", "/api/plan/plan1/schedule", strings.NewReader(body))
+			rec := httptest.NewRecorder()
+			srv.schedulePlan(rec, req, plan)
+			Expect(rec.Code).To(Equal(200), rec.Body.String())
+			var out planning.Schedule
+			Expect(json.Unmarshal(rec.Body.Bytes(), &out)).To(Succeed())
+			return &out
+		}
+
+		It("uses the saved policy when the request carries none", func() {
+			sched := schedule(`{}`)
+			Expect(sched.PeriodStart).To(Equal("2026-01-05"))
+			dated := 0
+			for _, si := range sched.Initiatives {
+				if si.TargetWeek != nil {
+					dated++
+				}
+			}
+			Expect(dated).To(BeNumerically(">", 0), "the saved period start is what turns dates into weeks")
+		})
+
+		// A supplied policy is a complete what-if, not a patch over the saved one:
+		// merging would make "the same plan with no period start" impossible to ask for.
+		It("replaces the saved policy rather than merging when params are supplied", func() {
+			sched := schedule(`{"params":{"maxConcurrentInitiatives":3}}`)
+			Expect(sched.WipLimit).To(Equal(planning.WipLimit{Value: 3}))
+			Expect(sched.PeriodStart).To(BeEmpty(), "the supplied policy named no period start")
+			for _, si := range sched.Initiatives {
+				Expect(si.TargetWeek).To(BeNil(), "with no period start there is nothing to date against")
+			}
+		})
+	})
+
+	// The demo plan is the first thing anyone opens, so it has to demonstrate what
+	// the feature is for. Asserted by shape, not by exact weeks, so the demo data can
+	// still be tuned without breaking this.
+	Describe("the demo plan's execution order", func() {
+		It("shows a deviation, a date that holds, one that misses and one that cannot fit", func() {
+			teams, inits := planning.Demo()
+			sched := planning.ComputeSchedule(teams, inits,
+				planning.Params{HorizonWeeks: 26, CapacityLoss: 0.1}, planning.DemoScheduling())
+
+			verdicts := map[string]int{}
+			for _, si := range sched.Initiatives {
+				verdicts[si.Verdict]++
+			}
+			Expect(verdicts).To(HaveKey("on-time"))
+			Expect(verdicts).To(HaveKey("structurally-infeasible"))
+			Expect(verdicts["late"] + verdicts["structurally-infeasible"]).To(BeNumerically(">", 0))
+
+			Expect(sched.Reconciliation).NotTo(BeEmpty(),
+				"the reconciliation report is the feature's primary artefact (Decision 3)")
+			Expect(sched.StatedOrderObjectiveScore).To(BeNumerically(">", 0),
+				"the planner's own order must have a price to compare against")
+			Expect(sched.WipLimit.Derived).To(BeTrue(), "Decision 22, visible out of the box")
+
+			By("starting the carryover initiative at week 0")
+			for _, si := range sched.Initiatives {
+				if si.Name == "Bring-your-own-auth (early access)" {
+					Expect(si.StartWeek).To(BeZero(), "it is already in flight (AC X.4)")
+				}
+			}
+		})
+	})
+})
