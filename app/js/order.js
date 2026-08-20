@@ -86,6 +86,11 @@ export function objectiveView(sched) {
 // is correct and surprising enough that an unlabelled figure reads as a bug.
 export function wipLimitNote(wip) {
   if (!wip) return '';
+  // Under off there is no limit, so reporting "WIP limit 0" would describe a number
+  // as though someone had chosen it. Say what is actually true instead.
+  if (wip.model === 'off') {
+    return 'no org WIP limit <span class="hint">(model: off)</span>';
+  }
   return wip.derived
     ? `WIP limit ${wip.value} <span class="hint">(derived from ${esc(wip.fromPod)}'s tracks)</span>`
     : `WIP limit ${wip.value} <span class="hint">(set on this plan)</span>`;
@@ -369,7 +374,7 @@ export function schedulingFormHTML(sp = {}, wip, sched) {
   const derived = wip && wip.derived
     ? `derived: ${wip.value} from ${wip.fromPod}` : 'derived from the drum';
   const missingPeriod = !sp.periodStart;
-  const unchosenModel = !sp.wipModel;
+  const unchosenModel = !WIP_MODELS.some((m) => m.id === sp.wipModel);
   const options = [
     `<option value=""${unchosenModel ? ' selected' : ''}>— not chosen —</option>`,
     ...WIP_MODELS.map((m) => `<option value="${m.id}"${sp.wipModel === m.id ? ' selected' : ''}>${esc(m.label)}</option>`),
@@ -448,9 +453,10 @@ export function wipModelsTableHTML(sched) {
     <ul class="hint ord-models-why">
       ${WIP_MODELS.map((m) => `<li><b>${esc(m.label)}</b> — ${esc(m.blurb)}</li>`).join('')}
     </ul>
-    ${sameMisses ? `<p class="hint">The same ${rows[0].datesMissed} dates are missed under every model here.
-      What changes is what the misses cost and how much of the org sits idle — a model buys cheaper
-      misses and busier pods, not fewer misses.</p>` : ''}
+    ${sameMisses ? `<p class="hint">Every model here misses the same number of dates
+      (${rows[0].datesMissed}) — though not necessarily the same ones. What changes is what the
+      misses cost and how much of the org sits idle: a model buys cheaper misses and busier pods,
+      not fewer misses.</p>` : ''}
     <p class="hint">Cost is weighted weeks late. It favours <b>off</b> by construction: the schedule
       makes waiting explicit but charges nothing for multitasking, so it cannot price what a WIP limit
       is for. That is why this is a choice and not a calculation.</p>`;

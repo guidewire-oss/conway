@@ -592,7 +592,10 @@ test('the comparison marks which model is in force', () => {
 // dates are missed either way, and the objective is biased by construction.
 test('the comparison says what the numbers do not mean', () => {
   const html = wipModelsTableHTML(modelsFixture);
-  assert.match(html, /same 5 dates are missed under every model/);
+  // The response carries counts, not which dates, so the claim is about the number.
+  assert.match(html, /same number of dates/);
+  assert.ok(!/same 5 dates are missed/.test(html),
+    'identical counts are not identical dates, and the response cannot tell them apart');
   assert.match(html, /charges nothing for multitasking/);
   for (const m of WIP_MODELS) assert.ok(html.includes(m.blurb), `${m.id} blurb missing`);
 });
@@ -608,6 +611,25 @@ test('the form opens itself and explains when no model is chosen', () => {
   assert.match(html, /No work-in-progress model chosen/);
   assert.match(html, /computed\s+as <b>strict<\/b> so nothing moves under you/);
   assert.match(html, /<option value=""\s*selected>— not chosen —<\/option>/);
+});
+
+// A stored model this build does not implement is scheduled as unchosen by the
+// server, so the form must not go quiet as though a choice had been made.
+test('an unsupported stored model still counts as unchosen', () => {
+  const html = schedulingFormHTML({ periodStart: '2026-01-05', wipModel: 'wishful' },
+    { value: 2, derived: true, fromPod: 'Delta', model: 'unchosen' }, modelsFixture);
+  assert.match(html, /<details class="ord-sched" open>/);
+  assert.match(html, /No work-in-progress model chosen/);
+  assert.match(html, /<option value=""\s*selected>/, 'the selector falls back to not-chosen');
+});
+
+test('the header says no org limit under off, rather than a limit of zero', () => {
+  const off = wipLimitNote({ value: 0, derived: false, model: 'off' });
+  assert.match(off, /no org WIP limit/);
+  assert.ok(!/WIP limit 0/.test(off), 'a limit of 0 reads as a setting nobody chose');
+  assert.match(off, /off/);
+  // The other models still report their number the way they always did.
+  assert.match(wipLimitNote({ value: 2, derived: true, fromPod: 'Delta', model: 'strict' }), /derived from Delta/);
 });
 
 test('the form marks the chosen model as selected and stops nagging', () => {
