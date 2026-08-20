@@ -6,6 +6,7 @@ import {
   orderRows, orderTableHTML, infeasibleNote, heatmapWeeks, overrunNote,
   podHeatmapHTML, podQueueHTML, noticesHTML, orderViewHTML, rowTraceHTML,
   schedulingFormHTML, schedulingFromForm, pctToFraction,
+  wipModelsTableHTML, WIP_MODELS,
 } from '../app/js/order.js';
 
 // The fixture is real output from the Go scheduler for the demo plan, not a
@@ -442,10 +443,20 @@ test('the form opens itself and says so when the plan has no period start', () =
   assert.match(html, /derived: 2 from Delta/, 'the blank WIP field says what blank does');
 });
 
-test('the form does not open itself once a period start exists', () => {
-  const html = schedulingFormHTML({ periodStart: '2026-01-05' }, { value: 2, derived: true, fromPod: 'Delta' });
+// The panel forces itself open for anything the planner must decide, and there are
+// two such things: the period start and the WIP model. Both settled, both quiet.
+test('the form does not open itself once nothing is outstanding', () => {
+  const html = schedulingFormHTML({ periodStart: '2026-01-05', wipModel: 'strict' },
+    { value: 2, derived: true, fromPod: 'Delta', model: 'strict' });
   assert.ok(!html.includes('ord-sched" open'));
   assert.ok(!html.includes('no period start'));
+  assert.ok(!html.includes('No work-in-progress model chosen'));
+});
+
+test('the form still opens for a missing period start even with a model chosen', () => {
+  const html = schedulingFormHTML({ wipModel: 'strict' }, { value: 2, model: 'strict' });
+  assert.match(html, /<details class="ord-sched" open>/);
+  assert.match(html, /no period start/);
 });
 
 test('the form offers no knob that does nothing', () => {
@@ -537,4 +548,102 @@ test('the form round-trips through its own reader', () => {
     return m ? m[1] : '';
   };
   assert.deepEqual(schedulingFromForm(valueOf), saved, 'what it renders is what it sends');
+});
+
+// --- the WIP model choice (§11 D22 amended) --------------------------------
+const modelsFixture = {
+  wipLimit: { value: 2, derived: true, fromPod: 'Delta', model: 'unchosen' },
+  wipModels: [
+    { model: 'strict', limit: 2, lastCommitWeek: 96, datesMissed: 5, late: 2, infeasible: 3, podsIdleAllPeriod: 3, objective: 4673 },
+    { model: 'drum-gated', limit: 2, lastCommitWeek: 55, datesMissed: 5, late: 2, infeasible: 3, podsIdleAllPeriod: 1, objective: 1466 },
+    { model: 'off', limit: 0, lastCommitWeek: 43, datesMissed: 5, late: 2, infeasible: 3, podsIdleAllPeriod: 1, objective: 1155 },
+  ],
+};
+
+test('the comparison shows every model with its cost for this plan', () => {
+  const html = wipModelsTableHTML(modelsFixture);
+  for (const o of modelsFixture.wipModels) {
+    assert.ok(html.includes(o.model), `${o.model} missing`);
+    assert.ok(html.includes(String(o.objective)), `objective for ${o.model} missing`);
+    assert.ok(html.includes(`w${o.lastCommitWeek}`), `end week for ${o.model} missing`);
+  }
+  assert.match(html, /none/, 'off has no limit, shown as none rather than 0');
+});
+
+// Unchosen still produced the order on screen. Marking nothing would leave the
+// reader unable to tell which row made the table in front of them.
+test('the comparison marks strict as the one being read when nothing is chosen', () => {
+  const html = wipModelsTableHTML(modelsFixture); // fixture model is "unchosen"
+  const strictRow = html.split('<tr').find((r) => r.includes('strict'));
+  assert.match(strictRow, /reading as this/);
+  assert.ok(!html.includes('in force'), 'nothing is in force until someone chooses');
+});
+
+test('the comparison marks which model is in force', () => {
+  const inForce = { ...modelsFixture, wipLimit: { ...modelsFixture.wipLimit, model: 'drum-gated' } };
+  const html = wipModelsTableHTML(inForce);
+  const row = html.split('<tr').find((r) => r.includes('drum-gated'));
+  assert.match(row, /in force/);
+  assert.ok(!html.includes('reading as this'), 'a real choice is in force, not merely being read');
+  assert.ok(!html.split('<tr').find((r) => r.includes('>off<'))?.includes('in force'));
+});
+
+// The table must not read as "pick the smallest number": on most plans the same
+// dates are missed either way, and the objective is biased by construction.
+test('the comparison says what the numbers do not mean', () => {
+  const html = wipModelsTableHTML(modelsFixture);
+  // The response carries counts, not which dates, so the claim is about the number.
+  assert.match(html, /same number of dates/);
+  assert.ok(!/same 5 dates are missed/.test(html),
+    'identical counts are not identical dates, and the response cannot tell them apart');
+  assert.match(html, /charges nothing for multitasking/);
+  for (const m of WIP_MODELS) assert.ok(html.includes(m.blurb), `${m.id} blurb missing`);
+});
+
+test('the comparison is nothing at all when the server sent none', () => {
+  assert.equal(wipModelsTableHTML({}), '');
+  assert.equal(wipModelsTableHTML({ wipModels: [] }), '');
+});
+
+test('the form opens itself and explains when no model is chosen', () => {
+  const html = schedulingFormHTML({ periodStart: '2026-01-05' }, modelsFixture.wipLimit, modelsFixture);
+  assert.match(html, /<details class="ord-sched" open>/);
+  assert.match(html, /No work-in-progress model chosen/);
+  assert.match(html, /computed\s+as <b>strict<\/b> so nothing moves under you/);
+  assert.match(html, /<option value=""\s*selected>— not chosen —<\/option>/);
+});
+
+// A stored model this build does not implement is scheduled as unchosen by the
+// server, so the form must not go quiet as though a choice had been made.
+test('an unsupported stored model still counts as unchosen', () => {
+  const html = schedulingFormHTML({ periodStart: '2026-01-05', wipModel: 'wishful' },
+    { value: 2, derived: true, fromPod: 'Delta', model: 'unchosen' }, modelsFixture);
+  assert.match(html, /<details class="ord-sched" open>/);
+  assert.match(html, /No work-in-progress model chosen/);
+  assert.match(html, /<option value=""\s*selected>/, 'the selector falls back to not-chosen');
+});
+
+test('the header says no org limit under off, rather than a limit of zero', () => {
+  const off = wipLimitNote({ value: 0, derived: false, model: 'off' });
+  assert.match(off, /no org WIP limit/);
+  assert.ok(!/WIP limit 0/.test(off), 'a limit of 0 reads as a setting nobody chose');
+  assert.match(off, /off/);
+  // The other models still report their number the way they always did.
+  assert.match(wipLimitNote({ value: 2, derived: true, fromPod: 'Delta', model: 'strict' }), /derived from Delta/);
+});
+
+test('the form marks the chosen model as selected and stops nagging', () => {
+  const html = schedulingFormHTML(
+    { periodStart: '2026-01-05', wipModel: 'drum-gated' },
+    { value: 2, derived: true, fromPod: 'Delta', model: 'drum-gated' }, modelsFixture);
+  assert.match(html, /<option value="drum-gated" selected>/);
+  assert.ok(!html.includes('No work-in-progress model chosen'));
+  assert.ok(!html.includes('ord-sched" open'), 'a configured plan does not force the panel open');
+});
+
+test('the model is sent only when it is one the server implements', () => {
+  const readerOf = (v) => (id) => (id === 'sched-wip-model' ? v : '');
+  assert.equal(schedulingFromForm(readerOf('drum-gated')).wipModel, 'drum-gated');
+  assert.ok(!('wipModel' in schedulingFromForm(readerOf(''))), 'unchosen stays unchosen');
+  assert.ok(!('wipModel' in schedulingFromForm(readerOf('wishful'))), 'no inventing models');
 });

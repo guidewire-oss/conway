@@ -6647,7 +6647,8 @@
   "wipLimit": {
     "value": 2,
     "derived": true,
-    "fromPod": "Delta"
+    "fromPod": "Delta",
+    "model": "unchosen"
   },
   "rule": "constraint-first",
   "rulesTried": [
@@ -6674,6 +6675,38 @@
   ],
   "objectiveScore": 4673.3,
   "statedOrderObjectiveScore": 57614.7,
+  "wipModels": [
+    {
+      "model": "strict",
+      "limit": 2,
+      "lastCommitWeek": 96,
+      "datesMissed": 5,
+      "late": 2,
+      "infeasible": 3,
+      "podsIdleAllPeriod": 3,
+      "objective": 4673.3
+    },
+    {
+      "model": "drum-gated",
+      "limit": 2,
+      "lastCommitWeek": 55,
+      "datesMissed": 5,
+      "late": 2,
+      "infeasible": 3,
+      "podsIdleAllPeriod": 1,
+      "objective": 1466.5
+    },
+    {
+      "model": "off",
+      "limit": 0,
+      "lastCommitWeek": 43,
+      "datesMissed": 5,
+      "late": 2,
+      "infeasible": 3,
+      "podsIdleAllPeriod": 1,
+      "objective": 1155.2
+    }
+  ],
   "reconciliation": [
     {
       "initiative": "Telemetry GA",

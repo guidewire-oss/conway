@@ -377,6 +377,140 @@ var _ = Describe("ComputeSchedule", func() {
 		Expect(fixture.PodWeeks[0].Weeks).NotTo(BeEmpty())
 	})
 
+	// D22 as amended 2026-08-20: the planner picks which rule the org limit follows,
+	// because the limit encodes a belief about multitasking that the schedule cannot
+	// confirm — Decision 4 removed the very term that would price it.
+	Describe("the WIP model", func() {
+		// One drum-consuming initiative and two that never touch the drum, so the models
+		// have something to disagree about.
+		build := func() ([]Team, []Initiative) {
+			teams := []Team{{Name: "Delta", Tracks: 1}, {Name: "Far", Tracks: 4}}
+			inits := []Initiative{
+				{Name: "Needs the drum", Work: map[string]TeamWork{"Delta": podWork(6)},
+					StatedPriority: 1, PriorityLocked: true},
+				{Name: "Away from the drum A", Work: map[string]TeamWork{"Far": podWork(4)},
+					StatedPriority: 2, PriorityLocked: true},
+				{Name: "Away from the drum B", Work: map[string]TeamWork{"Far": podWork(4)},
+					StatedPriority: 3, PriorityLocked: true},
+			}
+			return teams, inits
+		}
+		run := func(model string) *Schedule {
+			teams, inits := build()
+			return ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0},
+				SchedulingParams{PeriodStart: specPeriodStart, WipModel: model, BufferPct: pctOf(0.25)})
+		}
+
+		It("holds everything behind the drum's tracks under strict", func() {
+			sched := run(WipStrict)
+			Expect(sched.WipLimit.Value).To(Equal(1), "Delta has one track")
+			// One at a time, so the third initiative waits for the first two.
+			Expect(scheduledFor(sched, "Away from the drum A").StartWeek).To(Equal(6))
+			Expect(scheduledFor(sched, "Away from the drum B").StartWeek).To(Equal(10))
+			Expect(scheduledFor(sched, "Away from the drum B").BindingConstraint).To(Equal("wip-limit"))
+		})
+
+		It("lets work that never touches the drum flow under drum-gated", func() {
+			sched := run(WipDrumGated)
+			Expect(sched.WipLimit.Value).To(Equal(1))
+			Expect(scheduledFor(sched, "Needs the drum").StartWeek).To(BeZero())
+			Expect(scheduledFor(sched, "Away from the drum A").StartWeek).To(BeZero(),
+				"it consumes no drum time, so the org limit has nothing to protect from it")
+			Expect(scheduledFor(sched, "Away from the drum B").StartWeek).To(BeZero())
+		})
+
+		It("applies no org limit at all under off", func() {
+			sched := run(WipOff)
+			Expect(sched.WipLimit.Value).To(BeZero())
+			for _, si := range sched.Initiatives {
+				Expect(si.BindingConstraint).NotTo(Equal("wip-limit"), si.Name)
+			}
+		})
+
+		// An explicit number is orthogonal: it replaces the derived value, and the model
+		// still decides who counts against it.
+		It("lets an explicit limit set the number while the model sets the rule", func() {
+			teams, inits := build()
+			sched := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0},
+				SchedulingParams{PeriodStart: specPeriodStart, WipModel: WipDrumGated,
+					MaxConcurrentInitiatives: 3, BufferPct: pctOf(0.25)})
+			Expect(sched.WipLimit.Value).To(Equal(3))
+			Expect(sched.WipLimit.Derived).To(BeFalse())
+			Expect(sched.WipLimit.Model).To(Equal(WipDrumGated))
+		})
+
+		// AC 1.1: an unconfigured plan still gets ranks, starts and finishes. Unchosen is
+		// reported as a state so the UI can demand a choice without withholding the order.
+		It("still schedules when no model is chosen, and says it was not chosen", func() {
+			sched := run("")
+			Expect(sched.WipLimit.Model).To(Equal(WipUnchosen))
+			for _, si := range sched.Initiatives {
+				Expect(si.ProposedRank).To(BeNumerically(">", 0), si.Name)
+				Expect(si.RawFinishWeek).To(BeNumerically(">", si.StartWeek), si.Name)
+			}
+			By("reading as strict, so nothing moves for a plan that already had an order")
+			strict := run(WipStrict)
+			for i := range sched.Initiatives {
+				Expect(sched.Initiatives[i].StartWeek).To(Equal(strict.Initiatives[i].StartWeek))
+				Expect(sched.Initiatives[i].CommitWeek).To(Equal(strict.Initiatives[i].CommitWeek))
+			}
+		})
+
+		// "off" switches off one limit, not every limit. Claiming otherwise in the UI
+		// while the change-absorption cap still delays work would be a plain lie.
+		It("leaves the other org caps alone under off, each naming itself", func() {
+			teams := []Team{{Name: "Far", Tracks: 6}}
+			var inits []Initiative
+			for _, n := range []string{"One", "Two", "Three", "Four"} {
+				inits = append(inits, Initiative{Name: n, Work: map[string]TeamWork{"Far": podWork(3)},
+					StatedPriority: len(inits) + 1, PriorityLocked: true})
+			}
+			sched := ComputeSchedule(teams, inits, Params{HorizonWeeks: 40, CapacityLoss: 0},
+				SchedulingParams{PeriodStart: specPeriodStart, WipModel: WipOff,
+					MaxStartsPerQuarter: 2, BufferPct: pctOf(0.25)})
+
+			Expect(sched.WipLimit.Value).To(BeZero(), "the org WIP limit is off")
+			held := scheduledFor(sched, "Three")
+			Expect(held.StartWeek).To(BeNumerically(">", 0),
+				"the change-absorption cap is a separate setting the planner asked for")
+			Expect(held.BindingConstraint).To(Equal("starts-cap"),
+				"and it says which limit held the work, not the one that is switched off")
+		})
+
+		It("rejects a model nobody implements rather than guessing", func() {
+			sched := run("wishful")
+			Expect(sched.WipLimit.Model).To(Equal(WipUnchosen),
+				"an unrecognised model is not a licence to invent one")
+		})
+
+		// The comparison is of the planner's own plan, which is the point: static help
+		// text cannot say what a model costs *here*.
+		It("reports what each model would cost for this plan", func() {
+			sched := run("")
+			Expect(sched.WipModels).To(HaveLen(3))
+
+			by := map[string]WipModelOutcome{}
+			for _, o := range sched.WipModels {
+				by[o.Model] = o
+			}
+			Expect(by).To(HaveKey(WipStrict))
+			Expect(by).To(HaveKey(WipDrumGated))
+			Expect(by).To(HaveKey(WipOff))
+
+			Expect(by[WipStrict].LastCommitWeek).To(BeNumerically(">", by[WipDrumGated].LastCommitWeek),
+				"strict holds non-drum work back, so the portfolio ends later")
+			Expect(by[WipStrict].PodsIdleAllPeriod).To(BeNumerically(">=", by[WipOff].PodsIdleAllPeriod))
+			for _, o := range sched.WipModels {
+				Expect(o.Objective).To(BeNumerically(">=", 0))
+			}
+		})
+
+		It("gives the same comparison whichever model is in force", func() {
+			Expect(run(WipStrict).WipModels).To(Equal(run(WipOff).WipModels),
+				"the comparison describes the plan, not the current choice")
+		})
+	})
+
 	Describe("the org WIP limit", func() {
 		// Decision 22: derived from the drum, never a shipped number, and always
 		// labelled with the pod it came from.
@@ -406,7 +540,8 @@ var _ = Describe("ComputeSchedule", func() {
 			Expect(podScheduleFor(sched, "Atlas").Weeks[0].Initiatives).To(ConsistOf("One", "Two"))
 			third := scheduledFor(sched, "Three")
 			Expect(third.StartWeek).To(Equal(3))
-			Expect(third.BindingConstraint).To(Equal("wip-limit"))
+			Expect(third.BindingConstraint).To(Equal("pod-wip-limit"),
+				"FR-008 wants which limit delayed it, and this is the pod's cap, not the org's")
 		})
 
 		It("lets an explicit value win", func() {
