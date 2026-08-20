@@ -107,6 +107,14 @@ func (s *server) handlePlanDemo(w http.ResponseWriter, r *http.Request, c auth.C
 		http.Error(w, err.Error(), 500)
 		return
 	}
+	// The demo's dates are meaningless without a period to measure them against, so
+	// the sample plan ships with the scheduling policy that makes its execution
+	// order readable the first time anyone opens it.
+	sb, _ := json.Marshal(planning.DemoScheduling())
+	if err := s.db.SavePlanScheduling(p.ID, sb, now); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
 	writeJSON(w, map[string]any{"id": p.ID})
 }
 
@@ -144,6 +152,10 @@ func (s *server) handlePlanItem(w http.ResponseWriter, r *http.Request, c auth.C
 		s.attachPlanRoster(w, r, p)
 	case sub == "initiatives" && r.Method == http.MethodPost:
 		s.uploadPlanInitiatives(w, r, p)
+	case sub == "initiatives" && r.Method == http.MethodPatch:
+		s.editPlanInitiatives(w, r, p)
+	case sub == "scheduling" && r.Method == http.MethodPatch:
+		s.savePlanScheduling(w, r, p)
 	case sub == "initiatives/preview" && r.Method == http.MethodPost:
 		s.previewPlanInitiatives(w, r, p)
 	case sub == "simulate" && r.Method == http.MethodPost:
@@ -400,15 +412,93 @@ func (s *server) simulatePlan(w http.ResponseWriter, r *http.Request, p *db.Plan
 	writeJSON(w, map[string]any{"before": before, "after": after, "levers": body.Levers})
 }
 
+// planScheduling returns the plan's saved scheduling policy. An absent or
+// unreadable blob yields the zero value, which schedules exactly as a plan with no
+// policy at all does (FR-002).
+func planScheduling(p *db.PlanRow) planning.SchedulingParams {
+	var sp planning.SchedulingParams
+	if len(p.Scheduling) > 0 {
+		json.Unmarshal(p.Scheduling, &sp) //nolint:errcheck // absent or corrupt reads as "no policy set"
+	}
+	return sp
+}
+
+// savePlanScheduling stores the plan-level scheduling policy (§8). Unlike
+// /schedule, this one writes: it is the explicit save the planner asks for.
+func (s *server) savePlanScheduling(w http.ResponseWriter, r *http.Request, p *db.PlanRow) {
+	var sp planning.SchedulingParams
+	if err := json.NewDecoder(r.Body).Decode(&sp); err != nil && !errors.Is(err, io.EOF) {
+		http.Error(w, "could not read the scheduling params: "+err.Error(), 400)
+		return
+	}
+	if start := strings.TrimSpace(sp.PeriodStart); start != "" {
+		if _, err := time.Parse("2006-01-02", start); err != nil {
+			http.Error(w, "periodStart must be a date in YYYY-MM-DD form", 400)
+			return
+		}
+	}
+	b, err := json.Marshal(sp)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if err := s.db.SavePlanScheduling(p.ID, b, time.Now().Unix()); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeJSON(w, map[string]any{"ok": true, "scheduling": sp})
+}
+
+// editPlanInitiatives edits the sequencing attributes of one or more initiatives
+// in place (§8). It is the in-app half of §10 Q9's two entry points; the other is
+// the uploaded sheet, which wins for the initiatives it names.
+//
+// A rejected value saves nothing at all, per AC 2.4.
+func (s *server) editPlanInitiatives(w http.ResponseWriter, r *http.Request, p *db.PlanRow) {
+	var body struct {
+		Initiatives []planning.InitiativeEdit `json:"initiatives"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
+		http.Error(w, "could not read the initiative edits: "+err.Error(), 400)
+		return
+	}
+	if len(body.Initiatives) == 0 {
+		http.Error(w, "no initiative edits in the request", 400)
+		return
+	}
+	var inits []planning.Initiative
+	if len(p.Initiatives) > 0 {
+		if err := json.Unmarshal(p.Initiatives, &inits); err != nil {
+			http.Error(w, "the plan's stored initiatives are unreadable: "+err.Error(), 500)
+			return
+		}
+	}
+	edited, err := planning.ApplyInitiativeEdits(inits, body.Initiatives, planScheduling(p), p.HorizonWeeks)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	b, err := json.Marshal(edited)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if err := s.db.SavePlanInitiatives(p.ID, b, time.Now().Unix()); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeJSON(w, map[string]any{"initiatives": edited})
+}
+
 // schedulePlan computes the execution order for a plan (spec 001 §8). Stateless
 // by design, exactly like simulatePlan: it never writes to the plan, so a planner
 // can try scheduling params and levers against an unsaved draft and see the order
 // before deciding to keep anything (FR-022).
 func (s *server) schedulePlan(w http.ResponseWriter, r *http.Request, p *db.PlanRow) {
 	var body struct {
-		Params      planning.SchedulingParams `json:"params"`
-		Initiatives []planning.Initiative     `json:"initiatives"` // optional draft override, never persisted
-		Levers      []planning.Lever          `json:"levers"`      // optional what-ifs, never persisted
+		Params      *planning.SchedulingParams `json:"params"`      // absent falls back to the saved policy
+		Initiatives []planning.Initiative      `json:"initiatives"` // optional draft override, never persisted
+		Levers      []planning.Lever           `json:"levers"`      // optional what-ifs, never persisted
 	}
 	// An empty body is legal — it means "schedule the saved plan with defaults" —
 	// but a malformed one must not quietly become that same request.
@@ -442,8 +532,15 @@ func (s *server) schedulePlan(w http.ResponseWriter, r *http.Request, p *db.Plan
 	if len(body.Levers) > 0 {
 		teams, inits = planning.ApplyLevers(teams, inits, body.Levers)
 	}
+	// Supplied params are a complete what-if, not a patch over the saved policy:
+	// merging the two would make it impossible to try "the same plan with no WIP
+	// limit", since an omitted field would come back from the saved copy.
+	sp := planScheduling(p)
+	if body.Params != nil {
+		sp = *body.Params
+	}
 	writeJSON(w, planning.ComputeSchedule(teams, inits,
-		planning.Params{HorizonWeeks: p.HorizonWeeks, CapacityLoss: p.CapacityLoss}, body.Params))
+		planning.Params{HorizonWeeks: p.HorizonWeeks, CapacityLoss: p.CapacityLoss}, sp))
 }
 
 func (s *server) patchPlan(w http.ResponseWriter, r *http.Request, p *db.PlanRow) {
@@ -487,7 +584,8 @@ func (s *server) assemblePlan(p *db.PlanRow) map[string]any {
 	return map[string]any{
 		"id": p.ID, "owner": p.Owner, "name": p.Name,
 		"horizonWeeks": p.HorizonWeeks, "capacityLoss": p.CapacityLoss,
-		"teams": teams, "initiatives": inits, "rosterId": p.RosterID,
+		"scheduling": planScheduling(p),
+		"teams":      teams, "initiatives": inits, "rosterId": p.RosterID,
 		"network": net, "loads": loads, "unknownTeams": unknowns,
 		"createdAt": p.CreatedAt, "updatedAt": p.UpdatedAt,
 	}
