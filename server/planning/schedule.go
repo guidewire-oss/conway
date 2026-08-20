@@ -339,7 +339,7 @@ func ComputeSchedule(teams []Team, inits []Initiative, params Params, sp Schedul
 	for i := range sched.Initiatives {
 		sched.Initiatives[i].RankingTerms.Rule = bestRule
 	}
-	sched.Reconciliation = reconcile(sched.Initiatives)
+	sched.Reconciliation = reconcile(sched.Initiatives, bestRule)
 	sched.Assumptions, sched.Warnings = notices(prepared)
 	// From the winning run, not from a fresh walk of the plan: which edge closes a
 	// cycle depends on the traversal, so a sheet-order detector would name an edge
@@ -1241,24 +1241,47 @@ func podSchedules(cal map[string]*podCalendar, tracks map[string]int, sis []Sche
 // stated rank, with the reason (FR-012). Decision 3 makes this the primary
 // artefact of the feature: reordering without an explanation reads as being
 // ignored.
-func reconcile(sis []ScheduledInitiative) []RankDeviation {
+func reconcile(sis []ScheduledInitiative, rule string) []RankDeviation {
+	// Name the rule that actually won. The earlier version described the tardiness
+	// index no matter which rule produced the order, so on a plan where
+	// constraint-first won, every row cited a rule that had not been used — an
+	// explanation that is confidently wrong is worse than none.
+	basis := ruleBasis(rule)
 	var out []RankDeviation
 	for _, si := range sis {
 		if si.StatedRank <= 0 || si.StatedRank == si.ProposedRank {
 			continue
 		}
-		reason := "outranked by initiatives with a higher tardiness cost per constraint week"
+		reason := "outranked on " + basis
 		switch {
 		case si.PriorityLocked:
 			reason = "priority locked, so its stated rank was pinned"
 		case si.ProposedRank < si.StatedRank:
-			reason = "promoted: higher tardiness cost per constraint week than the initiatives above it"
+			reason = "promoted: better on " + basis + " than the initiatives it passed"
 		}
 		out = append(out, RankDeviation{Initiative: si.Name, StatedRank: si.StatedRank,
 			ProposedRank: si.ProposedRank, Reason: reason})
 	}
 	sort.SliceStable(out, func(a, b int) bool { return out[a].ProposedRank < out[b].ProposedRank })
 	return out
+}
+
+// ruleBasis is the winning rule in words a planner can argue with, since the
+// reconciliation report exists to be read rather than to be correct in private.
+func ruleBasis(rule string) string {
+	switch rule {
+	case ruleTardinessCost:
+		return "delay cost per week of drum time, discounted by slack"
+	case "minimum-slack":
+		return "how little slack is left to its date"
+	case "value-per-constraint-week":
+		return "value per week of drum time"
+	case "constraint-first":
+		return "how much of the drum it consumes"
+	case ruleStatedPriority:
+		return "the stated priority order"
+	}
+	return "the winning dispatch rule"
 }
 
 // notices collects the assumptions and warnings every schedule has to carry
