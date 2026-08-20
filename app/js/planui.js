@@ -137,10 +137,16 @@ const view = () => (current && current.view) === 'order' ? 'order' : 'network';
 async function saveScheduling() {
   const btn = document.getElementById('sched-save');
   const body = schedulingFromForm((id) => document.getElementById(id)?.value);
+  // Same guard as renderOrder, and it matters more here: this response is written
+  // into current.scheduling, so a late answer would not just display the wrong
+  // assumptions, it would be the ones the next save sends.
+  const forPlan = current.id;
+  const atEpoch = orderEpoch;
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
-  const r = await req('/api/plan/' + current.id + '/scheduling', {
+  const r = await req('/api/plan/' + forPlan + '/scheduling', {
     method: 'PATCH', body: JSON.stringify(body),
   });
+  if (!current || current.id !== forPlan) return; // the reader moved on; this is not their plan
   if (!r || !r.ok) {
     const why = r ? await r.text() : 'the request did not reach the server';
     if (btn) { btn.disabled = false; btn.textContent = 'Save assumptions'; }
@@ -152,6 +158,7 @@ async function saveScheduling() {
     return;
   }
   const saved = await r.json();
+  if (!current || current.id !== forPlan || orderEpoch !== atEpoch) return; // a stale save
   current.scheduling = saved.scheduling || body;
   staleOrder(); // the assumptions moved, so the order has to be recomputed
   renderOrder();
