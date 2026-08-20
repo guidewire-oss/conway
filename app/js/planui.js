@@ -6,6 +6,7 @@ import {
   heatColor, layoutColumns, bezierEdgePath, appendArrowMarker,
   enablePanZoom, enableNodeDrag, makeSpotlight,
 } from './netgraph.js';
+import { esc, orderViewHTML } from './order.js';
 
 let root, current = null;
 
@@ -17,7 +18,6 @@ export function initPlanUI() {
   });
 }
 
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmtDate = (ts) => ts ? new Date(ts * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—';
 
 async function req(path, opts) { try { return await authFetch(path, opts); } catch { return null; } }
@@ -101,6 +101,9 @@ function renderPlan() {
       <button id="plan-draft-save" class="primary">Save initiatives</button>
       <button id="plan-draft-discard">Discard</button></p>` : ''}
     ${unknown.length ? `<p class="plan-warn">⚠ ${unknown.length} pod(s) referenced by initiatives but missing from the roster: ${unknown.map(esc).join(', ')} — fix the sheet or add them to the roster.</p>` : ''}
+    ${nTeams > 0 && nInit > 0 ? `<div class="plan-views">
+      <button class="seg ${view() === 'network' ? 'seg-on' : ''}" id="view-network">Network</button><button class="seg ${view() === 'order' ? 'seg-on' : ''}" id="view-order">Order</button>
+    </div>` : ''}
     ${nTeams === 0 ? '<p class="hint">Step 1: pick a roster (team composition drifts over time — this pins it). Step 2: upload the initiatives matrix.</p>'
       : nInit === 0 ? '<p class="hint">Roster loaded. Now upload the initiatives matrix.</p>'
       : '<div id="plan-dash"></div>'}`;
@@ -115,8 +118,64 @@ function renderPlan() {
   document.getElementById('plan-draft-save')?.addEventListener('click', saveDraftInitiatives);
   document.getElementById('plan-draft-discard')?.addEventListener('click', () => openPlan(current.id));
   document.getElementById('plan-strict-deps')?.addEventListener('change', (e) => { current.strictDeps = e.target.checked; });
+  document.getElementById('view-network')?.addEventListener('click', () => setView('network'));
+  document.getElementById('view-order')?.addEventListener('click', () => setView('order'));
   renderRosterPicker(nTeams);
-  if (nTeams > 0 && nInit > 0) { current.levers = current.levers || []; current.netMode = current.netMode || 'after'; renderDash(); }
+  if (nTeams > 0 && nInit > 0) {
+    current.levers = current.levers || [];
+    current.netMode = current.netMode || 'after';
+    if (view() === 'order') renderOrder(); else renderDash();
+  }
+}
+
+const view = () => (current && current.view) === 'order' ? 'order' : 'network';
+
+// staleOrder drops the cached execution order. Anything that changes the inputs —
+// levers, the roster, the sheet — has to call it, or the Order view keeps showing
+// an order computed from a plan that no longer exists, which is worse than a spinner.
+function staleOrder() {
+  if (current) current.schedule = null;
+}
+
+function setView(v) {
+  if (!current || view() === v) return;
+  current.view = v;
+  renderPlan();
+}
+
+// renderOrder computes the execution order and paints §13.2's table plus the
+// per-pod load grid. Stateless on the server side: nothing is saved by looking.
+async function renderOrder() {
+  const host = document.getElementById('plan-dash');
+  if (!host) return;
+  if (!current.schedule) {
+    host.innerHTML = '<p class="hint">Working out the order…</p>';
+    const body = {};
+    // Draft preview mode: order the unsaved sheet, not the stale saved one — the
+    // same rule simulate already follows.
+    if (current.isDraft) body.initiatives = current.initiatives;
+    // Send the levers too. The Network view already shows "with levers", and an
+    // Order view that quietly ignored them would describe a different plan.
+    if ((current.levers || []).length) body.levers = current.levers;
+    const r = await req('/api/plan/' + current.id + '/schedule', {
+      method: 'POST', body: JSON.stringify(body),
+    });
+    if (!r || !r.ok) {
+      host.innerHTML = `<p class="plan-warn">Could not compute the execution order${r ? `: ${esc(await r.text())}` : ''}.</p>`;
+      return;
+    }
+    current.schedule = await r.json();
+  }
+  host.innerHTML = orderViewHTML(current.schedule, {
+    horizonWeeks: current.horizonWeeks,
+    pod: current.orderPod,
+  });
+  host.querySelectorAll('.ord-podlink').forEach((a) => a.addEventListener('click', () => {
+    // Clicking the open pod again closes it, so the grid is never stuck behind a panel.
+    current.orderPod = current.orderPod === a.dataset.pod ? null : a.dataset.pod;
+    renderOrder();
+  }));
+  document.querySelector('.ord-queue')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 // previewInitiativesFile parses an uploaded sheet server-side and shows the
@@ -136,6 +195,7 @@ async function previewInitiativesFile(file) {
   current.network = draft.network;
   current.unknownTeams = draft.unknownTeams;
   current.sim = draft.sim;
+  current.schedule = null; // the sheet changed, so the order did too
   current.levers = [];
   current.netMode = 'after';
   current.isDraft = true;
@@ -346,7 +406,7 @@ function paintDash() {
   document.getElementById('net-before').addEventListener('click', () => { current.netMode = 'before'; paintDash(); });
   document.getElementById('net-after').addEventListener('click', () => { current.netMode = 'after'; paintDash(); });
   document.querySelectorAll('.lever-chips .chip-x').forEach((a) => a.addEventListener('click', () => {
-    current.levers.splice(+a.dataset.lev, 1); runSim();
+    current.levers.splice(+a.dataset.lev, 1); staleOrder(); runSim();
   }));
   const typeSel = document.getElementById('lev-type');
   typeSel.addEventListener('change', renderLeverTarget);
@@ -370,12 +430,20 @@ async function savePod(pod) {
 }
 
 // reloadPlan re-fetches the plan (roster changed) but keeps the applied levers.
+// The order is dropped rather than kept: pod capacity is the input the scheduler
+// is most sensitive to, so a retained order would be wrong about nearly everything.
 async function reloadPlan() {
   const levers = current.levers || [];
+  const was = view();
+  const pod = current.orderPod;
   const r = await req('/api/plan/' + current.id);
   if (!r || !r.ok) return;
   current = await r.json();
   current.levers = levers;
+  // Keep the reader where they were. Replacing `current` wholesale is what drops
+  // the stale order, which is wanted; bouncing them back to Network is not.
+  current.view = was;
+  current.orderPod = pod;
   renderPlan();
 }
 
@@ -408,6 +476,7 @@ function addLever() {
   else if (t === 'dropPod') lv = { type: t, pod, initiative: init };
   current.levers = current.levers || [];
   current.levers.push(lv);
+  staleOrder();
   runSim();
 }
 
