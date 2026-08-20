@@ -354,6 +354,24 @@ test('podQueueHTML breaks a start-week tie the way the server does', () => {
 // Go compares strings byte-wise, so "Zulu" sorts before "alpha" ('Z' is 0x5A,
 // 'a' is 0x61). localeCompare would put them the other way round, which is the
 // opposite of the server's order the comment claims to mirror.
+// JavaScript's `<` compares UTF-16 code units, Go's compares UTF-8 bytes, and they
+// disagree wherever a surrogate pair meets a BMP character above U+E000. U+F900
+// encodes as EF A4 80 and an emoji as F0 9F 98 80, so Go puts U+F900 first; in
+// UTF-16 the emoji is D83D DE00, which sorts before F900. Opposite answers.
+test('the tie-break compares UTF-8 bytes, so astral names land where the server put them', () => {
+  const html = podQueueHTML({
+    podWeeks: [{
+      pod: 'Delta', tracks: 2,
+      slices: [
+        { initiative: 'A\u{1F600} emoji', startWeek: 2, finishWeek: 4, remainingWeeks: 2, waitWeeks: 0 },
+        { initiative: 'A\u{F900} compat', startWeek: 2, finishWeek: 5, remainingWeeks: 3, waitWeeks: 0 },
+      ],
+    }],
+  }, 'Delta');
+  assert.ok(html.indexOf('compat') < html.indexOf('emoji'),
+    'U+F900 precedes an astral character in UTF-8, which is what Go compares');
+});
+
 test('the tie-break compares bytes, the way Go does, not by locale', () => {
   const html = podQueueHTML({
     podWeeks: [{
