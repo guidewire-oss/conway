@@ -82,8 +82,16 @@ func WriteInitiativesXLSX(teams []Team, inits []Initiative) []byte {
 	for _, t := range teams {
 		names = append(names, t.Name)
 	}
+	// The optional sequencing columns sit between the leads and the derived total,
+	// which is where spec 001 §8 puts them and where initiativeAttrCols looks. They
+	// are written even when every value is blank: this workbook is what
+	// /api/sample/initiatives.xlsx serves, so the header row is how a planner finds
+	// out the columns exist at all.
 	hdr := []string{"S. No", "Initiative ", "PM Lead", "Engg Lead", "Architect lead", "PgM Lead",
+		"Priority", "Priority Fixed", "Target Date", "Date Fixed", "Tier", "Cost of Delay",
+		"Earliest Start", "Depends on Initiative", "Kit %", "In Flight", "% Complete",
 		"Estimate in Weeks across teams required for Full Kit"}
+	teamCols := len(hdr) // team columns begin right after the derived total
 	for _, n := range names {
 		hdr = append(hdr, n+" Sequence", n)
 	}
@@ -95,9 +103,20 @@ func WriteInitiativesXLSX(teams []Team, inits []Initiative) []byte {
 		if it.Leads != nil {
 			row[2], row[3], row[4], row[5] = it.Leads["pm"], it.Leads["eng"], it.Leads["architect"], it.Leads["pgm"]
 		}
-		row[6] = "0" // derived total in the real sheet
+		row[6] = intCell(it.StatedPriority)
+		row[7] = boolCell(it.PriorityLocked)
+		row[8] = it.TargetDate
+		row[9] = boolCell(it.DateLocked)
+		row[10] = intCell(it.Tier)
+		row[11] = numCell(it.CostOfDelayPerWeek)
+		row[12] = it.EarliestStart
+		row[13] = joinInitiativeNames(it.AfterInitiatives)
+		row[14] = numCell(it.KitPct)
+		row[15] = boolCell(it.InFlight)
+		row[16] = numCell(it.ProgressPct)
+		row[17] = "0" // derived total in the real sheet
 		for j, n := range names {
-			seq, est := 7+j*2, 7+j*2+1
+			seq, est := teamCols+j*2, teamCols+j*2+1
 			if wk, ok := it.Work[n]; ok && wk.InPath {
 				if len(wk.DependsOn) > 0 {
 					row[seq] = strings.Join(wk.DependsOn, ", ")
@@ -129,4 +148,41 @@ func WriteTeamsCSV(teams []Team) []byte {
 	}
 	wr.Flush()
 	return b.Bytes()
+}
+
+// Cell writers for the optional attributes. Zero means absent for all three, so
+// they emit an empty cell rather than a "0" or a "no" that would read as a
+// deliberate choice a planner never made.
+func intCell(n int) string {
+	if n == 0 {
+		return ""
+	}
+	return strconv.Itoa(n)
+}
+
+func numCell(f float64) string {
+	if f == 0 {
+		return ""
+	}
+	return strconv.FormatFloat(f, 'f', -1, 64)
+}
+
+func boolCell(b bool) string {
+	if b {
+		return "yes"
+	}
+	return ""
+}
+
+// joinInitiativeNames writes the predecessor cell, quoting any name that contains
+// a comma so splitInitiativeList reads it back as one name rather than two.
+func joinInitiativeNames(names []string) string {
+	if len(names) == 0 {
+		return ""
+	}
+	quoted := make([]string, 0, len(names))
+	for _, n := range names {
+		quoted = append(quoted, quoteInitiativeName(n))
+	}
+	return strings.Join(quoted, ", ")
 }
