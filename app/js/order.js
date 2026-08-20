@@ -232,11 +232,27 @@ export function podHeatmapHTML(sched, horizonWeeks) {
     ${overrunNote(sched, weeks)}`;
 }
 
+const utf8 = new TextEncoder();
+
 // byteOrder compares two strings the way Go's `<` operator does, so a tie broken
-// here lands the same way it landed on the server.
+// here lands where the server put it.
+//
+// It cannot just use `<`. JavaScript compares UTF-16 code units and Go compares
+// UTF-8 bytes, and the two disagree wherever a surrogate pair meets a BMP
+// character above U+E000: an astral character is 0xD800-0xDBFF in UTF-16 (so it
+// sorts low) but starts 0xF0 in UTF-8 (so it sorts high). Encoding first is the
+// only way to get the same answer; a pod queue is a handful of slices, so the cost
+// of encoding per comparison does not matter here.
 export function byteOrder(a, b) {
   if (a === b) return 0;
-  return a < b ? -1 : 1;
+  const x = utf8.encode(a);
+  const y = utf8.encode(b);
+  const shared = Math.min(x.length, y.length);
+  for (let i = 0; i < shared; i++) {
+    if (x[i] !== y[i]) return x[i] < y[i] ? -1 : 1;
+  }
+  if (x.length === y.length) return 0;
+  return x.length < y.length ? -1 : 1;
 }
 
 // podQueueHTML is AC 4.3: a pod's slices in scheduled start order, each with the
