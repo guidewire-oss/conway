@@ -1,0 +1,6735 @@
+{
+  "initiatives": [
+    {
+      "name": "Self-service app platform",
+      "proposedRank": 2,
+      "statedRank": 1,
+      "startWeek": 10,
+      "rawFinishWeek": 33,
+      "commitWeek": 39,
+      "bufferWeeks": 6,
+      "targetWeek": 24,
+      "verdict": "structurally-infeasible",
+      "weeksLate": 15,
+      "bindingConstraint": "wip-limit",
+      "rankingTerms": {
+        "weight": 36,
+        "constraintWeeks": 12,
+        "slackWeeks": 1,
+        "index": 2.9,
+        "rule": "constraint-first"
+      },
+      "slices": [
+        {
+          "initiative": "Self-service app platform",
+          "pod": "Delta",
+          "remainingWeeks": 12,
+          "startWeek": 10,
+          "finishWeek": 22,
+          "waitWeeks": 0,
+          "estimated": true
+        },
+        {
+          "initiative": "Self-service app platform",
+          "pod": "Atlas",
+          "remainingWeeks": 6,
+          "startWeek": 22,
+          "finishWeek": 28,
+          "waitWeeks": 0,
+          "bindingConstraint": "dependency",
+          "estimated": true
+        },
+        {
+          "initiative": "Self-service app platform",
+          "pod": "Cascade",
+          "remainingWeeks": 5,
+          "startWeek": 28,
+          "finishWeek": 33,
+          "waitWeeks": 0,
+          "bindingConstraint": "dependency",
+          "estimated": true
+        }
+      ]
+    },
+    {
+      "name": "Telemetry GA",
+      "proposedRank": 1,
+      "statedRank": 2,
+      "startWeek": 0,
+      "rawFinishWeek": 19,
+      "commitWeek": 24,
+      "bufferWeeks": 5,
+      "targetWeek": 24,
+      "verdict": "on-time",
+      "dateLocked": true,
+      "rankingTerms": {
+        "weight": 54,
+        "constraintWeeks": 14,
+        "slackWeeks": 5,
+        "index": 3.3,
+        "rule": "constraint-first"
+      },
+      "slices": [
+        {
+          "initiative": "Telemetry GA",
+          "pod": "Delta",
+          "remainingWeeks": 14,
+          "startWeek": 0,
+          "finishWeek": 14,
+          "waitWeeks": 0,
+          "estimated": true
+        },
+        {
+          "initiative": "Telemetry GA",
+          "pod": "Granite",
+          "remainingWeeks": 5,
+          "startWeek": 14,
+          "finishWeek": 19,
+          "waitWeeks": 0,
+          "bindingConstraint": "dependency",
+          "estimated": true
+        }
+      ]
+    },
+    {
+      "name": "Autoscaling rollout",
+      "proposedRank": 4,
+      "statedRank": 10,
+      "startWeek": 26,
+      "rawFinishWeek": 42,
+      "commitWeek": 46,
+      "bufferWeeks": 4,
+      "verdict": "no-date",
+      "bindingConstraint": "wip-limit",
+      "rankingTerms": {
+        "weight": 6.6,
+        "constraintWeeks": 12,
+        "slackWeeks": 0,
+        "index": 0.6,
+        "rule": "constraint-first"
+      },
+      "slices": [
+        {
+          "initiative": "Autoscaling rollout",
+          "pod": "Delta",
+          "remainingWeeks": 12,
+          "startWeek": 26,
+          "finishWeek": 38,
+          "waitWeeks": 0,
+          "estimated": true
+        },
+        {
+          "initiative": "Autoscaling rollout",
+          "pod": "Fjord",
+          "remainingWeeks": 4,
+          "startWeek": 38,
+          "finishWeek": 42,
+          "waitWeeks": 0,
+          "bindingConstraint": "dependency",
+          "estimated": true
+        }
+      ]
+    },
+    {
+      "name": "Managed database MVP",
+      "proposedRank": 5,
+      "statedRank": 4,
+      "startWeek": 33,
+      "rawFinishWeek": 49,
+      "commitWeek": 53,
+      "bufferWeeks": 4,
+      "targetWeek": 22,
+      "verdict": "late",
+      "weeksLate": 31,
+      "bindingConstraint": "wip-limit",
+      "rankingTerms": {
+        "weight": 26.3,
+        "constraintWeeks": 10,
+        "slackWeeks": 6,
+        "index": 2.1,
+        "rule": "constraint-first"
+      },
+      "slices": [
+        {
+          "initiative": "Managed database MVP",
+          "pod": "Delta",
+          "remainingWeeks": 10,
+          "startWeek": 33,
+          "finishWeek": 43,
+          "waitWeeks": 0,
+          "estimated": true
+        },
+        {
+          "initiative": "Managed database MVP",
+          "pod": "Harbor",
+          "remainingWeeks": 6,
+          "startWeek": 43,
+          "finishWeek": 49,
+          "waitWeeks": 0,
+          "bindingConstraint": "dependency",
+          "estimated": true
+        }
+      ]
+    },
+    {
+      "name": "Disaster recovery for event streaming",
+      "proposedRank": 6,
+      "statedRank": 5,
+      "startWeek": 42,
+      "rawFinishWeek": 56,
+      "commitWeek": 60,
+      "bufferWeeks": 4,
+      "targetWeek": 12,
+      "verdict": "structurally-infeasible",
+      "weeksLate": 48,
+      "bindingConstraint": "wip-limit",
+      "rankingTerms": {
+        "weight": 38.4,
+        "constraintWeeks": 9,
+        "slackWeeks": 0,
+        "index": 4.3,
+        "rule": "constraint-first"
+      },
+      "slices": [
+        {
+          "initiative": "Disaster recovery for event streaming",
+          "pod": "Delta",
+          "remainingWeeks": 9,
+          "startWeek": 42,
+          "finishWeek": 51,
+          "waitWeeks": 0,
+          "estimated": true
+        },
+        {
+          "initiative": "Disaster recovery for event streaming",
+          "pod": "Ibis",
+          "remainingWeeks": 5,
+          "startWeek": 51,
+          "finishWeek": 56,
+          "waitWeeks": 0,
+          "bindingConstraint": "dependency",
+          "estimated": true
+        }
+      ]
+    },
+    {
+      "name": "Bring-your-own-auth (early access)",
+      "proposedRank": 7,
+      "statedRank": 6,
+      "startWeek": 0,
+      "rawFinishWeek": 10,
+      "commitWeek": 13,
+      "bufferWeeks": 3,
+      "targetWeek": 14,
+      "verdict": "on-time",
+      "rankingTerms": {
+        "weight": 14,
+        "constraintWeeks": 0,
+        "slackWeeks": 4,
+        "index": 1,
+        "rule": "constraint-first"
+      },
+      "slices": [
+        {
+          "initiative": "Bring-your-own-auth (early access)",
+          "pod": "Ember",
+          "remainingWeeks": 7,
+          "startWeek": 0,
+          "finishWeek": 7,
+          "waitWeeks": 0,
+          "estimated": true
+        },
+        {
+          "initiative": "Bring-your-own-auth (early access)",
+          "pod": "Atlas",
+          "remainingWeeks": 3,
+          "startWeek": 7,
+          "finishWeek": 10,
+          "waitWeeks": 0,
+          "bindingConstraint": "dependency",
+          "estimated": true
+        },
+        {
+          "initiative": "Bring-your-own-auth (early access)",
+          "pod": "Beacon",
+          "remainingWeeks": 2,
+          "startWeek": 0,
+          "finishWeek": 2,
+          "waitWeeks": 0,
+          "estimated": true
+        }
+      ]
+    },
+    {
+      "name": "SCIM provisioning",
+      "proposedRank": 8,
+      "statedRank": 7,
+      "startWeek": 49,
+      "rawFinishWeek": 69,
+      "commitWeek": 74,
+      "bufferWeeks": 5,
+      "verdict": "no-date",
+      "bindingConstraint": "wip-limit",
+      "rankingTerms": {
+        "weight": 1.1,
+        "constraintWeeks": 0,
+        "slackWeeks": 0,
+        "index": 0.1,
+        "rule": "constraint-first"
+      },
+      "slices": [
+        {
+          "initiative": "SCIM provisioning",
+          "pod": "Beacon",
+          "remainingWeeks": 7,
+          "startWeek": 49,
+          "finishWeek": 56,
+          "waitWeeks": 0,
+          "estimated": true
+        },
+        {
+          "initiative": "SCIM provisioning",
+          "pod": "Ember",
+          "remainingWeeks": 13,
+          "startWeek": 56,
+          "finishWeek": 69,
+          "waitWeeks": 0,
+          "bindingConstraint": "dependency",
+          "estimated": true
+        }
+      ]
+    },
+    {
+      "name": "Secrets rotation",
+      "proposedRank": 9,
+      "statedRank": 8,
+      "startWeek": 56,
+      "rawFinishWeek": 75,
+      "commitWeek": 80,
+      "bufferWeeks": 5,
+      "targetWeek": 26,
+      "verdict": "late",
+      "weeksLate": 54,
+      "bindingConstraint": "wip-limit",
+      "rankingTerms": {
+        "weight": 4.5,
+        "constraintWeeks": 0,
+        "slackWeeks": 7,
+        "index": 0.2,
+        "rule": "constraint-first"
+      },
+      "slices": [
+        {
+          "initiative": "Secrets rotation",
+          "pod": "Ember",
+          "remainingWeeks": 14,
+          "startWeek": 56,
+          "finishWeek": 70,
+          "waitWeeks": 0,
+          "estimated": true
+        },
+        {
+          "initiative": "Secrets rotation",
+          "pod": "Juniper",
+          "remainingWeeks": 5,
+          "startWeek": 70,
+          "finishWeek": 75,
+          "waitWeeks": 0,
+          "bindingConstraint": "dependency",
+          "estimated": true
+        }
+      ]
+    },
+    {
+      "name": "Tenant isolation",
+      "proposedRank": 10,
+      "statedRank": 9,
+      "startWeek": 69,
+      "rawFinishWeek": 90,
+      "commitWeek": 96,
+      "bufferWeeks": 6,
+      "targetWeek": 22,
+      "verdict": "structurally-infeasible",
+      "weeksLate": 74,
+      "bindingConstraint": "wip-limit",
+      "rankingTerms": {
+        "weight": 16.7,
+        "constraintWeeks": 0,
+        "slackWeeks": 1,
+        "index": 0.6,
+        "rule": "constraint-first"
+      },
+      "slices": [
+        {
+          "initiative": "Tenant isolation",
+          "pod": "Cascade",
+          "remainingWeeks": 6,
+          "startWeek": 69,
+          "finishWeek": 75,
+          "waitWeeks": 0,
+          "estimated": true
+        },
+        {
+          "initiative": "Tenant isolation",
+          "pod": "Ember",
+          "remainingWeeks": 15,
+          "startWeek": 75,
+          "finishWeek": 90,
+          "waitWeeks": 0,
+          "bindingConstraint": "dependency",
+          "estimated": true
+        },
+        {
+          "initiative": "Tenant isolation",
+          "pod": "Granite",
+          "remainingWeeks": 4,
+          "startWeek": 69,
+          "finishWeek": 73,
+          "waitWeeks": 0,
+          "estimated": true
+        }
+      ]
+    },
+    {
+      "name": "Access-control rollout",
+      "proposedRank": 3,
+      "statedRank": 3,
+      "startWeek": 19,
+      "rawFinishWeek": 26,
+      "commitWeek": 28,
+      "bufferWeeks": 2,
+      "verdict": "no-date",
+      "bindingConstraint": "wip-limit",
+      "priorityLocked": true,
+      "rankingTerms": {
+        "weight": 1.3,
+        "constraintWeeks": 0,
+        "slackWeeks": 0,
+        "index": 0.1,
+        "rule": "constraint-first"
+      },
+      "slices": [
+        {
+          "initiative": "Access-control rollout",
+          "pod": "Granite",
+          "remainingWeeks": 7,
+          "startWeek": 19,
+          "finishWeek": 26,
+          "waitWeeks": 0,
+          "estimated": true
+        },
+        {
+          "initiative": "Access-control rollout",
+          "pod": "Harbor",
+          "remainingWeeks": 5,
+          "startWeek": 19,
+          "finishWeek": 24,
+          "waitWeeks": 0,
+          "estimated": true
+        },
+        {
+          "initiative": "Access-control rollout",
+          "pod": "Ibis",
+          "remainingWeeks": 4,
+          "startWeek": 19,
+          "finishWeek": 23,
+          "waitWeeks": 0,
+          "estimated": true
+        }
+      ]
+    }
+  ],
+  "podWeeks": [
+    {
+      "pod": "Atlas",
+      "tracks": 6,
+      "weeks": [
+        {
+          "week": 0,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 1,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 2,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 3,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 4,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 5,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 6,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 7,
+          "busy": 1,
+          "tracks": 6,
+          "utilization": 0.16666666666666666,
+          "initiatives": [
+            "Bring-your-own-auth (early access)"
+          ]
+        },
+        {
+          "week": 8,
+          "busy": 1,
+          "tracks": 6,
+          "utilization": 0.16666666666666666,
+          "initiatives": [
+            "Bring-your-own-auth (early access)"
+          ]
+        },
+        {
+          "week": 9,
+          "busy": 1,
+          "tracks": 6,
+          "utilization": 0.16666666666666666,
+          "initiatives": [
+            "Bring-your-own-auth (early access)"
+          ]
+        },
+        {
+          "week": 10,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 11,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 12,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 13,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 14,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 15,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 16,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 17,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 18,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 19,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 20,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 21,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 22,
+          "busy": 1,
+          "tracks": 6,
+          "utilization": 0.16666666666666666,
+          "initiatives": [
+            "Self-service app platform"
+          ]
+        },
+        {
+          "week": 23,
+          "busy": 1,
+          "tracks": 6,
+          "utilization": 0.16666666666666666,
+          "initiatives": [
+            "Self-service app platform"
+          ]
+        },
+        {
+          "week": 24,
+          "busy": 1,
+          "tracks": 6,
+          "utilization": 0.16666666666666666,
+          "initiatives": [
+            "Self-service app platform"
+          ]
+        },
+        {
+          "week": 25,
+          "busy": 1,
+          "tracks": 6,
+          "utilization": 0.16666666666666666,
+          "initiatives": [
+            "Self-service app platform"
+          ]
+        },
+        {
+          "week": 26,
+          "busy": 1,
+          "tracks": 6,
+          "utilization": 0.16666666666666666,
+          "initiatives": [
+            "Self-service app platform"
+          ]
+        },
+        {
+          "week": 27,
+          "busy": 1,
+          "tracks": 6,
+          "utilization": 0.16666666666666666,
+          "initiatives": [
+            "Self-service app platform"
+          ]
+        },
+        {
+          "week": 28,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 29,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 30,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 31,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 32,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 33,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 34,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 35,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 36,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 37,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 38,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 39,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 40,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 41,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 42,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 43,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 44,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 45,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 46,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 47,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 48,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 49,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 50,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 51,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 52,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 53,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 54,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 55,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 56,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 57,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 58,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 59,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 60,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 61,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 62,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 63,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 64,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 65,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 66,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 67,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 68,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 69,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 70,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 71,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 72,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 73,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 74,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 75,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 76,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 77,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 78,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 79,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 80,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 81,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 82,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 83,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 84,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 85,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 86,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 87,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 88,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 89,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        }
+      ],
+      "slices": [
+        {
+          "initiative": "Bring-your-own-auth (early access)",
+          "pod": "Atlas",
+          "remainingWeeks": 3,
+          "startWeek": 7,
+          "finishWeek": 10,
+          "waitWeeks": 0,
+          "bindingConstraint": "dependency",
+          "estimated": true
+        },
+        {
+          "initiative": "Self-service app platform",
+          "pod": "Atlas",
+          "remainingWeeks": 6,
+          "startWeek": 22,
+          "finishWeek": 28,
+          "waitWeeks": 0,
+          "bindingConstraint": "dependency",
+          "estimated": true
+        }
+      ]
+    },
+    {
+      "pod": "Beacon",
+      "tracks": 7,
+      "weeks": [
+        {
+          "week": 0,
+          "busy": 1,
+          "tracks": 7,
+          "utilization": 0.14285714285714285,
+          "initiatives": [
+            "Bring-your-own-auth (early access)"
+          ]
+        },
+        {
+          "week": 1,
+          "busy": 1,
+          "tracks": 7,
+          "utilization": 0.14285714285714285,
+          "initiatives": [
+            "Bring-your-own-auth (early access)"
+          ]
+        },
+        {
+          "week": 2,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 3,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 4,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 5,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 6,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 7,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 8,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 9,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 10,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 11,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 12,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 13,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 14,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 15,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 16,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 17,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 18,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 19,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 20,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 21,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 22,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 23,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 24,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 25,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 26,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 27,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 28,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 29,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 30,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 31,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 32,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 33,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 34,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 35,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 36,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 37,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 38,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 39,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 40,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 41,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 42,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 43,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 44,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 45,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 46,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 47,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 48,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 49,
+          "busy": 1,
+          "tracks": 7,
+          "utilization": 0.14285714285714285,
+          "initiatives": [
+            "SCIM provisioning"
+          ]
+        },
+        {
+          "week": 50,
+          "busy": 1,
+          "tracks": 7,
+          "utilization": 0.14285714285714285,
+          "initiatives": [
+            "SCIM provisioning"
+          ]
+        },
+        {
+          "week": 51,
+          "busy": 1,
+          "tracks": 7,
+          "utilization": 0.14285714285714285,
+          "initiatives": [
+            "SCIM provisioning"
+          ]
+        },
+        {
+          "week": 52,
+          "busy": 1,
+          "tracks": 7,
+          "utilization": 0.14285714285714285,
+          "initiatives": [
+            "SCIM provisioning"
+          ]
+        },
+        {
+          "week": 53,
+          "busy": 1,
+          "tracks": 7,
+          "utilization": 0.14285714285714285,
+          "initiatives": [
+            "SCIM provisioning"
+          ]
+        },
+        {
+          "week": 54,
+          "busy": 1,
+          "tracks": 7,
+          "utilization": 0.14285714285714285,
+          "initiatives": [
+            "SCIM provisioning"
+          ]
+        },
+        {
+          "week": 55,
+          "busy": 1,
+          "tracks": 7,
+          "utilization": 0.14285714285714285,
+          "initiatives": [
+            "SCIM provisioning"
+          ]
+        },
+        {
+          "week": 56,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 57,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 58,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 59,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 60,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 61,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 62,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 63,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 64,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 65,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 66,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 67,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 68,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 69,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 70,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 71,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 72,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 73,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 74,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 75,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 76,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 77,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 78,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 79,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 80,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 81,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 82,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 83,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 84,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 85,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 86,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 87,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 88,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 89,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        }
+      ],
+      "slices": [
+        {
+          "initiative": "Bring-your-own-auth (early access)",
+          "pod": "Beacon",
+          "remainingWeeks": 2,
+          "startWeek": 0,
+          "finishWeek": 2,
+          "waitWeeks": 0,
+          "estimated": true
+        },
+        {
+          "initiative": "SCIM provisioning",
+          "pod": "Beacon",
+          "remainingWeeks": 7,
+          "startWeek": 49,
+          "finishWeek": 56,
+          "waitWeeks": 0,
+          "estimated": true
+        }
+      ]
+    },
+    {
+      "pod": "Cascade",
+      "tracks": 7,
+      "weeks": [
+        {
+          "week": 0,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 1,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 2,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 3,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 4,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 5,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 6,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 7,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 8,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 9,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 10,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 11,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 12,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 13,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 14,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 15,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 16,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 17,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 18,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 19,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 20,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 21,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 22,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 23,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 24,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 25,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 26,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 27,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 28,
+          "busy": 1,
+          "tracks": 7,
+          "utilization": 0.14285714285714285,
+          "initiatives": [
+            "Self-service app platform"
+          ]
+        },
+        {
+          "week": 29,
+          "busy": 1,
+          "tracks": 7,
+          "utilization": 0.14285714285714285,
+          "initiatives": [
+            "Self-service app platform"
+          ]
+        },
+        {
+          "week": 30,
+          "busy": 1,
+          "tracks": 7,
+          "utilization": 0.14285714285714285,
+          "initiatives": [
+            "Self-service app platform"
+          ]
+        },
+        {
+          "week": 31,
+          "busy": 1,
+          "tracks": 7,
+          "utilization": 0.14285714285714285,
+          "initiatives": [
+            "Self-service app platform"
+          ]
+        },
+        {
+          "week": 32,
+          "busy": 1,
+          "tracks": 7,
+          "utilization": 0.14285714285714285,
+          "initiatives": [
+            "Self-service app platform"
+          ]
+        },
+        {
+          "week": 33,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 34,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 35,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 36,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 37,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 38,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 39,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 40,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 41,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 42,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 43,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 44,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 45,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 46,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 47,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 48,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 49,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 50,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 51,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 52,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 53,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 54,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 55,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 56,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 57,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 58,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 59,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 60,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 61,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 62,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 63,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 64,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 65,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 66,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 67,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 68,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 69,
+          "busy": 1,
+          "tracks": 7,
+          "utilization": 0.14285714285714285,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        },
+        {
+          "week": 70,
+          "busy": 1,
+          "tracks": 7,
+          "utilization": 0.14285714285714285,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        },
+        {
+          "week": 71,
+          "busy": 1,
+          "tracks": 7,
+          "utilization": 0.14285714285714285,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        },
+        {
+          "week": 72,
+          "busy": 1,
+          "tracks": 7,
+          "utilization": 0.14285714285714285,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        },
+        {
+          "week": 73,
+          "busy": 1,
+          "tracks": 7,
+          "utilization": 0.14285714285714285,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        },
+        {
+          "week": 74,
+          "busy": 1,
+          "tracks": 7,
+          "utilization": 0.14285714285714285,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        },
+        {
+          "week": 75,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 76,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 77,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 78,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 79,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 80,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 81,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 82,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 83,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 84,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 85,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 86,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 87,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 88,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        },
+        {
+          "week": 89,
+          "busy": 0,
+          "tracks": 7,
+          "utilization": 0
+        }
+      ],
+      "slices": [
+        {
+          "initiative": "Self-service app platform",
+          "pod": "Cascade",
+          "remainingWeeks": 5,
+          "startWeek": 28,
+          "finishWeek": 33,
+          "waitWeeks": 0,
+          "bindingConstraint": "dependency",
+          "estimated": true
+        },
+        {
+          "initiative": "Tenant isolation",
+          "pod": "Cascade",
+          "remainingWeeks": 6,
+          "startWeek": 69,
+          "finishWeek": 75,
+          "waitWeeks": 0,
+          "estimated": true
+        }
+      ]
+    },
+    {
+      "pod": "Delta",
+      "tracks": 2,
+      "weeks": [
+        {
+          "week": 0,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Telemetry GA"
+          ]
+        },
+        {
+          "week": 1,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Telemetry GA"
+          ]
+        },
+        {
+          "week": 2,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Telemetry GA"
+          ]
+        },
+        {
+          "week": 3,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Telemetry GA"
+          ]
+        },
+        {
+          "week": 4,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Telemetry GA"
+          ]
+        },
+        {
+          "week": 5,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Telemetry GA"
+          ]
+        },
+        {
+          "week": 6,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Telemetry GA"
+          ]
+        },
+        {
+          "week": 7,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Telemetry GA"
+          ]
+        },
+        {
+          "week": 8,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Telemetry GA"
+          ]
+        },
+        {
+          "week": 9,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Telemetry GA"
+          ]
+        },
+        {
+          "week": 10,
+          "busy": 2,
+          "tracks": 2,
+          "utilization": 1,
+          "initiatives": [
+            "Self-service app platform",
+            "Telemetry GA"
+          ]
+        },
+        {
+          "week": 11,
+          "busy": 2,
+          "tracks": 2,
+          "utilization": 1,
+          "initiatives": [
+            "Self-service app platform",
+            "Telemetry GA"
+          ]
+        },
+        {
+          "week": 12,
+          "busy": 2,
+          "tracks": 2,
+          "utilization": 1,
+          "initiatives": [
+            "Self-service app platform",
+            "Telemetry GA"
+          ]
+        },
+        {
+          "week": 13,
+          "busy": 2,
+          "tracks": 2,
+          "utilization": 1,
+          "initiatives": [
+            "Self-service app platform",
+            "Telemetry GA"
+          ]
+        },
+        {
+          "week": 14,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Self-service app platform"
+          ]
+        },
+        {
+          "week": 15,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Self-service app platform"
+          ]
+        },
+        {
+          "week": 16,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Self-service app platform"
+          ]
+        },
+        {
+          "week": 17,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Self-service app platform"
+          ]
+        },
+        {
+          "week": 18,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Self-service app platform"
+          ]
+        },
+        {
+          "week": 19,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Self-service app platform"
+          ]
+        },
+        {
+          "week": 20,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Self-service app platform"
+          ]
+        },
+        {
+          "week": 21,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Self-service app platform"
+          ]
+        },
+        {
+          "week": 22,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 23,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 24,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 25,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 26,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Autoscaling rollout"
+          ]
+        },
+        {
+          "week": 27,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Autoscaling rollout"
+          ]
+        },
+        {
+          "week": 28,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Autoscaling rollout"
+          ]
+        },
+        {
+          "week": 29,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Autoscaling rollout"
+          ]
+        },
+        {
+          "week": 30,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Autoscaling rollout"
+          ]
+        },
+        {
+          "week": 31,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Autoscaling rollout"
+          ]
+        },
+        {
+          "week": 32,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Autoscaling rollout"
+          ]
+        },
+        {
+          "week": 33,
+          "busy": 2,
+          "tracks": 2,
+          "utilization": 1,
+          "initiatives": [
+            "Autoscaling rollout",
+            "Managed database MVP"
+          ]
+        },
+        {
+          "week": 34,
+          "busy": 2,
+          "tracks": 2,
+          "utilization": 1,
+          "initiatives": [
+            "Autoscaling rollout",
+            "Managed database MVP"
+          ]
+        },
+        {
+          "week": 35,
+          "busy": 2,
+          "tracks": 2,
+          "utilization": 1,
+          "initiatives": [
+            "Autoscaling rollout",
+            "Managed database MVP"
+          ]
+        },
+        {
+          "week": 36,
+          "busy": 2,
+          "tracks": 2,
+          "utilization": 1,
+          "initiatives": [
+            "Autoscaling rollout",
+            "Managed database MVP"
+          ]
+        },
+        {
+          "week": 37,
+          "busy": 2,
+          "tracks": 2,
+          "utilization": 1,
+          "initiatives": [
+            "Autoscaling rollout",
+            "Managed database MVP"
+          ]
+        },
+        {
+          "week": 38,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Managed database MVP"
+          ]
+        },
+        {
+          "week": 39,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Managed database MVP"
+          ]
+        },
+        {
+          "week": 40,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Managed database MVP"
+          ]
+        },
+        {
+          "week": 41,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Managed database MVP"
+          ]
+        },
+        {
+          "week": 42,
+          "busy": 2,
+          "tracks": 2,
+          "utilization": 1,
+          "initiatives": [
+            "Disaster recovery for event streaming",
+            "Managed database MVP"
+          ]
+        },
+        {
+          "week": 43,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Disaster recovery for event streaming"
+          ]
+        },
+        {
+          "week": 44,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Disaster recovery for event streaming"
+          ]
+        },
+        {
+          "week": 45,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Disaster recovery for event streaming"
+          ]
+        },
+        {
+          "week": 46,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Disaster recovery for event streaming"
+          ]
+        },
+        {
+          "week": 47,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Disaster recovery for event streaming"
+          ]
+        },
+        {
+          "week": 48,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Disaster recovery for event streaming"
+          ]
+        },
+        {
+          "week": 49,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Disaster recovery for event streaming"
+          ]
+        },
+        {
+          "week": 50,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Disaster recovery for event streaming"
+          ]
+        },
+        {
+          "week": 51,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 52,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 53,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 54,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 55,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 56,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 57,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 58,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 59,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 60,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 61,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 62,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 63,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 64,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 65,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 66,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 67,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 68,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 69,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 70,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 71,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 72,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 73,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 74,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 75,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 76,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 77,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 78,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 79,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 80,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 81,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 82,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 83,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 84,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 85,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 86,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 87,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 88,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 89,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        }
+      ],
+      "slices": [
+        {
+          "initiative": "Telemetry GA",
+          "pod": "Delta",
+          "remainingWeeks": 14,
+          "startWeek": 0,
+          "finishWeek": 14,
+          "waitWeeks": 0,
+          "estimated": true
+        },
+        {
+          "initiative": "Self-service app platform",
+          "pod": "Delta",
+          "remainingWeeks": 12,
+          "startWeek": 10,
+          "finishWeek": 22,
+          "waitWeeks": 0,
+          "estimated": true
+        },
+        {
+          "initiative": "Autoscaling rollout",
+          "pod": "Delta",
+          "remainingWeeks": 12,
+          "startWeek": 26,
+          "finishWeek": 38,
+          "waitWeeks": 0,
+          "estimated": true
+        },
+        {
+          "initiative": "Managed database MVP",
+          "pod": "Delta",
+          "remainingWeeks": 10,
+          "startWeek": 33,
+          "finishWeek": 43,
+          "waitWeeks": 0,
+          "estimated": true
+        },
+        {
+          "initiative": "Disaster recovery for event streaming",
+          "pod": "Delta",
+          "remainingWeeks": 9,
+          "startWeek": 42,
+          "finishWeek": 51,
+          "waitWeeks": 0,
+          "estimated": true
+        }
+      ]
+    },
+    {
+      "pod": "Ember",
+      "tracks": 2,
+      "weeks": [
+        {
+          "week": 0,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Bring-your-own-auth (early access)"
+          ]
+        },
+        {
+          "week": 1,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Bring-your-own-auth (early access)"
+          ]
+        },
+        {
+          "week": 2,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Bring-your-own-auth (early access)"
+          ]
+        },
+        {
+          "week": 3,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Bring-your-own-auth (early access)"
+          ]
+        },
+        {
+          "week": 4,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Bring-your-own-auth (early access)"
+          ]
+        },
+        {
+          "week": 5,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Bring-your-own-auth (early access)"
+          ]
+        },
+        {
+          "week": 6,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Bring-your-own-auth (early access)"
+          ]
+        },
+        {
+          "week": 7,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 8,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 9,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 10,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 11,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 12,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 13,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 14,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 15,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 16,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 17,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 18,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 19,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 20,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 21,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 22,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 23,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 24,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 25,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 26,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 27,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 28,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 29,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 30,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 31,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 32,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 33,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 34,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 35,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 36,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 37,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 38,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 39,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 40,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 41,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 42,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 43,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 44,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 45,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 46,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 47,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 48,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 49,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 50,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 51,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 52,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 53,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 54,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 55,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 56,
+          "busy": 2,
+          "tracks": 2,
+          "utilization": 1,
+          "initiatives": [
+            "SCIM provisioning",
+            "Secrets rotation"
+          ]
+        },
+        {
+          "week": 57,
+          "busy": 2,
+          "tracks": 2,
+          "utilization": 1,
+          "initiatives": [
+            "SCIM provisioning",
+            "Secrets rotation"
+          ]
+        },
+        {
+          "week": 58,
+          "busy": 2,
+          "tracks": 2,
+          "utilization": 1,
+          "initiatives": [
+            "SCIM provisioning",
+            "Secrets rotation"
+          ]
+        },
+        {
+          "week": 59,
+          "busy": 2,
+          "tracks": 2,
+          "utilization": 1,
+          "initiatives": [
+            "SCIM provisioning",
+            "Secrets rotation"
+          ]
+        },
+        {
+          "week": 60,
+          "busy": 2,
+          "tracks": 2,
+          "utilization": 1,
+          "initiatives": [
+            "SCIM provisioning",
+            "Secrets rotation"
+          ]
+        },
+        {
+          "week": 61,
+          "busy": 2,
+          "tracks": 2,
+          "utilization": 1,
+          "initiatives": [
+            "SCIM provisioning",
+            "Secrets rotation"
+          ]
+        },
+        {
+          "week": 62,
+          "busy": 2,
+          "tracks": 2,
+          "utilization": 1,
+          "initiatives": [
+            "SCIM provisioning",
+            "Secrets rotation"
+          ]
+        },
+        {
+          "week": 63,
+          "busy": 2,
+          "tracks": 2,
+          "utilization": 1,
+          "initiatives": [
+            "SCIM provisioning",
+            "Secrets rotation"
+          ]
+        },
+        {
+          "week": 64,
+          "busy": 2,
+          "tracks": 2,
+          "utilization": 1,
+          "initiatives": [
+            "SCIM provisioning",
+            "Secrets rotation"
+          ]
+        },
+        {
+          "week": 65,
+          "busy": 2,
+          "tracks": 2,
+          "utilization": 1,
+          "initiatives": [
+            "SCIM provisioning",
+            "Secrets rotation"
+          ]
+        },
+        {
+          "week": 66,
+          "busy": 2,
+          "tracks": 2,
+          "utilization": 1,
+          "initiatives": [
+            "SCIM provisioning",
+            "Secrets rotation"
+          ]
+        },
+        {
+          "week": 67,
+          "busy": 2,
+          "tracks": 2,
+          "utilization": 1,
+          "initiatives": [
+            "SCIM provisioning",
+            "Secrets rotation"
+          ]
+        },
+        {
+          "week": 68,
+          "busy": 2,
+          "tracks": 2,
+          "utilization": 1,
+          "initiatives": [
+            "SCIM provisioning",
+            "Secrets rotation"
+          ]
+        },
+        {
+          "week": 69,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Secrets rotation"
+          ]
+        },
+        {
+          "week": 70,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 71,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 72,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 73,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 74,
+          "busy": 0,
+          "tracks": 2,
+          "utilization": 0
+        },
+        {
+          "week": 75,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        },
+        {
+          "week": 76,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        },
+        {
+          "week": 77,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        },
+        {
+          "week": 78,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        },
+        {
+          "week": 79,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        },
+        {
+          "week": 80,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        },
+        {
+          "week": 81,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        },
+        {
+          "week": 82,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        },
+        {
+          "week": 83,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        },
+        {
+          "week": 84,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        },
+        {
+          "week": 85,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        },
+        {
+          "week": 86,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        },
+        {
+          "week": 87,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        },
+        {
+          "week": 88,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        },
+        {
+          "week": 89,
+          "busy": 1,
+          "tracks": 2,
+          "utilization": 0.5,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        }
+      ],
+      "slices": [
+        {
+          "initiative": "Bring-your-own-auth (early access)",
+          "pod": "Ember",
+          "remainingWeeks": 7,
+          "startWeek": 0,
+          "finishWeek": 7,
+          "waitWeeks": 0,
+          "estimated": true
+        },
+        {
+          "initiative": "SCIM provisioning",
+          "pod": "Ember",
+          "remainingWeeks": 13,
+          "startWeek": 56,
+          "finishWeek": 69,
+          "waitWeeks": 0,
+          "bindingConstraint": "dependency",
+          "estimated": true
+        },
+        {
+          "initiative": "Secrets rotation",
+          "pod": "Ember",
+          "remainingWeeks": 14,
+          "startWeek": 56,
+          "finishWeek": 70,
+          "waitWeeks": 0,
+          "estimated": true
+        },
+        {
+          "initiative": "Tenant isolation",
+          "pod": "Ember",
+          "remainingWeeks": 15,
+          "startWeek": 75,
+          "finishWeek": 90,
+          "waitWeeks": 0,
+          "bindingConstraint": "dependency",
+          "estimated": true
+        }
+      ]
+    },
+    {
+      "pod": "Fjord",
+      "tracks": 4,
+      "weeks": [
+        {
+          "week": 0,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 1,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 2,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 3,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 4,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 5,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 6,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 7,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 8,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 9,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 10,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 11,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 12,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 13,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 14,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 15,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 16,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 17,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 18,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 19,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 20,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 21,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 22,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 23,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 24,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 25,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 26,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 27,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 28,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 29,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 30,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 31,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 32,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 33,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 34,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 35,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 36,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 37,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 38,
+          "busy": 1,
+          "tracks": 4,
+          "utilization": 0.25,
+          "initiatives": [
+            "Autoscaling rollout"
+          ]
+        },
+        {
+          "week": 39,
+          "busy": 1,
+          "tracks": 4,
+          "utilization": 0.25,
+          "initiatives": [
+            "Autoscaling rollout"
+          ]
+        },
+        {
+          "week": 40,
+          "busy": 1,
+          "tracks": 4,
+          "utilization": 0.25,
+          "initiatives": [
+            "Autoscaling rollout"
+          ]
+        },
+        {
+          "week": 41,
+          "busy": 1,
+          "tracks": 4,
+          "utilization": 0.25,
+          "initiatives": [
+            "Autoscaling rollout"
+          ]
+        },
+        {
+          "week": 42,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 43,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 44,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 45,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 46,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 47,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 48,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 49,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 50,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 51,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 52,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 53,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 54,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 55,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 56,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 57,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 58,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 59,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 60,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 61,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 62,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 63,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 64,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 65,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 66,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 67,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 68,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 69,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 70,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 71,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 72,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 73,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 74,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 75,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 76,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 77,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 78,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 79,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 80,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 81,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 82,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 83,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 84,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 85,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 86,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 87,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 88,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 89,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        }
+      ],
+      "slices": [
+        {
+          "initiative": "Autoscaling rollout",
+          "pod": "Fjord",
+          "remainingWeeks": 4,
+          "startWeek": 38,
+          "finishWeek": 42,
+          "waitWeeks": 0,
+          "bindingConstraint": "dependency",
+          "estimated": true
+        }
+      ]
+    },
+    {
+      "pod": "Granite",
+      "tracks": 5,
+      "weeks": [
+        {
+          "week": 0,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 1,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 2,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 3,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 4,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 5,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 6,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 7,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 8,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 9,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 10,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 11,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 12,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 13,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 14,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Telemetry GA"
+          ]
+        },
+        {
+          "week": 15,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Telemetry GA"
+          ]
+        },
+        {
+          "week": 16,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Telemetry GA"
+          ]
+        },
+        {
+          "week": 17,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Telemetry GA"
+          ]
+        },
+        {
+          "week": 18,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Telemetry GA"
+          ]
+        },
+        {
+          "week": 19,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Access-control rollout"
+          ]
+        },
+        {
+          "week": 20,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Access-control rollout"
+          ]
+        },
+        {
+          "week": 21,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Access-control rollout"
+          ]
+        },
+        {
+          "week": 22,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Access-control rollout"
+          ]
+        },
+        {
+          "week": 23,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Access-control rollout"
+          ]
+        },
+        {
+          "week": 24,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Access-control rollout"
+          ]
+        },
+        {
+          "week": 25,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Access-control rollout"
+          ]
+        },
+        {
+          "week": 26,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 27,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 28,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 29,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 30,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 31,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 32,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 33,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 34,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 35,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 36,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 37,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 38,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 39,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 40,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 41,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 42,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 43,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 44,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 45,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 46,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 47,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 48,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 49,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 50,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 51,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 52,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 53,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 54,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 55,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 56,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 57,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 58,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 59,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 60,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 61,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 62,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 63,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 64,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 65,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 66,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 67,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 68,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 69,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        },
+        {
+          "week": 70,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        },
+        {
+          "week": 71,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        },
+        {
+          "week": 72,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Tenant isolation"
+          ]
+        },
+        {
+          "week": 73,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 74,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 75,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 76,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 77,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 78,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 79,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 80,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 81,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 82,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 83,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 84,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 85,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 86,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 87,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 88,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 89,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        }
+      ],
+      "slices": [
+        {
+          "initiative": "Telemetry GA",
+          "pod": "Granite",
+          "remainingWeeks": 5,
+          "startWeek": 14,
+          "finishWeek": 19,
+          "waitWeeks": 0,
+          "bindingConstraint": "dependency",
+          "estimated": true
+        },
+        {
+          "initiative": "Access-control rollout",
+          "pod": "Granite",
+          "remainingWeeks": 7,
+          "startWeek": 19,
+          "finishWeek": 26,
+          "waitWeeks": 0,
+          "estimated": true
+        },
+        {
+          "initiative": "Tenant isolation",
+          "pod": "Granite",
+          "remainingWeeks": 4,
+          "startWeek": 69,
+          "finishWeek": 73,
+          "waitWeeks": 0,
+          "estimated": true
+        }
+      ]
+    },
+    {
+      "pod": "Harbor",
+      "tracks": 6,
+      "weeks": [
+        {
+          "week": 0,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 1,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 2,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 3,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 4,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 5,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 6,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 7,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 8,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 9,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 10,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 11,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 12,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 13,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 14,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 15,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 16,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 17,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 18,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 19,
+          "busy": 1,
+          "tracks": 6,
+          "utilization": 0.16666666666666666,
+          "initiatives": [
+            "Access-control rollout"
+          ]
+        },
+        {
+          "week": 20,
+          "busy": 1,
+          "tracks": 6,
+          "utilization": 0.16666666666666666,
+          "initiatives": [
+            "Access-control rollout"
+          ]
+        },
+        {
+          "week": 21,
+          "busy": 1,
+          "tracks": 6,
+          "utilization": 0.16666666666666666,
+          "initiatives": [
+            "Access-control rollout"
+          ]
+        },
+        {
+          "week": 22,
+          "busy": 1,
+          "tracks": 6,
+          "utilization": 0.16666666666666666,
+          "initiatives": [
+            "Access-control rollout"
+          ]
+        },
+        {
+          "week": 23,
+          "busy": 1,
+          "tracks": 6,
+          "utilization": 0.16666666666666666,
+          "initiatives": [
+            "Access-control rollout"
+          ]
+        },
+        {
+          "week": 24,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 25,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 26,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 27,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 28,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 29,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 30,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 31,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 32,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 33,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 34,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 35,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 36,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 37,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 38,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 39,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 40,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 41,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 42,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 43,
+          "busy": 1,
+          "tracks": 6,
+          "utilization": 0.16666666666666666,
+          "initiatives": [
+            "Managed database MVP"
+          ]
+        },
+        {
+          "week": 44,
+          "busy": 1,
+          "tracks": 6,
+          "utilization": 0.16666666666666666,
+          "initiatives": [
+            "Managed database MVP"
+          ]
+        },
+        {
+          "week": 45,
+          "busy": 1,
+          "tracks": 6,
+          "utilization": 0.16666666666666666,
+          "initiatives": [
+            "Managed database MVP"
+          ]
+        },
+        {
+          "week": 46,
+          "busy": 1,
+          "tracks": 6,
+          "utilization": 0.16666666666666666,
+          "initiatives": [
+            "Managed database MVP"
+          ]
+        },
+        {
+          "week": 47,
+          "busy": 1,
+          "tracks": 6,
+          "utilization": 0.16666666666666666,
+          "initiatives": [
+            "Managed database MVP"
+          ]
+        },
+        {
+          "week": 48,
+          "busy": 1,
+          "tracks": 6,
+          "utilization": 0.16666666666666666,
+          "initiatives": [
+            "Managed database MVP"
+          ]
+        },
+        {
+          "week": 49,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 50,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 51,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 52,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 53,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 54,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 55,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 56,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 57,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 58,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 59,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 60,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 61,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 62,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 63,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 64,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 65,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 66,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 67,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 68,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 69,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 70,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 71,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 72,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 73,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 74,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 75,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 76,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 77,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 78,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 79,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 80,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 81,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 82,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 83,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 84,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 85,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 86,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 87,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 88,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        },
+        {
+          "week": 89,
+          "busy": 0,
+          "tracks": 6,
+          "utilization": 0
+        }
+      ],
+      "slices": [
+        {
+          "initiative": "Access-control rollout",
+          "pod": "Harbor",
+          "remainingWeeks": 5,
+          "startWeek": 19,
+          "finishWeek": 24,
+          "waitWeeks": 0,
+          "estimated": true
+        },
+        {
+          "initiative": "Managed database MVP",
+          "pod": "Harbor",
+          "remainingWeeks": 6,
+          "startWeek": 43,
+          "finishWeek": 49,
+          "waitWeeks": 0,
+          "bindingConstraint": "dependency",
+          "estimated": true
+        }
+      ]
+    },
+    {
+      "pod": "Ibis",
+      "tracks": 5,
+      "weeks": [
+        {
+          "week": 0,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 1,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 2,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 3,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 4,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 5,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 6,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 7,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 8,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 9,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 10,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 11,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 12,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 13,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 14,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 15,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 16,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 17,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 18,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 19,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Access-control rollout"
+          ]
+        },
+        {
+          "week": 20,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Access-control rollout"
+          ]
+        },
+        {
+          "week": 21,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Access-control rollout"
+          ]
+        },
+        {
+          "week": 22,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Access-control rollout"
+          ]
+        },
+        {
+          "week": 23,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 24,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 25,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 26,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 27,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 28,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 29,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 30,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 31,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 32,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 33,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 34,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 35,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 36,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 37,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 38,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 39,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 40,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 41,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 42,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 43,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 44,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 45,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 46,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 47,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 48,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 49,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 50,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 51,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Disaster recovery for event streaming"
+          ]
+        },
+        {
+          "week": 52,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Disaster recovery for event streaming"
+          ]
+        },
+        {
+          "week": 53,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Disaster recovery for event streaming"
+          ]
+        },
+        {
+          "week": 54,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Disaster recovery for event streaming"
+          ]
+        },
+        {
+          "week": 55,
+          "busy": 1,
+          "tracks": 5,
+          "utilization": 0.2,
+          "initiatives": [
+            "Disaster recovery for event streaming"
+          ]
+        },
+        {
+          "week": 56,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 57,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 58,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 59,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 60,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 61,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 62,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 63,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 64,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 65,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 66,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 67,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 68,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 69,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 70,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 71,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 72,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 73,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 74,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 75,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 76,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 77,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 78,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 79,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 80,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 81,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 82,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 83,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 84,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 85,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 86,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 87,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 88,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        },
+        {
+          "week": 89,
+          "busy": 0,
+          "tracks": 5,
+          "utilization": 0
+        }
+      ],
+      "slices": [
+        {
+          "initiative": "Access-control rollout",
+          "pod": "Ibis",
+          "remainingWeeks": 4,
+          "startWeek": 19,
+          "finishWeek": 23,
+          "waitWeeks": 0,
+          "estimated": true
+        },
+        {
+          "initiative": "Disaster recovery for event streaming",
+          "pod": "Ibis",
+          "remainingWeeks": 5,
+          "startWeek": 51,
+          "finishWeek": 56,
+          "waitWeeks": 0,
+          "bindingConstraint": "dependency",
+          "estimated": true
+        }
+      ]
+    },
+    {
+      "pod": "Juniper",
+      "tracks": 4,
+      "weeks": [
+        {
+          "week": 0,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 1,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 2,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 3,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 4,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 5,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 6,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 7,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 8,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 9,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 10,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 11,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 12,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 13,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 14,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 15,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 16,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 17,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 18,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 19,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 20,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 21,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 22,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 23,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 24,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 25,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 26,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 27,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 28,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 29,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 30,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 31,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 32,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 33,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 34,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 35,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 36,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 37,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 38,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 39,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 40,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 41,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 42,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 43,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 44,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 45,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 46,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 47,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 48,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 49,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 50,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 51,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 52,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 53,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 54,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 55,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 56,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 57,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 58,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 59,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 60,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 61,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 62,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 63,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 64,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 65,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 66,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 67,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 68,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 69,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 70,
+          "busy": 1,
+          "tracks": 4,
+          "utilization": 0.25,
+          "initiatives": [
+            "Secrets rotation"
+          ]
+        },
+        {
+          "week": 71,
+          "busy": 1,
+          "tracks": 4,
+          "utilization": 0.25,
+          "initiatives": [
+            "Secrets rotation"
+          ]
+        },
+        {
+          "week": 72,
+          "busy": 1,
+          "tracks": 4,
+          "utilization": 0.25,
+          "initiatives": [
+            "Secrets rotation"
+          ]
+        },
+        {
+          "week": 73,
+          "busy": 1,
+          "tracks": 4,
+          "utilization": 0.25,
+          "initiatives": [
+            "Secrets rotation"
+          ]
+        },
+        {
+          "week": 74,
+          "busy": 1,
+          "tracks": 4,
+          "utilization": 0.25,
+          "initiatives": [
+            "Secrets rotation"
+          ]
+        },
+        {
+          "week": 75,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 76,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 77,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 78,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 79,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 80,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 81,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 82,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 83,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 84,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 85,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 86,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 87,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 88,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        },
+        {
+          "week": 89,
+          "busy": 0,
+          "tracks": 4,
+          "utilization": 0
+        }
+      ],
+      "slices": [
+        {
+          "initiative": "Secrets rotation",
+          "pod": "Juniper",
+          "remainingWeeks": 5,
+          "startWeek": 70,
+          "finishWeek": 75,
+          "waitWeeks": 0,
+          "bindingConstraint": "dependency",
+          "estimated": true
+        }
+      ]
+    }
+  ],
+  "drumPods": [
+    "Delta"
+  ],
+  "wipLimit": {
+    "value": 2,
+    "derived": true,
+    "fromPod": "Delta"
+  },
+  "rule": "constraint-first",
+  "rulesTried": [
+    {
+      "rule": "tardiness-cost",
+      "objective": 56957.3
+    },
+    {
+      "rule": "minimum-slack",
+      "objective": 180678.7
+    },
+    {
+      "rule": "value-per-constraint-week",
+      "objective": 56957.3
+    },
+    {
+      "rule": "constraint-first",
+      "objective": 4673.3
+    },
+    {
+      "rule": "stated-priority",
+      "objective": 57614.7
+    }
+  ],
+  "objectiveScore": 4673.3,
+  "statedOrderObjectiveScore": 57614.7,
+  "reconciliation": [
+    {
+      "initiative": "Telemetry GA",
+      "statedRank": 2,
+      "proposedRank": 1,
+      "reason": "promoted: better on how much of the drum it consumes than the initiatives it passed"
+    },
+    {
+      "initiative": "Self-service app platform",
+      "statedRank": 1,
+      "proposedRank": 2,
+      "reason": "outranked on how much of the drum it consumes"
+    },
+    {
+      "initiative": "Autoscaling rollout",
+      "statedRank": 10,
+      "proposedRank": 4,
+      "reason": "promoted: better on how much of the drum it consumes than the initiatives it passed"
+    },
+    {
+      "initiative": "Managed database MVP",
+      "statedRank": 4,
+      "proposedRank": 5,
+      "reason": "outranked on how much of the drum it consumes"
+    },
+    {
+      "initiative": "Disaster recovery for event streaming",
+      "statedRank": 5,
+      "proposedRank": 6,
+      "reason": "outranked on how much of the drum it consumes"
+    },
+    {
+      "initiative": "Bring-your-own-auth (early access)",
+      "statedRank": 6,
+      "proposedRank": 7,
+      "reason": "outranked on how much of the drum it consumes"
+    },
+    {
+      "initiative": "SCIM provisioning",
+      "statedRank": 7,
+      "proposedRank": 8,
+      "reason": "outranked on how much of the drum it consumes"
+    },
+    {
+      "initiative": "Secrets rotation",
+      "statedRank": 8,
+      "proposedRank": 9,
+      "reason": "outranked on how much of the drum it consumes"
+    },
+    {
+      "initiative": "Tenant isolation",
+      "statedRank": 9,
+      "proposedRank": 10,
+      "reason": "outranked on how much of the drum it consumes"
+    }
+  ],
+  "horizonWeeks": 26,
+  "periodStart": "2026-01-05"
+}
