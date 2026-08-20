@@ -12,11 +12,14 @@ citation_prefix: ""
 protected_paths: ""
 test_file_patterns: "_test\.go([^[:alnum:]_]|$)"
 language_packs: "go"
-# The Go pack's ginkgo-only-check.sh is deliberately NOT in this chain: Conway's
-# 19 test files use stdlib testing, and arming a gate the whole suite violates
-# would leave CI permanently red. See specs/002-factory-adoption.md Decision 4
-# and its open question Q2 — converting the suite is a separate decision.
-# node --test covers the pure JS engine (tests/sim.test.mjs), which no Go step sees.
+# The Go pack's ginkgo-only-check.sh is deliberately NOT in this chain: 23 of
+# Conway's test files use stdlib testing, and arming a gate they violate would
+# leave CI permanently red. See specs/002-factory-adoption.md Decision 4 and its
+# open question Q2, partly answered by docs/DECISION_LOG.md Decision 12 — new
+# tests are Ginkgo, the existing ones are not converted.
+# node --test covers the pure JS the Go steps never see. The glob is deliberate:
+# a new tests/*.test.mjs file runs in CI as soon as it exists, rather than when
+# somebody remembers to name it here.
 check_command: "go test -race ./... && golangci-lint run ./... && node --test 'tests/*.test.mjs'"
 # Your own hooks go here, not in hook-existence-check.sh (a framework file
 # that upgrade overwrites). Space-separated paths.

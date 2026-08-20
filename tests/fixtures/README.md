@@ -9,15 +9,11 @@ independent guesses that can drift apart.
 
 Regenerate it whenever the `Schedule` shape or the demo data changes:
 
-```go
-// go run ./scratch/fixgen.go tests/fixtures/schedule-demo.json
-teams, inits := planning.Demo()
-s := planning.ComputeSchedule(teams, inits,
-    planning.Params{HorizonWeeks: 26, CapacityLoss: 0.1}, planning.DemoScheduling())
-b, _ := json.MarshalIndent(s, "", "  ")
-os.WriteFile(os.Args[1], append(b, '\n'), 0o644)
+```sh
+go run ./tools/fixgen   # from the repository root
 ```
 
-`TestPlanningSuite`'s "the committed fixture still matches this package's shape"
-spec fails if the Go side changes a field the fixture names, which is the signal
-to regenerate — the JS tests cannot see a Go rename on their own.
+`TestPlanningSuite`'s "still matches the committed fixture the JS view is tested
+against" spec decodes this file with `DisallowUnknownFields` and fails when it
+stops describing the package. That failure is the signal to run the command
+above — the JS tests cannot see a Go-side rename on their own.
