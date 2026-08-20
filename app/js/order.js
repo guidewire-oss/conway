@@ -319,6 +319,7 @@ export function orderHeaderHTML(sched) {
 export function orderViewHTML(sched, opts = {}) {
   return `<div class="card ord-card">
     ${orderHeaderHTML(sched)}
+    ${opts.scheduling === undefined ? '' : schedulingFormHTML(opts.scheduling, sched.wipLimit)}
     ${orderTableHTML(sched)}
     ${infeasibleNote(sched)}
     ${noticesHTML(sched)}
@@ -328,4 +329,105 @@ export function orderViewHTML(sched, opts = {}) {
     <div class="ord-heatwrap">${podHeatmapHTML(sched, opts.horizonWeeks)}</div>
   </div>
   ${opts.pod ? podQueueHTML(sched, opts.pod) : ''}`;
+}
+
+// --- Scheduling assumptions form (§7 SchedulingParams) --------------------
+//
+// These knobs live in the Order view rather than the plan header on purpose. The
+// header holds plan-wide capacity facts that Network, the rho table and the
+// simulator all consume; these only affect the order, and putting them in the
+// header would imply that moving them changes the Network view's numbers.
+//
+// Only knobs that do something are offered. targetUtilization (the drum stagger),
+// leadCapacity and the transfer settings are all in §7 but nothing consumes them
+// yet, and a control that silently does nothing is worse than an absent one.
+
+// The input and its suffix share a row inside the column layout, and the input is
+// wide enough for its placeholder: these placeholders say what leaving the field
+// blank does, and a truncated "deri…" defeats the point of saying it.
+const numField = (id, label, value, placeholder, help, suffix, max) =>
+  `<label class="hint sched-f">${label}
+    <span class="sched-row">
+      <input id="${id}" type="number" min="0" max="${max}" step="1" value="${esc(value)}"
+        placeholder="${esc(placeholder)}">${suffix ? `<span class="hint">${suffix}</span>` : ''}
+    </span>
+    <span class="hint">${esc(help)}</span></label>`;
+
+const pctField = (id, label, value, placeholder, help) =>
+  numField(id, label, value, placeholder, help, '%', 100);
+
+const intField = (id, label, value, placeholder, help) =>
+  numField(id, label, value, placeholder, help, '', 99);
+
+const asPct = (v) => (v === null || v === undefined || v === '') ? '' : String(Math.round(v * 100));
+const asInt = (v) => (!v ? '' : String(v));
+
+// schedulingFormHTML renders the assumptions behind the order, with the current
+// values filled in. Placeholders carry what happens when a field is left blank,
+// since "blank" is a real setting for every one of these and not an omission.
+export function schedulingFormHTML(sp = {}, wip) {
+  const derived = wip && wip.derived
+    ? `derived: ${wip.value} from ${wip.fromPod}` : 'derived from the drum';
+  const missingPeriod = !sp.periodStart;
+  return `<details class="ord-sched"${missingPeriod ? ' open' : ''}>
+    <summary class="hint">scheduling assumptions</summary>
+    ${missingPeriod ? `<p class="plan-warn">This plan has no period start, so target dates cannot be
+      turned into weeks and every initiative reads as "no date". Set one to see the verdicts.</p>` : ''}
+    <div class="sched-grid">
+      <label class="hint sched-f">period starts
+        <span class="sched-row"><input id="sched-period-start" type="date" value="${esc(sp.periodStart || '')}"></span>
+        <span class="hint">week 0 — target dates are measured from here</span></label>
+      ${intField('sched-wip', 'org WIP limit', asInt(sp.maxConcurrentInitiatives), derived,
+    'initiatives in flight at once; blank derives it from the drum pod')}
+      ${pctField('sched-buffer', 'buffer', asPct(sp.bufferPct), '25', 'of each chain; blank means 25%, 0 commits on the raw finish')}
+      ${pctField('sched-kit', 'full-kit gate', asPct(sp.kitGate), 'none', 'minimum readiness to start; blank means no gate')}
+      ${intField('sched-pod-wip', 'per-pod limit', asInt(sp.maxInitiativesPerPod), 'uncapped',
+    'initiatives at one pod at once')}
+      ${intField('sched-quarter', 'starts per quarter', asInt(sp.maxStartsPerQuarter), 'uncapped',
+    'how much change the org can absorb')}
+    </div>
+    <button type="button" id="sched-save" class="primary">Save assumptions</button>
+    <button type="button" id="sched-cancel">Cancel</button>
+  </details>`;
+}
+
+// pctToFraction turns a percentage a person typed into the 0..1 fraction §7 stores.
+// Anything unreadable is treated as absent rather than as zero, because 0 is a
+// meaningful setting here and must only come from someone typing it.
+export function pctToFraction(raw) {
+  const n = Number(String(raw).trim());
+  if (!Number.isFinite(n)) return null;
+  return Math.min(1, Math.max(0, n / 100));
+}
+
+// schedulingFromForm reads the form into the body PATCH /scheduling expects.
+//
+// The distinction that matters: a blank field is omitted from the body entirely,
+// so the server's default applies, while a typed 0 is sent as 0. For bufferPct
+// those mean different things — absent is 25% of the chain, an explicit 0 is
+// "commit on the raw finish" — and collapsing them would take away a choice
+// Decision 20 deliberately left open.
+export function schedulingFromForm(read) {
+  const raw = (id) => String(read(id) ?? '').trim();
+  const out = {};
+
+  const start = raw('sched-period-start');
+  if (start) out.periodStart = start;
+
+  for (const [id, key] of [
+    ['sched-wip', 'maxConcurrentInitiatives'],
+    ['sched-pod-wip', 'maxInitiativesPerPod'],
+    ['sched-quarter', 'maxStartsPerQuarter'],
+  ]) {
+    const n = Number(raw(id));
+    // 0 and blank both mean "no limit" for these, and §7 spells that as absent.
+    if (raw(id) !== '' && Number.isFinite(n) && n > 0) out[key] = Math.round(n);
+  }
+
+  for (const [id, key] of [['sched-buffer', 'bufferPct'], ['sched-kit', 'kitGate']]) {
+    if (raw(id) === '') continue;
+    const f = pctToFraction(raw(id));
+    if (f !== null) out[key] = f;
+  }
+  return out;
 }
