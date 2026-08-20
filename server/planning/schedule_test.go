@@ -1,6 +1,10 @@
 package planning
 
 import (
+	"bytes"
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -326,6 +330,51 @@ var _ = Describe("ComputeSchedule", func() {
 				Expect(delta.Weeks[8].Busy).To(Equal(0))
 			})
 		})
+	})
+
+	// FR-012: the reason has to describe the rule that actually produced the order.
+	// Citing the tardiness index on a plan where constraint-first won is an
+	// explanation that is confidently wrong, which is worse than none.
+	It("explains a rank deviation in terms of the rule that won", func() {
+		teams, inits := Demo()
+		sched := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0.1},
+			DemoScheduling())
+
+		Expect(sched.Reconciliation).NotTo(BeEmpty())
+		basis := ruleBasis(sched.Rule)
+		Expect(basis).NotTo(Equal("the winning dispatch rule"), "the winning rule should be a named one")
+		for _, r := range sched.Reconciliation {
+			if strings.Contains(r.Reason, "locked") {
+				continue
+			}
+			Expect(r.Reason).To(ContainSubstring(basis),
+				"%s cites a rule other than the winning %s", r.Initiative, sched.Rule)
+		}
+	})
+
+	// The JS view is tested against a committed dump of this type
+	// (tests/fixtures/schedule-demo.json). JS cannot notice a Go field rename, so
+	// this spec is the tripwire: it fails when the fixture no longer describes this
+	// package, which is the signal to regenerate it.
+	It("still matches the committed fixture the JS view is tested against", func() {
+		blob, err := os.ReadFile(filepath.Join("..", "..", "tests", "fixtures", "schedule-demo.json"))
+		Expect(err).NotTo(HaveOccurred())
+
+		var fixture Schedule
+		dec := json.NewDecoder(bytes.NewReader(blob))
+		dec.DisallowUnknownFields() // a removed or renamed field shows up here
+		Expect(dec.Decode(&fixture)).To(Succeed())
+
+		// Fields the view actually reads. A rename that json tags away silently would
+		// leave these zero rather than failing to decode.
+		Expect(fixture.Initiatives).NotTo(BeEmpty())
+		Expect(fixture.PodWeeks).NotTo(BeEmpty())
+		Expect(fixture.Rule).NotTo(BeEmpty())
+		Expect(fixture.DrumPods).NotTo(BeEmpty())
+		Expect(fixture.WipLimit.Value).To(BeNumerically(">", 0))
+		Expect(fixture.Reconciliation).NotTo(BeEmpty())
+		Expect(fixture.Initiatives[0].Slices).NotTo(BeEmpty())
+		Expect(fixture.PodWeeks[0].Weeks).NotTo(BeEmpty())
 	})
 
 	Describe("the org WIP limit", func() {
