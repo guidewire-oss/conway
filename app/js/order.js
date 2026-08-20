@@ -86,6 +86,11 @@ export function objectiveView(sched) {
 // is correct and surprising enough that an unlabelled figure reads as a bug.
 export function wipLimitNote(wip) {
   if (!wip) return '';
+  // Under off there is no limit, so reporting "WIP limit 0" would describe a number
+  // as though someone had chosen it. Say what is actually true instead.
+  if (wip.model === 'off') {
+    return 'no org WIP limit <span class="hint">(model: off)</span>';
+  }
   return wip.derived
     ? `WIP limit ${wip.value} <span class="hint">(derived from ${esc(wip.fromPod)}'s tracks)</span>`
     : `WIP limit ${wip.value} <span class="hint">(set on this plan)</span>`;
@@ -319,7 +324,7 @@ export function orderHeaderHTML(sched) {
 export function orderViewHTML(sched, opts = {}) {
   return `<div class="card ord-card">
     ${orderHeaderHTML(sched)}
-    ${opts.scheduling === undefined ? '' : schedulingFormHTML(opts.scheduling, sched.wipLimit)}
+    ${opts.scheduling === undefined ? '' : schedulingFormHTML(opts.scheduling, sched.wipLimit, sched)}
     ${orderTableHTML(sched)}
     ${infeasibleNote(sched)}
     ${noticesHTML(sched)}
@@ -365,15 +370,26 @@ const asInt = (v) => (!v ? '' : String(v));
 // schedulingFormHTML renders the assumptions behind the order, with the current
 // values filled in. Placeholders carry what happens when a field is left blank,
 // since "blank" is a real setting for every one of these and not an omission.
-export function schedulingFormHTML(sp = {}, wip) {
+export function schedulingFormHTML(sp = {}, wip, sched) {
   const derived = wip && wip.derived
     ? `derived: ${wip.value} from ${wip.fromPod}` : 'derived from the drum';
   const missingPeriod = !sp.periodStart;
-  return `<details class="ord-sched"${missingPeriod ? ' open' : ''}>
+  const unchosenModel = !WIP_MODELS.some((m) => m.id === sp.wipModel);
+  const options = [
+    `<option value=""${unchosenModel ? ' selected' : ''}>— not chosen —</option>`,
+    ...WIP_MODELS.map((m) => `<option value="${m.id}"${sp.wipModel === m.id ? ' selected' : ''}>${esc(m.label)}</option>`),
+  ].join('');
+  return `<details class="ord-sched"${missingPeriod || unchosenModel ? ' open' : ''}>
     <summary class="hint">scheduling assumptions</summary>
     ${missingPeriod ? `<p class="plan-warn">This plan has no period start, so target dates cannot be
       turned into weeks and every initiative reads as "no date". Set one to see the verdicts.</p>` : ''}
+    ${unchosenModel ? `<p class="plan-warn">No work-in-progress model chosen. The order below is computed
+      as <b>strict</b> so nothing moves under you, but the choice changes what the schedule means —
+      compare the three below and pick one.</p>` : ''}
     <div class="sched-grid">
+      <label class="hint sched-f">work-in-progress model
+        <span class="sched-row"><select id="sched-wip-model">${options}</select></span>
+        <span class="hint">which initiatives count against the org limit</span></label>
       <label class="hint sched-f">period starts
         <span class="sched-row"><input id="sched-period-start" type="date" value="${esc(sp.periodStart || '')}"></span>
         <span class="hint">week 0 — target dates are measured from here</span></label>
@@ -388,7 +404,62 @@ export function schedulingFormHTML(sp = {}, wip) {
     </div>
     <button type="button" id="sched-save" class="primary">Save assumptions</button>
     <button type="button" id="sched-cancel">Cancel</button>
+    ${sched ? wipModelsTableHTML(sched) : ''}
   </details>`;
+}
+
+// The WIP models a planner chooses between (spec 001 §11 D22, amended). The wording
+// matters more than usual here: this choice changes what the schedule *means*, not
+// just a number in it, so each option states what it protects and what it costs.
+export const WIP_MODELS = [
+  { id: 'strict', label: 'strict', blurb: 'every initiative counts against the drum\u2019s tracks — protects the constraint absolutely, accepts idle elsewhere' },
+  { id: 'drum-gated', label: 'drum-gated', blurb: 'only initiatives that use the drum count — work that never touches the constraint flows freely' },
+  { id: 'off', label: 'off', blurb: 'no org limit; pod tracks, leads and dependencies are the only constraints' },
+];
+
+// wipModelsTableHTML compares the models on the planner's own plan. Static help
+// text can describe a model; only this can say what choosing it costs here.
+export function wipModelsTableHTML(sched) {
+  const rows = sched.wipModels || [];
+  if (!rows.length) return '';
+  const chosen = (sched.wipLimit && sched.wipLimit.model) || 'unchosen';
+  // Unchosen still produced the order on screen, computed as strict. Marking that
+  // row "reading as this" rather than "in force" tells the reader which line made
+  // the table they are looking at, without claiming a choice nobody made.
+  const unchosen = chosen === 'unchosen';
+  const marked = unchosen ? 'strict' : chosen;
+  const tag = unchosen ? 'reading as this' : 'in force';
+
+  const body = rows.map((o) => {
+    const current = o.model === marked;
+    return `<tr${current ? ' class="ord-inforce"' : ''}>
+      <td>${current ? '<b>' : ''}${esc(o.model)}${current ? `</b> <span class="tag">${tag}</span>` : ''}</td>
+      <td>${o.limit > 0 ? o.limit : '<span class="hint">none</span>'}</td>
+      <td>${weekLabel(o.lastCommitWeek)}</td>
+      <td>${o.datesMissed}${o.infeasible ? ` <span class="hint">(${o.infeasible} cannot fit)</span>` : ''}</td>
+      <td>${o.podsIdleAllPeriod}</td>
+      <td>${o.objective}</td>
+    </tr>`;
+  }).join('');
+
+  // The same dates are missed under every model on most plans; the difference is
+  // what they cost. Saying so stops the table reading as "pick the smallest number".
+  const missed = new Set(rows.map((o) => o.datesMissed));
+  const sameMisses = missed.size === 1 && rows.length > 1;
+
+  return `<table class="wip-table ord-models"><thead><tr>
+      <th>model</th><th>limit</th><th>ends</th><th>dates missed</th><th>pods idle all period</th><th>cost</th>
+    </tr></thead><tbody>${body}</tbody></table>
+    <ul class="hint ord-models-why">
+      ${WIP_MODELS.map((m) => `<li><b>${esc(m.label)}</b> — ${esc(m.blurb)}</li>`).join('')}
+    </ul>
+    ${sameMisses ? `<p class="hint">Every model here misses the same number of dates
+      (${rows[0].datesMissed}) — though not necessarily the same ones. What changes is what the
+      misses cost and how much of the org sits idle: a model buys cheaper misses and busier pods,
+      not fewer misses.</p>` : ''}
+    <p class="hint">Cost is weighted weeks late. It favours <b>off</b> by construction: the schedule
+      makes waiting explicit but charges nothing for multitasking, so it cannot price what a WIP limit
+      is for. That is why this is a choice and not a calculation.</p>`;
 }
 
 // pctToFraction turns a percentage a person typed into the 0..1 fraction §7 stores.
@@ -413,6 +484,11 @@ export function schedulingFromForm(read) {
 
   const start = raw('sched-period-start');
   if (start) out.periodStart = start;
+
+  // Absent means unchosen, which is a state the server reports rather than a
+  // default it silently applies.
+  const model = raw('sched-wip-model');
+  if (WIP_MODELS.some((m) => m.id === model)) out.wipModel = model;
 
   for (const [id, key] of [
     ['sched-wip', 'maxConcurrentInitiatives'],

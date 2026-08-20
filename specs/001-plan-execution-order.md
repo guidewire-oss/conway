@@ -669,6 +669,13 @@ critical paths at once.
 - maxInitiativesPerPod: integer — per-pod concurrency cap
 - kitGate: number 0–1 — minimum readiness to release
 - targetUtilization: number — the ceiling the release rule staggers against
+- wipModel: enum (strict, drum-gated, off) — which initiatives count against
+  `maxConcurrentInitiatives`. Absent is *unchosen*, a reported state rather than a
+  default: it schedules as `strict` so an existing plan's order does not move,
+  while the response says the choice is outstanding and carries what each model
+  would cost for this plan (Decision 22 as amended). `off` removes the org WIP
+  limit only — the per-pod cap, the change-absorption cap, leads, tracks and
+  dependencies all still apply
 - bufferPct, feedingBufferPct: number — flat percentages of the chain and of each
   feeding path (Decision 20). Absent defaults to 0.25; an explicit value wins,
   including a 0, which commits on the raw finish
@@ -690,7 +697,11 @@ critical paths at once.
 - remainingWeeks: number — after carryover
 - startWeek, finishWeek: integer
 - waitWeeks: number — time between ready and started
-- bindingConstraint: enum (dependency, handoff, pod-capacity, lead, wip-limit, kit-gate, freeze, earliest-start, predecessor)
+- bindingConstraint: enum (dependency, handoff, pod-capacity, lead, wip-limit,
+  pod-wip-limit, starts-cap, kit-gate, freeze, earliest-start, predecessor).
+  `wip-limit` is the org limit, `pod-wip-limit` the per-pod cap and
+  `starts-cap` the change-absorption cap; FR-008 requires each to say which
+  limit delayed the work, so they were split apart on 2026-08-20
 
 **ScheduledInitiative** _(derived)_
 - proposedRank, statedRank: integer
@@ -780,10 +791,10 @@ that never mutate the plan, plus explicit save endpoints.
 
 | Method | Path | Description | Request | Response |
 |--------|------|-------------|---------|----------|
-| POST | /api/plan/{id}/schedule | Compute the execution order. Accepts optional draft initiatives and levers so an unsaved upload can be sequenced, matching the existing simulate/preview behaviour | scheduling params, optional initiatives override, optional levers | Schedule |
+| POST | /api/plan/{id}/schedule | Compute the execution order. Accepts optional draft initiatives and levers so an unsaved upload can be sequenced, matching the existing simulate/preview behaviour. Absent scheduling params fall back to the plan's saved policy; the response reports the WIP model in force and what each model would cost | scheduling params, optional initiatives override, optional levers | Schedule |
 | POST | /api/plan/{id}/schedule/remedies | Generate ranked remedies for missed dates | schedule request plus target initiative(s) | list of Remedy |
 | PATCH | /api/plan/{id}/initiatives | Edit the sequencing attributes of one or more initiatives in place | initiative name plus attributes from §7 | updated initiatives |
-| PATCH | /api/plan/{id}/scheduling | Save plan-level scheduling params and calendar windows | SchedulingParams, CalendarWindows | ok |
+| PATCH | /api/plan/{id}/scheduling | Save plan-level scheduling params and calendar windows, including `wipModel` | SchedulingParams, CalendarWindows | ok |
 | POST | /api/plan/{id}/baseline | Save the current schedule as a named baseline | name, schedule request | baseline id |
 | GET | /api/plan/{id}/baseline | List baselines with their active flag and divergence state | — | list of Baseline metadata |
 | GET | /api/plan/{id}/baseline/{bid} | Retrieve a baseline for comparison or timeline rendering | — | Baseline |
@@ -840,7 +851,7 @@ today.
 | Q14 | An epic's children may carry pods that were never in the initiative's plan. Is that unplanned scope, a planning miss, or a mis-assignment? It changes whether it counts as variance or as scope change. | Anoop | 2026-08-18 | **Resolved 2026-08-18 — scope change, reported separately from variance.** See §11 D25. |
 | Q15 | Can a pod lead be given access to only their own pod's timeline without seeing the whole portfolio? Today's roles are manager, admin and facilitator; a pod-lead role would be new. | Anoop | 2026-08-18 | **Resolved 2026-08-18 — no new role in this feature.** See §11 D26. |
 | Q16 | Does any real FullKit workbook use the 1904 date system? `ReadXLSX` renders every cell as text and never reads its number format, so a date a planner formatted as a Date arrives as an Excel serial. `parseSheetDate` converts serials on the 1900 system, which is what Excel on Windows, Excel on modern macOS and Google Sheets all emit. A workbook saved with `date1904="1"` (legacy Mac Excel) would read four years and a day early, and nothing would flag it. Detecting it means parsing `xl/workbook.xml`'s `workbookPr`, which the grid reader does not surface — `ReadGrid` returns `[][]string` with no workbook metadata. | Anoop | — | [NEEDS CLARIFICATION] — recorded 2026-08-19 while implementing the §8 columns. Cheap mitigations if it matters: read the flag and pass it through, or reject a 1904 workbook at upload with a message telling the planner to re-save. Doing nothing is defensible if no such workbook exists in practice, and the failure is loud rather than subtle: every date in the plan shifts by four years, so verdicts would be absurd rather than plausibly wrong. Blocks nothing today. |
-| Q17 | Is a WIP limit derived from drum tracks too tight in practice? Building the Order view made this visible on the demo plan: Delta has 2 tracks, so Decision 22 derives a limit of 2, and the portfolio then stretches to week 96 against a 26-week period with seven of ten dates missed. The flat-rho view of the same plan reports Delta at rho 1.047 — demand roughly equal to capacity — so the two views disagree sharply, which is the tension NFR-005 requires not to exist in aggregate. The cause is that the org limit caps concurrent *initiatives* while the drum's tracks only constrain work *at the drum*: with a limit of 2, pods with slack sit idle waiting for a release slot. That is textbook drum-buffer-rope starving the non-constraints, so it may be correct and merely uncomfortable. | Anoop | — | [NEEDS CLARIFICATION] — recorded 2026-08-20 from the demo plan's own output. Options: keep it and treat the long schedule as the honest answer; derive the limit from drum tracks times a concurrency factor; or derive it from how many initiatives can be in flight without the drum queue growing, which is closer to what the rope actually means. Blocks nothing — an explicit `maxConcurrentInitiatives` already overrides it, and the UI labels which is in force — but it is the first number a reviewer will challenge. |
+| Q17 | Is a WIP limit derived from drum tracks too tight in practice? Building the Order view made this visible on the demo plan: Delta has 2 tracks, so Decision 22 derives a limit of 2, and the portfolio then stretches to week 96 against a 26-week period, and of the seven dated initiatives five miss. The flat-rho view of the same plan reports Delta at rho 1.047 — demand roughly equal to capacity — so the two views disagree sharply, which is the tension NFR-005 requires not to exist in aggregate. The cause is that the org limit caps concurrent *initiatives* while the drum's tracks only constrain work *at the drum*: with a limit of 2, pods with slack sit idle waiting for a release slot. That is textbook drum-buffer-rope starving the non-constraints, so it may be correct and merely uncomfortable. | Anoop | 2026-08-20 | **Resolved 2026-08-20 — the planner picks the model.** Recorded from the demo plan's own output. All three readings are offered as `wipModel` — `strict`, `drum-gated`, `off` — with the measured cost of each shown for the planner's own plan, because the objective's preference for `off` is an artefact of Decision 4 rather than evidence. A plan that has not chosen is reported as unchosen and computed under `strict`, so nothing moves for an existing plan while the choice is demanded. See the §11 D22 amendment. |
 
 ---
 
@@ -1281,6 +1292,64 @@ the two is in force.
 **Consequences:** The limit moves when the roster moves, which is correct and
 also surprising, so the derived value must always be labelled as derived and
 show the pod it came from.
+
+**Amendment 2026-08-20 — the planner chooses the model, and is shown what each
+one costs.** This decision fixed where the *number* comes from and left the
+*rule* implicit: every initiative counts against the limit. Building the Order
+view made the consequence visible, and §10 Q17 records it — on the demo plan a
+2-track drum produces a limit of 2, the portfolio stretches to week 96 against a
+26-week period, three pods sit idle for the whole period, and the flat-rho view
+of the same plan reports demand roughly equal to capacity.
+
+The cause is a mismatch of scope. The drum's tracks constrain work *at the drum*;
+the org limit constrains *initiatives*, most of which never touch the drum. So
+`wipModel` selects the rule, and all three are offered rather than one being
+picked on the planner's behalf:
+
+- `strict` — the limit is the drum's tracks and every initiative counts. Textbook
+  drum-buffer-rope: protect the constraint absolutely, accept idle elsewhere.
+- `drum-gated` — the limit is the drum's tracks, but an initiative counts only if
+  it consumes a drum pod. Work that never touches the constraint flows freely.
+- `off` — no org WIP limit. The per-pod cap, the change-absorption cap, leads,
+  pod tracks, calendars and dependencies all still apply: this switches off one
+  limit, not every limit. Also the mode under which AC 4.2 can be checked, since
+  its precondition is "no idle enforced by WIP limits".
+
+Measured on the demo plan, same roster and initiatives, only the model changed:
+
+| model | portfolio ends | dates missed | pods idle all period | objective |
+|-------|---------------|--------------|----------------------|-----------|
+| strict | week 96 | 5 (2 late, 3 cannot fit) | 3 of 10 | 4673 |
+| drum-gated | week 55 | 5 (2 late, 3 cannot fit) | 1 of 10 | 1466 |
+| off | week 43 | 5 (2 late, 3 cannot fit) | 1 of 10 | 1155 |
+
+Note what does *not* change: the same five dates are missed under every model, and
+the same three of those can never fit. The models differ in what the misses
+*cost* — a third of the weighted lateness between strict and drum-gated — and in
+how much of the org is left idle to achieve it. Choosing a model buys cheaper
+misses and busier pods, not fewer misses.
+
+**Why this is the planner's choice and not the tool's.** The objective prefers
+`off`, and that is not evidence that `off` is right — it is an artefact of
+Decision 4, which removed the queue multiplier from the scheduler. Nothing here
+charges for multitasking, context switching or queue variability, which is
+precisely what a WIP limit exists to prevent. The limit therefore encodes a belief
+about the organisation that the schedule cannot confirm or refute, so a tool that
+silently picked one would be asserting something it cannot support.
+
+**Unchosen is a state, not a default.** A plan that has not chosen still gets a
+schedule, because AC 1.1 requires ranks, starts and finishes to appear on a plan
+with no attributes at all. It is computed under `strict`, which changes nothing
+for a plan that already had an order, and the response reports the model as
+unchosen and carries the comparison, so the UI can demand the choice without
+withholding the answer.
+
+**Consequences of the amendment:** three schedules are computed per request
+instead of one, so the comparison is of the planner's own plan rather than a
+worked example. Two plans on different models are not comparable, so a baseline
+must record the model it was computed under (Story 7). The three "cannot fit"
+initiatives are identical under all three models, which is Decision 12 doing its
+job: no release rule rescues a chain longer than the period.
 
 ---
 
