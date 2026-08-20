@@ -63,6 +63,7 @@ async function createPlan() {
 }
 
 async function openPlan(id) {
+  staleOrder(); // any order request still in flight belongs to the plan being left
   root.innerHTML = '<p class="hint">Loading plan…</p>';
   const r = await req('/api/plan/' + id);
   if (!r || !r.ok) { root.innerHTML = '<p class="hint">Could not load plan.</p>'; return; }
@@ -133,7 +134,14 @@ const view = () => (current && current.view) === 'order' ? 'order' : 'network';
 // staleOrder drops the cached execution order. Anything that changes the inputs —
 // levers, the roster, the sheet — has to call it, or the Order view keeps showing
 // an order computed from a plan that no longer exists, which is worse than a spinner.
+//
+// It also bumps orderEpoch, which is what makes a slow response harmless: a request
+// issued before the inputs moved can still land afterwards, and without the epoch it
+// would write an order for a plan nobody is looking at any more.
+let orderEpoch = 0;
+
 function staleOrder() {
+  orderEpoch += 1;
   if (current) current.schedule = null;
 }
 
@@ -150,6 +158,11 @@ async function renderOrder() {
   if (!host) return;
   if (!current.schedule) {
     host.innerHTML = '<p class="hint">Working out the order…</p>';
+    // What this request is for. Checked again on arrival, because between issuing it
+    // and it landing the reader may have switched plans, applied a lever or loaded a
+    // draft — and answering the wrong question confidently is the worst outcome here.
+    const forPlan = current.id;
+    const atEpoch = orderEpoch;
     const body = {};
     // Draft preview mode: order the unsaved sheet, not the stale saved one — the
     // same rule simulate already follows.
@@ -160,11 +173,21 @@ async function renderOrder() {
     const r = await req('/api/plan/' + current.id + '/schedule', {
       method: 'POST', body: JSON.stringify(body),
     });
-    if (!r || !r.ok) {
-      host.innerHTML = `<p class="plan-warn">Could not compute the execution order${r ? `: ${esc(await r.text())}` : ''}.</p>`;
+    // Drain the response before the staleness check, so the body is read exactly
+    // once whichever way this goes.
+    let payload = null;
+    let why = 'the request did not reach the server';
+    if (r && r.ok) {
+      try { payload = await r.json(); } catch { why = 'the server sent something this cannot read'; }
+    } else if (r) {
+      why = await r.text();
+    }
+    if (!current || current.id !== forPlan || orderEpoch !== atEpoch) return; // an answer to a stale question
+    if (!payload) {
+      host.innerHTML = `<p class="plan-warn">Could not compute the execution order: ${esc(why)}</p>`;
       return;
     }
-    current.schedule = await r.json();
+    current.schedule = payload;
   }
   host.innerHTML = orderViewHTML(current.schedule, {
     horizonWeeks: current.horizonWeeks,
@@ -195,7 +218,7 @@ async function previewInitiativesFile(file) {
   current.network = draft.network;
   current.unknownTeams = draft.unknownTeams;
   current.sim = draft.sim;
-  current.schedule = null; // the sheet changed, so the order did too
+  staleOrder(); // the sheet changed, so the order did too
   current.levers = [];
   current.netMode = 'after';
   current.isDraft = true;
@@ -433,6 +456,7 @@ async function savePod(pod) {
 // The order is dropped rather than kept: pod capacity is the input the scheduler
 // is most sensitive to, so a retained order would be wrong about nearly everything.
 async function reloadPlan() {
+  staleOrder(); // the roster moved, so an order still in flight is already wrong
   const levers = current.levers || [];
   const was = view();
   const pod = current.orderPod;
