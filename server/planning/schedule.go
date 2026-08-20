@@ -80,6 +80,29 @@ const (
 	weeksPerQuarter = 13
 )
 
+// The org WIP models a planner may choose between (D22 as amended 2026-08-20).
+// The limit encodes a belief about multitasking that the schedule cannot confirm —
+// Decision 4 removed the queue multiplier, which is the term that would have
+// priced it — so the tool offers the readings rather than picking one.
+const (
+	// WipUnchosen is a state, not a model: the plan has not chosen. It schedules as
+	// WipStrict so an existing plan's order does not move, and AC 1.1 still gets its
+	// ranks and weeks, while the response says the choice is outstanding.
+	WipUnchosen = "unchosen"
+	// WipStrict counts every initiative against the drum's tracks. Textbook
+	// drum-buffer-rope: protect the constraint absolutely, accept idle elsewhere.
+	WipStrict = "strict"
+	// WipDrumGated counts only initiatives that consume a drum pod, so work that
+	// never touches the constraint is not held back by it.
+	WipDrumGated = "drum-gated"
+	// WipOff applies no org limit; pod tracks, leads, calendars and dependencies are
+	// the only constraints. Also the model under which AC 4.2 is checkable.
+	WipOff = "off"
+)
+
+// wipModels is the set offered, in the order the comparison is reported.
+var wipModels = []string{WipStrict, WipDrumGated, WipOff}
+
 // defaultLeadCapacity is how many initiatives one named lead can front at once
 // (§10 Q3). A supplied role always wins, including a 0, which means that lead
 // cannot take an initiative at all. Keys match leadKey().
@@ -100,6 +123,25 @@ type SchedulingParams struct {
 	AllowTransfers           bool           `json:"allowTransfers,omitempty"`           // reserved for capacity transfer
 	TransferRampWeeks        int            `json:"transferRampWeeks,omitempty"`        // reserved for capacity transfer
 	LookaheadK               float64        `json:"lookaheadK,omitempty"`               // tardiness-index slack discount
+	WipModel                 string         `json:"wipModel,omitempty"`                 // strict | drum-gated | off; absent = unchosen
+}
+
+// wipModel is the model in force, treating anything unrecognised as unchosen: a
+// model this build does not implement is not a licence to invent one.
+func (sp SchedulingParams) wipModel() string {
+	switch sp.WipModel {
+	case WipStrict, WipDrumGated, WipOff:
+		return sp.WipModel
+	}
+	return WipUnchosen
+}
+
+// effectiveWipModel is the rule actually applied. Unchosen schedules as strict.
+func (sp SchedulingParams) effectiveWipModel() string {
+	if m := sp.wipModel(); m != WipUnchosen {
+		return m
+	}
+	return WipStrict
 }
 
 // bufferFraction is the flat chain percentage from Decision 20.
@@ -232,6 +274,21 @@ type WipLimit struct {
 	Value   int    `json:"value"`
 	Derived bool   `json:"derived"`
 	FromPod string `json:"fromPod,omitempty"`
+	Model   string `json:"model"` // which rule the limit follows, or "unchosen"
+}
+
+// WipModelOutcome is what one model would cost for this plan. Reported for all
+// three whichever is in force, because the comparison describes the plan rather
+// than the current choice — and static help text cannot say what a model costs here.
+type WipModelOutcome struct {
+	Model             string  `json:"model"`
+	Limit             int     `json:"limit"`
+	LastCommitWeek    int     `json:"lastCommitWeek"`
+	DatesMissed       int     `json:"datesMissed"`
+	Late              int     `json:"late"`
+	Infeasible        int     `json:"infeasible"`
+	PodsIdleAllPeriod int     `json:"podsIdleAllPeriod"`
+	Objective         float64 `json:"objective"`
 }
 
 // RuleScore is one dispatch rule's objective, so the UI can say "best of 5".
@@ -250,6 +307,7 @@ type Schedule struct {
 	RulesTried                []RuleScore           `json:"rulesTried"`
 	ObjectiveScore            float64               `json:"objectiveScore"`
 	StatedOrderObjectiveScore float64               `json:"statedOrderObjectiveScore"`
+	WipModels                 []WipModelOutcome     `json:"wipModels,omitempty"`
 	Reconciliation            []RankDeviation       `json:"reconciliation,omitempty"`
 	Assumptions               []string              `json:"assumptions,omitempty"`
 	Warnings                  []string              `json:"warnings,omitempty"`
@@ -279,7 +337,61 @@ type schedInput struct {
 
 // ComputeSchedule builds the execution order for a plan. It is a pure function:
 // same inputs, identical output, field for field (AC 1.4).
+//
+// It also reports what each WIP model would cost for this plan (D22 as amended),
+// which is why it computes four schedules: the answer, and one per model for the
+// comparison. The comparison is of the planner's own plan on purpose — static help
+// text can describe a model but cannot say what choosing it costs here.
 func ComputeSchedule(teams []Team, inits []Initiative, params Params, sp SchedulingParams) *Schedule {
+	sched := computeOne(teams, inits, params, sp)
+	sched.WipModels = compareWipModels(teams, inits, params, sp)
+	return sched
+}
+
+// compareWipModels summarises each offered model. It reports the same three
+// outcomes whichever model is in force, because the comparison describes the plan
+// rather than the current choice.
+func compareWipModels(teams []Team, inits []Initiative, params Params, sp SchedulingParams) []WipModelOutcome {
+	horizon := int(math.Ceil(params.WithDefaults().HorizonWeeks))
+	out := make([]WipModelOutcome, 0, len(wipModels))
+	for _, model := range wipModels {
+		alt := sp
+		alt.WipModel = model
+		run := computeOne(teams, inits, params, alt)
+
+		o := WipModelOutcome{Model: model, Limit: run.WipLimit.Value, Objective: run.ObjectiveScore}
+		for _, si := range run.Initiatives {
+			if si.CommitWeek > o.LastCommitWeek {
+				o.LastCommitWeek = si.CommitWeek
+			}
+			switch si.Verdict {
+			case verdictLate:
+				o.Late++
+			case verdictInfeasible:
+				o.Infeasible++
+			}
+		}
+		o.DatesMissed = o.Late + o.Infeasible
+		for _, ps := range run.PodWeeks {
+			busy := false
+			for w := 0; w < horizon && w < len(ps.Weeks); w++ {
+				if ps.Weeks[w].Busy > 0 {
+					busy = true
+					break
+				}
+			}
+			if !busy {
+				o.PodsIdleAllPeriod++
+			}
+		}
+		out = append(out, o)
+	}
+	return out
+}
+
+// computeOne is one schedule, without the model comparison — the comparison calls
+// it per model, so it cannot be the thing that builds the comparison.
+func computeOne(teams []Team, inits []Initiative, params Params, sp SchedulingParams) *Schedule {
 	params = params.WithDefaults()
 	horizon := int(math.Ceil(params.HorizonWeeks))
 
@@ -379,14 +491,21 @@ func drumsOf(loads []PodLoad) (pods []string, drum string) {
 // deriveWipLimit implements Decision 22: an explicit value wins, otherwise the
 // limit is the tracks at the drum pod, labelled as derived and naming the pod.
 func deriveWipLimit(sp SchedulingParams, tracks map[string]int, drum string) WipLimit {
+	model := sp.wipModel()
+	if sp.effectiveWipModel() == WipOff {
+		// No org limit at all. An explicit number is ignored on purpose: choosing "off"
+		// and typing a number are contradictory instructions, and the model is the one
+		// the planner picked most recently and most deliberately.
+		return WipLimit{Model: model}
+	}
 	if sp.MaxConcurrentInitiatives > 0 {
-		return WipLimit{Value: sp.MaxConcurrentInitiatives}
+		return WipLimit{Value: sp.MaxConcurrentInitiatives, Model: model}
 	}
 	n := tracks[drum]
 	if n < 1 {
 		n = 1 // a roster with no capacity at all still has to make progress
 	}
-	return WipLimit{Value: n, Derived: true, FromPod: drum}
+	return WipLimit{Value: n, Derived: true, FromPod: drum, Model: model}
 }
 
 func prepareInitiative(idx int, it Initiative, tracks map[string]int, params Params, sp SchedulingParams) *schedInput {
@@ -842,8 +961,13 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 				markWeek(&c.byWeek, w, in.init.Name)
 			}
 		}
-		for w := start; w < finish; w++ {
-			bumpInt(&inFlight, w, 1)
+		if sp.effectiveWipModel() != WipDrumGated || in.drumWeeks > 0 {
+			// Only work the limit applies to occupies a slot. Otherwise an initiative
+			// exempt from the limit would still consume the capacity it is exempt from,
+			// and drum-gated would throttle the drum work it exists to protect.
+			for w := start; w < finish; w++ {
+				bumpInt(&inFlight, w, 1)
+			}
 		}
 		for role, name := range in.init.Leads {
 			key := role + "|" + name
@@ -982,9 +1106,15 @@ func releaseGates(in *schedInput, sp SchedulingParams, wip WipLimit, start, fini
 	if sp.MaxStartsPerQuarter > 0 && quarterStarts[start/weeksPerQuarter] >= sp.MaxStartsPerQuarter {
 		return bindWipLimit, false
 	}
-	for w := start; w < finish; w++ {
-		if wip.Value > 0 && weekAt(inFlight, w) >= wip.Value {
-			return bindWipLimit, false
+	// Under drum-gated, an initiative that consumes no drum time is not what the rope
+	// is protecting, so the org limit has nothing to hold it back from. Under strict
+	// every initiative counts; under off the limit is zero and this loop never fires.
+	counts := sp.effectiveWipModel() != WipDrumGated || in.drumWeeks > 0
+	if counts {
+		for w := start; w < finish; w++ {
+			if wip.Value > 0 && weekAt(inFlight, w) >= wip.Value {
+				return bindWipLimit, false
+			}
 		}
 	}
 	for role, name := range in.init.Leads {
