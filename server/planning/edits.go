@@ -8,6 +8,7 @@ package planning
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 )
@@ -48,8 +49,11 @@ func PeriodBounds(sp SchedulingParams, horizonWeeks float64) (start, end string,
 	if err != nil {
 		return "", "", false
 	}
-	weeks := Params{HorizonWeeks: horizonWeeks}.WithDefaults().HorizonWeeks
-	return t0.Format(isoDate), t0.AddDate(0, 0, int(weeks*7)).Format(isoDate), true
+	// Ceil the weeks, not the days: ComputeSchedule's horizon is
+	// int(math.Ceil(horizonWeeks)), and if these two round differently then a date
+	// inside the scheduled period gets refused at entry.
+	weeks := math.Ceil(Params{HorizonWeeks: horizonWeeks}.WithDefaults().HorizonWeeks)
+	return t0.Format(isoDate), t0.AddDate(0, 0, int(weeks)*7).Format(isoDate), true
 }
 
 // ApplyInitiativeEdits returns the initiatives with the edits applied, leaving the
@@ -154,7 +158,7 @@ func validDate(in, start, end string, bounded bool) (string, error) {
 	}
 	iso := parseSheetDate(raw)
 	if iso == "" {
-		return "", fmt.Errorf("%q is not a date this can read; use YYYY-MM-DD", raw)
+		return "", fmt.Errorf("%q is not a date this can read; YYYY-MM-DD always works", raw)
 	}
 	if !bounded {
 		return iso, nil

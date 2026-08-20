@@ -241,6 +241,14 @@ var _ = Describe("PeriodBounds", func() {
 		Expect(ok).To(BeFalse())
 	})
 
+	// ComputeSchedule takes the horizon as ceil(horizonWeeks), so the bounds have to
+	// round the same way or a date inside the scheduled period gets refused at entry.
+	It("rounds a fractional horizon the way the scheduler does", func() {
+		_, end, ok := PeriodBounds(SchedulingParams{PeriodStart: "2026-01-05"}, 26.5)
+		Expect(ok).To(BeTrue())
+		Expect(end).To(Equal("2026-07-13"), "27 whole weeks, not 26.5 truncated to 185 days")
+	})
+
 	It("falls back to the default horizon when none is given", func() {
 		_, end, ok := PeriodBounds(SchedulingParams{PeriodStart: "2026-01-05"}, 0)
 		Expect(ok).To(BeTrue())
