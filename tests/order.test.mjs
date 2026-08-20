@@ -5,6 +5,7 @@ import {
   esc, zoneOf, weekLabel, verdictView, statedCell, objectiveView, wipLimitNote,
   orderRows, orderTableHTML, infeasibleNote, heatmapWeeks, overrunNote,
   podHeatmapHTML, podQueueHTML, noticesHTML, orderViewHTML, rowTraceHTML,
+  schedulingFormHTML, schedulingFromForm, pctToFraction,
 } from '../app/js/order.js';
 
 // The fixture is real output from the Go scheduler for the demo plan, not a
@@ -254,6 +255,12 @@ test('orderViewHTML composes without leaving undefined in the markup', () => {
   assert.match(html, /Pod load, week by week/);
 });
 
+test('orderViewHTML includes the form when given assumptions, and omits it otherwise', () => {
+  assert.match(orderViewHTML(sched, { horizonWeeks: 26, scheduling: {} }), /ord-sched/);
+  assert.ok(!orderViewHTML(sched, { horizonWeeks: 26 }).includes('ord-sched'),
+    'undefined scheduling means the caller does not want the form');
+});
+
 test('orderViewHTML shows a pod queue only when a pod is selected', () => {
   assert.ok(!orderViewHTML(sched, { horizonWeeks: 26 }).includes('ord-queue'));
   assert.match(orderViewHTML(sched, { horizonWeeks: 26, pod: 'Delta' }), /ord-queue/);
@@ -408,4 +415,97 @@ test('the view survives a schedule with nothing in it', () => {
   const html = orderViewHTML({}, {});
   assert.ok(!html.includes('undefined'));
   assert.match(html, /No initiatives/);
+});
+
+// --- scheduling assumptions form ------------------------------------------
+// A form reader keyed the way the DOM would answer, so the collection logic is
+// testable without a browser.
+const reader = (vals) => (id) => (id in vals ? vals[id] : '');
+
+test('the form shows the current assumptions as percentages a person types', () => {
+  const html = schedulingFormHTML({
+    periodStart: '2026-01-05', bufferPct: 0.25, kitGate: 0.8,
+    maxConcurrentInitiatives: 4, maxInitiativesPerPod: 2, maxStartsPerQuarter: 3,
+  }, { value: 4, derived: false });
+  assert.match(html, /value="2026-01-05"/);
+  assert.match(html, /value="25"/, 'a 0.25 fraction is shown as 25%');
+  assert.match(html, /value="80"/);
+  assert.match(html, /value="4"/);
+});
+
+// The one thing a planner cannot recover from on their own: no period start means
+// no dates anywhere, and nothing else in the view explains why.
+test('the form opens itself and says so when the plan has no period start', () => {
+  const html = schedulingFormHTML({}, { value: 2, derived: true, fromPod: 'Delta' });
+  assert.match(html, /<details class="ord-sched" open>/);
+  assert.match(html, /no period start/);
+  assert.match(html, /derived: 2 from Delta/, 'the blank WIP field says what blank does');
+});
+
+test('the form does not open itself once a period start exists', () => {
+  const html = schedulingFormHTML({ periodStart: '2026-01-05' }, { value: 2, derived: true, fromPod: 'Delta' });
+  assert.ok(!html.includes('ord-sched" open'));
+  assert.ok(!html.includes('no period start'));
+});
+
+test('the form offers no knob that does nothing', () => {
+  const html = schedulingFormHTML({}, {});
+  for (const dead of ['targetUtilization', 'leadCapacity', 'allowTransfers', 'transferRampWeeks', 'lookaheadK']) {
+    assert.ok(!html.includes(dead), `${dead} has no implementation behind it yet`);
+  }
+});
+
+test('a blank field is omitted so the server default applies', () => {
+  const body = schedulingFromForm(reader({ 'sched-period-start': '2026-01-05' }));
+  assert.deepEqual(body, { periodStart: '2026-01-05' });
+  assert.ok(!('bufferPct' in body), 'absent bufferPct is how the 25% default is chosen');
+  assert.ok(!('maxConcurrentInitiatives' in body), 'absent WIP is how the drum derivation is chosen');
+});
+
+// Decision 20 left an explicit 0 meaning "commit on the raw finish". Collapsing it
+// into blank would silently remove that choice.
+test('an explicit zero buffer is sent, unlike a blank one', () => {
+  const zero = schedulingFromForm(reader({ 'sched-buffer': '0' }));
+  assert.equal(zero.bufferPct, 0);
+  assert.ok('bufferPct' in zero);
+
+  const blank = schedulingFromForm(reader({ 'sched-buffer': '' }));
+  assert.ok(!('bufferPct' in blank));
+});
+
+test('percentages become the 0..1 fractions §7 stores', () => {
+  const body = schedulingFromForm(reader({ 'sched-buffer': '25', 'sched-kit': '80' }));
+  assert.equal(body.bufferPct, 0.25);
+  assert.equal(body.kitGate, 0.8);
+  assert.equal(pctToFraction('150'), 1, 'clamped, not stored as 1.5');
+  assert.equal(pctToFraction('-5'), 0);
+  assert.equal(pctToFraction('abc'), null, 'unreadable is absent, never zero');
+});
+
+test('a zero or blank limit is omitted, because §7 spells no-limit as absent', () => {
+  for (const v of ['', '0']) {
+    const body = schedulingFromForm(reader({ 'sched-wip': v, 'sched-pod-wip': v, 'sched-quarter': v }));
+    assert.ok(!('maxConcurrentInitiatives' in body), `wip "${v}" should be absent`);
+    assert.ok(!('maxInitiativesPerPod' in body), `per-pod "${v}" should be absent`);
+    assert.ok(!('maxStartsPerQuarter' in body), `quarter "${v}" should be absent`);
+  }
+});
+
+test('limits are rounded to whole initiatives', () => {
+  const body = schedulingFromForm(reader({ 'sched-wip': '3.6' }));
+  assert.equal(body.maxConcurrentInitiatives, 4, 'you cannot run 3.6 initiatives');
+});
+
+test('the form round-trips through its own reader', () => {
+  const saved = {
+    periodStart: '2026-02-02', bufferPct: 0.3, kitGate: 0.75,
+    maxConcurrentInitiatives: 5, maxInitiativesPerPod: 2, maxStartsPerQuarter: 4,
+  };
+  const html = schedulingFormHTML(saved, { value: 5, derived: false });
+  // Read the values back out of the rendered markup, the way the DOM would.
+  const valueOf = (id) => {
+    const m = html.match(new RegExp(`id="${id}"[^>]*value="([^"]*)"`));
+    return m ? m[1] : '';
+  };
+  assert.deepEqual(schedulingFromForm(valueOf), saved, 'what it renders is what it sends');
 });
