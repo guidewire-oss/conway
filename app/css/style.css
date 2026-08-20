@@ -337,7 +337,15 @@ button:hover { filter: brightness(1.15); }
 .ord-cell.ord-green { background: rgba(62,207,142,.55); }
 .ord-cell.ord-amber { background: rgba(245,185,76,.75); }
 .ord-cell.ord-red { background: rgba(244,101,95,.85); }
-.ord-podlink { color: var(--accent); text-decoration: none; cursor: pointer; }
+/* A real button, so it is keyboard-reachable and announced as a control, styled
+   as a link so the grid stays a grid. focus-visible matters here: the outline is
+   the only thing telling a keyboard user where they are. */
+.ord-podlink { background: none; border: 0; padding: 0; margin: 0; font: inherit;
+  color: var(--accent); cursor: pointer; text-align: left; }
+.ord-podlink:hover { text-decoration: underline; }
+.ord-podlink:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+.ord-terms { margin-left: 14px; }
+.ord-terms summary { cursor: pointer; }
 .ord-queue { margin-top: 12px; }
 .ord-assume { margin-top: 8px; }
 .ord-assume ul, .plan-warn ul { margin: 6px 0 0 18px; padding: 0; }

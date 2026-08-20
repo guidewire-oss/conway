@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import {
   esc, zoneOf, weekLabel, verdictView, statedCell, objectiveView, wipLimitNote,
   orderRows, orderTableHTML, infeasibleNote, heatmapWeeks, overrunNote,
-  podHeatmapHTML, podQueueHTML, noticesHTML, orderViewHTML,
+  podHeatmapHTML, podQueueHTML, noticesHTML, orderViewHTML, rowTraceHTML,
 } from '../app/js/order.js';
 
 // The fixture is real output from the Go scheduler for the demo plan, not a
@@ -67,18 +67,41 @@ test('statedCell shows the move the engine made, and any lock', () => {
 });
 
 test('objectiveView prices the planner order against the proposal', () => {
-  const v = objectiveView({ statedOrderObjectiveScore: 14, objectiveScore: 3.5 });
+  const v = objectiveView({
+    statedOrderObjectiveScore: 14,
+    objectiveScore: 3.5,
+    initiatives: [{ targetWeek: 20, weeksLate: 3 }],
+  });
   assert.equal(v.stated, 14);
   assert.equal(v.proposed, 3.5);
   assert.equal(v.delta, -10.5);
   assert.equal(v.better, true);
   assert.equal(v.comparable, true);
+  assert.equal(v.allOnTime, false, 'something is late, so the scores are the story');
 });
 
 test('objectiveView does not claim a win when there is no order to compare', () => {
-  const v = objectiveView({ statedOrderObjectiveScore: 0, objectiveScore: 0 });
+  const v = objectiveView({ statedOrderObjectiveScore: 0, objectiveScore: 0, initiatives: [] });
   assert.equal(v.comparable, false, 'a plan with no dates or priorities has nothing to argue about');
   assert.equal(v.delta, 0);
+});
+
+// The objective is weighted lateness, so a plan where every date holds scores 0 on
+// both runs. Reading that as "no dates set" tells the planner the opposite of what
+// just happened: they got everything they asked for.
+test('objectiveView treats an all-on-time plan as comparable, not as undated', () => {
+  const v = objectiveView({
+    statedOrderObjectiveScore: 0,
+    objectiveScore: 0,
+    initiatives: [{ targetWeek: 12, verdict: 'on-time' }],
+  });
+  assert.equal(v.comparable, true, 'a date that held is still a date');
+  assert.equal(v.allOnTime, true);
+});
+
+test('objectiveView is comparable when priorities exist without any dates', () => {
+  const v = objectiveView({ initiatives: [{ statedRank: 1 }, { statedRank: 2 }] });
+  assert.equal(v.comparable, true, 'a stated order can be argued with even undated');
 });
 
 test('wipLimitNote says whether the limit was derived, and from where (Decision 22)', () => {
@@ -103,16 +126,33 @@ test('orderRows is sorted by proposed rank and carries each reason', () => {
   }
 });
 
-test('orderTableHTML renders one row per initiative plus a reason line for each move', () => {
+test('orderTableHTML renders one row per initiative, each traceable', () => {
   const html = orderTableHTML(sched);
   const rows = html.match(/class="ord-row"/g) || [];
   assert.equal(rows.length, sched.initiatives.length);
-  const whys = html.match(/class="ord-why"/g) || [];
-  const moved = sched.initiatives.filter((si) => si.statedRank && si.statedRank !== si.proposedRank);
-  assert.equal(whys.length, moved.length);
   for (const si of sched.initiatives) {
     assert.ok(html.includes(esc(si.name)), `${si.name} missing from the table`);
   }
+
+  // Every row in this fixture carries ranking terms, so every row has a trace line;
+  // the ones the engine moved additionally show their reason on it (FR-012).
+  const whys = html.match(/class="ord-why"/g) || [];
+  assert.equal(whys.length, sched.initiatives.length);
+  for (const r of orderRows(sched)) {
+    if (r.si.statedRank && r.si.statedRank !== r.si.proposedRank) {
+      assert.ok(html.includes(esc(r.reason)), `${r.si.name} moved without its reason shown`);
+    }
+  }
+  const traces = html.match(/class="ord-terms"/g) || [];
+  assert.equal(traces.length, sched.initiatives.length, 'the arithmetic is available per row');
+});
+
+test('a row with nothing to explain gets no trace line', () => {
+  const html = orderTableHTML({
+    initiatives: [{ name: 'Bare', proposedRank: 1, startWeek: 0, commitWeek: 2, verdict: 'no-date' }],
+  });
+  assert.ok(!html.includes('ord-why'), 'no reason, no terms, no assumptions — no extra row');
+  assert.equal(rowTraceHTML({ si: { name: 'Bare' }, reason: '' }), '');
 });
 
 test('orderTableHTML says something useful for an empty plan', () => {
@@ -195,6 +235,95 @@ test('orderViewHTML composes without leaving undefined in the markup', () => {
 test('orderViewHTML shows a pod queue only when a pod is selected', () => {
   assert.ok(!orderViewHTML(sched, { horizonWeeks: 26 }).includes('ord-queue'));
   assert.match(orderViewHTML(sched, { horizonWeeks: 26, pod: 'Delta' }), /ord-queue/);
+});
+
+// Initiative names come from a spreadsheet, so they reach this lookup as
+// user-controlled keys. A plain object would let "__proto__" reach the prototype.
+test('a lookup keyed by initiative name cannot be poisoned', () => {
+  const rows = orderRows({
+    initiatives: [{ name: '__proto__', proposedRank: 1, statedRank: 2, startWeek: 0, commitWeek: 3, verdict: 'no-date' }],
+    reconciliation: [{ initiative: '__proto__', reason: 'moved' }],
+  });
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].reason, 'moved', 'the reason for a __proto__ row must still be found');
+  assert.equal({}.polluted, undefined);
+  assert.equal(Object.prototype.polluted, undefined);
+});
+
+// AC 2.1 wants both numbers shown: the raw finish is the schedule, the commit is
+// the promise, and Decision 9 exists because the two are not the same claim.
+test('a row shows the raw finish as well as the buffered commit', () => {
+  const html = orderTableHTML({
+    initiatives: [{
+      name: 'Both numbers', proposedRank: 1, startWeek: 1,
+      rawFinishWeek: 14, bufferWeeks: 3, commitWeek: 17, verdict: 'no-date',
+    }],
+  });
+  assert.match(html, /w14/, 'the raw finish week must appear');
+  assert.match(html, /w17/, 'so must the buffered commit');
+});
+
+// FR-021: the inputs that produced a position have to be reportable, not just the
+// binding constraint. Decision 2 chose a formula with named terms for this reason.
+test('a row can be traced back to the terms that ranked it', () => {
+  const html = orderTableHTML({
+    initiatives: [{
+      name: 'Traceable', proposedRank: 1, startWeek: 0, rawFinishWeek: 6, commitWeek: 8,
+      verdict: 'on-time', targetWeek: 10,
+      rankingTerms: { weight: 36, constraintWeeks: 6, slackWeeks: 4, index: 3.2, rule: 'tardiness-cost' },
+      assumptions: ['broke a cycle at A -> B'],
+      unestimatedPods: ['Delta'],
+      provisional: true,
+    }],
+  });
+  assert.match(html, /36/, 'the delay weight');
+  assert.match(html, /3\.2/, 'the index that ranked it');
+  assert.match(html, /broke a cycle/, 'its assumptions');
+  assert.match(html, /Delta/, 'the pods with no estimate behind a provisional verdict');
+});
+
+// AC 4.3 is about the rendered order, so assert the rendered order. Sorting the
+// input and then checking it is sorted proves nothing about the markup.
+test('podQueueHTML renders the queue in start order, checked in the markup', () => {
+  const sched = {
+    podWeeks: [{
+      pod: 'Delta', tracks: 1,
+      slices: [
+        { initiative: 'Third', startWeek: 9, finishWeek: 12, remainingWeeks: 3, waitWeeks: 4 },
+        { initiative: 'First', startWeek: 0, finishWeek: 4, remainingWeeks: 4, waitWeeks: 0 },
+        { initiative: 'Second', startWeek: 4, finishWeek: 9, remainingWeeks: 5, waitWeeks: 1 },
+      ],
+    }],
+  };
+  const html = podQueueHTML(sched, 'Delta');
+  const order = ['First', 'Second', 'Third'].map((n) => html.indexOf(n));
+  assert.ok(order.every((i) => i > -1), 'every slice is rendered');
+  assert.deepEqual(order.slice().sort((a, b) => a - b), order,
+    'rendered rows must climb by start week');
+});
+
+test('podQueueHTML breaks a start-week tie the way the server does', () => {
+  const sched = {
+    podWeeks: [{
+      pod: 'Delta', tracks: 2,
+      slices: [
+        { initiative: 'Zulu', startWeek: 3, finishWeek: 6, remainingWeeks: 3, waitWeeks: 0 },
+        { initiative: 'Alpha', startWeek: 3, finishWeek: 5, remainingWeeks: 2, waitWeeks: 0 },
+      ],
+    }],
+  };
+  const html = podQueueHTML(sched, 'Delta');
+  assert.ok(html.indexOf('Alpha') < html.indexOf('Zulu'),
+    'ties break on initiative name, matching podSchedules in schedule.go');
+});
+
+// A pod selector that only responds to a mouse is unusable by keyboard and opaque
+// to assistive tech; an anchor with no href is not focusable at all.
+test('the pod selector is a real button', () => {
+  const html = podHeatmapHTML(sched, 26);
+  assert.match(html, /<button[^>]*class="ord-podlink"[^>]*type="button"|<button[^>]*type="button"[^>]*class="ord-podlink"/,
+    'pods must be reachable by keyboard');
+  assert.ok(!/<a class="ord-podlink"/.test(html), 'no href-less anchors as controls');
 });
 
 test('esc closes the injection hole an initiative name could open', () => {

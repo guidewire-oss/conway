@@ -61,11 +61,17 @@ export function objectiveView(sched) {
   const stated = sched.statedOrderObjectiveScore || 0;
   const proposed = sched.objectiveScore || 0;
   const delta = Math.round((proposed - stated) * 10) / 10;
+  const inits = sched.initiatives || [];
+  // Comparability comes from the inputs, not the scores. The objective is weighted
+  // lateness, so a plan where every date holds scores 0 on both runs — reading that
+  // as "no dates set" would tell the planner the opposite of what just happened.
+  const dated = inits.some((si) => si.targetWeek !== null && si.targetWeek !== undefined);
+  const ranked = inits.some((si) => si.statedRank > 0);
+  const late = inits.some((si) => (si.weeksLate || 0) > 0);
   return {
     stated, proposed, delta,
-    // Only claim an improvement when the planner actually stated an order to
-    // improve on; with no priorities anywhere the two runs are the same schedule.
-    comparable: stated > 0 || proposed > 0,
+    comparable: dated || ranked,
+    allOnTime: (dated || ranked) && !late,
     better: delta < 0,
   };
 }
@@ -83,7 +89,9 @@ export function wipLimitNote(wip) {
 // orderRows is the table's data, separated from its markup so the ordering and
 // the per-row reasoning can be tested without parsing HTML.
 export function orderRows(sched) {
-  const reasons = {};
+  // Object.create(null), not {}: these keys are initiative names typed into a
+  // spreadsheet, and a row called "__proto__" would otherwise reach the prototype.
+  const reasons = Object.create(null);
   (sched.reconciliation || []).forEach((r) => { reasons[r.initiative] = r.reason; });
   return (sched.initiatives || [])
     .slice()
@@ -100,20 +108,50 @@ function orderRowHTML(row) {
   const { si, verdict } = row;
   const target = si.targetWeek === null || si.targetWeek === undefined
     ? '<span class="hint">—</span>' : weekLabel(si.targetWeek);
+  // AC 2.1 shows both numbers: the raw finish is what the schedule says, the commit
+  // is what may be promised, and Decision 9 exists because they are not one claim.
+  const raw = si.rawFinishWeek === undefined ? '' :
+    `<span class="hint" title="raw scheduled finish, before its buffer">${weekLabel(si.rawFinishWeek)} +${si.bufferWeeks || 0}w →</span> `;
   const main = `<tr class="ord-row">
     <td>${si.proposedRank}</td>
     <td>${esc(si.name)}</td>
     <td>${statedCell(si)}</td>
     <td>${weekLabel(si.startWeek)}</td>
-    <td>${weekLabel(si.commitWeek)} <span class="hint" title="raw finish before its buffer">(+${si.bufferWeeks || 0}w buffer)</span></td>
+    <td>${raw}<b>${weekLabel(si.commitWeek)}</b></td>
     <td>${target}</td>
     <td class="ord-${verdict.zone}"><b>${verdict.symbol} ${esc(verdict.text)}</b></td>
     <td>${esc(row.binds) || '<span class="hint">—</span>'}</td>
   </tr>`;
-  // FR-012: every row the engine moved carries its reason on the line beneath it,
-  // where the planner is already looking.
-  if (!row.reason) return main;
-  return `${main}<tr class="ord-why"><td></td><td colspan="7"><span class="hint">└ ${esc(row.reason)}</span></td></tr>`;
+  const trace = rowTraceHTML(row);
+  if (!trace) return main;
+  return `${main}<tr class="ord-why"><td></td><td colspan="7">${trace}</td></tr>`;
+}
+
+// rowTraceHTML is FR-021 at the row level: the reason the rank moved, the named
+// terms that produced it, and any assumption the schedule rests on. Decision 2
+// picked a formula with separable terms precisely so this could be shown; a
+// binding constraint on its own does not explain a position.
+export function rowTraceHTML(row) {
+  const { si } = row;
+  const parts = [];
+  const t = si.rankingTerms;
+  if (t) {
+    parts.push(`weight ${t.weight}`);
+    if (t.constraintWeeks) parts.push(`${t.constraintWeeks}w of drum time`);
+    if (t.slackWeeks) parts.push(`${t.slackWeeks}w slack`);
+    if (t.index !== undefined) parts.push(`index ${t.index}`);
+  }
+  if ((si.unestimatedPods || []).length) {
+    parts.push(`no estimate from ${si.unestimatedPods.map(esc).join(', ')}`);
+  }
+  const terms = parts.length ? `<div class="hint">${parts.map(esc).join(' · ')}</div>` : '';
+  const assume = (si.assumptions || []).length
+    ? `<div class="hint">${si.assumptions.map((a) => esc(a)).join('; ')}</div>` : '';
+  const reason = row.reason ? `<span class="hint">└ ${esc(row.reason)}</span>` : '';
+  if (!reason && !terms && !assume) return '';
+  // The reason stays visible; the arithmetic sits behind a disclosure, so the table
+  // reads as a table until someone asks why.
+  return `${reason}${terms || assume ? `<details class="ord-terms"><summary class="hint">why this rank</summary>${terms}${assume}</details>` : ''}`;
 }
 
 export function orderTableHTML(sched) {
@@ -176,7 +214,7 @@ export function podHeatmapHTML(sched, horizonWeeks) {
       return `<td class="ord-cell ord-${zone}" title="${title}">${wk.busy || ''}</td>`;
     }).join('');
     const drum = drums.has(ps.pod) ? ' <span class="tag">drum</span>' : '';
-    return `<tr><th class="ord-pod"><a class="ord-podlink" data-pod="${esc(ps.pod)}">${esc(ps.pod)}</a>
+    return `<tr><th class="ord-pod"><button type="button" class="ord-podlink" data-pod="${esc(ps.pod)}">${esc(ps.pod)}</button>
       <span class="hint">${ps.tracks}t</span>${drum}</th>${cells}</tr>`;
   }).join('');
 
@@ -192,7 +230,11 @@ export function podHeatmapHTML(sched, horizonWeeks) {
 export function podQueueHTML(sched, pod) {
   const ps = (sched.podWeeks || []).find((x) => x.pod === pod);
   if (!ps) return '';
-  const slices = (ps.slices || []).slice().sort((a, b) => a.startWeek - b.startWeek);
+  // Mirror podSchedules in schedule.go: start week, then initiative name. Array
+  // sort is stable, so the server's order already survived — but relying on the
+  // caller's ordering for a total order is a dependency worth not having.
+  const slices = (ps.slices || []).slice().sort((a, b) =>
+    a.startWeek - b.startWeek || String(a.initiative).localeCompare(String(b.initiative)));
   if (!slices.length) return `<p class="hint">${esc(pod)} has no scheduled work in this plan.</p>`;
   const rows = slices.map((s) => `<tr>
     <td>${esc(s.initiative)}</td>
@@ -226,10 +268,15 @@ export function noticesHTML(sched) {
 export function orderHeaderHTML(sched) {
   const obj = objectiveView(sched);
   const rules = (sched.rulesTried || []).length;
-  const score = obj.comparable
-    ? `your stated order: <b>${obj.stated}</b> weighted weeks late · proposed: <b>${obj.proposed}</b>
-       ${obj.delta !== 0 ? `· <b class="${obj.better ? 'ord-green' : 'ord-red'}">Δ ${obj.delta > 0 ? '+' : ''}${obj.delta}</b>` : ''}`
-    : '<span class="hint">no dates or priorities set yet, so there is no order to argue with</span>';
+  let score;
+  if (!obj.comparable) {
+    score = '<span class="hint">no dates or priorities set yet, so there is no order to argue with</span>';
+  } else if (obj.allOnTime) {
+    score = '<b class="ord-green">every date in this plan holds</b> <span class="hint">— nothing is late under either order</span>';
+  } else {
+    score = `your stated order: <b>${obj.stated}</b> weighted weeks late · proposed: <b>${obj.proposed}</b>
+      ${obj.delta !== 0 ? `· <b class="${obj.better ? 'ord-green' : 'ord-red'}">Δ ${obj.delta > 0 ? '+' : ''}${obj.delta}</b>` : ''}`;
+  }
   return `<div class="ord-head">
     <b>Execution order</b>
     <span class="hint">rule: ${esc(sched.rule || '—')}${rules ? ` (best of ${rules})` : ''}</span>
