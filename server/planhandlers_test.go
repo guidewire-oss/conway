@@ -212,7 +212,9 @@ var _ = Describe("schedulePlan", func() {
 
 	It("honours an explicit WIP limit from the request", func() {
 		sched := post(`{"params":{"periodStart":"2026-01-05","maxConcurrentInitiatives":3}}`)
-		Expect(sched.WipLimit).To(Equal(planning.WipLimit{Value: 3}))
+		// The explicit number sets the limit; naming no model leaves the rule unchosen,
+		// which the response reports rather than silently defaulting (§11 D22 amended).
+		Expect(sched.WipLimit).To(Equal(planning.WipLimit{Value: 3, Model: planning.WipUnchosen}))
 	})
 
 	It("sequences a draft override instead of the saved sheet", func() {
@@ -483,7 +485,7 @@ var _ = Describe("the plan's sequencing inputs", func() {
 		// merging would make "the same plan with no period start" impossible to ask for.
 		It("replaces the saved policy rather than merging when params are supplied", func() {
 			sched := schedule(`{"params":{"maxConcurrentInitiatives":3}}`)
-			Expect(sched.WipLimit).To(Equal(planning.WipLimit{Value: 3}))
+			Expect(sched.WipLimit).To(Equal(planning.WipLimit{Value: 3, Model: planning.WipUnchosen}))
 			Expect(sched.PeriodStart).To(BeEmpty(), "the supplied policy named no period start")
 			for _, si := range sched.Initiatives {
 				Expect(si.TargetWeek).To(BeNil(), "with no period start there is nothing to date against")

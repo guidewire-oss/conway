@@ -364,3 +364,11 @@ button:hover { filter: brightness(1.15); }
   border-radius: 5px; padding: 4px 6px; flex: 1 1 auto; min-width: 0; max-width: 190px; }
 .ord-sched .plan-warn { margin-top: 8px; }
 #sched-error { display: inline-block; margin-left: 8px; }
+
+/* WIP-model comparison, inside the scheduling assumptions panel */
+.ord-models { margin: 10px 0 4px; }
+.ord-models tr.ord-inforce td { background: rgba(76,194,255,.10); }
+.ord-models-why { margin: 6px 0 0 18px; padding: 0; }
+.ord-models-why li { margin: 2px 0; }
+.sched-f select { background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 5px; padding: 4px 6px; max-width: 190px; }
