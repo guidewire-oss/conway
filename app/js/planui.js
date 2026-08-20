@@ -142,18 +142,20 @@ async function saveScheduling() {
   // assumptions, it would be the ones the next save sends.
   const forPlan = current.id;
   const atEpoch = orderEpoch;
-  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; } // this render's button
   const r = await req('/api/plan/' + forPlan + '/scheduling', {
     method: 'PATCH', body: JSON.stringify(body),
   });
-  if (!current || current.id !== forPlan) return; // the reader moved on; this is not their plan
+  if (!current || current.id !== forPlan) return; // the reader moved on; not their error
   if (!r || !r.ok) {
     const why = r ? await r.text() : 'the request did not reach the server';
-    if (btn) { btn.disabled = false; btn.textContent = 'Save assumptions'; }
-    // Beside the button, not an alert: the planner needs to see it next to the field
-    // they have to change, and the form must keep what they typed.
+    // Re-query rather than reusing the captured button. A reload of the same plan
+    // re-renders the form, which detaches the node this closure holds — writing the
+    // failure onto it would put the message nowhere and the save would look fine.
+    const live = document.getElementById('sched-save');
+    if (live) { live.disabled = false; live.textContent = 'Save assumptions'; }
     document.getElementById('sched-error')?.remove();
-    btn?.insertAdjacentHTML('afterend',
+    live?.insertAdjacentHTML('afterend',
       `<span class="plan-warn" id="sched-error">${esc(why)}</span>`);
     return;
   }
