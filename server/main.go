@@ -235,6 +235,25 @@ func loadLegacyStore(path string) *auth.Store {
 	return ls
 }
 
+// adminPasswordIgnored explains why CONWAY_ADMIN_PASSWORD did nothing.
+//
+// It is read only when no admin account exists, so setting it against a
+// deployment that already has one is silently a no-op — and the only symptom is
+// the sign-in saying the credentials are wrong, which is a long way from the
+// cause. Saying so on boot, with the remedy, costs one line and saves the guess.
+//
+// Deliberately not a reset: an env var that overwrote the admin password on every
+// boot would make the account only as private as the process environment, which
+// is a different decision from bootstrapping it once.
+func adminPasswordIgnored(envPw string) string {
+	if envPw == "" {
+		return ""
+	}
+	return "CONWAY_ADMIN_PASSWORD is set but an admin account already exists, so it was ignored. " +
+		"To reset it, stop the server, delete the account, and start again: " +
+		`psql "$DATABASE_URL" -c "DELETE FROM accounts WHERE username='admin'"`
+}
+
 func main() {
 	// Defaults assume the repo root as the working directory (the module root
 	// since go.mod moved there): the SPA is ./app, and everything written at
@@ -291,6 +310,8 @@ func main() {
 			log.Printf("=== Conway admin password (save this): %s ===", pw)
 		}
 		st.SetAdmin(pw)
+	} else if notice := adminPasswordIgnored(os.Getenv("CONWAY_ADMIN_PASSWORD")); notice != "" {
+		log.Print(notice)
 	}
 	must(st.Save())
 
