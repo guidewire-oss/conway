@@ -68,8 +68,9 @@ docker compose up --build
 ```
 
 **Local Go development** (against a Postgres you already have running, e.g.
-`docker compose up -d postgres` — the compose Postgres publishes 5432 to the host
-for exactly this; set `CONWAY_PG_PORT` if that port is already taken):
+`docker compose up -d postgres` — the compose Postgres publishes 5432 on loopback
+for exactly this. If that port is taken, `CONWAY_PG_PORT=5433` moves both the
+published port and the `DATABASE_URL` that `make server` uses):
 ```
 CONWAY_ADMIN_PASSWORD=letmein make server   # DATABASE_URL defaults to the compose Postgres
 # sign in as admin -> ⚙ Admin -> mint one account per team (auto-expiring, default 48h)
