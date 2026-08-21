@@ -6,6 +6,8 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -531,7 +533,7 @@ var _ = Describe("the plan's sequencing inputs", func() {
 // credentials", so the boot log has to say what happened.
 var _ = Describe("adminPasswordIgnored", func() {
 	It("says what was ignored and how to reset it", func() {
-		notice := adminPasswordIgnored("letmein")
+		notice := adminPasswordIgnored("letmein", "")
 		Expect(notice).To(ContainSubstring("CONWAY_ADMIN_PASSWORD"))
 		Expect(notice).To(ContainSubstring("already exists"))
 		Expect(notice).To(ContainSubstring("DELETE FROM accounts"),
@@ -539,10 +541,46 @@ var _ = Describe("adminPasswordIgnored", func() {
 	})
 
 	It("never echoes the password into the log", func() {
-		Expect(adminPasswordIgnored("hunter2")).NotTo(ContainSubstring("hunter2"))
+		Expect(adminPasswordIgnored("hunter2", "")).NotTo(ContainSubstring("hunter2"))
+		Expect(adminPasswordIgnored("hunter2", "var/store.json")).NotTo(ContainSubstring("hunter2"))
 	})
 
 	It("says nothing when the variable is not set", func() {
-		Expect(adminPasswordIgnored("")).To(BeEmpty())
+		Expect(adminPasswordIgnored("", "")).To(BeEmpty())
+		Expect(adminPasswordIgnored("", "var/store.json")).To(BeEmpty())
+	})
+
+	// The case that actually bit: the operator deleted the admin, the legacy import
+	// restored it, and the remedy above looked like it had not worked.
+	It("names the legacy store when that is what restored the account", func() {
+		notice := adminPasswordIgnored("letmein", "var/store.json")
+		Expect(notice).To(ContainSubstring("var/store.json"))
+		Expect(notice).To(ContainSubstring("now retired"))
+		Expect(notice).To(ContainSubstring("next reset will hold"),
+			"tell them the second attempt works, or they retry the same thing")
+	})
+})
+
+var _ = Describe("retireLegacyStore", func() {
+	It("renames the file aside so it cannot be imported again", func() {
+		dir := GinkgoT().TempDir()
+		path := filepath.Join(dir, "store.json")
+		Expect(os.WriteFile(path, []byte(`{"users":{}}`), 0o600)).To(Succeed())
+
+		retireLegacyStore(path)
+
+		_, err := os.Stat(path)
+		Expect(os.IsNotExist(err)).To(BeTrue(), "the original must be gone, or it re-imports")
+		// Renamed, not deleted: it holds credentials and a signing secret.
+		body, err := os.ReadFile(path + ".migrated")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(body)).To(Equal(`{"users":{}}`), "the contents must be recoverable")
+	})
+
+	It("does not stop the server when the file cannot be renamed", func() {
+		// A path that was never there: the accounts are already saved either way, so
+		// this is a warning, not a failure.
+		Expect(func() { retireLegacyStore(filepath.Join(GinkgoT().TempDir(), "absent.json")) }).
+			NotTo(Panic())
 	})
 })

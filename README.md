@@ -84,6 +84,11 @@ psql "postgres://conway:conway@localhost:5432/conway?sslmode=disable" \
   -c "DELETE FROM accounts WHERE username='admin'"
 CONWAY_ADMIN_PASSWORD=letmein make server
 ```
+If a pre-Postgres `var/store.json` is still present, the first boot after that
+delete imports the old accounts back from it before the reset takes effect, logs
+that it did, and then retires the file to `var/store.json.migrated` — so a second
+`make stop` / delete / start does what you asked. `make clean` removes `var/`
+entirely if you would rather start fresh.
 
 Sign in gates everything: the admin panel creates/extends/revokes expiring
 team accounts and shows a live board. Frontend has no external deps (vendored
