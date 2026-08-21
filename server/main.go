@@ -235,6 +235,23 @@ func loadLegacyStore(path string) *auth.Store {
 	return ls
 }
 
+// retireLegacyStore renames the legacy file store aside once its contents are in
+// Postgres. Renamed rather than deleted: it holds credentials and a signing
+// secret, and an operator who wants them back should not have to reach for a
+// backup.
+func retireLegacyStore(path string) {
+	retired := path + ".migrated"
+	if err := os.Rename(path, retired); err != nil {
+		// Not fatal. The accounts are already saved; the cost is that a later reset
+		// will import them again, which is the behaviour this replaces rather than a
+		// new failure. Say so instead of stopping the server.
+		log.Printf("could not retire legacy store %s (%v) — delete it by hand, "+
+			"or an admin reset will restore these accounts again", path, err)
+		return
+	}
+	log.Printf("retired legacy store to %s — it will not be imported again", retired)
+}
+
 // adminPasswordIgnored explains why CONWAY_ADMIN_PASSWORD did nothing.
 //
 // It is read only when no admin account exists, so setting it against a
@@ -242,16 +259,26 @@ func loadLegacyStore(path string) *auth.Store {
 // the sign-in saying the credentials are wrong, which is a long way from the
 // cause. Saying so on boot, with the remedy, costs one line and saves the guess.
 //
+// legacyPath is set when the accounts came back from a legacy file store on this
+// very boot, which is the confusing case: the operator deleted the admin, and the
+// import restored it before this check ran. That deserves naming, or the remedy
+// above looks like it did not work.
+//
 // Deliberately not a reset: an env var that overwrote the admin password on every
 // boot would make the account only as private as the process environment, which
 // is a different decision from bootstrapping it once.
-func adminPasswordIgnored(envPw string) string {
+func adminPasswordIgnored(envPw, legacyPath string) string {
 	if envPw == "" {
 		return ""
 	}
-	return "CONWAY_ADMIN_PASSWORD is set but an admin account already exists, so it was ignored. " +
+	msg := "CONWAY_ADMIN_PASSWORD is set but an admin account already exists, so it was ignored. " +
 		"To reset it, stop the server, delete the account, and start again: " +
 		`psql "$DATABASE_URL" -c "DELETE FROM accounts WHERE username='admin'"`
+	if legacyPath != "" {
+		msg += " — note the account was just restored from " + legacyPath +
+			", which is now retired, so the next reset will hold"
+	}
+	return msg
 }
 
 func main() {
@@ -284,14 +311,22 @@ func main() {
 	st.SetBackend(database)
 	log.Printf("persistence: Postgres")
 	_ = st.Load() // a missing/empty store just means a fresh start
-	// one-time import of a legacy file store into the DB (preserves accounts +
+	// One-time import of a legacy file store into the DB (preserves accounts +
 	// signing secret from a pre-Postgres deployment, if one exists at storePath).
+	//
+	// It fires whenever the accounts table is empty, which is not the same as "the
+	// first ever boot": deleting the admin to reset its password leaves the table
+	// empty too, and the import then quietly restores the account the operator just
+	// removed. So the file is retired once its contents are safely in Postgres,
+	// which is what makes "one-time" true rather than aspirational.
+	legacyImported := ""
 	if len(st.Users) == 0 {
 		if legacy := loadLegacyStore(storePath); legacy != nil && len(legacy.Users) > 0 {
 			if len(legacy.Secret) > 0 {
 				st.Secret = legacy.Secret
 			}
 			st.Users = legacy.Users
+			legacyImported = storePath
 			log.Printf("migrated %d account(s) from legacy %s", len(st.Users), storePath)
 		}
 	}
@@ -310,10 +345,15 @@ func main() {
 			log.Printf("=== Conway admin password (save this): %s ===", pw)
 		}
 		st.SetAdmin(pw)
-	} else if notice := adminPasswordIgnored(os.Getenv("CONWAY_ADMIN_PASSWORD")); notice != "" {
+	} else if notice := adminPasswordIgnored(os.Getenv("CONWAY_ADMIN_PASSWORD"), legacyImported); notice != "" {
 		log.Print(notice)
 	}
 	must(st.Save())
+	// Only after the accounts are durably in Postgres, so a failed Save leaves the
+	// legacy file exactly where it was.
+	if legacyImported != "" {
+		retireLegacyStore(legacyImported)
+	}
 
 	s := &server{store: st,
 		teams:    map[string]map[string]json.RawMessage{},
