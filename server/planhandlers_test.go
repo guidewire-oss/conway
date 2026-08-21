@@ -6,12 +6,15 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"conway/server/auth"
 	"conway/server/db"
 	"conway/server/planning"
 )
@@ -523,5 +526,102 @@ var _ = Describe("the plan's sequencing inputs", func() {
 				}
 			}
 		})
+	})
+})
+
+// CONWAY_ADMIN_PASSWORD is read only when no admin exists. Setting it against a
+// deployment that already has one is a no-op whose only symptom is "wrong
+// credentials", so the boot log has to say what happened.
+var _ = Describe("adminAction", func() {
+	var st *auth.Store
+
+	BeforeEach(func() { st = auth.NewStore(nil) })
+
+	It("mints and prints a password on a first boot with nothing set", func() {
+		Expect(adminAction(st, "")).To(Equal(adminGenerate))
+	})
+
+	It("takes the variable when there is no admin yet", func() {
+		Expect(adminAction(st, "letmein")).To(Equal(adminSetFromEnv))
+	})
+
+	// The behaviour this PR changed: it used to be inert here, which made the
+	// variable silently a no-op on every boot after the first.
+	It("replaces an existing password that differs", func() {
+		st.SetAdmin("old")
+		Expect(adminAction(st, "letmein")).To(Equal(adminReplaceFromEnv))
+	})
+
+	// So a deployment that leaves the variable set does not rewrite its own hash on
+	// every restart, and the log line means something when it does appear.
+	It("does nothing when the variable already matches the stored password", func() {
+		st.SetAdmin("letmein")
+		Expect(adminAction(st, "letmein")).To(Equal(adminNothing))
+	})
+
+	It("leaves an existing admin alone when the variable is unset", func() {
+		st.SetAdmin("whatever")
+		Expect(adminAction(st, "")).To(Equal(adminNothing))
+	})
+
+	It("compares against the stored salt, not a fresh one", func() {
+		st.SetAdmin("letmein")
+		first := st.Users["admin"].Salt
+		Expect(adminAction(st, "letmein")).To(Equal(adminNothing))
+		Expect(st.Users["admin"].Salt).To(Equal(first), "an unchanged password must not re-salt")
+	})
+})
+
+var _ = Describe("retireLegacyStore", func() {
+	It("renames the file aside so it cannot be imported again", func() {
+		dir := GinkgoT().TempDir()
+		path := filepath.Join(dir, "store.json")
+		Expect(os.WriteFile(path, []byte(`{"users":{}}`), 0o600)).To(Succeed())
+
+		retireLegacyStore(path)
+
+		_, err := os.Stat(path)
+		Expect(os.IsNotExist(err)).To(BeTrue(), "the original must be gone, or it re-imports")
+		// Renamed, not deleted: it holds credentials and a signing secret.
+		body, err := os.ReadFile(path + ".migrated")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(body)).To(Equal(`{"users":{}}`), "the contents must be recoverable")
+	})
+
+	// The file holds credentials and a signing secret, so an older backup is not
+	// something to trade away for a convenience rename.
+	It("refuses to overwrite an existing backup", func() {
+		dir := GinkgoT().TempDir()
+		path := filepath.Join(dir, "store.json")
+		retired := path + ".migrated"
+		Expect(os.WriteFile(path, []byte("new"), 0o600)).To(Succeed())
+		Expect(os.WriteFile(retired, []byte("older backup"), 0o600)).To(Succeed())
+
+		retireLegacyStore(path)
+
+		kept, err := os.ReadFile(retired)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(kept)).To(Equal("older backup"), "the earlier backup must survive")
+		_, err = os.Stat(path)
+		Expect(err).NotTo(HaveOccurred(), "and the original stays, so nothing is lost")
+	})
+
+	It("treats a dangling symlink as present rather than a free slot", func() {
+		dir := GinkgoT().TempDir()
+		path := filepath.Join(dir, "store.json")
+		Expect(os.WriteFile(path, []byte("new"), 0o600)).To(Succeed())
+		Expect(os.Symlink(filepath.Join(dir, "gone"), path+".migrated")).To(Succeed())
+
+		retireLegacyStore(path)
+
+		_, err := os.Stat(path)
+		Expect(err).NotTo(HaveOccurred(), "Lstat sees the link; Stat would not")
+	})
+
+	It("does not stop the server when the file cannot be renamed", func() {
+		// A path that was never there: the accounts are already saved either way, so
+		// this is a warning, not a failure.
+		Expect(func() { retireLegacyStore(filepath.Join(GinkgoT().TempDir(), "absent.json")) }).
+			NotTo(Panic())
 	})
 })

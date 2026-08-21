@@ -1,11 +1,22 @@
 # Try Conway locally: `docker compose up --build`, then open http://localhost:8741
 # (admin password is generated and printed to `docker compose logs conway` unless
-# you set CONWAY_ADMIN_PASSWORD below). Seeds a small synthetic demo org on first
+# you set CONWAY_ADMIN_PASSWORD below, which applies on every boot and so is also
+# how you reset it). Seeds a small synthetic demo org on first
 # boot (CONWAY_SEED_BASELINE=true) — set it to "false" for an empty first-run and
 # import your own org from Jira instead.
 services:
   postgres:
     image: postgres:16-alpine
+    # Published so the Go dev loop works: Makefile.conway and README both tell you
+    # to run `docker compose up -d postgres` and then `make server` on the host,
+    # and without this the host cannot reach the database at all — the container
+    # is only addressable as postgres:5432 on the compose network. Override the
+    # host port with CONWAY_PG_PORT if 5432 is already taken locally.
+    ports:
+      # 127.0.0.1, not 0.0.0.0: this database ships with default credentials, and a
+      # dev convenience should not put it on the LAN. Reachable from the host, which
+      # is all `make server` needs.
+      - "127.0.0.1:${CONWAY_PG_PORT:-5432}:5432"
     environment:
       POSTGRES_USER: conway
       POSTGRES_PASSWORD: conway
