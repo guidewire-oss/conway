@@ -547,6 +547,36 @@ var _ = Describe("retireLegacyStore", func() {
 		Expect(string(body)).To(Equal(`{"users":{}}`), "the contents must be recoverable")
 	})
 
+	// The file holds credentials and a signing secret, so an older backup is not
+	// something to trade away for a convenience rename.
+	It("refuses to overwrite an existing backup", func() {
+		dir := GinkgoT().TempDir()
+		path := filepath.Join(dir, "store.json")
+		retired := path + ".migrated"
+		Expect(os.WriteFile(path, []byte("new"), 0o600)).To(Succeed())
+		Expect(os.WriteFile(retired, []byte("older backup"), 0o600)).To(Succeed())
+
+		retireLegacyStore(path)
+
+		kept, err := os.ReadFile(retired)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(kept)).To(Equal("older backup"), "the earlier backup must survive")
+		_, err = os.Stat(path)
+		Expect(err).NotTo(HaveOccurred(), "and the original stays, so nothing is lost")
+	})
+
+	It("treats a dangling symlink as present rather than a free slot", func() {
+		dir := GinkgoT().TempDir()
+		path := filepath.Join(dir, "store.json")
+		Expect(os.WriteFile(path, []byte("new"), 0o600)).To(Succeed())
+		Expect(os.Symlink(filepath.Join(dir, "gone"), path+".migrated")).To(Succeed())
+
+		retireLegacyStore(path)
+
+		_, err := os.Stat(path)
+		Expect(err).NotTo(HaveOccurred(), "Lstat sees the link; Stat would not")
+	})
+
 	It("does not stop the server when the file cannot be renamed", func() {
 		// A path that was never there: the accounts are already saved either way, so
 		// this is a warning, not a failure.

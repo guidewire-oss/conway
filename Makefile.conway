@@ -4,7 +4,8 @@
 # Fastest way to try Conway: `docker compose up` (app + Postgres, seeded with
 # a small demo org). The targets below are for local Go development against
 # a Postgres you already have running (e.g. `docker compose up -d postgres`, which
-# publishes 5432 to the host for this purpose; CONWAY_PG_PORT overrides it).
+# publishes 5432 on loopback for this purpose). CONWAY_PG_PORT moves that port and
+# DATABASE_URL below follows it, so one variable is enough.
 #
 # CONWAY_ADMIN_PASSWORD sets the admin password on every boot, so it is also how
 # you reset it: `CONWAY_ADMIN_PASSWORD=... make server`.
@@ -19,7 +20,10 @@ BIN := $(VAR)/conway
 SERVER_PID := $(VAR)/server.pid
 SERVER_LOG := $(VAR)/server.log
 STORE := $(VAR)/store.json
-DATABASE_URL ?= postgres://conway:conway@localhost:5432/conway?sslmode=disable
+# Derived from CONWAY_PG_PORT so the documented workaround actually works: that
+# variable moves where the compose Postgres publishes, and this has to follow it
+# or `make server` dials a port nothing is listening on.
+DATABASE_URL ?= postgres://conway:conway@localhost:$(or $(CONWAY_PG_PORT),5432)/conway?sslmode=disable
 
 .PHONY: help build test guard preflight server stop status logs clean
 

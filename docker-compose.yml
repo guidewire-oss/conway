@@ -13,7 +13,10 @@ services:
     # is only addressable as postgres:5432 on the compose network. Override the
     # host port with CONWAY_PG_PORT if 5432 is already taken locally.
     ports:
-      - "${CONWAY_PG_PORT:-5432}:5432"
+      # 127.0.0.1, not 0.0.0.0: this database ships with default credentials, and a
+      # dev convenience should not put it on the LAN. Reachable from the host, which
+      # is all `make server` needs.
+      - "127.0.0.1:${CONWAY_PG_PORT:-5432}:5432"
     environment:
       POSTGRES_USER: conway
       POSTGRES_PASSWORD: conway
