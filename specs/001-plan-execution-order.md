@@ -1447,6 +1447,51 @@ to matter, it is a separate spec against `server/auth`, not a change here.
 
 ---
 
+### Decision 27: A baseline stores its inputs whole, and fingerprints all of them
+
+**Context:** FR-029 requires a baseline to store enough that recomputing from it
+reproduces the stored schedule, and FR-030 requires the plan's current inputs to be
+flagged when they have diverged. Both need a decision the spec did not make: what
+counts as "the inputs", and how divergence is detected.
+
+**Decision:** Store the exact arguments `ComputeSchedule` was given — roster,
+initiatives, `Params` and `SchedulingParams` — as one frozen blob alongside the
+resulting schedule, and fingerprint that blob whole with SHA-256 over its canonical
+JSON. No field list.
+
+Reproducibility is then a property that can be tested rather than asserted:
+recompute from the stored inputs and the result must match the stored schedule
+byte for byte. A spec does exactly that.
+
+**Alternatives considered:**
+- Fingerprint only the fields that affect scheduling, so editing a description does
+  not flag divergence — rejected. It requires a maintained list of
+  "scheduling-relevant" fields, and the moment a new field is added and forgotten,
+  a real change stops being detected. A false positive is a planner asking why it
+  says diverged; a false negative is variance measured against inputs that silently
+  moved. This session hit the field-list failure twice already, in `applyLevers`
+  and in the sequencing-column writer.
+- Store only the schedule and re-derive inputs from the plan — rejected by FR-029:
+  a schedule whose inputs are gone cannot be reproduced or audited, which is the
+  same reasoning Decision 13 gives.
+- Store a database row per initiative rather than a blob — rejected: nothing
+  queries inside a baseline. It is written whole, read whole, and compared whole,
+  which is the same argument the `plans.scheduling` column already settled.
+
+**Consequences:** Editing a plan's description marks its baselines diverged. That
+is the conservative direction and it is visible, so a planner can ignore it; the
+opposite error is invisible. Baselines are also larger than strictly necessary —
+about 140KB for the ten-initiative demo plan — which is a fine price for being able
+to answer "why did it say week 4" a quarter later.
+
+**Two smaller choices recorded here rather than left to the reader:** the first
+baseline a plan saves becomes active, because a plan with baselines and no active
+one has no answer for "what are actuals measured against" (FR-031); and saving a
+new baseline sets `comparedTo` to the previously active one, which is what §7's
+"the baseline this one superseded" describes.
+
+---
+
 ## 12. Success Metrics
 
 | Metric | Current | Target | How to Measure |
