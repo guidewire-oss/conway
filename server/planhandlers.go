@@ -162,6 +162,12 @@ func (s *server) handlePlanItem(w http.ResponseWriter, r *http.Request, c auth.C
 		s.simulatePlan(w, r, p)
 	case sub == "schedule" && r.Method == http.MethodPost:
 		s.schedulePlan(w, r, p)
+	case sub == "baseline" && r.Method == http.MethodPost:
+		s.saveBaseline(w, r, p, c)
+	case sub == "baseline" && r.Method == http.MethodGet:
+		s.listBaselines(w, p)
+	case strings.HasPrefix(sub, "baseline/"):
+		s.baselineItem(w, r, p, strings.TrimPrefix(sub, "baseline/"))
 	case sub == "" && r.Method == http.MethodGet:
 		writeJSON(w, s.assemblePlan(p))
 	case sub == "" && r.Method == http.MethodPatch:
@@ -501,11 +507,7 @@ func (s *server) editPlanInitiatives(w http.ResponseWriter, r *http.Request, p *
 // can try scheduling params and levers against an unsaved draft and see the order
 // before deciding to keep anything (FR-022).
 func (s *server) schedulePlan(w http.ResponseWriter, r *http.Request, p *db.PlanRow) {
-	var body struct {
-		Params      *planning.SchedulingParams `json:"params"`      // absent falls back to the saved policy
-		Initiatives []planning.Initiative      `json:"initiatives"` // optional draft override, never persisted
-		Levers      []planning.Lever           `json:"levers"`      // optional what-ifs, never persisted
-	}
+	var body scheduleRequest
 	// An empty body is legal — it means "schedule the saved plan with defaults" —
 	// but a malformed one must not quietly become that same request.
 	dec := json.NewDecoder(r.Body)
@@ -520,33 +522,263 @@ func (s *server) schedulePlan(w http.ResponseWriter, r *http.Request, p *db.Plan
 		http.Error(w, "the schedule request must be a single JSON object", 400)
 		return
 	}
+	// Shared with the baseline endpoints, so a baseline is always saved from exactly
+	// the order the planner was looking at. Supplied params are a complete what-if
+	// rather than a patch over the saved policy: merging would make "the same plan
+	// with no WIP limit" impossible to ask for.
+	inputs, err := s.planScheduleFor(p, body)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeJSON(w, inputs.Recompute())
+}
 
+// scheduleRequest is the body /schedule and the baseline endpoints share: the
+// same inputs produce the same order, and a baseline has to be saved from exactly
+// what the planner was looking at.
+type scheduleRequest struct {
+	Params      *planning.SchedulingParams `json:"params"`
+	Initiatives []planning.Initiative      `json:"initiatives"`
+	Levers      []planning.Lever           `json:"levers"`
+}
+
+// planScheduleFor resolves a schedule request into the inputs ComputeSchedule
+// takes, so /schedule and /baseline cannot drift in how they read the same body.
+func (s *server) planScheduleFor(p *db.PlanRow, body scheduleRequest) (planning.BaselineInputs, error) {
 	var teams []planning.Team
 	if len(p.Teams) > 0 {
 		if err := json.Unmarshal(p.Teams, &teams); err != nil {
-			http.Error(w, "the plan's stored roster is unreadable: "+err.Error(), 500)
-			return
+			return planning.BaselineInputs{}, fmt.Errorf("the plan's stored roster is unreadable: %w", err)
 		}
 	}
 	inits := body.Initiatives
 	if inits == nil && len(p.Initiatives) > 0 {
 		if err := json.Unmarshal(p.Initiatives, &inits); err != nil {
-			http.Error(w, "the plan's stored initiatives are unreadable: "+err.Error(), 500)
-			return
+			return planning.BaselineInputs{}, fmt.Errorf("the plan's stored initiatives are unreadable: %w", err)
 		}
 	}
 	if len(body.Levers) > 0 {
 		teams, inits = planning.ApplyLevers(teams, inits, body.Levers)
 	}
-	// Supplied params are a complete what-if, not a patch over the saved policy:
-	// merging the two would make it impossible to try "the same plan with no WIP
-	// limit", since an omitted field would come back from the saved copy.
 	sp := planScheduling(p)
 	if body.Params != nil {
 		sp = *body.Params
 	}
-	writeJSON(w, planning.ComputeSchedule(teams, inits,
-		planning.Params{HorizonWeeks: p.HorizonWeeks, CapacityLoss: p.CapacityLoss}, sp))
+	return planning.NewBaselineInputs(teams, inits,
+		planning.Params{HorizonWeeks: p.HorizonWeeks, CapacityLoss: p.CapacityLoss}, sp), nil
+}
+
+// saveBaseline freezes the current order under a name (§8, Story 7). The inputs
+// are stored with it, so the schedule can be reproduced rather than merely trusted
+// (FR-029).
+func (s *server) saveBaseline(w http.ResponseWriter, r *http.Request, p *db.PlanRow, c auth.Claims) {
+	var body struct {
+		scheduleRequest
+		Name   string `json:"name"`
+		Active *bool  `json:"active"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
+		http.Error(w, "could not read the baseline request: "+err.Error(), 400)
+		return
+	}
+	name := strings.TrimSpace(body.Name)
+	if name == "" {
+		http.Error(w, "a baseline needs a name — it is how a period's agreed order is referred to later", 400)
+		return
+	}
+	inputs, err := s.planScheduleFor(p, body.scheduleRequest)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if len(inputs.Initiatives) == 0 {
+		http.Error(w, "nothing to baseline — this plan has no initiatives", 400)
+		return
+	}
+
+	sched := inputs.Recompute()
+	inputsBlob, err := json.Marshal(inputs)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	schedBlob, err := json.Marshal(sched)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	// The baseline this one supersedes (§7 comparedTo).
+	superseded := ""
+	if prev, err := s.db.ActiveBaseline(p.ID); err == nil && prev != nil {
+		superseded = prev.ID
+	}
+
+	row := db.BaselineRow{
+		ID: newID(), PlanID: p.ID, Name: name,
+		CreatedAt: time.Now().Unix(), CreatedBy: c.Sub,
+		Fingerprint: inputs.Fingerprint(), ComparedTo: superseded,
+		Inputs: inputsBlob, Schedule: schedBlob,
+	}
+	makeActive := body.Active == nil || *body.Active // default: the newest agreed order is the one that counts
+	if err := s.db.SaveBaseline(row, makeActive); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeJSON(w, map[string]any{"id": row.ID, "name": row.Name, "active": makeActive})
+}
+
+// listBaselines returns the plan's baselines with their active flag and whether
+// the plan's inputs have moved since each was saved (FR-030).
+func (s *server) listBaselines(w http.ResponseWriter, p *db.PlanRow) {
+	rows, err := s.db.ListBaselines(p.ID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	current := ""
+	if inputs, err := s.planScheduleFor(p, scheduleRequest{}); err == nil {
+		current = inputs.Fingerprint()
+	}
+	out := make([]map[string]any, 0, len(rows))
+	for _, b := range rows {
+		out = append(out, map[string]any{
+			"id": b.ID, "name": b.Name, "active": b.Active,
+			"createdAt": b.CreatedAt, "createdBy": b.CreatedBy,
+			"comparedTo": b.ComparedTo,
+			// Diverged when the plan's inputs no longer hash to what was saved. An
+			// unreadable current fingerprint is not divergence, so say nothing then.
+			"diverged": current != "" && current != b.Fingerprint,
+		})
+	}
+	writeJSON(w, map[string]any{"baselines": out})
+}
+
+// baselineItem routes /baseline/{bid} and /baseline/{bid}/compare.
+func (s *server) baselineItem(w http.ResponseWriter, r *http.Request, p *db.PlanRow, rest string) {
+	bid, action, _ := strings.Cut(rest, "/")
+	if bid == "" {
+		http.Error(w, "no baseline id", 400)
+		return
+	}
+	switch {
+	case action == "" && r.Method == http.MethodGet:
+		s.getBaseline(w, p, bid)
+	case action == "" && r.Method == http.MethodPatch:
+		s.patchBaseline(w, r, p, bid)
+	case action == "compare" && r.Method == http.MethodPost:
+		s.compareBaseline(w, r, p, bid)
+	default:
+		http.Error(w, "method", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *server) getBaseline(w http.ResponseWriter, p *db.PlanRow, bid string) {
+	b, err := s.db.GetBaseline(p.ID, bid)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if b == nil {
+		http.Error(w, "baseline not found", 404)
+		return
+	}
+	var sched planning.Schedule
+	if len(b.Schedule) > 0 {
+		if err := json.Unmarshal(b.Schedule, &sched); err != nil {
+			http.Error(w, "the stored schedule is unreadable: "+err.Error(), 500)
+			return
+		}
+	}
+	writeJSON(w, map[string]any{
+		"id": b.ID, "name": b.Name, "active": b.Active,
+		"createdAt": b.CreatedAt, "createdBy": b.CreatedBy,
+		"comparedTo": b.ComparedTo, "schedule": sched,
+	})
+}
+
+// patchBaseline marks a baseline active or renames it. Nothing else about a saved
+// baseline can change (FR-030).
+func (s *server) patchBaseline(w http.ResponseWriter, r *http.Request, p *db.PlanRow, bid string) {
+	var body struct {
+		Active *bool   `json:"active"`
+		Name   *string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
+		http.Error(w, "could not read the request: "+err.Error(), 400)
+		return
+	}
+	if body.Active == nil && body.Name == nil {
+		http.Error(w, "nothing to change — send active or name", 400)
+		return
+	}
+	if body.Name != nil {
+		name := strings.TrimSpace(*body.Name)
+		if name == "" {
+			http.Error(w, "a baseline needs a name", 400)
+			return
+		}
+		ok, err := s.db.RenameBaseline(p.ID, bid, name)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		if !ok {
+			http.Error(w, "baseline not found", 404)
+			return
+		}
+	}
+	// Only activation is offered, not deactivation: FR-031 wants exactly one active,
+	// and "none" is not one of the states a plan with baselines should be able to reach.
+	if body.Active != nil && *body.Active {
+		ok, err := s.db.SetBaselineActive(p.ID, bid)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		if !ok {
+			http.Error(w, "baseline not found", 404)
+			return
+		}
+	}
+	writeJSON(w, map[string]any{"ok": true})
+}
+
+// compareBaseline measures a freshly computed order against a saved one (FR-032).
+func (s *server) compareBaseline(w http.ResponseWriter, r *http.Request, p *db.PlanRow, bid string) {
+	var body scheduleRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
+		http.Error(w, "could not read the compare request: "+err.Error(), 400)
+		return
+	}
+	b, err := s.db.GetBaseline(p.ID, bid)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if b == nil {
+		http.Error(w, "baseline not found", 404)
+		return
+	}
+	var was planning.Schedule
+	if len(b.Schedule) > 0 {
+		if err := json.Unmarshal(b.Schedule, &was); err != nil {
+			http.Error(w, "the stored schedule is unreadable: "+err.Error(), 500)
+			return
+		}
+	}
+	inputs, err := s.planScheduleFor(p, body)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	now := inputs.Recompute()
+	writeJSON(w, map[string]any{
+		"baseline":   map[string]any{"id": b.ID, "name": b.Name, "createdAt": b.CreatedAt},
+		"diverged":   inputs.Fingerprint() != b.Fingerprint,
+		"comparison": planning.CompareToBaseline(&was, now),
+	})
 }
 
 func (s *server) patchPlan(w http.ResponseWriter, r *http.Request, p *db.PlanRow) {
