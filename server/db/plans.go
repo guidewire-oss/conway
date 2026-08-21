@@ -151,11 +151,18 @@ type BaselineRow struct {
 // The first baseline a plan saves becomes active whatever the caller asked for: a
 // plan with baselines and no active one has no answer for "what are actuals
 // measured against" (§11 Decision 27).
-func (d *DB) SaveBaseline(b BaselineRow, makeActive bool) error {
+//
+// It also resolves ComparedTo inside the transaction rather than trusting a value
+// the handler read beforehand: two saves racing would otherwise both record the
+// same superseded baseline, and one of them would be wrong.
+//
+// Returns whether the row ended up active, because that is not always what the
+// caller asked for.
+func (d *DB) SaveBaseline(b BaselineRow, makeActive bool) (bool, error) {
 	ctx := context.Background()
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
-		return err
+		return false, err
 	}
 	// Discarded on purpose: after a successful Commit this returns ErrTxClosed, so
 	// checking it would mean reporting a non-failure on the happy path.
@@ -164,24 +171,34 @@ func (d *DB) SaveBaseline(b BaselineRow, makeActive bool) error {
 	var existing int
 	if err := tx.QueryRow(ctx,
 		`SELECT count(*) FROM plan_baselines WHERE plan_id=$1`, b.PlanID).Scan(&existing); err != nil {
-		return err
+		return false, err
 	}
 	active := makeActive || existing == 0
+
+	// The baseline this one supersedes, read under the same transaction and locked,
+	// so a concurrent save cannot slip a different active one in between.
+	superseded := ""
+	err = tx.QueryRow(ctx,
+		`SELECT id FROM plan_baselines WHERE plan_id=$1 AND active FOR UPDATE`, b.PlanID).Scan(&superseded)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return false, err
+	}
+
 	if active {
 		// Clear first: the partial unique index would otherwise reject the insert.
 		if _, err := tx.Exec(ctx,
 			`UPDATE plan_baselines SET active=false WHERE plan_id=$1 AND active`, b.PlanID); err != nil {
-			return err
+			return false, err
 		}
 	}
 	if _, err := tx.Exec(ctx,
 		`INSERT INTO plan_baselines(id,plan_id,name,active,created_at,created_by,fingerprint,compared_to,inputs,schedule)
 		 VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-		b.ID, b.PlanID, b.Name, active, b.CreatedAt, b.CreatedBy, b.Fingerprint, b.ComparedTo,
+		b.ID, b.PlanID, b.Name, active, b.CreatedAt, b.CreatedBy, b.Fingerprint, superseded,
 		jsonbArg(b.Inputs), jsonbArg(b.Schedule)); err != nil {
-		return err
+		return false, err
 	}
-	return tx.Commit(ctx)
+	return active, tx.Commit(ctx)
 }
 
 // ListBaselines returns baseline metadata newest-first, without the blobs — a

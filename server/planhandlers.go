@@ -609,24 +609,22 @@ func (s *server) saveBaseline(w http.ResponseWriter, r *http.Request, p *db.Plan
 		return
 	}
 
-	// The baseline this one supersedes (§7 comparedTo).
-	superseded := ""
-	if prev, err := s.db.ActiveBaseline(p.ID); err == nil && prev != nil {
-		superseded = prev.ID
-	}
-
 	row := db.BaselineRow{
 		ID: newID(), PlanID: p.ID, Name: name,
 		CreatedAt: time.Now().Unix(), CreatedBy: c.Sub,
-		Fingerprint: inputs.Fingerprint(), ComparedTo: superseded,
-		Inputs: inputsBlob, Schedule: schedBlob,
+		Fingerprint: inputs.Fingerprint(),
+		Inputs:      inputsBlob, Schedule: schedBlob,
 	}
 	makeActive := body.Active == nil || *body.Active // default: the newest agreed order is the one that counts
-	if err := s.db.SaveBaseline(row, makeActive); err != nil {
+	// The effective state, not the requested one: the first baseline a plan saves is
+	// forced active whatever was asked, and a response that said otherwise would have
+	// the client showing a chip that disagrees with the database.
+	active, err := s.db.SaveBaseline(row, makeActive)
+	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	writeJSON(w, map[string]any{"id": row.ID, "name": row.Name, "active": makeActive})
+	writeJSON(w, map[string]any{"id": row.ID, "name": row.Name, "active": active})
 }
 
 // listBaselines returns the plan's baselines with their active flag and whether
@@ -637,19 +635,22 @@ func (s *server) listBaselines(w http.ResponseWriter, p *db.PlanRow) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	current := ""
-	if inputs, err := s.planScheduleFor(p, scheduleRequest{}); err == nil {
-		current = inputs.Fingerprint()
+	// A plan whose inputs cannot be read has no fingerprint to compare, and saying
+	// "matches" would be a reassurance nothing supports. Fail instead.
+	inputs, err := s.planScheduleFor(p, scheduleRequest{})
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
 	}
+	current := inputs.Fingerprint()
 	out := make([]map[string]any, 0, len(rows))
 	for _, b := range rows {
 		out = append(out, map[string]any{
 			"id": b.ID, "name": b.Name, "active": b.Active,
 			"createdAt": b.CreatedAt, "createdBy": b.CreatedBy,
 			"comparedTo": b.ComparedTo,
-			// Diverged when the plan's inputs no longer hash to what was saved. An
-			// unreadable current fingerprint is not divergence, so say nothing then.
-			"diverged": current != "" && current != b.Fingerprint,
+			// Diverged when the plan's inputs no longer hash to what was saved.
+			"diverged": current != b.Fingerprint,
 		})
 	}
 	writeJSON(w, map[string]any{"baselines": out})
@@ -713,6 +714,13 @@ func (s *server) patchBaseline(w http.ResponseWriter, r *http.Request, p *db.Pla
 		http.Error(w, "nothing to change — send active or name", 400)
 		return
 	}
+	// "Exactly one active" (FR-031) means deactivation is not an operation: a plan
+	// with baselines and none active has no answer for what actuals measure against.
+	// Reporting that as success would be the API agreeing to something it did not do.
+	if body.Active != nil && !*body.Active {
+		http.Error(w, "a baseline cannot be deactivated — make a different one active instead", 400)
+		return
+	}
 	if body.Name != nil {
 		name := strings.TrimSpace(*body.Name)
 		if name == "" {
@@ -729,9 +737,7 @@ func (s *server) patchBaseline(w http.ResponseWriter, r *http.Request, p *db.Pla
 			return
 		}
 	}
-	// Only activation is offered, not deactivation: FR-031 wants exactly one active,
-	// and "none" is not one of the states a plan with baselines should be able to reach.
-	if body.Active != nil && *body.Active {
+	if body.Active != nil {
 		ok, err := s.db.SetBaselineActive(p.ID, bid)
 		if err != nil {
 			http.Error(w, err.Error(), 500)

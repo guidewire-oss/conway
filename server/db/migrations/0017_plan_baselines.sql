@@ -19,15 +19,20 @@ CREATE TABLE IF NOT EXISTS plan_baselines (
   fingerprint text NOT NULL DEFAULT '',
   -- The baseline this one superseded: the active one at the time it was saved.
   compared_to text NOT NULL DEFAULT '',
-  inputs      jsonb,
-  schedule    jsonb
+  -- NOT NULL: a baseline without these cannot reproduce its own schedule, which is
+  -- the whole of FR-029. The save path always supplies both, so the constraint
+  -- costs nothing and closes the case where a future one forgets.
+  inputs      jsonb NOT NULL,
+  schedule    jsonb NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS plan_baselines_plan_idx ON plan_baselines (plan_id, created_at DESC);
 
--- FR-031's "exactly one marked active" as a database guarantee rather than a code
--- convention: a bug in the activate path fails loudly instead of leaving a plan
--- with two answers to "what are actuals measured against".
+-- At most one active baseline per plan. This is half of FR-031's "exactly one":
+-- an index can forbid a second, but cannot require a first. The other half is held
+-- by the write paths — the first baseline saved is forced active, and moving the
+-- flag clears and sets inside one transaction that rolls back if the target is not
+-- there — so no path leaves a plan holding baselines with none active.
 CREATE UNIQUE INDEX IF NOT EXISTS plan_baselines_one_active_idx
   ON plan_baselines (plan_id) WHERE active;
 

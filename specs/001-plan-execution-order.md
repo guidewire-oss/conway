@@ -1454,10 +1454,22 @@ reproduces the stored schedule, and FR-030 requires the plan's current inputs to
 flagged when they have diverged. Both need a decision the spec did not make: what
 counts as "the inputs", and how divergence is detected.
 
-**Decision:** Store the exact arguments `ComputeSchedule` was given — roster,
-initiatives, `Params` and `SchedulingParams` — as one frozen blob alongside the
-resulting schedule, and fingerprint that blob whole with SHA-256 over its canonical
-JSON. No field list.
+**Decision:** Store the exact arguments `ComputeSchedule` was given as one frozen
+blob alongside the resulting schedule, and fingerprint that blob whole with SHA-256
+over its canonical JSON. No field list.
+
+Mapped onto FR-029's terms so the requirement can be checked rather than
+reconciled: the **roster** is the `[]Team`, the **initiative attributes** are the
+`[]Initiative` (their §7 sequencing fields and their per-pod work), and the
+**scheduling parameters** are `SchedulingParams` plus the two plan-level capacity
+figures `Params` carries — `horizonWeeks` and `capacityLoss`, which live on the
+plan rather than in `SchedulingParams` and are inputs to the schedule all the same.
+
+FR-029's fourth term, the **calendar**, is not stored because nothing produces one
+yet: `CalendarWindow` is specified in §7 but FR-018 is unimplemented, so there is
+no value to freeze. When calendar windows land they join `BaselineInputs`, and
+because the fingerprint covers the struct whole rather than a field list, they are
+covered the moment they are added.
 
 Reproducibility is then a property that can be tested rather than asserted:
 recompute from the stored inputs and the result must match the stored schedule

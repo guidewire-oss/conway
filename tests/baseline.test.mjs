@@ -38,6 +38,17 @@ test('the chip goes amber when the plan has moved since the active baseline', ()
   assert.match(html, /inputs have changed since this baseline/, 'the tooltip says what it means');
 });
 
+// The panel it summarises is in the Order view, so from Network an inert chip is a
+// status with no way through. It shipped that way once and was useless.
+test('the chip is a control, not a label', () => {
+  for (const bs of [saved, []]) {
+    const html = baselineChipHTML(bs);
+    assert.match(html, /<button[^>]*type="button"/, 'must be reachable by keyboard and clickable');
+    assert.match(html, /id="bl-chip"/, 'planui hooks this id');
+  }
+  assert.match(baselineChipHTML([]), /save one/, 'an empty chip says what to do about it');
+});
+
 test('the chip says none rather than going blank on a plan with no baseline', () => {
   const html = baselineChipHTML([]);
   assert.match(html, /none/);
