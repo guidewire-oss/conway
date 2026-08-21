@@ -25,21 +25,68 @@ type BaselineInputs struct {
 	Scheduling  SchedulingParams `json:"scheduling"`
 }
 
-// NewBaselineInputs copies the inputs so a later edit to the caller's slices
-// cannot reach into a saved baseline (FR-030: baselines are immutable).
+// NewBaselineInputs deep-copies the inputs, so a later edit to anything the caller
+// still holds cannot reach into a saved baseline (FR-030: baselines are immutable).
 //
-// The copies are shallow, which is enough: Team has no reference fields, and an
-// Initiative's Work map is replaced wholesale by every path that edits it —
-// ApplyInitiativeEdits, applyLevers and ParseMatrix all build a new map rather
-// than mutating one in place.
+// Deep, not shallow. A shallow copy leaves the Work maps, the AfterInitiatives
+// slices, the lead-capacity map and the buffer pointers shared with the caller —
+// and a snapshot that changes underneath is not a snapshot. The first version of
+// this function argued that every edit path replaces maps wholesale, which was
+// true of the paths that existed that day and is exactly the kind of claim that
+// rots without anyone noticing.
 func NewBaselineInputs(teams []Team, inits []Initiative, params Params, sp SchedulingParams) BaselineInputs {
-	in := BaselineInputs{
-		Teams:       append([]Team(nil), teams...),
-		Initiatives: append([]Initiative(nil), inits...),
+	return BaselineInputs{
+		Teams:       append([]Team(nil), teams...), // Team holds no references
+		Initiatives: copyInitiatives(inits),
 		Params:      params,
-		Scheduling:  sp,
+		Scheduling:  copySchedulingParams(sp),
 	}
-	return in
+}
+
+func copyInitiatives(inits []Initiative) []Initiative {
+	out := make([]Initiative, len(inits))
+	for i, it := range inits {
+		c := it
+		if it.Work != nil {
+			c.Work = make(map[string]TeamWork, len(it.Work))
+			for pod, w := range it.Work {
+				w.DependsOn = append([]string(nil), w.DependsOn...)
+				c.Work[pod] = w
+			}
+		}
+		if it.Leads != nil {
+			c.Leads = make(map[string]string, len(it.Leads))
+			for k, v := range it.Leads {
+				c.Leads[k] = v
+			}
+		}
+		c.AfterInitiatives = append([]string(nil), it.AfterInitiatives...)
+		out[i] = c
+	}
+	return out
+}
+
+func copySchedulingParams(sp SchedulingParams) SchedulingParams {
+	c := sp
+	if sp.LeadCapacity != nil {
+		c.LeadCapacity = make(map[string]int, len(sp.LeadCapacity))
+		for k, v := range sp.LeadCapacity {
+			c.LeadCapacity[k] = v
+		}
+	}
+	// The percentage pointers exist so an explicit 0 is distinguishable from absent
+	// (Decision 20); copying the value keeps that distinction without the sharing.
+	c.BufferPct = copyFloatPtr(sp.BufferPct)
+	c.FeedingBufferPct = copyFloatPtr(sp.FeedingBufferPct)
+	return c
+}
+
+func copyFloatPtr(p *float64) *float64 {
+	if p == nil {
+		return nil
+	}
+	v := *p
+	return &v
 }
 
 // Recompute rebuilds the schedule from the stored inputs. AC 7.1 requires this to

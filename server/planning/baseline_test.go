@@ -50,6 +50,44 @@ var _ = Describe("BaselineInputs", func() {
 		Expect(string(got)).To(Equal(string(want)), "storage must be lossless, or a baseline lies")
 	})
 
+	// FR-030: a snapshot that changes underneath is not a snapshot. Every reference
+	// the caller could still hold has to be its own copy.
+	It("is not disturbed by later edits to what the caller still holds", func() {
+		buf := 0.25
+		mutableSp := SchedulingParams{PeriodStart: specPeriodStart, BufferPct: &buf,
+			LeadCapacity: map[string]int{"pm": 2}}
+		mutable := []Initiative{{
+			Name: "Shared", Work: map[string]TeamWork{"Delta": podWork(4, "Atlas")},
+			Leads: map[string]string{"pm": "Ann"}, AfterInitiatives: []string{"Something"},
+		}}
+		in := NewBaselineInputs(teams, mutable, params, mutableSp)
+		before := in.Fingerprint()
+
+		By("mutating every reference the caller kept")
+		mutable[0].Work["Delta"] = TeamWork{Weeks: 99, Estimated: true, InPath: true}
+		mutable[0].Work["Sneaky"] = TeamWork{Weeks: 5, Estimated: true, InPath: true}
+		mutable[0].Leads["pm"] = "Someone else"
+		mutable[0].AfterInitiatives[0] = "Rewritten"
+		mutableSp.LeadCapacity["pm"] = 99
+		buf = 0.9
+
+		Expect(in.Fingerprint()).To(Equal(before), "the frozen inputs must not have moved")
+		Expect(in.Initiatives[0].Work["Delta"].Weeks).To(Equal(4.0))
+		Expect(in.Initiatives[0].Work).NotTo(HaveKey("Sneaky"))
+		Expect(in.Initiatives[0].Leads["pm"]).To(Equal("Ann"))
+		Expect(in.Initiatives[0].AfterInitiatives[0]).To(Equal("Something"))
+		Expect(in.Scheduling.LeadCapacity["pm"]).To(Equal(2))
+		Expect(*in.Scheduling.BufferPct).To(Equal(0.25))
+	})
+
+	It("keeps an explicit zero buffer distinguishable from an absent one", func() {
+		zero := 0.0
+		in := NewBaselineInputs(teams, inits, params, SchedulingParams{BufferPct: &zero})
+		Expect(in.Scheduling.BufferPct).NotTo(BeNil())
+		Expect(*in.Scheduling.BufferPct).To(BeZero())
+		Expect(NewBaselineInputs(teams, inits, params, SchedulingParams{}).Scheduling.BufferPct).To(BeNil())
+	})
+
 	Describe("the fingerprint", func() {
 		It("is stable for the same inputs", func() {
 			a := NewBaselineInputs(teams, inits, params, sp).Fingerprint()

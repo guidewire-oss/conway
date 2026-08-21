@@ -123,6 +123,13 @@ function renderPlan() {
   document.getElementById('plan-strict-deps')?.addEventListener('change', (e) => { current.strictDeps = e.target.checked; });
   document.getElementById('view-network')?.addEventListener('click', () => setView('network'));
   document.getElementById('view-order')?.addEventListener('click', () => setView('order'));
+  // The chip summarises a panel that only exists in the Order view, so it has to be
+  // able to get there — otherwise it is a status message with no way through.
+  document.getElementById('bl-chip')?.addEventListener('click', () => {
+    if (view() !== 'order') { setView('order'); return; } // re-render lands on the panel below
+    document.querySelector('.bl-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.getElementById('bl-name')?.focus();
+  });
   renderRosterPicker(nTeams);
   if (nTeams > 0 && nInit > 0) {
     current.levers = current.levers || [];

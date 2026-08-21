@@ -22,19 +22,24 @@ export function activeBaseline(baselines) {
 // baselineChipHTML is §13.1's always-visible indicator. The dot turns amber when
 // the plan's inputs have moved since the active baseline was saved (FR-030) —
 // which is the whole reason it is always visible rather than tucked into a panel.
+//
+// It is a button, not a label. The panel it summarises lives in the Order view, so
+// from the Network view an inert chip is a status with no way through to the thing
+// it is talking about — which is how it shipped first, and it was useless.
 export function baselineChipHTML(baselines) {
   const active = activeBaseline(baselines);
   if (!active) {
-    return `<span class="bl-chip hint" title="Nothing has been agreed for this period yet">
-      baseline: <span class="bl-dot bl-none">○</span> none</span>`;
+    return `<button type="button" class="bl-chip bl-empty" id="bl-chip"
+      title="Nothing has been agreed for this period yet — open the Order view to save one">
+      baseline: <span class="bl-dot bl-none">○</span> none <span class="hint">— save one ▸</span></button>`;
   }
   const diverged = !!active.diverged;
   const why = diverged
     ? "The plan's inputs have changed since this baseline was saved, so it no longer describes this plan"
     : 'This baseline matches the plan as it stands';
-  return `<span class="bl-chip" title="${esc(why)}">baseline:
-    <span class="bl-dot ${diverged ? 'bl-diverged' : 'bl-current'}">●</span>
-    ${esc(active.name)}${diverged ? ' <span class="tag">diverged</span>' : ''}</span>`;
+  return `<button type="button" class="bl-chip" id="bl-chip" title="${esc(why)} — open the baselines panel">
+    baseline: <span class="bl-dot ${diverged ? 'bl-diverged' : 'bl-current'}">●</span>
+    ${esc(active.name)}${diverged ? ' <span class="tag">diverged</span>' : ''} <span class="hint">▾</span></button>`;
 }
 
 // baselineListHTML is the history. Every baseline stays readable, not just the
