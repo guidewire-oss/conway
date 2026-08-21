@@ -372,3 +372,20 @@ button:hover { filter: brightness(1.15); }
 .ord-models-why li { margin: 2px 0; }
 .sched-f select { background: var(--bg); color: var(--text); border: 1px solid var(--border);
   border-radius: 5px; padding: 4px 6px; max-width: 190px; }
+
+/* Baselines (spec 001 Story 7): the chip is always visible, the panel lives in Order */
+.bl-chip { margin-left: 14px; font-size: 12px; color: var(--muted); align-self: center; }
+.bl-dot { font-size: 13px; }
+.bl-current { color: var(--green); }
+.bl-diverged { color: var(--amber); }
+.bl-none { color: var(--muted); }
+.plan-views { align-items: center; }
+.bl-panel { margin-top: 12px; }
+.bl-table tr.bl-active td { background: rgba(76,194,255,.10); }
+.bl-table button { background: transparent; color: var(--accent); border: 1px solid var(--border);
+  border-radius: 5px; padding: 2px 8px; cursor: pointer; font-size: 11px; margin-right: 4px; }
+.bl-table button:hover { background: var(--panel2); }
+.bl-save { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.bl-save input { background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 5px; padding: 5px 8px; flex: 1 1 260px; max-width: 380px; }
+.bl-compare-card { margin-top: 12px; }
