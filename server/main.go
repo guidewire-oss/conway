@@ -235,6 +235,67 @@ func loadLegacyStore(path string) *auth.Store {
 	return ls
 }
 
+// What to do with the admin account on boot.
+const (
+	adminNothing        = ""                 // nothing to do
+	adminGenerate       = "generate"         // no admin, no variable: mint one and print it
+	adminSetFromEnv     = "set-from-env"     // no admin: take the variable
+	adminReplaceFromEnv = "replace-from-env" // admin exists with a different password
+)
+
+// adminAction decides how CONWAY_ADMIN_PASSWORD applies this boot.
+//
+// The variable wins whenever it is set, because it is the only way to set this
+// password — nothing in the app changes it — so there is no in-app value for a
+// stale variable to clobber, and gating it to a first boot made it silently inert
+// on every restart afterwards.
+//
+// It is not applied when it already matches, so a deployment that leaves the
+// variable set does not rewrite its own hash on every restart, and the log line
+// means something when it does appear.
+func adminAction(st *auth.Store, envPw string) string {
+	u := st.Users["admin"]
+	switch {
+	case envPw == "" && u == nil:
+		return adminGenerate
+	case envPw == "":
+		return adminNothing
+	case u == nil:
+		return adminSetFromEnv
+	case auth.VerifyPassword(envPw, u.Salt, u.Hash):
+		return adminNothing // already this password; leave the stored hash alone
+	default:
+		return adminReplaceFromEnv
+	}
+}
+
+// retireLegacyStore renames the legacy file store aside once its contents are in
+// Postgres. Renamed rather than deleted: it holds credentials and a signing
+// secret, and an operator who wants them back should not have to reach for a
+// backup.
+func retireLegacyStore(path string) {
+	retired := path + ".migrated"
+	// Refuse to overwrite an earlier backup. os.Rename would replace it silently on
+	// Unix, and this file holds credentials and a signing secret — losing an older
+	// copy to a convenience rename is not a trade worth making. Lstat, not Stat, so
+	// a dangling symlink counts as present rather than as a free slot.
+	if _, err := os.Lstat(retired); err == nil {
+		log.Printf("not retiring legacy store %s: %s already exists. "+
+			"Move it aside if you want the import retired, or delete %s to stop it being re-imported",
+			path, retired, path)
+		return
+	}
+	if err := os.Rename(path, retired); err != nil {
+		// Not fatal. The accounts are already saved; the cost is that a later reset
+		// will import them again, which is the behaviour this replaces rather than a
+		// new failure. Say so instead of stopping the server.
+		log.Printf("could not retire legacy store %s (%v) — delete it by hand, "+
+			"or an admin reset will restore these accounts again", path, err)
+		return
+	}
+	log.Printf("retired legacy store to %s — it will not be imported again", retired)
+}
+
 func main() {
 	// Defaults assume the repo root as the working directory (the module root
 	// since go.mod moved there): the SPA is ./app, and everything written at
@@ -265,14 +326,22 @@ func main() {
 	st.SetBackend(database)
 	log.Printf("persistence: Postgres")
 	_ = st.Load() // a missing/empty store just means a fresh start
-	// one-time import of a legacy file store into the DB (preserves accounts +
+	// One-time import of a legacy file store into the DB (preserves accounts +
 	// signing secret from a pre-Postgres deployment, if one exists at storePath).
+	//
+	// It fires whenever the accounts table is empty, which is not the same as "the
+	// first ever boot": clearing accounts deliberately leaves the table empty too,
+	// and the import then quietly restores what was just removed. So the file is
+	// retired once its contents are safely in Postgres, which is what makes
+	// "one-time" true rather than aspirational.
+	legacyImported := ""
 	if len(st.Users) == 0 {
 		if legacy := loadLegacyStore(storePath); legacy != nil && len(legacy.Users) > 0 {
 			if len(legacy.Secret) > 0 {
 				st.Secret = legacy.Secret
 			}
 			st.Users = legacy.Users
+			legacyImported = storePath
 			log.Printf("migrated %d account(s) from legacy %s", len(st.Users), storePath)
 		}
 	}
@@ -283,16 +352,34 @@ func main() {
 		}
 		st.Secret = secret
 	}
-	// ensure an admin exists
-	if st.Users["admin"] == nil {
-		pw := os.Getenv("CONWAY_ADMIN_PASSWORD")
-		if pw == "" {
-			pw = randPw()
-			log.Printf("=== Conway admin password (save this): %s ===", pw)
-		}
+	// Ensure an admin exists, and let CONWAY_ADMIN_PASSWORD win every boot.
+	//
+	// It used to apply only when no admin existed, which made it silently inert on
+	// every boot after the first: the only symptom was the sign-in refusing the
+	// password, and the only recovery was deleting the row by hand. It is also the
+	// *only* way to set this password — nothing in the app changes it — so there is
+	// no in-app value for a stale variable to clobber, and the secret already lives
+	// in the environment either way. Gating it bought no privacy and cost a trap.
+	switch envPw := os.Getenv("CONWAY_ADMIN_PASSWORD"); adminAction(st, envPw) {
+	case adminGenerate:
+		pw := randPw()
+		log.Printf("=== Conway admin password (save this): %s ===", pw)
 		st.SetAdmin(pw)
+	case adminSetFromEnv:
+		st.SetAdmin(envPw)
+		// Never silent in either direction: silence is what made the old behaviour so
+		// hard to diagnose. The value itself is not logged.
+		log.Printf("admin password set from CONWAY_ADMIN_PASSWORD")
+	case adminReplaceFromEnv:
+		st.SetAdmin(envPw)
+		log.Printf("admin password set from CONWAY_ADMIN_PASSWORD (replaced the existing one)")
 	}
 	must(st.Save())
+	// Only after the accounts are durably in Postgres, so a failed Save leaves the
+	// legacy file exactly where it was.
+	if legacyImported != "" {
+		retireLegacyStore(legacyImported)
+	}
 
 	s := &server{store: st,
 		teams:    map[string]map[string]json.RawMessage{},
