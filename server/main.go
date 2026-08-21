@@ -235,6 +235,40 @@ func loadLegacyStore(path string) *auth.Store {
 	return ls
 }
 
+// What to do with the admin account on boot.
+const (
+	adminNothing        = ""                 // nothing to do
+	adminGenerate       = "generate"         // no admin, no variable: mint one and print it
+	adminSetFromEnv     = "set-from-env"     // no admin: take the variable
+	adminReplaceFromEnv = "replace-from-env" // admin exists with a different password
+)
+
+// adminAction decides how CONWAY_ADMIN_PASSWORD applies this boot.
+//
+// The variable wins whenever it is set, because it is the only way to set this
+// password — nothing in the app changes it — so there is no in-app value for a
+// stale variable to clobber, and gating it to a first boot made it silently inert
+// on every restart afterwards.
+//
+// It is not applied when it already matches, so a deployment that leaves the
+// variable set does not rewrite its own hash on every restart, and the log line
+// means something when it does appear.
+func adminAction(st *auth.Store, envPw string) string {
+	u := st.Users["admin"]
+	switch {
+	case envPw == "" && u == nil:
+		return adminGenerate
+	case envPw == "":
+		return adminNothing
+	case u == nil:
+		return adminSetFromEnv
+	case auth.VerifyPassword(envPw, u.Salt, u.Hash):
+		return adminNothing // already this password; leave the stored hash alone
+	default:
+		return adminReplaceFromEnv
+	}
+}
+
 // retireLegacyStore renames the legacy file store aside once its contents are in
 // Postgres. Renamed rather than deleted: it holds credentials and a signing
 // secret, and an operator who wants them back should not have to reach for a
@@ -326,18 +360,19 @@ func main() {
 	// *only* way to set this password — nothing in the app changes it — so there is
 	// no in-app value for a stale variable to clobber, and the secret already lives
 	// in the environment either way. Gating it bought no privacy and cost a trap.
-	if pw := os.Getenv("CONWAY_ADMIN_PASSWORD"); pw != "" {
-		replaced := st.Users["admin"] != nil
-		st.SetAdmin(pw)
-		if replaced {
-			// Never silent in either direction: that is what made the old behaviour
-			// so hard to diagnose. The value is not logged.
-			log.Printf("admin password set from CONWAY_ADMIN_PASSWORD (replaced the existing one)")
-		}
-	} else if st.Users["admin"] == nil {
+	switch envPw := os.Getenv("CONWAY_ADMIN_PASSWORD"); adminAction(st, envPw) {
+	case adminGenerate:
 		pw := randPw()
 		log.Printf("=== Conway admin password (save this): %s ===", pw)
 		st.SetAdmin(pw)
+	case adminSetFromEnv:
+		st.SetAdmin(envPw)
+		// Never silent in either direction: silence is what made the old behaviour so
+		// hard to diagnose. The value itself is not logged.
+		log.Printf("admin password set from CONWAY_ADMIN_PASSWORD")
+	case adminReplaceFromEnv:
+		st.SetAdmin(envPw)
+		log.Printf("admin password set from CONWAY_ADMIN_PASSWORD (replaced the existing one)")
 	}
 	must(st.Save())
 	// Only after the accounts are durably in Postgres, so a failed Save leaves the

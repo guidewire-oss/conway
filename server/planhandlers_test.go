@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"conway/server/auth"
 	"conway/server/db"
 	"conway/server/planning"
 )
@@ -531,6 +532,46 @@ var _ = Describe("the plan's sequencing inputs", func() {
 // CONWAY_ADMIN_PASSWORD is read only when no admin exists. Setting it against a
 // deployment that already has one is a no-op whose only symptom is "wrong
 // credentials", so the boot log has to say what happened.
+var _ = Describe("adminAction", func() {
+	var st *auth.Store
+
+	BeforeEach(func() { st = auth.NewStore(nil) })
+
+	It("mints and prints a password on a first boot with nothing set", func() {
+		Expect(adminAction(st, "")).To(Equal(adminGenerate))
+	})
+
+	It("takes the variable when there is no admin yet", func() {
+		Expect(adminAction(st, "letmein")).To(Equal(adminSetFromEnv))
+	})
+
+	// The behaviour this PR changed: it used to be inert here, which made the
+	// variable silently a no-op on every boot after the first.
+	It("replaces an existing password that differs", func() {
+		st.SetAdmin("old")
+		Expect(adminAction(st, "letmein")).To(Equal(adminReplaceFromEnv))
+	})
+
+	// So a deployment that leaves the variable set does not rewrite its own hash on
+	// every restart, and the log line means something when it does appear.
+	It("does nothing when the variable already matches the stored password", func() {
+		st.SetAdmin("letmein")
+		Expect(adminAction(st, "letmein")).To(Equal(adminNothing))
+	})
+
+	It("leaves an existing admin alone when the variable is unset", func() {
+		st.SetAdmin("whatever")
+		Expect(adminAction(st, "")).To(Equal(adminNothing))
+	})
+
+	It("compares against the stored salt, not a fresh one", func() {
+		st.SetAdmin("letmein")
+		first := st.Users["admin"].Salt
+		Expect(adminAction(st, "letmein")).To(Equal(adminNothing))
+		Expect(st.Users["admin"].Salt).To(Equal(first), "an unchanged password must not re-salt")
+	})
+})
+
 var _ = Describe("retireLegacyStore", func() {
 	It("renames the file aside so it cannot be imported again", func() {
 		dir := GinkgoT().TempDir()
