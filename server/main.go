@@ -241,6 +241,16 @@ func loadLegacyStore(path string) *auth.Store {
 // backup.
 func retireLegacyStore(path string) {
 	retired := path + ".migrated"
+	// Refuse to overwrite an earlier backup. os.Rename would replace it silently on
+	// Unix, and this file holds credentials and a signing secret — losing an older
+	// copy to a convenience rename is not a trade worth making. Lstat, not Stat, so
+	// a dangling symlink counts as present rather than as a free slot.
+	if _, err := os.Lstat(retired); err == nil {
+		log.Printf("not retiring legacy store %s: %s already exists. "+
+			"Move it aside if you want the import retired, or delete %s to stop it being re-imported",
+			path, retired, path)
+		return
+	}
 	if err := os.Rename(path, retired); err != nil {
 		// Not fatal. The accounts are already saved; the cost is that a later reset
 		// will import them again, which is the behaviour this replaces rather than a
