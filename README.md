@@ -68,10 +68,21 @@ docker compose up --build
 ```
 
 **Local Go development** (against a Postgres you already have running, e.g.
-`docker compose up -d postgres`):
+`docker compose up -d postgres` — the compose Postgres publishes 5432 to the host
+for exactly this; set `CONWAY_PG_PORT` if that port is already taken):
 ```
-make server   # DATABASE_URL defaults to the docker-compose Postgres; see `make help`
+CONWAY_ADMIN_PASSWORD=letmein make server   # DATABASE_URL defaults to the compose Postgres
 # sign in as admin -> ⚙ Admin -> mint one account per team (auto-expiring, default 48h)
+```
+
+`CONWAY_ADMIN_PASSWORD` is read **only when no admin account exists yet**. Against
+a database that already has one it is ignored — the boot log says so — and the
+sign-in will report wrong credentials. To reset the account:
+```
+make stop
+psql "postgres://conway:conway@localhost:5432/conway?sslmode=disable" \
+  -c "DELETE FROM accounts WHERE username='admin'"
+CONWAY_ADMIN_PASSWORD=letmein make server
 ```
 
 Sign in gates everything: the admin panel creates/extends/revokes expiring

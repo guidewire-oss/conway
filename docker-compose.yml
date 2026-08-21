@@ -6,6 +6,13 @@
 services:
   postgres:
     image: postgres:16-alpine
+    # Published so the Go dev loop works: Makefile.conway and README both tell you
+    # to run `docker compose up -d postgres` and then `make server` on the host,
+    # and without this the host cannot reach the database at all — the container
+    # is only addressable as postgres:5432 on the compose network. Override the
+    # host port with CONWAY_PG_PORT if 5432 is already taken locally.
+    ports:
+      - "${CONWAY_PG_PORT:-5432}:5432"
     environment:
       POSTGRES_USER: conway
       POSTGRES_PASSWORD: conway

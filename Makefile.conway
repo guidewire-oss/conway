@@ -3,7 +3,11 @@
 #
 # Fastest way to try Conway: `docker compose up` (app + Postgres, seeded with
 # a small demo org). The targets below are for local Go development against
-# a Postgres you already have running (e.g. `docker compose up -d postgres`).
+# a Postgres you already have running (e.g. `docker compose up -d postgres`, which
+# publishes 5432 to the host for this purpose; CONWAY_PG_PORT overrides it).
+#
+# CONWAY_ADMIN_PASSWORD only applies when no admin account exists yet — see the
+# reset recipe in README.md if sign-in reports wrong credentials.
 #
 # Everything this Makefile or the server writes at runtime goes under var/ —
 # binary, pid, log, and the local JSON store. One directory, one ignore rule.
