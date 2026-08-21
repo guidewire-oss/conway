@@ -75,20 +75,9 @@ CONWAY_ADMIN_PASSWORD=letmein make server   # DATABASE_URL defaults to the compo
 # sign in as admin -> ⚙ Admin -> mint one account per team (auto-expiring, default 48h)
 ```
 
-`CONWAY_ADMIN_PASSWORD` is read **only when no admin account exists yet**. Against
-a database that already has one it is ignored — the boot log says so — and the
-sign-in will report wrong credentials. To reset the account:
-```
-make stop
-psql "postgres://conway:conway@localhost:5432/conway?sslmode=disable" \
-  -c "DELETE FROM accounts WHERE username='admin'"
-CONWAY_ADMIN_PASSWORD=letmein make server
-```
-If a pre-Postgres `var/store.json` is still present, the first boot after that
-delete imports the old accounts back from it before the reset takes effect, logs
-that it did, and then retires the file to `var/store.json.migrated` — so a second
-`make stop` / delete / start does what you asked. `make clean` removes `var/`
-entirely if you would rather start fresh.
+`CONWAY_ADMIN_PASSWORD` sets the admin password on **every** boot, so it doubles
+as the reset: set it and restart. Leave it unset and the existing password is kept;
+on a first boot with nothing set, one is generated and printed to the log once.
 
 Sign in gates everything: the admin panel creates/extends/revokes expiring
 team accounts and shows a live board. Frontend has no external deps (vendored
