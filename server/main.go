@@ -252,35 +252,6 @@ func retireLegacyStore(path string) {
 	log.Printf("retired legacy store to %s — it will not be imported again", retired)
 }
 
-// adminPasswordIgnored explains why CONWAY_ADMIN_PASSWORD did nothing.
-//
-// It is read only when no admin account exists, so setting it against a
-// deployment that already has one is silently a no-op — and the only symptom is
-// the sign-in saying the credentials are wrong, which is a long way from the
-// cause. Saying so on boot, with the remedy, costs one line and saves the guess.
-//
-// legacyPath is set when the accounts came back from a legacy file store on this
-// very boot, which is the confusing case: the operator deleted the admin, and the
-// import restored it before this check ran. That deserves naming, or the remedy
-// above looks like it did not work.
-//
-// Deliberately not a reset: an env var that overwrote the admin password on every
-// boot would make the account only as private as the process environment, which
-// is a different decision from bootstrapping it once.
-func adminPasswordIgnored(envPw, legacyPath string) string {
-	if envPw == "" {
-		return ""
-	}
-	msg := "CONWAY_ADMIN_PASSWORD is set but an admin account already exists, so it was ignored. " +
-		"To reset it, stop the server, delete the account, and start again: " +
-		`psql "$DATABASE_URL" -c "DELETE FROM accounts WHERE username='admin'"`
-	if legacyPath != "" {
-		msg += " — note the account was just restored from " + legacyPath +
-			", which is now retired, so the next reset will hold"
-	}
-	return msg
-}
-
 func main() {
 	// Defaults assume the repo root as the working directory (the module root
 	// since go.mod moved there): the SPA is ./app, and everything written at
@@ -315,10 +286,10 @@ func main() {
 	// signing secret from a pre-Postgres deployment, if one exists at storePath).
 	//
 	// It fires whenever the accounts table is empty, which is not the same as "the
-	// first ever boot": deleting the admin to reset its password leaves the table
-	// empty too, and the import then quietly restores the account the operator just
-	// removed. So the file is retired once its contents are safely in Postgres,
-	// which is what makes "one-time" true rather than aspirational.
+	// first ever boot": clearing accounts deliberately leaves the table empty too,
+	// and the import then quietly restores what was just removed. So the file is
+	// retired once its contents are safely in Postgres, which is what makes
+	// "one-time" true rather than aspirational.
 	legacyImported := ""
 	if len(st.Users) == 0 {
 		if legacy := loadLegacyStore(storePath); legacy != nil && len(legacy.Users) > 0 {
@@ -337,16 +308,26 @@ func main() {
 		}
 		st.Secret = secret
 	}
-	// ensure an admin exists
-	if st.Users["admin"] == nil {
-		pw := os.Getenv("CONWAY_ADMIN_PASSWORD")
-		if pw == "" {
-			pw = randPw()
-			log.Printf("=== Conway admin password (save this): %s ===", pw)
-		}
+	// Ensure an admin exists, and let CONWAY_ADMIN_PASSWORD win every boot.
+	//
+	// It used to apply only when no admin existed, which made it silently inert on
+	// every boot after the first: the only symptom was the sign-in refusing the
+	// password, and the only recovery was deleting the row by hand. It is also the
+	// *only* way to set this password — nothing in the app changes it — so there is
+	// no in-app value for a stale variable to clobber, and the secret already lives
+	// in the environment either way. Gating it bought no privacy and cost a trap.
+	if pw := os.Getenv("CONWAY_ADMIN_PASSWORD"); pw != "" {
+		replaced := st.Users["admin"] != nil
 		st.SetAdmin(pw)
-	} else if notice := adminPasswordIgnored(os.Getenv("CONWAY_ADMIN_PASSWORD"), legacyImported); notice != "" {
-		log.Print(notice)
+		if replaced {
+			// Never silent in either direction: that is what made the old behaviour
+			// so hard to diagnose. The value is not logged.
+			log.Printf("admin password set from CONWAY_ADMIN_PASSWORD (replaced the existing one)")
+		}
+	} else if st.Users["admin"] == nil {
+		pw := randPw()
+		log.Printf("=== Conway admin password (save this): %s ===", pw)
+		st.SetAdmin(pw)
 	}
 	must(st.Save())
 	// Only after the accounts are durably in Postgres, so a failed Save leaves the
