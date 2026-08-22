@@ -434,5 +434,10 @@ button.bl-chip:focus-visible { outline: 2px solid var(--accent); outline-offset:
 
 /* A target beyond the horizon pins at the edge and says so (FR-035: nothing
    renders outside the container, but the fact survives). */
-.tl-target-beyond { opacity: .7; }
+.tl-target-beyond { opacity: .7; transform: translateX(-100%); }
+/* Sub-rows flow after the bar's reserved row, never underneath it. */
+.tl-track.tl-expanded { padding-top: 22px; }
+/* Work starting past the horizon: an edge marker, inside the container. */
+.tl-beyond { position: absolute; top: 4px; right: 0; color: var(--amber);
+  font-size: 12px; line-height: 14px; cursor: help; }
 .tl-nocap { background: repeating-linear-gradient(45deg, var(--amber), var(--amber) 4px, transparent 4px, transparent 7px); color: var(--text); }
