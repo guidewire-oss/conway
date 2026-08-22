@@ -531,8 +531,11 @@ func (s *server) schedulePlan(w http.ResponseWriter, r *http.Request, p *db.Plan
 	}
 	// Anything after the first JSON value means the caller sent something other
 	// than the one object this endpoint takes, and scheduling the part we happened
-	// to parse would answer a question nobody asked.
-	if dec.More() {
+	// to parse would answer a question nobody asked. A second Decode requiring
+	// EOF, not More(): More only looks inside the current composite, so
+	// "{...}{...}" passes it silently.
+	var extra map[string]any
+	if err := dec.Decode(&extra); !errors.Is(err, io.EOF) {
 		http.Error(w, "the schedule request must be a single JSON object", 400)
 		return
 	}
@@ -592,8 +595,16 @@ func (s *server) saveBaseline(w http.ResponseWriter, r *http.Request, p *db.Plan
 		Name   string `json:"name"`
 		Active *bool  `json:"active"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
+	dec := json.NewDecoder(r.Body)
+	if err := dec.Decode(&body); err != nil && !errors.Is(err, io.EOF) {
 		http.Error(w, "could not read the baseline request: "+err.Error(), 400)
+		return
+	}
+	// Same single-object contract as /schedule (shared body): "{...}{...}" must
+	// not freeze the first object and ignore the second.
+	var extra map[string]any
+	if err := dec.Decode(&extra); !errors.Is(err, io.EOF) {
+		http.Error(w, "the baseline request must be a single JSON object", 400)
 		return
 	}
 	name := strings.TrimSpace(body.Name)

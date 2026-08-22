@@ -124,9 +124,11 @@ function renderPlan() {
   document.getElementById('view-network')?.addEventListener('click', () => setView('network'));
   document.getElementById('view-order')?.addEventListener('click', () => setView('order'));
   // The chip summarises a panel that only exists in the Order view, so it has to be
-  // able to get there — otherwise it is a status message with no way through.
+  // able to get there — otherwise it is a status message with no way through. The
+  // scroll happens in renderOrder once the panel actually exists: with a stale
+  // cached order the async path returns early and there is nothing to scroll to yet.
   document.getElementById('bl-chip')?.addEventListener('click', () => {
-    if (view() !== 'order') { setView('order'); return; } // re-render lands on the panel below
+    if (view() !== 'order') { current.baselineFocus = true; setView('order'); return; }
     document.querySelector('.bl-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     document.getElementById('bl-name')?.focus();
   });
@@ -206,8 +208,9 @@ function orderRequestBody() {
 // baselineError renders a failed request. It takes the response rather than a
 // string so that translating a status into readable copy is not something a call
 // site can skip — echoing the body is how a 405 once reached the page as "method".
-async function baselineError(r) {
-  baselineNote(saveErrorMessage(r ? r.status : 0, r ? await r.text() : ''));
+// op names the operation so a compare failure does not wear the word "save".
+async function baselineError(r, op) {
+  baselineNote(saveErrorMessage(r ? r.status : 0, r ? await r.text() : '', op));
 }
 
 // baselineNote paints one message beside the save control, replacing any previous
@@ -262,11 +265,12 @@ async function activateBaseline(id) {
 // compareBaseline measures the order on screen against a saved one (AC 7.4).
 async function compareBaseline(id) {
   const forPlan = current.id;
+  const atEpoch = orderEpoch; // a lever or upload can land while this request is out
   const r = await req('/api/plan/' + forPlan + '/baseline/' + id + '/compare', {
     method: 'POST', body: JSON.stringify(orderRequestBody()),
   });
-  if (!current || current.id !== forPlan) return;
-  if (!r || !r.ok) { await baselineError(r); return; }
+  if (!current || current.id !== forPlan || orderEpoch !== atEpoch) return; // answers the plan it left
+  if (!r || !r.ok) { await baselineError(r, 'compare'); return; }
   current.baselineCompare = await r.json();
   renderOrder();
 }
@@ -335,7 +339,7 @@ async function renderOrder() {
     // Always an object, never undefined: passing undefined is how the view is told
     // to omit the form entirely, and on a real plan it must always be offered.
     scheduling: current.scheduling || {},
-  }) + baselinePanelHTML(current.baselines, current.baselineCompare);
+  }) + baselinePanelHTML(current.baselines, current.baselineCompare, current.isDraft);
   wireBaselineControls();
   document.getElementById('sched-save')?.addEventListener('click', saveScheduling);
   document.getElementById('sched-cancel')?.addEventListener('click', () => renderOrder());
@@ -345,6 +349,11 @@ async function renderOrder() {
     renderOrder();
   }));
   document.querySelector('.ord-queue')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  if (current.baselineFocus) {
+    current.baselineFocus = false; // one-shot: clicking the chip, not every render
+    document.querySelector('.bl-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.getElementById('bl-name')?.focus();
+  }
 }
 
 // previewInitiativesFile parses an uploaded sheet server-side and shows the

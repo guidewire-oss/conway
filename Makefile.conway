@@ -68,10 +68,14 @@ stop: ## Stop the server started by `make server`, and free PORT if anything els
 	  kill $$(cat $(SERVER_PID)) 2>/dev/null && echo "stopped pid $$(cat $(SERVER_PID))"; \
 	elif [ -f $(SERVER_PID) ]; then echo "stale $(SERVER_PID) (pid gone) - removing"; \
 	fi; rm -f $(SERVER_PID)
-	@sleep 1; holder=$$(lsof -ti tcp:$(PORT) 2>/dev/null || true); \
-	if [ -n "$$holder" ]; then \
-	  echo "port $(PORT) still held by pid $$holder - killing it, else the next build cannot bind and the old binary keeps serving"; \
-	  kill $$holder 2>/dev/null || true; sleep 1; \
+	@sleep 1; if ! command -v lsof >/dev/null 2>&1; then \
+	  echo "stop: lsof not found — cannot check whether port $(PORT) is still held; the next build may fail to bind. Install lsof (macOS has it by default)." >&2; \
+	else \
+	  holder=$$(lsof -nP -tiTCP:$(PORT) -sTCP:LISTEN 2>/dev/null || true); \
+	  if [ -n "$$holder" ]; then \
+	    echo "port $(PORT) still held by listener pid $$holder - killing it, else the next build cannot bind and the old binary keeps serving"; \
+	    kill $$holder 2>/dev/null || true; sleep 1; \
+	  fi; \
 	fi
 
 status: ## Show whether the server is running

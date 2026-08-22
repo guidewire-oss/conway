@@ -112,8 +112,11 @@ export function compareTableHTML(result) {
 }
 
 // baselinePanelHTML is the Order view's baseline section: §13.2's save control,
-// the history, and whatever comparison is open.
-export function baselinePanelHTML(baselines, compare) {
+// the history, and whatever comparison is open. draft=true means an unsaved
+// initiatives preview is up; the save is blocked because a baseline must freeze
+// stored inputs (FR-029), and the next list-read would otherwise call the freshly
+// saved baseline diverged — a false alarm on the chip the reader just set.
+export function baselinePanelHTML(baselines, compare, draft) {
   return `<div class="card ord-card bl-panel">
     <div class="ord-head">
       <b>Baselines</b>
@@ -121,8 +124,9 @@ export function baselinePanelHTML(baselines, compare) {
     </div>
     ${baselineListHTML(baselines)}
     <div class="bl-save">
-      <input id="bl-name" type="text" placeholder="name this order, e.g. v2 agreed 12 Jan" maxlength="80">
-      <button type="button" id="bl-save" class="primary">Save as baseline</button>
+      <input id="bl-name" type="text" placeholder="name this order, e.g. v2 agreed 12 Jan" maxlength="80" ${draft ? 'disabled' : ''}>
+      <button type="button" id="bl-save" class="primary" ${draft ? 'disabled' : ''}>Save as baseline</button>
+      ${draft ? '<span class="plan-warn">Save the uploaded initiatives first — a baseline freezes what is stored, not the preview you are looking at.</span>' : ''}
     </div>
   </div>
   ${compareTableHTML(compare)}`;
@@ -140,20 +144,21 @@ export function baselinePanelHTML(baselines, compare) {
 // the compiled server keeps serving routes it was built with.
 // Like every export here it returns HTML-safe output: the server's text is escaped
 // at the point it is interpolated, so a caller cannot forget to.
-export function saveErrorMessage(status, body) {
+export function saveErrorMessage(status, body, op) {
+  const verb = op === 'compare' ? 'compare against that baseline' : 'save that';
   const detail = esc(String(body || '').trim());
   if (!status) return 'That did not reach the server — check it is still running.';
   if (status === 405) {
     // Keep the server's detail: it names the verb and path refused, which is what
     // separates "the restart did not take" from "the route is genuinely missing".
     // Dropping it once meant the next bug report arrived with no evidence in it.
-    return 'The server binary is older than this page — rebuild and restart it. '
+    return 'The server binary is older than this page — rebuild and restart it, then reload this page. '
       + '(app/ is served from disk, so the page updated on checkout; routes are compiled in.)'
       + (detail ? ` The server said: ${detail}` : '');
   }
   if (status === 401 || status === 403) return 'You are not allowed to change this plan’s baselines.';
   if (status === 503) return 'The database is unavailable, so nothing can be saved right now.';
-  if (status >= 500) return `The server could not save that${detail ? ': ' + detail : ''}.`;
+  if (status >= 500) return `The server could not ${verb}${detail ? ': ' + detail : ''}.`;
   // A 4xx body is written for a person — it is the useful part, so keep it.
   return detail ? `That was refused: ${detail}` : 'That was refused by the server.';
 }
