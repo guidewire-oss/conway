@@ -84,7 +84,7 @@ func ComputeRemedies(teams []Team, inits []Initiative, params Params, sp Schedul
 		baseBy[si.Name] = si
 	}
 
-	names := targets
+	names := append([]string(nil), targets...) // never write through the caller's slice
 	if len(names) == 0 {
 		for _, si := range base.Initiatives {
 			if missesDate(si.Verdict) {
@@ -107,9 +107,12 @@ func ComputeRemedies(teams []Team, inits []Initiative, params Params, sp Schedul
 	return out
 }
 
-// remediesFor generates the candidate remedies for one missed date. Each
-// candidate is only emitted when the trial actually improves the target's
-// outcome — a descope that changes nothing is not an option, it is noise.
+// remediesFor generates the candidate remedies for one missed date. Most
+// candidates are only emitted when the trial actually improves the target's
+// outcome — a descope that changes nothing is not an option, it is noise. The
+// one exception is unlock, emitted for every DateLocked target: AC 3.3 requires
+// the relaxation to be offered even when releasing the lock does not improve
+// the verdict, because the offer is the point.
 func remediesFor(teams []Team, inits []Initiative, params Params, sp SchedulingParams,
 	base *Schedule, target ScheduledInitiative) []Remedy {
 
@@ -321,29 +324,25 @@ func verdictRank(v string) int {
 	return 3
 }
 
-// bindingPodOf names the pod to add capacity at: the constraint the schedule
-// itself blamed, when it blamed a pod; otherwise the drum, because a
-// release-bound miss is relieved at the constraint the release staggers
-// against.
+// bindingPodOf names the pod to add capacity at: the pod of the target's
+// longest-waiting slice, because that wait is the delay capacity would remove.
+// BindingConstraint cannot be used here — it carries the reason ("pod-capacity"),
+// never a pod's name — and the drum is only the fallback for a release-bound
+// miss, where the constraint the release staggers against is the right place.
 func bindingPodOf(base *Schedule, target ScheduledInitiative) string {
-	if target.BindingConstraint != "" && target.BindingConstraint != "wip-limit" {
-		if podIsKnown(base, target.BindingConstraint) {
-			return target.BindingConstraint
+	best, bestWait := "", -1.0
+	for _, s := range target.Slices {
+		if s.WaitWeeks > bestWait {
+			best, bestWait = s.Pod, s.WaitWeeks
 		}
+	}
+	if bestWait > 0 {
+		return best
 	}
 	if len(base.DrumPods) > 0 {
 		return base.DrumPods[0]
 	}
-	return target.BindingConstraint
-}
-
-func podIsKnown(base *Schedule, pod string) bool {
-	for _, ps := range base.PodWeeks {
-		if ps.Pod == pod {
-			return true
-		}
-	}
-	return false
+	return best
 }
 
 // deferCandidates lists the initiatives whose deferral could free the target's
@@ -450,6 +449,18 @@ func conflictingCommitments(sis []ScheduledInitiative) []Conflict {
 			}
 		}
 	}
+	// The pods come from a map, so without this the same schedule could report
+	// its conflicts in a different order on a different boot — and Schedule is
+	// deterministic by contract (AC 1.4).
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Pod != out[j].Pod {
+			return out[i].Pod < out[j].Pod
+		}
+		if out[i].A != out[j].A {
+			return out[i].A < out[j].A
+		}
+		return out[i].B < out[j].B
+	})
 	return out
 }
 

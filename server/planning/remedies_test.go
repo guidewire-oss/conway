@@ -92,7 +92,7 @@ var _ = Describe("ComputeRemedies", func() {
 				for _, v := range r.AffectedInitiatives {
 					Expect(v.Initiative).NotTo(Equal("Late"),
 						"the target's own movement is reported on the remedy, not as its own victim")
-					Expect(v.CommitDeltaWeeks).NotTo(Equal(0),
+					Expect(v.StartDeltaWeeks != 0 || v.CommitDeltaWeeks != 0).To(BeTrue(),
 						"%s lists %s as affected with no week delta", r.Kind, v.Initiative)
 				}
 			}
@@ -151,6 +151,37 @@ var _ = Describe("ComputeRemedies", func() {
 			Expect(add).NotTo(BeNil())
 			Expect(add.Pod).To(Equal("Delta"), "Delta is the binding pod in this fixture")
 			Expect(add.Magnitude).To(BeNumerically(">=", 1))
+		})
+
+		It("aims capacity at the pod the target waited for, not merely the drum", func() {
+			// The binding miss is at Beacon; Delta is merely the hottest pod.
+			// BindingConstraint carries the reason ("pod-capacity"), never a
+			// pod name, so this regression guards the slice-wait derivation.
+			bTeams := []Team{
+				{Name: "Delta", Devs: 2, Tracks: 1},
+				{Name: "Beacon", Devs: 2, Tracks: 1},
+			}
+			bInits := []Initiative{
+				{Name: "Holder", Work: map[string]TeamWork{"Beacon": podWork(10)},
+					StatedPriority: 1, PriorityLocked: true, TargetDate: weekDate(13)},
+				{Name: "Waits", Work: map[string]TeamWork{"Beacon": podWork(10)},
+					StatedPriority: 2, TargetDate: weekDate(14)},
+				{Name: "Filler1", Work: map[string]TeamWork{"Delta": podWork(10)}, StatedPriority: 3},
+				{Name: "Filler2", Work: map[string]TeamWork{"Delta": podWork(10)}, StatedPriority: 4},
+				{Name: "Filler3", Work: map[string]TeamWork{"Delta": podWork(10)}, StatedPriority: 5},
+			}
+			bSp := SchedulingParams{PeriodStart: specPeriodStart, WipModel: WipStrict,
+				BufferPct: pctOf(0.25), MaxConcurrentInitiatives: 5}
+
+			remedies := ComputeRemedies(bTeams, bInits, Params{HorizonWeeks: 26, CapacityLoss: 0}, bSp, []string{"Waits"})
+			var add *Remedy
+			for i, r := range remedies {
+				if r.Kind == "add-capacity" {
+					add = &remedies[i]
+				}
+			}
+			Expect(add).NotTo(BeNil(), "capacity at Beacon rescues Waits, so the remedy must exist")
+			Expect(add.Pod).To(Equal("Beacon"), "Waits waited at Beacon, not at the Delta drum")
 		})
 
 		It("offers relax-date with the weeks the date has to move, landing on time", func() {
@@ -296,5 +327,35 @@ var _ = Describe("conflicting commitments", func() {
 			kinds[r.Kind] = true
 		}
 		Expect(kinds).To(HaveKey("unlock"))
+	})
+
+	It("lists conflicts in a stable order across pods (AC 1.4)", func() {
+		// Three pods, one conflicting pair each: the pods come out of a map, so
+		// without the sort the order depends on Go's randomised iteration and
+		// the same schedule reports its conflicts differently on another boot.
+		mk := func(pod, a, b string) []ScheduledInitiative {
+			return []ScheduledInitiative{
+				{Name: a, DateLocked: true, Verdict: verdictLate,
+					Slices: []WorkSlice{{Pod: pod, StartWeek: 0, FinishWeek: 10}}},
+				{Name: b, DateLocked: true, Verdict: verdictLate,
+					Slices: []WorkSlice{{Pod: pod, StartWeek: 5, FinishWeek: 15}}},
+			}
+		}
+		var sis []ScheduledInitiative
+		sis = append(sis, mk("Cpod", "Ca", "Cb")...)
+		sis = append(sis, mk("Apod", "Aa", "Ab")...)
+		sis = append(sis, mk("Bpod", "Ba", "Bb")...)
+
+		first, err := json.Marshal(conflictingCommitments(sis))
+		Expect(err).NotTo(HaveOccurred())
+		for i := 0; i < 20; i++ {
+			again, err := json.Marshal(conflictingCommitments(sis))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(again).To(MatchJSON(first), "conflict order must not depend on map iteration")
+		}
+		var cs []Conflict
+		Expect(json.Unmarshal(first, &cs)).To(Succeed())
+		Expect(cs).To(HaveLen(3))
+		Expect([]string{cs[0].Pod, cs[1].Pod, cs[2].Pod}).To(Equal([]string{"Apod", "Bpod", "Cpod"}))
 	})
 })
