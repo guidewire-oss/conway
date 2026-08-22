@@ -47,6 +47,15 @@ test('an unknown kind from a newer server renders generically instead of breakin
   assert.ok(!html.includes('undefined'), 'no undefined leaks for an unknown kind');
 });
 
+test('a kind named after an inherited property still gets the raw fallback', () => {
+  // KIND_LABELS['constructor'] would otherwise be the inherited Object
+  // function — truthy, so the || fallback never fires, and the row would
+  // render a function instead of a kind.
+  assert.equal(remedyKindLabel('constructor'), 'constructor');
+  assert.equal(remedyKindLabel('__proto__'), '__proto__');
+  assert.equal(remedyKindLabel('toString'), 'toString');
+});
+
 test('one priced option shows what it costs and what it lands', () => {
   const r = remedies[0];
   const html = remedyRowHTML(r);

@@ -43,9 +43,7 @@ func main() {
 	remedies := planning.ComputeRemedies(teams, inits, params, sp, nil)
 	envelope := map[string]any{
 		"remedies": remedies,
-		"warnings": []string{
-			"transfer-capacity remedies are not offered yet: the site-overlap factor is undecided (spec 001 §10 Q1, Decision 7)",
-		},
+		"warnings": []string{planning.TransferDeferredWarning},
 	}
 	write(remediesPath, envelope, func() string {
 		return fmt.Sprintf("fixgen: wrote %s (%d remedies)\n", remediesPath, len(remedies))

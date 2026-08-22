@@ -313,7 +313,21 @@ async function toggleRemedies(btn) {
     holder.remove(); // the order moved: the row this belonged to is gone
     return;
   }
-  const live = document.querySelector(`.ord-options[data-init="${CSS.escape(name)}"]`);
+  // A redraw without an input change (opening a pod queue) does not bump the
+  // epoch but still replaces the table — the holder can be detached while the
+  // plan and epoch checks pass. Re-attach to the live expander if it exists,
+  // so the priced answer reaches the reader who asked for it.
+  let live = document.querySelector(`.ord-options[data-init="${CSS.escape(name)}"]`);
+  if (!holder.isConnected) {
+    if (!live) return; // the redraw removed the miss: nothing to attach to
+    holder = document.createElement('tr');
+    holder.className = 'ord-remedies';
+    body = document.createElement('td');
+    body.colSpan = 8;
+    holder.appendChild(body);
+    live.closest('tr').after(holder);
+    live.textContent = 'options ▴';
+  }
   if (live) live.disabled = false;
   if (!r || !r.ok) {
     body.innerHTML = `<span class="plan-warn">${remediesErrorMessage(r ? r.status : 0, r ? await r.text() : '')}</span>`;
