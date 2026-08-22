@@ -398,14 +398,18 @@ button.bl-chip:focus-visible { outline: 2px solid var(--accent); outline-offset:
 /* ── Timeline (spec 001 §13.3-§13.5) ────────────────────────────────────
    FR-035: every position is a percentage; the horizon always fits. */
 .tl-card { margin-top: 12px; }
-.tl-axis { position: relative; height: 20px; font-size: 11px; color: var(--muted); margin-left: 170px; }
+.tl-axis { position: relative; height: 20px; font-size: 11px; color: var(--muted); margin-left: 160px; }
 .tl-tick { position: absolute; transform: translateX(-50%); white-space: nowrap; }
 .tl-body { position: relative; }
 .tl-grid { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--border); opacity: .35; }
+/* Grid and today span the chart area only — the label column is not chart.
+   The overlay is the positioning context for them, so their percentages
+   address the same width the bars do. */
+.tl-overlay { position: absolute; top: 0; bottom: 0; left: 160px; right: 0; pointer-events: none; }
 .tl-row { display: flex; align-items: center; min-height: 26px; }
 .tl-label { flex: 0 0 160px; font-size: 12px; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; padding-right: 10px; }
-.tl-track { position: relative; flex: 1 1 auto; height: 22px; }
+.tl-track { position: relative; flex: 1 1 auto; min-height: 22px; } /* grows with expanded sub-rows */
 .tl-bar { position: absolute; top: 4px; height: 14px; border-radius: 3px;
   background: var(--accent); color: var(--bg); font-size: 10px; line-height: 14px;
   padding: 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -427,3 +431,8 @@ button.bl-chip:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .tl-lane > .hint { flex: 0 0 160px; font-size: 11px; }
 .tl-pod[data-pod] { cursor: pointer; }
 .tl-pod[data-pod]:hover { background: var(--panel2); border-radius: 6px; }
+
+/* A target beyond the horizon pins at the edge and says so (FR-035: nothing
+   renders outside the container, but the fact survives). */
+.tl-target-beyond { opacity: .7; }
+.tl-nocap { background: repeating-linear-gradient(45deg, var(--amber), var(--amber) 4px, transparent 4px, transparent 7px); color: var(--text); }

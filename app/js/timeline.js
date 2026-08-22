@@ -52,18 +52,31 @@ function barHTML({ left, width, cls = '', label, title }) {
   return `<div class="tl-bar tl-trunc ${cls}" style="${pct(left)};width:${width.toFixed(2)}%" title="${esc(title)}">${esc(label)}</div>`;
 }
 
+// barGeom clamps a week span to the chart: work that runs past the horizon
+// (common — most plans overrun) must stop at 100% rather than extend outside
+// the timeline, and the clamped weeks ride along so the title can say so.
+// FR-035's no-overflow rule is about the container, not about hiding overrun.
+function barGeom(startWeek, endWeek, horizon) {
+  const s = axisScale(horizon);
+  const clampedEnd = Math.min(endWeek, horizon);
+  const left = Math.min(s(startWeek), 100);
+  const width = Math.max(0, s(clampedEnd) - left);
+  const overrun = Math.max(0, endWeek - horizon);
+  return { left, width, overrun };
+}
+
 // sliceBar renders one pod slice's span. The handoff glyph marks a slice that
 // waited on another pod (§13.3's "→ handoff"), so the dependency is visible
 // even before the sub-row's text names it.
 function sliceBar(sl, horizon) {
-  const s = axisScale(horizon);
-  const width = s(sl.finishWeek) - s(sl.startWeek);
+  const { left, width, overrun } = barGeom(sl.startWeek, sl.finishWeek, horizon);
   const deps = (sl.dependsOn || []).length ? '→ ' : '';
   return barHTML({
-    left: s(sl.startWeek), width,
+    left, width,
     label: `${deps}${sl.pod} ${sl.finishWeek - sl.startWeek}w`,
     title: `${sl.pod}: w${sl.startWeek}–w${sl.finishWeek}` +
-      ((sl.dependsOn || []).length ? ` (after ${(sl.dependsOn).join(', ')})` : ''),
+      ((sl.dependsOn || []).length ? ` (after ${(sl.dependsOn).join(', ')})` : '') +
+      (overrun > 0 ? ` — ${overrun}w past the horizon` : ''),
   });
 }
 
@@ -74,21 +87,23 @@ function sliceBar(sl, horizon) {
 export function timelineRowHTML(si, opts = {}) {
   const horizon = opts.horizonWeeks || 26;
   const s = axisScale(horizon);
-  const left = s(si.startWeek);
-  const workWidth = Math.max(0, s(si.rawFinishWeek) - left);
-  const bufLeft = s(si.rawFinishWeek);
-  const bufWidth = Math.max(0, s(si.commitWeek) - bufLeft);
+  const work = barGeom(si.startWeek, si.rawFinishWeek, horizon);
+  const buf = barGeom(Math.max(si.rawFinishWeek, 0), si.commitWeek, horizon);
+  const overrun = Math.max(0, si.commitWeek - horizon);
 
   const bar = barHTML({
-    left, width: workWidth, label: si.name,
-    title: `${si.name}: w${si.startWeek}–w${si.rawFinishWeek}, buffer ${si.bufferWeeks}w, commit w${si.commitWeek}`,
+    left: work.left, width: work.width, label: si.name,
+    title: `${si.name}: w${si.startWeek}–w${si.rawFinishWeek}, buffer ${si.bufferWeeks}w, commit w${si.commitWeek}` +
+      (overrun > 0 ? ` — ${overrun}w past the horizon` : ''),
   });
-  const buffer = bufWidth > 0
-    ? `<div class="tl-buffer tl-trunc" style="${pct(bufLeft)};width:${bufWidth.toFixed(2)}%" title="buffer: w${si.rawFinishWeek}–w${si.commitWeek} (protects the commit, not slack to spend)">+${si.bufferWeeks}w buffer</div>`
+  const buffer = buf.width > 0
+    ? `<div class="tl-buffer tl-trunc" style="${pct(buf.left)};width:${buf.width.toFixed(2)}%" title="buffer: w${si.rawFinishWeek}–w${si.commitWeek} (protects the commit, not slack to spend)">+${si.bufferWeeks}w buffer</div>`
     : '';
-  const target = (si.targetWeek !== undefined && si.targetWeek !== null)
+  const target = (si.targetWeek !== undefined && si.targetWeek !== null && si.targetWeek <= horizon)
     ? `<div class="tl-target" style="${pct(s(si.targetWeek))}" title="target w${si.targetWeek}">◆</div>`
-    : '';
+    : (si.targetWeek !== undefined && si.targetWeek !== null)
+      ? `<div class="tl-target tl-target-beyond" style="${pct(s(horizon))}" title="target w${si.targetWeek} — beyond the horizon">◆›</div>`
+      : '';
 
   let subrows = '';
   if (opts.expand) {
@@ -114,6 +129,9 @@ export function timelineRowHTML(si, opts = {}) {
 // today, and the legend. Freeze/non-working bands wait for FR-018's calendar
 // windows; their absence renders nothing, which is why there is no branch for
 // them here rather than a guess.
+//
+// The grid and today line live in an overlay that starts after the label
+// column, so their week percentages address the same width the bars do.
 export function portfolioTimelineHTML(sched, opts = {}) {
   const horizon = opts.horizonWeeks || sched.horizonWeeks || 26;
   const s = axisScale(horizon);
@@ -126,12 +144,13 @@ export function portfolioTimelineHTML(sched, opts = {}) {
     .sort((a, b) => a.proposedRank - b.proposedRank)
     .map((si) => timelineRowHTML(si, { ...opts, horizonWeeks: horizon, expand: opts.expand === si.name }))
     .join('');
-  const today = opts.todayWeek === undefined ? '' : todayLineHTML(opts.todayWeek, horizon);
+  const today = opts.todayWeek === undefined || opts.todayWeek === null
+    ? '' : todayLineHTML(opts.todayWeek, horizon);
   return `<div class="card tl-card">
     <div class="ord-head"><b>Timeline</b>
       <span class="hint">one row per initiative · the lighter tail is the buffer · ◆ is the promise</span></div>
     <div class="tl-axis tl-trunc">${ticks}</div>
-    <div class="tl-body">${grid}${today}${rows}</div>
+    <div class="tl-body">${rows}<div class="tl-overlay">${grid}${today}</div></div>
     <div class="hint">█ scheduled · ░ buffer · ◆ target · → waits on another pod · ↑ today</div>
   </div>`;
 }
@@ -160,38 +179,53 @@ function assignLanes(slices) {
 // non-constraint pods is the point, not noise.
 export function podLanesHTML(ps, opts = {}) {
   const horizon = opts.horizonWeeks || 26;
+  // A pod with work but no tracks is not a lane puzzle — it is the unknown/
+  // zero-capacity case, and giving it a track lane would claim capacity that
+  // does not exist. Named for what it is instead.
+  if (!ps.tracks) {
+    const bars = (ps.slices || []).map((sl) => {
+      const { left, width } = barGeom(sl.startWeek, sl.finishWeek, horizon);
+      return barHTML({
+        left, width, cls: 'tl-nocap', label: `${sl.initiative}`,
+        title: `${sl.initiative}: w${sl.startWeek}–w${sl.finishWeek} — this pod has no tracks in the roster`,
+      });
+    }).join('');
+    return `<div class="tl-lane"><span class="hint">no capacity</span><div class="tl-track">${bars || '<span class="hint">—</span>'}</div></div>`;
+  }
   const { placement, lanes } = assignLanes(ps.slices || []);
   const rows = [];
   for (let lane = 0; lane < Math.max(lanes, 1); lane++) {
     const inLane = placement.filter((p) => p.lane === lane);
     const bars = inLane.map(({ sl }) => {
-      const s = axisScale(horizon);
+      const { left, width, overrun } = barGeom(sl.startWeek, sl.finishWeek, horizon);
       return barHTML({
-        left: s(sl.startWeek), width: Math.max(0, s(sl.finishWeek) - s(sl.startWeek)),
+        left, width,
         label: `${sl.initiative} ${sl.finishWeek - sl.startWeek}w`,
         title: `${sl.initiative}: w${sl.startWeek}–w${sl.finishWeek} · start by w${sl.latestStartWeek}` +
-          (sl.slackWeeks === 0 ? ' · no slack' : ` · ${sl.slackWeeks}w slack`),
+          (sl.slackWeeks === 0 ? ' · no slack' : ` · ${sl.slackWeeks}w slack`) +
+          (overrun > 0 ? ` · ${overrun}w past the horizon` : ''),
       });
     }).join('');
     rows.push(`<div class="tl-lane"><span class="hint">track ${lane + 1}</span><div class="tl-track">${bars}</div></div>`);
   }
   // Idle tracks are lanes the schedule never needed — shown, not hidden.
   const idle = [];
-  for (let lane = lanes; lane < (ps.tracks || lanes); lane++) {
+  for (let lane = lanes; lane < ps.tracks; lane++) {
     idle.push(`<div class="tl-lane"><span class="hint">track ${lane + 1}</span><div class="tl-track"><span class="hint">· idle ·</span></div></div>`);
   }
   return rows.join('') + idle.join('');
 }
 
-// podRho is the mean weekly utilization from the schedule's own occupancy —
-// the number the Constraints table sorts by, recomputed here because
-// PodSchedule does not carry it.
+// podRho is the mean weekly utilization over the WHOLE period — every week,
+// busy or idle. Averaging only the busy weeks would rank a bursty pod as hot
+// as a genuinely saturated one, and the pod lens would not match the
+// Constraints table it is meant to echo.
 function podRho(ps) {
-  const weeks = (ps.weeks || []).filter((w) => w.busy > 0);
+  const weeks = ps.weeks || [];
   if (!weeks.length || !ps.tracks) return 0;
   let sum = 0;
-  for (const w of weeks) sum += w.busy / ps.tracks;
-  return sum / weeks.length;
+  for (const w of weeks) sum += w.busy;
+  return sum / (weeks.length * ps.tracks);
 }
 
 // podLensHTML is §13.4: pods hottest-first, one block of track lanes each.
