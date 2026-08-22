@@ -51,14 +51,28 @@ preflight: guard ## Pre-push checks: strict guard + the factory gate suite
 	@./scripts/hooks/internal-paths-ignored.sh --strict
 	./scripts/pre-push-check.sh
 
-server: build ## Go server against DATABASE_URL (needs Postgres reachable — see docker-compose.yml)
+# stop before build, in that order: writing var/conway while the old one is still
+# executing fails with ETXTBSY on Linux. Sub-makes rather than prerequisites so the
+# order holds under `make -j` too.
+server: ## Restart the Go server against DATABASE_URL (needs Postgres reachable — see docker-compose.yml)
+	@$(MAKE) --no-print-directory -f $(firstword $(MAKEFILE_LIST)) stop
+	@$(MAKE) --no-print-directory -f $(firstword $(MAKEFILE_LIST)) build
 	@CONWAY_ADDR=:$(PORT) CONWAY_APP_DIR=$(APP_DIR) CONWAY_STORE=$(STORE) DATABASE_URL=$(DATABASE_URL) \
 	  nohup $(BIN) >$(SERVER_LOG) 2>&1 & echo $$! >$(SERVER_PID)
-	@sleep 1; echo "conway server -> http://localhost:$(PORT)  (pid $$(cat $(SERVER_PID)))"
+	@scripts/wait-for-http.sh http://localhost:$(PORT)/ $$(cat $(SERVER_PID)) $(SERVER_LOG)
+	@echo "conway server -> http://localhost:$(PORT)  (pid $$(cat $(SERVER_PID)))"
 	@grep -i 'admin password' $(SERVER_LOG) || true
 
-stop: ## Stop the server started by `make server`
-	@if [ -f $(SERVER_PID) ]; then kill $$(cat $(SERVER_PID)) 2>/dev/null && echo "stopped $$(cat $(SERVER_PID))"; rm -f $(SERVER_PID); fi
+stop: ## Stop the server started by `make server`, and free PORT if anything else holds it
+	@if [ -f $(SERVER_PID) ] && kill -0 $$(cat $(SERVER_PID)) 2>/dev/null; then \
+	  kill $$(cat $(SERVER_PID)) 2>/dev/null && echo "stopped pid $$(cat $(SERVER_PID))"; \
+	elif [ -f $(SERVER_PID) ]; then echo "stale $(SERVER_PID) (pid gone) - removing"; \
+	fi; rm -f $(SERVER_PID)
+	@sleep 1; holder=$$(lsof -ti tcp:$(PORT) 2>/dev/null || true); \
+	if [ -n "$$holder" ]; then \
+	  echo "port $(PORT) still held by pid $$holder - killing it, else the next build cannot bind and the old binary keeps serving"; \
+	  kill $$holder 2>/dev/null || true; sleep 1; \
+	fi
 
 status: ## Show whether the server is running
 	@if [ -f $(SERVER_PID) ] && kill -0 $$(cat $(SERVER_PID)) 2>/dev/null; then echo "up: $(SERVER_PID) ($$(cat $(SERVER_PID)))"; \
