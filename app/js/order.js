@@ -11,6 +11,11 @@
 // cell also has a symbol or a number, so the view survives being read in
 // greyscale or by someone who cannot distinguish red from green.
 
+// The remedies expander lives in remedyui.js beside its siblings; the import
+// cycle (remedyui imports esc from here) is safe because neither module calls
+// the other's exports while evaluating — only inside functions invoked later.
+import { optionsExpanderHTML } from './remedyui.js';
+
 export const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
   (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -133,8 +138,11 @@ function orderRowHTML(row) {
     <td>${esc(row.binds) || '<span class="hint">—</span>'}</td>
   </tr>`;
   const trace = rowTraceHTML(row);
-  if (!trace) return main;
-  return `${main}<tr class="ord-why"><td></td><td colspan="7">${trace}</td></tr>`;
+  // A missed date gets [options ▾] on its trace line (§13.2, AC 5.1), so the
+  // trace row exists for a miss even when the rank never moved.
+  const options = optionsExpanderHTML(si);
+  if (!trace && !options) return main;
+  return `${main}<tr class="ord-why"><td></td><td colspan="7">${trace}${options}</td></tr>`;
 }
 
 // rowTraceHTML is FR-021 at the row level: the reason the rank moved, the named

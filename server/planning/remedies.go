@@ -226,7 +226,7 @@ func remediesFor(teams []Team, inits []Initiative, params Params, sp SchedulingP
 			return t, i
 		})
 		if improvesOutcome(target, after) {
-			out = append(out, newRemedy(remedyDescope, fmt.Sprintf("descope %d%% of the work", int(frac*100)), frac, s, after, moved))
+			out = append(out, newRemedy(remedyDescope, fmt.Sprintf("cut %d%% of the estimated work", int(frac*100)), frac, s, after, moved))
 		}
 	}
 

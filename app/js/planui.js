@@ -8,6 +8,7 @@ import {
 } from './netgraph.js';
 import { esc, orderViewHTML, schedulingFromForm } from './order.js';
 import { baselineChipHTML, baselinePanelHTML, saveErrorMessage } from './baseline.js';
+import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
 
 let root, current = null;
 
@@ -275,6 +276,53 @@ async function compareBaseline(id) {
   renderOrder();
 }
 
+// toggleRemedies expands or collapses one initiative's priced options
+// (§13.2's [options ▾], AC 5.1). The panel is inserted under the row rather
+// than cached on `current`: remedies are per-click, stateless server-side
+// (FR-022), and a cached panel is one more thing to invalidate when the order
+// moves — the orderEpoch check already refuses to render into a reordered
+// table, and re-fetching on every expand is the honest version of "priced
+// against what you are looking at".
+async function toggleRemedies(btn) {
+  const name = btn.dataset.init;
+  const row = btn.closest('tr');
+  const open = row?.nextElementSibling;
+  if (open?.classList?.contains('ord-remedies')) {
+    open.remove(); // collapse
+    btn.textContent = 'options ▾';
+    return;
+  }
+  document.querySelectorAll('tr.ord-remedies').forEach((el) => el.remove());
+  document.querySelectorAll('.ord-options').forEach((b) => { b.textContent = 'options ▾'; });
+  btn.textContent = 'options ▴';
+  btn.disabled = true;
+  const forPlan = current.id;
+  const atEpoch = orderEpoch; // the order can move while the price is being computed
+  const body = document.createElement('td');
+  body.colSpan = 8;
+  const holder = document.createElement('tr');
+  holder.className = 'ord-remedies';
+  holder.appendChild(body);
+  row.after(holder);
+  body.innerHTML = '<span class="hint">pricing options…</span>';
+
+  const r = await req('/api/plan/' + forPlan + '/schedule/remedies', {
+    method: 'POST', body: JSON.stringify({ ...orderRequestBody(), targets: [name] }),
+  });
+  if (!current || current.id !== forPlan || orderEpoch !== atEpoch) {
+    holder.remove(); // the order moved: the row this belonged to is gone
+    return;
+  }
+  const live = document.querySelector(`.ord-options[data-init="${CSS.escape(name)}"]`);
+  if (live) live.disabled = false;
+  if (!r || !r.ok) {
+    body.innerHTML = `<span class="plan-warn">${remediesErrorMessage(r ? r.status : 0, r ? await r.text() : '')}</span>`;
+    return;
+  }
+  const out = await r.json();
+  body.innerHTML = remediesPanelHTML(out.remedies, out.warnings);
+}
+
 // staleOrder drops the cached execution order. Anything that changes the inputs —
 // levers, the roster, the sheet — has to call it, or the Order view keeps showing
 // an order computed from a plan that no longer exists, which is worse than a spinner.
@@ -341,6 +389,8 @@ async function renderOrder() {
     scheduling: current.scheduling || {},
   }) + baselinePanelHTML(current.baselines, current.baselineCompare, current.isDraft);
   wireBaselineControls();
+  host.querySelectorAll('.ord-options').forEach((b) =>
+    b.addEventListener('click', () => toggleRemedies(b)));
   document.getElementById('sched-save')?.addEventListener('click', saveScheduling);
   document.getElementById('sched-cancel')?.addEventListener('click', () => renderOrder());
   host.querySelectorAll('.ord-podlink').forEach((a) => a.addEventListener('click', () => {
