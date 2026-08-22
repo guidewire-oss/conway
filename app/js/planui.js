@@ -9,6 +9,7 @@ import {
 import { esc, orderViewHTML, schedulingFromForm } from './order.js';
 import { baselineChipHTML, baselinePanelHTML, saveErrorMessage } from './baseline.js';
 import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
+import { portfolioTimelineHTML, podLensHTML, podSheetHTML } from './timeline.js';
 
 let root, current = null;
 
@@ -106,7 +107,7 @@ function renderPlan() {
       <button id="plan-draft-discard">Discard</button></p>` : ''}
     ${unknown.length ? `<p class="plan-warn">⚠ ${unknown.length} pod(s) referenced by initiatives but missing from the roster: ${unknown.map(esc).join(', ')} — fix the sheet or add them to the roster.</p>` : ''}
     ${nTeams > 0 && nInit > 0 ? `<div class="plan-views"><span class="seg">
-      <button class="${view() === 'network' ? 'seg-on' : ''}" id="view-network">Network</button><button class="${view() === 'order' ? 'seg-on' : ''}" id="view-order">Order</button>
+      <button class="${view() === 'network' ? 'seg-on' : ''}" id="view-network">Network</button><button class="${view() === 'order' ? 'seg-on' : ''}" id="view-order">Order</button><button class="${view() === 'timeline' ? 'seg-on' : ''}" id="view-timeline">▦ Timeline</button>
     </span>${baselineChipHTML(current.baselines)}</div>` : ''}
     ${nTeams === 0 ? '<p class="hint">Step 1: pick a roster (team composition drifts over time — this pins it). Step 2: upload the initiatives matrix.</p>'
       : nInit === 0 ? '<p class="hint">Roster loaded. Now upload the initiatives matrix.</p>'
@@ -124,6 +125,7 @@ function renderPlan() {
   document.getElementById('plan-strict-deps')?.addEventListener('change', (e) => { current.strictDeps = e.target.checked; });
   document.getElementById('view-network')?.addEventListener('click', () => setView('network'));
   document.getElementById('view-order')?.addEventListener('click', () => setView('order'));
+  document.getElementById('view-timeline')?.addEventListener('click', () => setView('timeline'));
   // The chip summarises a panel that only exists in the Order view, so it has to be
   // able to get there — otherwise it is a status message with no way through. The
   // scroll happens in renderOrder once the panel actually exists: with a stale
@@ -137,11 +139,11 @@ function renderPlan() {
   if (nTeams > 0 && nInit > 0) {
     current.levers = current.levers || [];
     current.netMode = current.netMode || 'after';
-    if (view() === 'order') renderOrder(); else renderDash();
+    if (view() === 'order') renderOrder(); else if (view() === 'timeline') renderTimeline(); else renderDash();
   }
 }
 
-const view = () => (current && current.view) === 'order' ? 'order' : 'network';
+const view = () => ['order', 'timeline'].includes(current && current.view) ? current.view : 'network';
 
 // saveScheduling stores the plan-level assumptions and recomputes the order. This
 // is the only way to give a plan a period start, without which target dates cannot
@@ -353,6 +355,102 @@ function setView(v) {
   renderPlan();
 }
 
+// renderTimeline paints Stories 8-9's views (§13.3-§13.5). It shares the order
+// cache: the timeline IS the same schedule seen as spans, so a second fetch
+// would be a second answer to one question. Same epoch discipline as
+// renderOrder — an in-flight order can land after the view switched.
+async function renderTimeline() {
+  const host = document.getElementById('plan-dash');
+  if (!host) return;
+  if (!current.schedule) {
+    host.innerHTML = '<p class="hint">Working out the order…</p>';
+    const forPlan = current.id;
+    const atEpoch = orderEpoch;
+    const body = {};
+    if (current.isDraft) body.initiatives = current.initiatives;
+    if ((current.levers || []).length) body.levers = current.levers;
+    const r = await req('/api/plan/' + current.id + '/schedule', {
+      method: 'POST', body: JSON.stringify(body),
+    });
+    let payload = null;
+    if (r && r.ok) { try { payload = await r.json(); } catch { /* handled below */ } }
+    if (!current || current.id !== forPlan || orderEpoch !== atEpoch) return;
+    if (!payload) {
+      host.innerHTML = '<p class="plan-warn">Could not compute the schedule the timeline draws.</p>';
+      return;
+    }
+    current.schedule = payload;
+  }
+  const sched = current.schedule;
+  const horizon = Math.max(1, Math.ceil(current.horizonWeeks || sched.horizonWeeks || 26));
+  // AC 8.5: today, positioned by date — but only when it is genuinely inside
+  // the period. A today clamped to the last week would claim the period is
+  // further along than it is, and a missing period start means no position.
+  let todayWeek;
+  if (sched.periodStart) {
+    // Date-only, so the period's final day still counts as inside: comparing
+    // wall-clock against period-start midnight would suppress the marker for
+    // the whole of that last day.
+    const now = new Date();
+    const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    const start = new Date(`${sched.periodStart.trim()}T00:00:00Z`).getTime();
+    const end = start + horizon * 7 * 86400000;
+    if (today >= start && today <= end) {
+      todayWeek = Math.floor((today - start) / (7 * 86400000));
+    }
+  }
+
+  const lens = current.tlLens || 'initiative';
+  const lensBtn = (id, on, label) =>
+    `<button class="${on ? 'seg-on' : ''}" id="${id}">${label}</button>`;
+  host.innerHTML = `
+    <div class="plan-views"><span class="seg">
+      ${lensBtn('tl-by-initiative', lens === 'initiative', '◉ by initiative')}
+      ${lensBtn('tl-by-pod', lens === 'pod', '○ by pod')}
+    </span></div>
+    <div id="tl-main"></div>
+    <div id="tl-pod"></div>`;
+
+  const paint = () => {
+    const main = document.getElementById('tl-main');
+    if (!main) return;
+    main.innerHTML = lens === 'pod'
+      ? podLensHTML(sched, { horizonWeeks: horizon })
+      : portfolioTimelineHTML(sched, { horizonWeeks: horizon, todayWeek, expand: current.tlExpand });
+    // AC 8.4: expanding a row shows its pod slices. One open row at a time, so
+    // the lens stays readable — the wireframe is one expanded initiative.
+    main.querySelectorAll('.tl-row[data-expandable="1"] .tl-label').forEach((el) =>
+      el.addEventListener('click', () => {
+        const name = el.closest('.tl-row').dataset.init;
+        current.tlExpand = current.tlExpand === name ? null : name;
+        paint();
+      }));
+    // The pod lens's pod blocks open §13.5's sheet (AC 9.1 -> AC 9.5).
+    main.querySelectorAll('.tl-pod[data-pod]').forEach((el) =>
+      el.addEventListener('click', () => paintPodSheet(el.dataset.pod)));
+  };
+  const paintPodSheet = (pod) => {
+    const holder = document.getElementById('tl-pod');
+    if (!holder) return;
+    if (current.tlPod === pod) { current.tlPod = null; holder.innerHTML = ''; return; }
+    current.tlPod = pod;
+    const ps = (sched.podWeeks || []).find((p) => p.pod === pod);
+    holder.innerHTML = ps ? podSheetHTML(ps, sched, { horizonWeeks: horizon }) : '';
+  };
+  paint();
+  // A pod sheet open from before a lens switch stays open: render it directly
+  // rather than through the toggle, which would read the selection as a
+  // second click and clear it.
+  if (current.tlPod) {
+    const holder = document.getElementById('tl-pod');
+    const ps = (sched.podWeeks || []).find((p) => p.pod === current.tlPod);
+    if (holder) holder.innerHTML = ps ? podSheetHTML(ps, sched, { horizonWeeks: horizon }) : '';
+  }
+
+  document.getElementById('tl-by-initiative')?.addEventListener('click', () => { current.tlLens = 'initiative'; renderTimeline(); });
+  document.getElementById('tl-by-pod')?.addEventListener('click', () => { current.tlLens = 'pod'; renderTimeline(); });
+}
+
 // renderOrder computes the execution order and paints §13.2's table plus the
 // per-pod load grid. Stateless on the server side: nothing is saved by looking.
 async function renderOrder() {
@@ -401,6 +499,8 @@ async function renderOrder() {
   wireBaselineControls();
   host.querySelectorAll('.ord-options').forEach((b) =>
     b.addEventListener('click', () => toggleRemedies(b)));
+  // AC 8.1: the timeline opens from the order view in one action.
+  document.getElementById('tl-open')?.addEventListener('click', () => setView('timeline'));
   document.getElementById('sched-save')?.addEventListener('click', saveScheduling);
   document.getElementById('sched-cancel')?.addEventListener('click', () => renderOrder());
   host.querySelectorAll('.ord-podlink').forEach((a) => a.addEventListener('click', () => {
