@@ -7,7 +7,7 @@ import {
   enablePanZoom, enableNodeDrag, makeSpotlight,
 } from './netgraph.js';
 import { esc, orderViewHTML, schedulingFromForm } from './order.js';
-import { baselineChipHTML, baselinePanelHTML } from './baseline.js';
+import { baselineChipHTML, baselinePanelHTML, saveErrorMessage } from './baseline.js';
 
 let root, current = null;
 
@@ -203,10 +203,20 @@ function orderRequestBody() {
   return body;
 }
 
-function baselineError(why) {
+// baselineError renders a failed request. It takes the response rather than a
+// string so that translating a status into readable copy is not something a call
+// site can skip — echoing the body is how a 405 once reached the page as "method".
+async function baselineError(r) {
+  baselineNote(saveErrorMessage(r ? r.status : 0, r ? await r.text() : ''));
+}
+
+// baselineNote paints one message beside the save control, replacing any previous
+// one. Callers pass HTML-safe text: saveErrorMessage escapes what came from the
+// server, and the local validation messages are literals.
+function baselineNote(msg) {
   document.getElementById('bl-error')?.remove();
   document.querySelector('.bl-save')?.insertAdjacentHTML('beforeend',
-    `<span class="plan-warn" id="bl-error">${esc(why)}</span>`);
+    `<span class="plan-warn" id="bl-error">${msg}</span>`);
 }
 
 // saveBaseline freezes the order currently on screen, under a name. The body
@@ -217,7 +227,7 @@ async function saveBaseline() {
   const name = (input?.value || '').trim();
   if (!name) {
     input?.focus();
-    baselineError('Give the baseline a name \u2014 it is how this period\u2019s agreed order is referred to later.');
+    baselineNote('Give the baseline a name \u2014 it is how this period\u2019s agreed order is referred to later.');
     return;
   }
   const btn = document.getElementById('bl-save');
@@ -228,7 +238,7 @@ async function saveBaseline() {
   });
   if (!current || current.id !== forPlan) return;
   if (!r || !r.ok) {
-    baselineError(r ? await r.text() : 'the request did not reach the server');
+    await baselineError(r);
     const live = document.getElementById('bl-save');
     if (live) { live.disabled = false; live.textContent = 'Save as baseline'; }
     return;
@@ -244,7 +254,7 @@ async function activateBaseline(id) {
     method: 'PATCH', body: JSON.stringify({ active: true }),
   });
   if (!current || current.id !== forPlan) return;
-  if (!r || !r.ok) { baselineError(r ? await r.text() : 'could not activate that baseline'); return; }
+  if (!r || !r.ok) { await baselineError(r); return; }
   await loadBaselines();
   renderPlan();
 }
@@ -256,7 +266,7 @@ async function compareBaseline(id) {
     method: 'POST', body: JSON.stringify(orderRequestBody()),
   });
   if (!current || current.id !== forPlan) return;
-  if (!r || !r.ok) { baselineError(r ? await r.text() : 'could not compare against that baseline'); return; }
+  if (!r || !r.ok) { await baselineError(r); return; }
   current.baselineCompare = await r.json();
   renderOrder();
 }

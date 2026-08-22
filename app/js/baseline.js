@@ -127,3 +127,29 @@ export function baselinePanelHTML(baselines, compare) {
   </div>
   ${compareTableHTML(compare)}`;
 }
+
+// saveErrorMessage turns a failed baseline request into something a planner can
+// act on. It lives here, beside the other pure functions, because the version that
+// lived in planui.js pasted the server's response body straight into the page —
+// untested, because that side of the line owns the DOM and not the wording.
+//
+// What that shipped as: a 405 whose body is the word "method", rendered next to
+// the Save button, looking for all the world like a control labelled "Method".
+// 405 on these routes has one dominant cause worth naming outright — app/js is
+// served from disk with no-cache, so a checkout updates the page instantly while
+// the compiled server keeps serving routes it was built with.
+// Like every export here it returns HTML-safe output: the server's text is escaped
+// at the point it is interpolated, so a caller cannot forget to.
+export function saveErrorMessage(status, body) {
+  const detail = esc(String(body || '').trim());
+  if (!status) return 'That did not reach the server — check it is still running.';
+  if (status === 405) {
+    return 'This page is newer than the server it is talking to. Restart the server '
+      + '(the browser picks up app changes immediately; the Go binary is older and has to be rebuilt).';
+  }
+  if (status === 401 || status === 403) return 'You are not allowed to change this plan’s baselines.';
+  if (status === 503) return 'The database is unavailable, so nothing can be saved right now.';
+  if (status >= 500) return `The server could not save that${detail ? ': ' + detail : ''}.`;
+  // A 4xx body is written for a person — it is the useful part, so keep it.
+  return detail ? `That was refused: ${detail}` : 'That was refused by the server.';
+}
