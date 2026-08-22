@@ -393,7 +393,7 @@ async function renderTimeline() {
     // the whole of that last day.
     const now = new Date();
     const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-    const start = new Date(`${sched.periodStart}T00:00:00Z`).getTime();
+    const start = new Date(`${sched.periodStart.trim()}T00:00:00Z`).getTime();
     const end = start + horizon * 7 * 86400000;
     if (today >= start && today <= end) {
       todayWeek = Math.floor((today - start) / (7 * 86400000));
