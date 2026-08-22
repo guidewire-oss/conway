@@ -375,6 +375,22 @@ var _ = Describe("ComputeSchedule", func() {
 		Expect(fixture.Reconciliation).NotTo(BeEmpty())
 		Expect(fixture.Initiatives[0].Slices).NotTo(BeEmpty())
 		Expect(fixture.PodWeeks[0].Weeks).NotTo(BeEmpty())
+		// The timeline's slack pair (FR-041): the fixture must carry them, or
+		// the JS view is being tested against a schedule that predates them.
+		depSeen, slackSeen := false, false
+		for _, si := range fixture.Initiatives {
+			for _, sl := range si.Slices {
+				if len(sl.DependsOn) > 0 {
+					depSeen = true
+				}
+				if sl.LatestStartWeek > 0 || sl.SlackWeeks > 0 {
+					slackSeen = true
+				}
+				Expect(sl.SlackWeeks).To(Equal(sl.LatestStartWeek - sl.StartWeek))
+			}
+		}
+		Expect(depSeen).To(BeTrue(), "the demo plan has cross-pod dependencies; arrows need the edges")
+		Expect(slackSeen).To(BeTrue(), "the demo plan has parallel branches; the pod view needs real slack")
 	})
 
 	// D22 as amended 2026-08-20: the planner picks which rule the org limit follows,
