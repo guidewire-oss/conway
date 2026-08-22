@@ -383,13 +383,13 @@ async function renderTimeline() {
   }
   const sched = current.schedule;
   const horizon = Math.max(1, Math.ceil(current.horizonWeeks || sched.horizonWeeks || 26));
-  // AC 8.5: today, positioned by date. weekOf the period start, floored — a
-  // today part-way through a week is that week, matching the Go side's ceil
-  // convention from the other direction.
-  let todayWeek = null;
+  // AC 8.5: today, positioned by date — but only when it is genuinely inside
+  // the period. A today clamped to the last week would claim the period is
+  // further along than it is, and a missing period start means no position.
+  let todayWeek;
   if (sched.periodStart) {
     const days = (Date.now() - new Date(sched.periodStart).getTime()) / 86400000;
-    if (days >= 0) todayWeek = Math.min(Math.floor(days / 7), horizon);
+    if (days >= 0 && days <= horizon * 7) todayWeek = Math.floor(days / 7);
   }
 
   const lens = current.tlLens || 'initiative';
@@ -430,7 +430,14 @@ async function renderTimeline() {
     holder.innerHTML = ps ? podSheetHTML(ps, sched, { horizonWeeks: horizon }) : '';
   };
   paint();
-  if (current.tlPod) paintPodSheet(current.tlPod); // survives a lens switch
+  // A pod sheet open from before a lens switch stays open: render it directly
+  // rather than through the toggle, which would read the selection as a
+  // second click and clear it.
+  if (current.tlPod) {
+    const holder = document.getElementById('tl-pod');
+    const ps = (sched.podWeeks || []).find((p) => p.pod === current.tlPod);
+    if (holder) holder.innerHTML = ps ? podSheetHTML(ps, sched, { horizonWeeks: horizon }) : '';
+  }
 
   document.getElementById('tl-by-initiative')?.addEventListener('click', () => { current.tlLens = 'initiative'; renderTimeline(); });
   document.getElementById('tl-by-pod')?.addEventListener('click', () => { current.tlLens = 'pod'; renderTimeline(); });

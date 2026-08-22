@@ -36,18 +36,25 @@ test('axis aggregation steps by horizon: weekly, fortnightly, monthly', () => {
   // §13.8: <=16w weekly labels, <=40w fortnightly, beyond that monthly.
   const weekly = axisTicks(12);
   assert.ok(weekly.length > 4);
-  assert.ok(weekly.every((t) => Number.isInteger(t.week)));
+  assert.ok(weekly.every((t, i) => i === 0 || t.week === weekly[i - 1].week + 1),
+    'weekly ticks advance one week at a time');
   const fortnightly = axisTicks(30);
-  assert.ok(fortnightly.length < weekly.length + 20, 'fewer labels than weekly');
-  assert.ok(fortnightly.every((t, i) => i === 0 || t.week > fortnightly[i - 1].week));
+  assert.ok(fortnightly.every((t, i) => i === 0 || t.week === fortnightly[i - 1].week + 2),
+    'fortnightly ticks advance two weeks at a time');
   const monthly = axisTicks(104);
-  assert.ok(monthly.length <= 30, 'monthly labels cannot crowd a 104w horizon');
+  assert.ok(monthly.every((t, i) => i === 0 || t.week === monthly[i - 1].week + 4),
+    'monthly ticks advance four weeks at a time');
+  assert.ok(monthly.length <= 27, 'monthly labels cannot crowd a 104w horizon');
 });
 
 // AC 8.1: bar = scheduled span, appended buffer segment, target marker.
 test('a row renders the span, the buffer tail, and the target diamond', () => {
-  const si = sched.initiatives.find((x) => x.targetWeek !== undefined && x.targetWeek !== null);
-  assert.ok(si, 'fixture has a dated initiative');
+  // The buffer must be inside the horizon for this assertion: an initiative
+  // whose commit lands past the horizon clamps its tail away (see the
+  // overrun test below).
+  const si = sched.initiatives.find((x) =>
+    x.targetWeek != null && x.commitWeek <= 26);
+  assert.ok(si, 'fixture has a dated initiative that fits the period');
   const html = timelineRowHTML(si, { horizonWeeks: 26 });
   assert.match(html, /tl-bar/);
   assert.match(html, /tl-buffer/);
@@ -56,6 +63,29 @@ test('a row renders the span, the buffer tail, and the target diamond', () => {
   // The bar starts at the initiative's start week, positioned by percentage.
   const s = axisScale(26);
   assert.ok(html.includes(`left:${s(si.startWeek)}`), 'bar is positioned at its start week');
+});
+
+// FR-035 with overrun: work past the horizon clamps at 100% — nothing renders
+// outside the container — and the overrun stays visible in the title.
+test('work past the horizon stops at the container edge and says so', () => {
+  const over = sched.initiatives.find((x) => x.commitWeek > 26);
+  assert.ok(over, 'the demo plan overruns its horizon');
+  const html = timelineRowHTML(over, { horizonWeeks: 26 });
+  const widths = [...html.matchAll(/width:([\d.]+)%/g)].map((m) => parseFloat(m[1]));
+  for (const w of widths) assert.ok(w <= 100, 'no width exceeds the container');
+  const lefts = [...html.matchAll(/left:([\d.]+)%/g)].map((m) => parseFloat(m[1]));
+  for (const l of lefts) assert.ok(l <= 100, 'no position exceeds the container');
+  assert.match(html, /past the horizon/, 'the overrun is named, not hidden');
+});
+
+test('a target beyond the horizon pins at the edge and says so', () => {
+  const html = timelineRowHTML(
+    { name: 'Far out', startWeek: 20, rawFinishWeek: 24, commitWeek: 26,
+      bufferWeeks: 2, targetWeek: 40, slices: [] },
+    { horizonWeeks: 26 });
+  assert.match(html, /tl-target-beyond/);
+  assert.match(html, /beyond the horizon/);
+  assert.ok(!html.includes('left:153'), 'the diamond does not render off-container');
 });
 
 test('a row without a target date renders no diamond', () => {
@@ -122,33 +152,60 @@ test('the portfolio timeline renders one row per initiative, ranked order', () =
 });
 
 // AC 9.1 / FR-040: pod lanes are tracks; never more lanes than tracks.
-test('pod lanes place slices in start order, one lane per track at most', () => {
-  const ps = sched.podWeeks.find((p) => p.slices.length > 1);
-  assert.ok(ps, 'fixture has a pod with multiple slices');
+test('pod lanes place overlapping slices on separate lanes, never more than tracks', () => {
+  // A pod whose slices actually overlap is the case the packing exists for.
+  const ps = sched.podWeeks.find((p) => p.slices.length > 1 && overlaps(p.slices));
+  assert.ok(ps, 'fixture has a pod with overlapping slices');
   const html = podLanesHTML(ps, { horizonWeeks: 26 });
   assert.match(html, /tl-lane/);
   const lanes = (html.match(/class="tl-lane/g) || []).length;
   assert.ok(lanes <= ps.tracks, `${lanes} lanes for ${ps.tracks} tracks`);
-  // Slices labelled by initiative (FR-040).
-  for (const sl of ps.slices) assert.match(html, new RegExp(escRe(sl.initiative)));
+  // The overlapping pair lands on different lanes: both labelled, both present.
+  const pair = firstOverlap(ps.slices);
+  assert.match(html, new RegExp(escRe(pair[0].initiative)));
+  assert.match(html, new RegExp(escRe(pair[1].initiative)));
+  // The overlap itself proves the packing: with only one lane the second bar
+  // would have to start after the first ends, which is what placement checks.
+  assert.ok(occupiedLanes(ps.slices) >= 2, 'overlapping slices occupy two lanes');
 });
 
 test('a pod with idle tracks shows them, not hides them', () => {
-  const ps = sched.podWeeks.find((p) => p.tracks > laneCount(p));
-  if (!ps) return; // demo plan may use every track; the code path is still spec'd below
+  const ps = sched.podWeeks.find((p) => p.tracks > occupiedLanes(p.slices));
+  if (!ps) return; // demo plan may use every track; the lane cap is spec'd above
   const html = podLanesHTML(ps, { horizonWeeks: 26 });
   assert.match(html, /idle/, 'slack is shown');
 });
 
-function laneCount(ps) {
-  // How many distinct tracks the scheduled slices actually occupy.
-  const lanes = new Set();
-  for (const sl of ps.slices) {
-    // The server does not assign lanes; the view assigns them greedily by
-    // overlap, so count greedily here too.
-    lanes.add(0); // placeholder: overlap assignment happens in the view
+test('a zero-capacity pod renders no track lanes', () => {
+  const html = podLanesHTML({ pod: 'Ghost', tracks: 0, weeks: [], slices: [
+    { initiative: 'X', pod: 'Ghost', startWeek: 2, finishWeek: 5, latestStartWeek: 2, slackWeeks: 0 },
+  ] }, { horizonWeeks: 26 });
+  assert.match(html, /no capacity/);
+  assert.ok(!html.includes('track 1</span'), 'a lane would claim capacity that does not exist');
+});
+
+// occupiedLanes mirrors the view's greedy interval packing, so the idle test
+// decides from the same arithmetic the renderer uses.
+function occupiedLanes(slices) {
+  const ends = [];
+  for (const sl of slices.slice().sort((a, b) => a.startWeek - b.startWeek)) {
+    let lane = ends.findIndex((e) => e <= sl.startWeek);
+    if (lane === -1) { lane = ends.length; ends.push(0); }
+    ends[lane] = sl.finishWeek;
   }
-  return ps.slices.length;
+  return ends.length;
+}
+
+function overlaps(slices) { return !!firstOverlap(slices); }
+
+function firstOverlap(slices) {
+  const sorted = slices.slice().sort((a, b) => a.startWeek - b.startWeek);
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i].startWeek < sorted[i - 1].finishWeek) {
+      return [sorted[i - 1], sorted[i]];
+    }
+  }
+  return null;
 }
 
 // AC 9.2 / 9.3 / FR-041 / FR-042: the pod sheet.
@@ -165,6 +222,25 @@ test('the pod sheet shows start, start by, slack, waiting on, and blocks', () =>
   const zero = ps.slices.find((s) => s.slackWeeks === 0);
   if (zero) assert.match(html, /none ⚠|zero-slack|no slack/i, 'zero slack is marked distinctly');
   assert.ok(!html.includes('undefined'));
+});
+
+test('the pod sheet carries the exact start-by and slack values (FR-041)', () => {
+  // Column names are not values: find a slice with real slack and read its
+  // cells back out of the rendered row.
+  let found = null;
+  for (const p of sched.podWeeks) {
+    const sl = p.slices.find((s) => s.slackWeeks > 0);
+    if (sl) { found = { p, sl }; break; }
+  }
+  assert.ok(found, 'fixture has a slice with positive slack');
+  const html = podSheetHTML(found.p, sched, { horizonWeeks: 26 });
+  // The raw name, not the regex-escaped one: indexOf wants literal text.
+  const at = html.indexOf(found.sl.initiative);
+  assert.ok(at >= 0, 'the slice is in this pod\'s sheet');
+  const row = html.slice(at, html.indexOf('</tr>', at));
+  assert.match(row, new RegExp(`w${found.sl.startWeek}`), 'the start week is the actual start');
+  assert.match(row, new RegExp(`w${found.sl.latestStartWeek}`), 'start-by is latestStartWeek');
+  assert.match(row, new RegExp(`${found.sl.slackWeeks}w`), 'slack is the slice\'s own weeks');
 });
 
 test('the pod sheet names downstream waiters (Blocks)', () => {
