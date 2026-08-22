@@ -245,10 +245,32 @@ var _ = Describe("CompareToBaseline", func() {
 	})
 
 	It("orders the deltas by the current proposed rank, so the table reads like the order", func() {
+		// Load-bearing: two initiatives whose ranks flip between the two schedules.
+		// An identical-input compare arrives already sorted, so it would pass even
+		// if sortDeltasByRank were deleted; this pair would not.
 		base := ComputeSchedule(teams, inits, params, sp)
-		cmp := CompareToBaseline(base, ComputeSchedule(teams, inits, params, sp))
+
+		flipped := append([]Initiative(nil), inits...)
+		// Second's work shrinks, so the capacity-feasible order puts it first.
+		flipped[1].Work = map[string]TeamWork{"Delta": podWork(1)}
+		// Unlocked so the scheduler is free to reorder (locked priorities would
+		// pin the stated order and defeat the point of the mutation).
+		flipped[0].PriorityLocked = false
+		flipped[1].PriorityLocked = false
+		current := ComputeSchedule(teams, flipped, params, sp)
+
+		cmp := CompareToBaseline(base, current)
+		Expect(cmp.Initiatives).To(HaveLen(2))
+		// The two initiatives must actually have swapped, or this spec says nothing
+		// about ordering either.
+		rank := map[string]int{}
+		for _, d := range cmp.Initiatives {
+			rank[d.Name] = d.ProposedRank
+		}
+		Expect(rank["First"]).NotTo(Equal(rank["Second"]))
 		for i := 1; i < len(cmp.Initiatives); i++ {
-			Expect(cmp.Initiatives[i].ProposedRank).To(BeNumerically(">", cmp.Initiatives[i-1].ProposedRank))
+			Expect(cmp.Initiatives[i].ProposedRank).To(BeNumerically(">", cmp.Initiatives[i-1].ProposedRank),
+				"delta %s is out of rank order", cmp.Initiatives[i].Name)
 		}
 	})
 })

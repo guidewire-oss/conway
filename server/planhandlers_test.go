@@ -249,6 +249,18 @@ var _ = Describe("schedulePlan", func() {
 		Expect(rec.Body.String()).To(ContainSubstring("single JSON object"))
 	})
 
+	It("rejects two concatenated objects with no separator (dec.More misses these)", func() {
+		// Regression for the review finding: More() only inspects the current
+		// composite, so "{...}{...}" sailed through it. The second-Decode-to-EOF
+		// contract is what actually enforces one object.
+		req := httptest.NewRequest("POST", "/api/plan/plan1/schedule",
+			strings.NewReader(`{"params":{"periodStart":"2026-01-05"}}{"params":{"maxConcurrentInitiatives":99}}`))
+		rec := httptest.NewRecorder()
+		srv.schedulePlan(rec, req, plan)
+		Expect(rec.Code).To(Equal(400))
+		Expect(rec.Body.String()).To(ContainSubstring("single JSON object"))
+	})
+
 	It("rejects a malformed body instead of silently scheduling the saved plan", func() {
 		req := httptest.NewRequest("POST", "/api/plan/plan1/schedule", strings.NewReader(`{"params":`))
 		rec := httptest.NewRecorder()
@@ -668,6 +680,12 @@ var _ = Describe("the baseline endpoints", func() {
 
 		It("refuses a malformed body", func() {
 			Expect(post("/api/plan/plan1/baseline", `{"name":`, srv.saveBaseline).Code).To(Equal(400))
+		})
+
+		It("refuses two concatenated objects (the shared-body contract with /schedule)", func() {
+			rec := post("/api/plan/plan1/baseline", `{"name":"v1"}{"name":"v2"}`, srv.saveBaseline)
+			Expect(rec.Code).To(Equal(400))
+			Expect(rec.Body.String()).To(ContainSubstring("single JSON object"))
 		})
 
 		It("refuses to baseline a plan with no initiatives", func() {

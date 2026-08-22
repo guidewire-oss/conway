@@ -150,6 +150,21 @@ test('the panel composes without leaking undefined', () => {
   assert.match(html, /id="bl-name"/);
 });
 
+// FR-029's constraint made visible: a baseline freezes stored inputs, so the
+// panel must not offer the save while an unsaved initiatives preview is up —
+// the freshly saved baseline would read as diverged on the next list-read.
+test('the panel blocks the save while a draft preview is unsaved', () => {
+  const html = baselinePanelHTML(saved, null, true);
+  assert.match(html, /Save the uploaded initiatives first/);
+  assert.match(html, /id="bl-save"[^>]*disabled/, 'the button is disabled, not just annotated');
+  assert.match(html, /id="bl-name"[^>]*disabled/, 'and so is the name field');
+});
+
+test('a draft-free panel offers the save', () => {
+  const html = baselinePanelHTML(saved, null, false);
+  assert.ok(!html.includes('disabled'), 'no disabled controls when there is no draft');
+});
+
 test('the panel survives a plan with nothing saved and nothing compared', () => {
   const html = baselinePanelHTML(undefined, undefined);
   assert.ok(!html.includes('undefined'));
@@ -191,6 +206,16 @@ test('a named cause from the server is kept, since it is the useful part', () =>
 
 test('a dead connection is distinguishable from a rejection', () => {
   assert.match(saveErrorMessage(0, ''), /did not reach|reach the server/i);
+});
+
+// A shared handler once labelled every failure with the word "save", so a
+// compare that 500ed was reported as a failed save. op names the operation.
+test('a compare failure is not mislabeled as a save', () => {
+  const msg = saveErrorMessage(500, 'pg: boom', 'compare');
+  assert.match(msg, /compare/i);
+  assert.ok(!/save/i.test(msg), 'no "save" in a compare failure');
+  const saveMsg = saveErrorMessage(500, 'pg: boom');
+  assert.match(saveMsg, /save/i, 'saves still say save');
 });
 
 test('an error message cannot inject markup from the response body', () => {

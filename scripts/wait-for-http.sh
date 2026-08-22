@@ -26,20 +26,30 @@ fail() {
 	exit 1
 }
 
-i=0
-while [ "$i" -lt "$timeout" ]; do
-	kill -0 "$pid" 2>/dev/null || fail "server exited after ${i}s (pid $pid is gone)."
+# A wall-clock deadline, not an attempt count: a listener that accepts TCP but
+# never answers makes curl burn --max-time each probe, plus the interprobe sleep,
+# so "30 iterations" once ran about 90s while reporting a 30s timeout.
+now() { date +%s; }
+start=$(now)
+deadline=$((start + timeout))
+while :; do
+	now=$(now)
+	remaining=$((deadline - now))
+	[ "$remaining" -gt 0 ] || break
+	kill -0 "$pid" 2>/dev/null || fail "server exited after $((now - start))s (pid $pid is gone)."
 	# Curl's exit status, not its %{http_code} output: without -f, any HTTP response
 	# exits 0, so this accepts 401 and 404 (we are testing the listener, not a
 	# route) and rejects a refused connection. The first version of this compared
 	# the printed code against "000" with an `|| echo 000` fallback, which on
 	# failure concatenated to "000000" and passed the check - it reported a
 	# never-listening server as started, the exact bug this script exists to catch.
-	if curl -s -o /dev/null --max-time 2 "$url" 2>/dev/null; then
+	# --max-time is clamped to the remaining budget so the deadline is real.
+	probe="$remaining"; [ "$probe" -gt 2 ] && probe=2
+	if curl -s -o /dev/null --max-time "$probe" "$url" 2>/dev/null; then
 		exit 0
 	fi
-	sleep 1
-	i=$((i + 1))
+	# Same clamp on the pause, so a 1s budget cannot become a 3s overshoot.
+	[ "$remaining" -ge 1 ] && sleep 1
 done
 
 fail "server never answered on $url within ${timeout}s, though pid $pid is alive.
