@@ -388,8 +388,16 @@ async function renderTimeline() {
   // further along than it is, and a missing period start means no position.
   let todayWeek;
   if (sched.periodStart) {
-    const days = (Date.now() - new Date(sched.periodStart).getTime()) / 86400000;
-    if (days >= 0 && days <= horizon * 7) todayWeek = Math.floor(days / 7);
+    // Date-only, so the period's final day still counts as inside: comparing
+    // wall-clock against period-start midnight would suppress the marker for
+    // the whole of that last day.
+    const now = new Date();
+    const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    const start = new Date(`${sched.periodStart}T00:00:00Z`).getTime();
+    const end = start + horizon * 7 * 86400000;
+    if (today >= start && today <= end) {
+      todayWeek = Math.floor((today - start) / (7 * 86400000));
+    }
   }
 
   const lens = current.tlLens || 'initiative';

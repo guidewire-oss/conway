@@ -164,9 +164,18 @@ test('pod lanes place overlapping slices on separate lanes, never more than trac
   const pair = firstOverlap(ps.slices);
   assert.match(html, new RegExp(escRe(pair[0].initiative)));
   assert.match(html, new RegExp(escRe(pair[1].initiative)));
-  // The overlap itself proves the packing: with only one lane the second bar
-  // would have to start after the first ends, which is what placement checks.
-  assert.ok(occupiedLanes(ps.slices) >= 2, 'overlapping slices occupy two lanes');
+  // The packing is proven from the RENDER, not the helper: the overlapping
+  // pair must appear in different .tl-lane blocks, so a same-lane regression
+  // fails even if the arithmetic helper stays correct.
+  const laneOf = (name) => {
+    const idx = html.split('<div class="tl-lane">').findIndex((lane) =>
+      lane.includes(`>${escRe(name).replace(/\[/g, '&#')}`) || new RegExp(escRe(name)).test(lane));
+    return idx;
+  };
+  assert.notEqual(laneOf(pair[0].initiative), laneOf(pair[1].initiative),
+    'overlapping slices occupy different lanes');
+  assert.ok(laneOf(pair[0].initiative) >= 0 && laneOf(pair[1].initiative) >= 0,
+    'both overlapping slices render');
 });
 
 test('a pod with idle tracks shows them, not hides them', () => {
@@ -238,9 +247,10 @@ test('the pod sheet carries the exact start-by and slack values (FR-041)', () =>
   const at = html.indexOf(found.sl.initiative);
   assert.ok(at >= 0, 'the slice is in this pod\'s sheet');
   const row = html.slice(at, html.indexOf('</tr>', at));
-  assert.match(row, new RegExp(`w${found.sl.startWeek}`), 'the start week is the actual start');
-  assert.match(row, new RegExp(`w${found.sl.latestStartWeek}`), 'start-by is latestStartWeek');
-  assert.match(row, new RegExp(`${found.sl.slackWeeks}w`), 'slack is the slice\'s own weeks');
+  // Cell-anchored: a bare w8 would also match w80.
+  assert.match(row, new RegExp(`<td>w${found.sl.startWeek}</td>`), 'the start week is the actual start');
+  assert.match(row, new RegExp(`<td>w${found.sl.latestStartWeek}</td>`), 'start-by is latestStartWeek');
+  assert.match(row, new RegExp(`<td>${found.sl.slackWeeks}w</td>`), 'slack is the slice\'s own weeks');
 });
 
 test('the pod sheet names downstream waiters (Blocks)', () => {
