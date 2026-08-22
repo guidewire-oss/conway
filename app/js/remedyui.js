@@ -31,7 +31,10 @@ const KIND_LABELS = {
 };
 
 export function remedyKindLabel(kind) {
-  return KIND_LABELS[kind] || kind;
+  // Own-property only: a future kind named "constructor" or "__proto__" would
+  // otherwise find the inherited property and render a function instead of the
+  // raw fallback the upgrade contract promises.
+  return Object.prototype.hasOwnProperty.call(KIND_LABELS, kind) ? KIND_LABELS[kind] : kind;
 }
 
 // verdictLabel maps the Go verdicts to a phrase; unknown verdicts pass through
