@@ -406,7 +406,7 @@ critical paths at once.
 > Given a slice with slack between its earliest and latest possible start
 > When the pod lead views it
 > Then the row shows earliest start, latest start, and the slack in weeks
-> And latest start is defined as the last week the slice can begin without moving its initiative's commit date
+> And latest start is defined as the last week the slice can begin without moving its initiative's raw finish — the buffer's weeks are not slice slack (Decision 14)
 
 **AC 9.3: Zero-slack work is marked**
 
@@ -594,7 +594,7 @@ critical paths at once.
 | FR-038 | The timeline MUST mark today, freeze windows, site non-working windows and period boundaries | MUST |
 | FR-039 | Bars MUST have a minimum rendered width so short slices stay visible and clickable, and labels MUST truncate rather than overflow | MUST |
 | FR-040 | The system MUST provide a per-pod timeline: one lane per track, slices placed in scheduled order and labelled by initiative | MUST |
-| FR-041 | The per-pod view MUST show, for every slice, earliest start, latest start and slack in weeks, where latest start is the last week the slice can begin without moving its initiative's commit date | MUST |
+| FR-041 | The per-pod view MUST show, for every slice, earliest start, latest start and slack in weeks, where latest start is the last week the slice can begin without moving its initiative's raw finish (Decision 14: the flat buffer is not slice slack) | MUST |
 | FR-042 | The per-pod view MUST mark zero-slack slices distinctly, and MUST name each slice's upstream dependencies (with any cross-site handoff allowance) and downstream waiters | MUST |
 | FR-043 | The per-pod view MUST be reachable and readable on its own, without the portfolio view open, and SHOULD be exportable for use in a team meeting | MUST |
 | FR-044 | Timeline colour MUST NOT be the only carrier of meaning; status MUST also be conveyed by position, pattern or label, and the palette MUST follow the app's existing red/amber/green utilization semantics | MUST |
