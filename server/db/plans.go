@@ -168,6 +168,16 @@ func (d *DB) SaveBaseline(b BaselineRow, makeActive bool) (bool, error) {
 	// checking it would mean reporting a non-failure on the happy path.
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	// Lock the plan row first, not the active baseline: a FOR UPDATE on the active
+	// row locks zero rows when the set is empty, so two concurrent first-saves
+	// would both read count=0, both choose active, and one would either fail on
+	// the partial-unique index or leave compared_to naming nothing. The plan row
+	// always exists, so serialising on it is sound either way.
+	var locked string
+	if err := tx.QueryRow(ctx, `SELECT id FROM plans WHERE id=$1 FOR UPDATE`, b.PlanID).Scan(&locked); err != nil {
+		return false, err
+	}
+
 	var existing int
 	if err := tx.QueryRow(ctx,
 		`SELECT count(*) FROM plan_baselines WHERE plan_id=$1`, b.PlanID).Scan(&existing); err != nil {
