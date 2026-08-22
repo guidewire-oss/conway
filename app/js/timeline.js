@@ -91,11 +91,17 @@ export function timelineRowHTML(si, opts = {}) {
   const buf = barGeom(Math.max(si.rawFinishWeek, 0), si.commitWeek, horizon);
   const overrun = Math.max(0, si.commitWeek - horizon);
 
-  const bar = barHTML({
+  // A bar with no in-period width renders nothing — the CSS minimum width
+  // would push a zero-width marker outside the container. Work that starts
+  // beyond the horizon is named by an edge marker instead, so the row still
+  // says what happened to it.
+  const bar = work.width > 0 ? barHTML({
     left: work.left, width: work.width, label: si.name,
     title: `${si.name}: w${si.startWeek}–w${si.rawFinishWeek}, buffer ${si.bufferWeeks}w, commit w${si.commitWeek}` +
       (overrun > 0 ? ` — ${overrun}w past the horizon` : ''),
-  });
+  }) : (si.startWeek >= horizon
+    ? `<div class="tl-beyond" title="${esc(si.name)}: starts w${si.startWeek}, past this horizon">›</div>`
+    : '');
   const buffer = buf.width > 0
     ? `<div class="tl-buffer tl-trunc" style="${pct(buf.left)};width:${buf.width.toFixed(2)}%" title="buffer: w${si.rawFinishWeek}–w${si.commitWeek} (protects the commit, not slack to spend)">+${si.bufferWeeks}w buffer</div>`
     : '';
@@ -121,7 +127,7 @@ export function timelineRowHTML(si, opts = {}) {
   const expandMark = (si.slices || []).length > 1 ? '▸ ' : '';
   return `<div class="tl-row" data-init="${esc(si.name)}" data-expandable="${(si.slices || []).length > 1 ? 1 : 0}">
     <span class="tl-label tl-trunc" title="${esc(si.name)}">${expandMark}${esc(si.name)}</span>
-    <div class="tl-track">${bar}${buffer}${target}${subrows}</div>
+    <div class="tl-track${subrows ? ' tl-expanded' : ''}">${bar}${buffer}${target}${subrows}</div>
   </div>`;
 }
 
@@ -216,12 +222,13 @@ export function podLanesHTML(ps, opts = {}) {
   return rows.join('') + idle.join('');
 }
 
-// podRho is the mean weekly utilization over the WHOLE period — every week,
-// busy or idle. Averaging only the busy weeks would rank a bursty pod as hot
-// as a genuinely saturated one, and the pod lens would not match the
-// Constraints table it is meant to echo.
-function podRho(ps) {
-  const weeks = ps.weeks || [];
+// podRho is the mean weekly utilization over the configured horizon — every
+// week in the period, busy or idle, and nothing past the horizon. Averaging
+// only the busy weeks would rank a bursty pod as hot as a genuinely saturated
+// one; averaging the overrun weeks would describe a period the lens does not
+// show. Both disagree with the Constraints table this lens is meant to echo.
+function podRho(ps, horizon) {
+  const weeks = (ps.weeks || []).slice(0, Math.max(1, horizon));
   if (!weeks.length || !ps.tracks) return 0;
   let sum = 0;
   for (const w of weeks) sum += w.busy;
@@ -230,10 +237,11 @@ function podRho(ps) {
 
 // podLensHTML is §13.4: pods hottest-first, one block of track lanes each.
 export function podLensHTML(sched, opts = {}) {
+  const horizon = opts.horizonWeeks || sched.horizonWeeks || 26;
   const pods = (sched.podWeeks || []).slice()
-    .sort((a, b) => podRho(b) - podRho(a));
+    .sort((a, b) => podRho(b, horizon) - podRho(a, horizon));
   const blocks = pods.map((ps) => {
-    const rho = podRho(ps);
+    const rho = podRho(ps, horizon);
     return `<div class="tl-pod" data-pod="${esc(ps.pod)}">
       <div class="ord-head"><b>${esc(ps.pod)}</b>
         <span class="hint">ρ ${rho.toFixed(2)} · ${ps.tracks} track${ps.tracks > 1 ? 's' : ''} · ${(ps.slices || []).length} slice${(ps.slices || []).length === 1 ? '' : 's'}</span></div>
