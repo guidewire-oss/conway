@@ -353,3 +353,32 @@ exit status.
 
 *Cost:* One more variable and two arithmetic clamps in a 47-line script; the
 `kill -0` liveness check per iteration is unchanged.
+
+## Decision 14
+
+**Slice latest-start anchors on the initiative's raw finish; slack can never
+eat the buffer.**
+
+*Context:* FR-041 defines a slice's latest start as "the last week the slice
+can begin without moving its initiative's commit date", but the commit date
+includes a flat buffer (spec 001 §11 D20), so the definition is ambiguous
+about whether a slice may consume buffer weeks while "not moving the commit".
+The timeline (Stories 8-9) and the pod sheet both render this number, so the
+ambiguity had to be settled before the code.
+
+*Decision:* The backward pass anchors terminal slices on `rawFinishWeek`, not
+`commitWeek`. A slice that slips into the buffer's weeks moves the raw finish
+and therefore the commit — the buffer protects the promise, it is not slack a
+slice may spend. Consequences that fall out and are asserted by spec:
+slack is never negative (a capacity-waited slice reads zero slack — "you can
+wait no more"), and latest start never exceeds the raw finish.
+
+*Rejected:* Anchoring on commitWeek — it would label buffer weeks as slack and
+the pod sheet would tell leads they can start weeks they cannot; the buffer
+would silently stop protecting anything. Per-slice buffers (SSQ-style, §10 Q5)
+— rejected upstream by D20 and would not change the anchoring question.
+
+*Cost:* One more pass over each initiative's slices (`annotateSliceSlack`,
+a single reverse walk — the slices are already topologically sorted), and the
+`WorkSlice` shape grows three fields (dependsOn, latestStartWeek, slackWeeks),
+recorded in spec 001 §7 alongside.
