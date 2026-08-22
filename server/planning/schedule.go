@@ -468,6 +468,9 @@ func computeOne(teams []Team, inits []Initiative, params Params, sp SchedulingPa
 	sched.Reconciliation = reconcile(sched.Initiatives, bestRule)
 	sched.Conflicts = conflictingCommitments(sched.Initiatives)
 	annotateSliceSlack(sched.Initiatives)
+	// PodWeeks was built during the run, before the annotation: the pod view
+	// reads those copies, so the slack pair has to reach them too.
+	propagateSliceSlack(sched.Initiatives, sched.PodWeeks)
 	sched.Assumptions, sched.Warnings = notices(prepared)
 	// From the winning run, not from a fresh walk of the plan: which edge closes a
 	// cycle depends on the traversal, so a sheet-order detector would name an edge
