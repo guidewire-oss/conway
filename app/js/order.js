@@ -325,6 +325,7 @@ export function orderHeaderHTML(sched) {
     <b>Execution order</b>
     <span class="hint">rule: ${esc(sched.rule || '—')}${rules ? ` (best of ${rules})` : ''}</span>
     <span class="hint">${wipLimitNote(sched.wipLimit)}</span>
+    <button type="button" id="tl-open" title="open this order as a timeline (Story 8)">▦ Open timeline ▸</button>
   </div>
   <div class="plan-summary">${score}</div>`;
 }
