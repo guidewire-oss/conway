@@ -168,6 +168,16 @@ test('a stale-server 405 explains itself rather than echoing the server', () => 
   assert.match(msg, /older/i, 'name the cause: binary older than the page');
 });
 
+// The server's 405 body names the verb and path it refused, which is the one clue
+// that distinguishes "you did not restart" from "the route is genuinely missing".
+// The first version of this message replaced that detail with generic advice, and
+// the next report of the bug arrived with the evidence already thrown away.
+test('a 405 keeps the detail the server sent, since that is what identifies it', () => {
+  const msg = saveErrorMessage(405, 'POST /api/plan/p1/baseline is not a route this server has.');
+  assert.match(msg, /POST \/api\/plan\/p1\/baseline/, 'the refused route must survive');
+  assert.match(msg, /restart/i, 'and still say what to do');
+});
+
 test('an error message never surfaces a bare server string as if it were UI copy', () => {
   for (const [status, body] of [[500, 'sql: no rows'], [503, 'planning requires the database'], [403, 'forbidden']]) {
     const msg = saveErrorMessage(status, body);

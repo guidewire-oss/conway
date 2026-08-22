@@ -144,8 +144,12 @@ export function saveErrorMessage(status, body) {
   const detail = esc(String(body || '').trim());
   if (!status) return 'That did not reach the server — check it is still running.';
   if (status === 405) {
-    return 'This page is newer than the server it is talking to. Restart the server '
-      + '(the browser picks up app changes immediately; the Go binary is older and has to be rebuilt).';
+    // Keep the server's detail: it names the verb and path refused, which is what
+    // separates "the restart did not take" from "the route is genuinely missing".
+    // Dropping it once meant the next bug report arrived with no evidence in it.
+    return 'The server binary is older than this page — rebuild and restart it. '
+      + '(app/ is served from disk, so the page updated on checkout; routes are compiled in.)'
+      + (detail ? ` The server said: ${detail}` : '');
   }
   if (status === 401 || status === 403) return 'You are not allowed to change this plan’s baselines.';
   if (status === 503) return 'The database is unavailable, so nothing can be saved right now.';
