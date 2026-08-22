@@ -324,3 +324,32 @@ v0.46.0 as a transitive upgrade. `revive`'s `dot-imports` rule is relaxed for
 `_test.go` only, because dot-importing Ginkgo and Gomega is how their DSL is meant
 to read; the rule stays armed for production code.
 
+
+## Decision 13
+
+**`wait-for-http.sh` waits on a wall-clock deadline, not an attempt count.**
+
+*Context:* The script's contract is "a `make server` success line means serving".
+Its first version looped `i < timeout` with `--max-time 2` per probe and a 1s
+interprobe sleep, so a listener that accepts TCP but never answers (a database
+waiting on a lock, a proxy holding the port) made each probe cost about 3s and
+the nominal 30s wait ran about 90s — while the failure message still reported
+"within 30s". A dev loop that lies about how long it waited is the same failure
+class as a dev loop that reports an unlistening server as started, which is the
+bug this script exists to prevent (spec 001 §11, trap 2 in the 2026-08-21
+handoff).
+
+*Decision:* Compute `deadline = start + timeout` once from `date +%s`, clamp
+each curl `--max-time` and each sleep to the remaining budget, and break when the
+deadline passes. The probe semantics are unchanged: curl's exit status decides,
+not `%{http_code}` with a fallback (the `000`/`000000` concatenation trap that
+the script's header documents).
+
+*Rejected:* Keeping the iteration count and dividing timeout by probe cost —
+probe cost is not constant (a fast refusal and a 2s hang differ by 100x), so any
+fixed arithmetic still lies. A `--connect-timeout`/`--max-time` pair tuned per
+case — two knobs for one deadline, and the connect case is already covered by
+exit status.
+
+*Cost:* One more variable and two arithmetic clamps in a 47-line script; the
+`kill -0` liveness check per iteration is unchanged.
