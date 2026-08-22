@@ -279,7 +279,11 @@ var _ = Describe("ComputeRemedies", func() {
 		// Fields the view actually reads, so a rename that json tags away silently
 		// leaves these zero rather than failing to decode.
 		Expect(fixture.Remedies).NotTo(BeEmpty())
-		Expect(fixture.Warnings).NotTo(BeEmpty(), "the transfer-capacity gap is part of the contract")
+		// The warning is part of the contract the page renders: a fixture whose
+		// warning drifted or vanished would silently take the UI's
+		// transfer-capacity note with it.
+		Expect(fixture.Warnings).To(ContainElement(ContainSubstring("transfer-capacity")),
+			"the transfer-capacity gap is part of the contract")
 		for _, r := range fixture.Remedies {
 			Expect(r.Kind).NotTo(BeEmpty())
 			Expect(r.Target).NotTo(BeEmpty())

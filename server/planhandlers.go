@@ -595,9 +595,7 @@ func (s *server) remediesPlan(w http.ResponseWriter, r *http.Request, p *db.Plan
 	// response keeps the gap visible instead of silently absent.
 	writeJSON(w, map[string]any{
 		"remedies": remedies,
-		"warnings": []string{
-			"transfer-capacity remedies are not offered yet: the site-overlap factor is undecided (spec 001 §10 Q1, Decision 7)",
-		},
+		"warnings": []string{planning.TransferDeferredWarning},
 	})
 }
 
