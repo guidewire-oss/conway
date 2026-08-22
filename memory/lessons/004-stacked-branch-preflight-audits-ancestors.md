@@ -24,9 +24,13 @@ designed; the branch topology was wrong for it.
 Rewrite the offending ancestor in place, then rebuild the line on top:
 
 1. `git checkout <sha> && git commit --amend -m "<msg with Decision: N>"` —
-   reword non-interactively.
-2. `git branch -f feat/001-baselines HEAD` — move the PR branch to the reword.
-3. `git cherry-pick` the follow-up commits onto it (cherry-pick, not rebase:
+   reword non-interactively. This leaves HEAD detached.
+2. `git branch -f feat/001-baselines HEAD && git checkout feat/001-baselines` —
+   move the PR branch label to the reword AND get on the branch. `branch -f`
+   only relabels the ref; HEAD stays detached, so cherry-picks run from step 3
+   would land on the detached HEAD and the step-4 push would ship the branch
+   without them (caught in review of this lesson, 2026-08-22).
+3. `git cherry-pick` the follow-up commits (cherry-pick, not rebase:
    rebase's cherry-pick detection silently skips already-applied commits and
    leaves the branch at the wrong place).
 4. `git push --force-with-lease origin feat/001-baselines`.
