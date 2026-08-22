@@ -57,7 +57,7 @@ func (s *server) handlePlans(w http.ResponseWriter, r *http.Request, c auth.Clai
 		}
 		writeJSON(w, map[string]any{"id": p.ID, "name": p.Name})
 	default:
-		http.Error(w, "method", 405)
+		methodNotAllowed(w, r)
 	}
 }
 
@@ -86,7 +86,7 @@ func (s *server) handlePlanDemo(w http.ResponseWriter, r *http.Request, c auth.C
 		return
 	}
 	if r.Method != http.MethodPost {
-		http.Error(w, "method", 405)
+		methodNotAllowed(w, r)
 		return
 	}
 	teams, inits := planning.Demo()
@@ -116,6 +116,20 @@ func (s *server) handlePlanDemo(w http.ResponseWriter, r *http.Request, c auth.C
 		return
 	}
 	writeJSON(w, map[string]any{"id": p.ID})
+}
+
+// methodNotAllowed refuses a request in a way the reader can act on.
+//
+// The body matters more than it looks. app/ is served from disk with no-cache
+// while routes are compiled into the binary, so checking out a branch that adds an
+// endpoint updates the page immediately and leaves a running server that 405s on
+// the new route. The old body for this was the single word "method"; the baselines
+// panel surfaced it beside its Save button and it read as a control labelled
+// "Method", which cost an afternoon to trace back to "restart the server".
+func methodNotAllowed(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, r.Method+" "+r.URL.Path+" is not a route this server has. "+
+		"If the page offers it, the server binary is older than the page — rebuild and restart.",
+		http.StatusMethodNotAllowed)
 }
 
 // handlePlanItem routes /api/plan/{id}[/teams|/initiatives].
@@ -179,7 +193,7 @@ func (s *server) handlePlanItem(w http.ResponseWriter, r *http.Request, c auth.C
 		}
 		writeJSON(w, map[string]any{"ok": true})
 	default:
-		http.Error(w, "method", 405)
+		methodNotAllowed(w, r)
 	}
 }
 
@@ -671,7 +685,7 @@ func (s *server) baselineItem(w http.ResponseWriter, r *http.Request, p *db.Plan
 	case action == "compare" && r.Method == http.MethodPost:
 		s.compareBaseline(w, r, p, bid)
 	default:
-		http.Error(w, "method", http.StatusMethodNotAllowed)
+		methodNotAllowed(w, r)
 	}
 }
 

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   fmtWhen, activeBaseline, baselineChipHTML, baselineListHTML,
-  deltaCell, compareTableHTML, baselinePanelHTML,
+  deltaCell, compareTableHTML, baselinePanelHTML, saveErrorMessage,
 } from '../app/js/baseline.js';
 
 const saved = [
@@ -154,4 +154,35 @@ test('the panel survives a plan with nothing saved and nothing compared', () => 
   const html = baselinePanelHTML(undefined, undefined);
   assert.ok(!html.includes('undefined'));
   assert.match(html, /No baselines yet/);
+});
+
+// A 405 from these endpoints has one overwhelmingly likely cause: the Go binary
+// predates the routes, because app/js is served from disk with no-cache while the
+// server is a compiled process someone has to restart. That shipped once and
+// surfaced as a mystery control labelled "method" beside Save, so the message now
+// names the cause instead of echoing the server.
+test('a stale-server 405 explains itself rather than echoing the server', () => {
+  const msg = saveErrorMessage(405, 'method');
+  assert.match(msg, /restart/i, 'say what to do');
+  assert.ok(!/^method$/i.test(msg), 'never surface the raw server word');
+  assert.match(msg, /older/i, 'name the cause: binary older than the page');
+});
+
+test('an error message never surfaces a bare server string as if it were UI copy', () => {
+  for (const [status, body] of [[500, 'sql: no rows'], [503, 'planning requires the database'], [403, 'forbidden']]) {
+    const msg = saveErrorMessage(status, body);
+    assert.ok(msg.length > body.length, `status ${status} must add context, not just relay`);
+  }
+});
+
+test('a named cause from the server is kept, since it is the useful part', () => {
+  assert.match(saveErrorMessage(400, 'name already taken'), /name already taken/);
+});
+
+test('a dead connection is distinguishable from a rejection', () => {
+  assert.match(saveErrorMessage(0, ''), /did not reach|reach the server/i);
+});
+
+test('an error message cannot inject markup from the response body', () => {
+  assert.ok(!saveErrorMessage(400, '<img src=x onerror=alert(1)>').includes('<img'));
 });
