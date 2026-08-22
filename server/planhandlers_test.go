@@ -778,3 +778,29 @@ var _ = Describe("the baseline endpoints", func() {
 		})
 	})
 })
+
+var _ = Describe("methodNotAllowed", func() {
+	// A 405 whose body is the word "method" is unreadable in a network tab and
+	// worse in a UI that surfaces it: the baselines panel once rendered exactly
+	// that beside its Save button, looking like a control labelled "Method". The
+	// cause was a server binary older than the page, which the body should say,
+	// because app/ is served from disk while routes are compiled in.
+	It("names the method and path it refused", func() {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/api/plan/p1/baseline", nil)
+
+		methodNotAllowed(w, r)
+
+		Expect(w.Code).To(Equal(http.StatusMethodNotAllowed))
+		body := w.Body.String()
+		Expect(body).To(ContainSubstring("POST"))
+		Expect(body).To(ContainSubstring("/api/plan/p1/baseline"))
+		Expect(strings.TrimSpace(body)).NotTo(Equal("method"))
+	})
+
+	It("points at the likeliest cause, since a stale binary is not guessable", func() {
+		w := httptest.NewRecorder()
+		methodNotAllowed(w, httptest.NewRequest(http.MethodPost, "/api/plan/p1/baseline", nil))
+		Expect(w.Body.String()).To(MatchRegexp(`(?i)older|restart|rebuil`))
+	})
+})
