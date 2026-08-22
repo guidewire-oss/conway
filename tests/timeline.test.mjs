@@ -5,6 +5,7 @@ import {
   axisScale, axisTicks, timelineRowHTML, portfolioTimelineHTML,
   podLanesHTML, podLensHTML, podSheetHTML, todayLineHTML,
 } from '../app/js/timeline.js';
+import { esc } from '../app/js/order.js';
 
 // Real scheduler output (regenerate with `go run ./tools/fixgen`), so the view
 // and the Go Schedule shape are checked against each other.
@@ -167,11 +168,10 @@ test('pod lanes place overlapping slices on separate lanes, never more than trac
   // The packing is proven from the RENDER, not the helper: the overlapping
   // pair must appear in different .tl-lane blocks, so a same-lane regression
   // fails even if the arithmetic helper stays correct.
-  const laneOf = (name) => {
-    const idx = html.split('<div class="tl-lane">').findIndex((lane) =>
-      lane.includes(`>${escRe(name).replace(/\[/g, '&#')}`) || new RegExp(escRe(name)).test(lane));
-    return idx;
-  };
+  // Match the ESCAPED name: the renderer escapes labels, so a name with
+  // & < > " never appears raw in the HTML.
+  const laneOf = (name) => html.split('<div class="tl-lane">')
+    .findIndex((lane) => lane.includes(esc(name)));
   assert.notEqual(laneOf(pair[0].initiative), laneOf(pair[1].initiative),
     'overlapping slices occupy different lanes');
   assert.ok(laneOf(pair[0].initiative) >= 0 && laneOf(pair[1].initiative) >= 0,
