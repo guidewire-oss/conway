@@ -207,6 +207,16 @@ type WorkSlice struct {
 	WaitWeeks         float64 `json:"waitWeeks"`  // ready to started
 	BindingConstraint string  `json:"bindingConstraint,omitempty"`
 	Estimated         bool    `json:"estimated"`
+	// The in-plan, cycle-broken predecessors this slice waits on — the arrows
+	// the timeline draws (FR-037) and the upstream names FR-042 requires.
+	DependsOn []string `json:"dependsOn,omitempty"`
+	// The last week this slice can begin without moving its initiative's
+	// commit date, and the weeks it may therefore wait (FR-041). Zero slack
+	// marks the critical chain (AC 9.3). Both are relative to the schedule as
+	// computed — a slice that waits for capacity now has that waiting priced
+	// in, so its slack is what is left after the schedule's own delays.
+	LatestStartWeek int `json:"latestStartWeek"`
+	SlackWeeks      int `json:"slackWeeks"`
 }
 
 // PodWeek is one pod's load in one week.
@@ -457,6 +467,7 @@ func computeOne(teams []Team, inits []Initiative, params Params, sp SchedulingPa
 	}
 	sched.Reconciliation = reconcile(sched.Initiatives, bestRule)
 	sched.Conflicts = conflictingCommitments(sched.Initiatives)
+	annotateSliceSlack(sched.Initiatives)
 	sched.Assumptions, sched.Warnings = notices(prepared)
 	// From the winning run, not from a fresh walk of the plan: which edge closes a
 	// cycle depends on the traversal, so a sheet-order detector would name an edge
@@ -1171,6 +1182,7 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 			Initiative: in.init.Name, Pod: pod, RemainingWeeks: float64(d),
 			StartWeek: begin, FinishWeek: begin + d, WaitWeeks: float64(begin - ready),
 			BindingConstraint: reason, Estimated: w.Estimated && w.Weeks > 0,
+			DependsOn: append([]string(nil), in.deps[pod]...),
 		})
 		finishOf[pod] = begin + d
 		if i == 0 || begin < start {
