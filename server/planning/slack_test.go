@@ -77,9 +77,9 @@ var _ = Describe("slice slack and dependencies", func() {
 		Expect(omega.SlackWeeks).To(Equal(2))
 	})
 
-	It("defines latest start against the commit date, not the raw finish", func() {
-		// The buffer is a flat pct of the chain (Decision 20); a slice can
-		// consume its own slack but never the buffer's weeks.
+	It("never lets slack eat the buffer's weeks", func() {
+		// Decision 14: the buffer protects the commit date, so the backward
+		// pass anchors on the raw finish. Latest start may not pass it.
 		s := schedule()
 		chain := s.Initiatives[0]
 		for _, sl := range chain.Slices {
@@ -87,6 +87,33 @@ var _ = Describe("slice slack and dependencies", func() {
 			Expect(sl.LatestStartWeek).To(BeNumerically("<=", chain.RawFinishWeek),
 				"latest start may never eat the buffer")
 		}
+	})
+
+	It("carries the same slack on the per-pod schedule's copies", func() {
+		// The pod view (FR-040) reads PodWeeks' slice copies, built during the
+		// run — before the annotation pass. The two must never disagree.
+		dTeams, dInits := Demo()
+		s := ComputeSchedule(dTeams, dInits, Params{HorizonWeeks: 26, CapacityLoss: 0.1}, DemoScheduling())
+		byPod := map[string]map[string]WorkSlice{} // pod -> initiative -> copy
+		for _, ps := range s.PodWeeks {
+			byPod[ps.Pod] = map[string]WorkSlice{}
+			for _, sl := range ps.Slices {
+				byPod[ps.Pod][sl.Initiative] = sl
+			}
+		}
+		checked := 0
+		for _, si := range s.Initiatives {
+			for _, sl := range si.Slices {
+				cp, ok := byPod[sl.Pod][si.Name]
+				Expect(ok).To(BeTrue(), "%s/%s missing from PodWeeks", si.Name, sl.Pod)
+				Expect(cp.LatestStartWeek).To(Equal(sl.LatestStartWeek),
+					"%s/%s: pod copy disagrees with the initiative slice", si.Name, sl.Pod)
+				Expect(cp.SlackWeeks).To(Equal(sl.SlackWeeks))
+				Expect(cp.DependsOn).To(Equal(sl.DependsOn))
+				checked++
+			}
+		}
+		Expect(checked).To(BeNumerically(">", 0))
 	})
 
 	It("marks zero slack distinctly from movable work (AC 9.3)", func() {

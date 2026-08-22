@@ -67,3 +67,25 @@ func annotateSliceSlack(sis []ScheduledInitiative) {
 		}
 	}
 }
+
+// propagateSliceSlack copies the slack pair onto the per-pod schedule's slice
+// copies. PodWeeks is built during the run, before annotateSliceSlack runs, and
+// the pod view reads those copies — FR-041's "start by" belongs there just as
+// much as on the initiative's own slices, so the two must never disagree.
+func propagateSliceSlack(sis []ScheduledInitiative, pods []PodSchedule) {
+	type key struct{ initiative, pod string }
+	annotated := map[key]WorkSlice{}
+	for _, si := range sis {
+		for _, sl := range si.Slices {
+			annotated[key{si.Name, sl.Pod}] = sl
+		}
+	}
+	for i := range pods {
+		for j := range pods[i].Slices {
+			sl := &pods[i].Slices[j]
+			if a, ok := annotated[key{sl.Initiative, sl.Pod}]; ok {
+				sl.LatestStartWeek, sl.SlackWeeks = a.LatestStartWeek, a.SlackWeeks
+			}
+		}
+	}
+}

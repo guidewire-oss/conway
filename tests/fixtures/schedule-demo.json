@@ -1103,7 +1103,7 @@
           "dependsOn": [
             "Ember"
           ],
-          "latestStartWeek": 0,
+          "latestStartWeek": 7,
           "slackWeeks": 0
         },
         {
@@ -1118,7 +1118,7 @@
           "dependsOn": [
             "Delta"
           ],
-          "latestStartWeek": 0,
+          "latestStartWeek": 22,
           "slackWeeks": 0
         }
       ]
@@ -1704,8 +1704,8 @@
           "finishWeek": 2,
           "waitWeeks": 0,
           "estimated": true,
-          "latestStartWeek": 0,
-          "slackWeeks": 0
+          "latestStartWeek": 8,
+          "slackWeeks": 8
         },
         {
           "initiative": "SCIM provisioning",
@@ -1715,7 +1715,7 @@
           "finishWeek": 56,
           "waitWeeks": 0,
           "estimated": true,
-          "latestStartWeek": 0,
+          "latestStartWeek": 49,
           "slackWeeks": 0
         }
       ]
@@ -2311,7 +2311,7 @@
           "dependsOn": [
             "Atlas"
           ],
-          "latestStartWeek": 0,
+          "latestStartWeek": 28,
           "slackWeeks": 0
         },
         {
@@ -2322,7 +2322,7 @@
           "finishWeek": 75,
           "waitWeeks": 0,
           "estimated": true,
-          "latestStartWeek": 0,
+          "latestStartWeek": 69,
           "slackWeeks": 0
         }
       ]
@@ -3043,7 +3043,7 @@
           "finishWeek": 22,
           "waitWeeks": 0,
           "estimated": true,
-          "latestStartWeek": 0,
+          "latestStartWeek": 10,
           "slackWeeks": 0
         },
         {
@@ -3054,7 +3054,7 @@
           "finishWeek": 38,
           "waitWeeks": 0,
           "estimated": true,
-          "latestStartWeek": 0,
+          "latestStartWeek": 26,
           "slackWeeks": 0
         },
         {
@@ -3065,7 +3065,7 @@
           "finishWeek": 43,
           "waitWeeks": 0,
           "estimated": true,
-          "latestStartWeek": 0,
+          "latestStartWeek": 33,
           "slackWeeks": 0
         },
         {
@@ -3076,7 +3076,7 @@
           "finishWeek": 51,
           "waitWeeks": 0,
           "estimated": true,
-          "latestStartWeek": 0,
+          "latestStartWeek": 42,
           "slackWeeks": 0
         }
       ]
@@ -3771,7 +3771,7 @@
           "dependsOn": [
             "Beacon"
           ],
-          "latestStartWeek": 0,
+          "latestStartWeek": 56,
           "slackWeeks": 0
         },
         {
@@ -3782,7 +3782,7 @@
           "finishWeek": 70,
           "waitWeeks": 0,
           "estimated": true,
-          "latestStartWeek": 0,
+          "latestStartWeek": 56,
           "slackWeeks": 0
         },
         {
@@ -3797,7 +3797,7 @@
           "dependsOn": [
             "Cascade"
           ],
-          "latestStartWeek": 0,
+          "latestStartWeek": 75,
           "slackWeeks": 0
         }
       ]
@@ -4372,7 +4372,7 @@
           "dependsOn": [
             "Delta"
           ],
-          "latestStartWeek": 0,
+          "latestStartWeek": 38,
           "slackWeeks": 0
         }
       ]
@@ -4983,7 +4983,7 @@
           "dependsOn": [
             "Delta"
           ],
-          "latestStartWeek": 0,
+          "latestStartWeek": 14,
           "slackWeeks": 0
         },
         {
@@ -4994,7 +4994,7 @@
           "finishWeek": 26,
           "waitWeeks": 0,
           "estimated": true,
-          "latestStartWeek": 0,
+          "latestStartWeek": 19,
           "slackWeeks": 0
         },
         {
@@ -5005,8 +5005,8 @@
           "finishWeek": 73,
           "waitWeeks": 0,
           "estimated": true,
-          "latestStartWeek": 0,
-          "slackWeeks": 0
+          "latestStartWeek": 86,
+          "slackWeeks": 17
         }
       ]
     },
@@ -5597,8 +5597,8 @@
           "finishWeek": 24,
           "waitWeeks": 0,
           "estimated": true,
-          "latestStartWeek": 0,
-          "slackWeeks": 0
+          "latestStartWeek": 21,
+          "slackWeeks": 2
         },
         {
           "initiative": "Managed database MVP",
@@ -5612,7 +5612,7 @@
           "dependsOn": [
             "Delta"
           ],
-          "latestStartWeek": 0,
+          "latestStartWeek": 43,
           "slackWeeks": 0
         }
       ]
@@ -6198,8 +6198,8 @@
           "finishWeek": 23,
           "waitWeeks": 0,
           "estimated": true,
-          "latestStartWeek": 0,
-          "slackWeeks": 0
+          "latestStartWeek": 22,
+          "slackWeeks": 3
         },
         {
           "initiative": "Disaster recovery for event streaming",
@@ -6213,7 +6213,7 @@
           "dependsOn": [
             "Delta"
           ],
-          "latestStartWeek": 0,
+          "latestStartWeek": 51,
           "slackWeeks": 0
         }
       ]
@@ -6791,7 +6791,7 @@
           "dependsOn": [
             "Ember"
           ],
-          "latestStartWeek": 0,
+          "latestStartWeek": 70,
           "slackWeeks": 0
         }
       ]

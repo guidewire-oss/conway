@@ -383,7 +383,10 @@ var _ = Describe("ComputeSchedule", func() {
 				if len(sl.DependsOn) > 0 {
 					depSeen = true
 				}
-				if sl.LatestStartWeek > 0 || sl.SlackWeeks > 0 {
+				// SlackWeeks itself, not LatestStartWeek: any slice starting
+				// after week 0 has a positive latest start even at zero slack,
+				// which would let an all-zero-slack fixture pass.
+				if sl.SlackWeeks > 0 {
 					slackSeen = true
 				}
 				Expect(sl.SlackWeeks).To(Equal(sl.LatestStartWeek - sl.StartWeek))
