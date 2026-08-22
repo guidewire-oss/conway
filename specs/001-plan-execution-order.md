@@ -702,6 +702,12 @@ critical paths at once.
   `wip-limit` is the org limit, `pod-wip-limit` the per-pod cap and
   `starts-cap` the change-absorption cap; FR-008 requires each to say which
   limit delayed the work, so they were split apart on 2026-08-20
+- dependsOn: list of pod names — the in-plan, cycle-broken predecessors this
+  slice waits on (FR-037's arrows, FR-042's upstream naming)
+- latestStartWeek: integer — the last week the slice can begin without moving
+  its initiative's commit date (FR-041)
+- slackWeeks: integer — latestStartWeek − startWeek; zero marks the critical
+  chain (AC 9.3, FR-042)
 
 **ScheduledInitiative** _(derived)_
 - proposedRank, statedRank: integer
