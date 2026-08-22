@@ -705,7 +705,9 @@ critical paths at once.
 - dependsOn: list of pod names — the in-plan, cycle-broken predecessors this
   slice waits on (FR-037's arrows, FR-042's upstream naming)
 - latestStartWeek: integer — the last week the slice can begin without moving
-  its initiative's commit date (FR-041)
+  its initiative's raw finish. The flat buffer is not slice slack (Decision 14
+  in docs/DECISION_LOG.md): a slice that slips into the buffer's weeks moves
+  the commit, so the backward pass anchors on the raw finish (FR-041)
 - slackWeeks: integer — latestStartWeek − startWeek; zero marks the critical
   chain (AC 9.3, FR-042)
 
