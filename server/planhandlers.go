@@ -176,6 +176,8 @@ func (s *server) handlePlanItem(w http.ResponseWriter, r *http.Request, c auth.C
 		s.simulatePlan(w, r, p)
 	case sub == "schedule" && r.Method == http.MethodPost:
 		s.schedulePlan(w, r, p)
+	case sub == "schedule/remedies" && r.Method == http.MethodPost:
+		s.remediesPlan(w, r, p)
 	case sub == "baseline" && r.Method == http.MethodPost:
 		s.saveBaseline(w, r, p, c)
 	case sub == "baseline" && r.Method == http.MethodGet:
@@ -558,6 +560,45 @@ type scheduleRequest struct {
 	Params      *planning.SchedulingParams `json:"params"`
 	Initiatives []planning.Initiative      `json:"initiatives"`
 	Levers      []planning.Lever           `json:"levers"`
+}
+
+// remediesPlan prices the rescue options for missed dates (§8, Story 5). It
+// shares /schedule's body so a remedy is priced against exactly the order the
+// planner was looking at — a remedy computed from different inputs would answer
+// a question nobody asked. Like /schedule it writes nothing: remedies are
+// proposals until a planner accepts one (FR-022).
+func (s *server) remediesPlan(w http.ResponseWriter, r *http.Request, p *db.PlanRow) {
+	var body struct {
+		scheduleRequest
+		Targets []string `json:"targets"`
+	}
+	dec := json.NewDecoder(r.Body)
+	if err := dec.Decode(&body); err != nil && !errors.Is(err, io.EOF) {
+		http.Error(w, "could not read the remedies request: "+err.Error(), 400)
+		return
+	}
+	// Same single-object contract as /schedule: "{...}{...}" must not price the
+	// first object and ignore the second.
+	var extra map[string]any
+	if err := dec.Decode(&extra); !errors.Is(err, io.EOF) {
+		http.Error(w, "the remedies request must be a single JSON object", 400)
+		return
+	}
+	inputs, err := s.planScheduleFor(p, body.scheduleRequest)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	remedies := planning.ComputeRemedies(inputs.Teams, inputs.Initiatives, inputs.Params, inputs.Scheduling, body.Targets)
+	// FR-015 names transfer-capacity among the minimum remedies, but Decision 7
+	// defers it until §10 Q1's site-overlap factor is decided. Saying so in the
+	// response keeps the gap visible instead of silently absent.
+	writeJSON(w, map[string]any{
+		"remedies": remedies,
+		"warnings": []string{
+			"transfer-capacity remedies are not offered yet: the site-overlap factor is undecided (spec 001 §10 Q1, Decision 7)",
+		},
+	})
 }
 
 // planScheduleFor resolves a schedule request into the inputs ComputeSchedule

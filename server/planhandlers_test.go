@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -272,6 +273,83 @@ var _ = Describe("schedulePlan", func() {
 		plan = &db.PlanRow{ID: "empty", HorizonWeeks: 26, CapacityLoss: 0.1}
 		sched := post(`{"params":{"periodStart":"2026-01-05"}}`)
 		Expect(sched.Initiatives).To(BeEmpty())
+	})
+})
+
+// POST /api/plan/{id}/schedule/remedies — spec 001 §8, Story 5. Stateless like
+// /schedule: remedies are proposals, and FR-022 forbids the plan moving before
+// an explicit acceptance that does not exist yet.
+var _ = Describe("remediesPlan", func() {
+	var (
+		srv  *server
+		plan *db.PlanRow
+	)
+
+	BeforeEach(func() {
+		teams, inits := planning.Demo()
+		teamsB, err := json.Marshal(teams)
+		Expect(err).NotTo(HaveOccurred())
+		initsB, err := json.Marshal(inits)
+		Expect(err).NotTo(HaveOccurred())
+		schedB, err := json.Marshal(planning.DemoScheduling())
+		Expect(err).NotTo(HaveOccurred())
+		srv = &server{}
+		plan = &db.PlanRow{ID: "plan1", HorizonWeeks: 26, CapacityLoss: 0.1,
+			Teams: teamsB, Initiatives: initsB, Scheduling: schedB}
+	})
+
+	post := func(body string) map[string]any {
+		req := httptest.NewRequest("POST", "/api/plan/plan1/schedule/remedies", strings.NewReader(body))
+		rec := httptest.NewRecorder()
+		srv.remediesPlan(rec, req, plan)
+		Expect(rec.Code).To(Equal(200), rec.Body.String())
+		var out map[string]any
+		Expect(json.Unmarshal(rec.Body.Bytes(), &out)).To(Succeed())
+		return out
+	}
+
+	It("prices remedies for every missed date on the demo plan", func() {
+		out := post(`{}`)
+		remedies, ok := out["remedies"].([]any)
+		Expect(ok).To(BeTrue())
+		Expect(remedies).NotTo(BeEmpty(), "the demo plan misses dates, so it must have remedies")
+		for _, r := range remedies {
+			m := r.(map[string]any)
+			Expect(m["kind"]).NotTo(BeEmpty())
+			Expect(m["target"]).NotTo(BeEmpty())
+			Expect(m["resultingVerdict"]).NotTo(BeEmpty())
+		}
+	})
+
+	It("narrows to a named target and never touches the plan", func() {
+		before := plan.Initiatives
+		out := post(`{"targets":["Managed database MVP"]}`)
+		remedies := out["remedies"].([]any)
+		Expect(remedies).NotTo(BeEmpty())
+		for _, r := range remedies {
+			Expect(r.(map[string]any)["target"]).To(Equal("Managed database MVP"))
+		}
+		Expect(plan.Initiatives).To(MatchJSON(before), "FR-022: a remedy is a proposal, not a change")
+	})
+
+	It("says why transfer-capacity is absent rather than being silent about it", func() {
+		out := post(`{}`)
+		warnings, _ := out["warnings"].([]any)
+		Expect(warnings).NotTo(BeEmpty())
+		joined := ""
+		for _, w := range warnings {
+			joined += fmt.Sprint(w)
+		}
+		Expect(joined).To(ContainSubstring("transfer"))
+	})
+
+	It("refuses two concatenated objects, sharing /schedule's body contract", func() {
+		req := httptest.NewRequest("POST", "/api/plan/plan1/schedule/remedies",
+			strings.NewReader(`{"targets":["A"]}{"targets":["B"]}`))
+		rec := httptest.NewRecorder()
+		srv.remediesPlan(rec, req, plan)
+		Expect(rec.Code).To(Equal(400))
+		Expect(rec.Body.String()).To(ContainSubstring("single JSON object"))
 	})
 })
 

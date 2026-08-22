@@ -312,6 +312,7 @@ type Schedule struct {
 	StatedOrderObjectiveScore float64               `json:"statedOrderObjectiveScore"`
 	WipModels                 []WipModelOutcome     `json:"wipModels,omitempty"`
 	Reconciliation            []RankDeviation       `json:"reconciliation,omitempty"`
+	Conflicts                 []Conflict            `json:"conflicts,omitempty"`
 	Assumptions               []string              `json:"assumptions,omitempty"`
 	Warnings                  []string              `json:"warnings,omitempty"`
 	HorizonWeeks              int                   `json:"horizonWeeks"`
@@ -455,6 +456,7 @@ func computeOne(teams []Team, inits []Initiative, params Params, sp SchedulingPa
 		sched.Initiatives[i].RankingTerms.Rule = bestRule
 	}
 	sched.Reconciliation = reconcile(sched.Initiatives, bestRule)
+	sched.Conflicts = conflictingCommitments(sched.Initiatives)
 	sched.Assumptions, sched.Warnings = notices(prepared)
 	// From the winning run, not from a fresh walk of the plan: which edge closes a
 	// cycle depends on the traversal, so a sheet-order detector would name an edge
