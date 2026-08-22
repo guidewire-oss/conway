@@ -552,7 +552,7 @@ func (s *server) handleUsers(w http.ResponseWriter, r *http.Request, _ auth.Clai
 		must(s.store.Save())
 		writeJSON(w, map[string]any{"username": u.Username, "password": pw, "roles": u.Roles, "expiresAt": u.ExpiresAt})
 	default:
-		http.Error(w, "method", 405)
+		methodNotAllowed(w, r)
 	}
 }
 
@@ -578,7 +578,7 @@ func (s *server) handleUserItem(w http.ResponseWriter, r *http.Request, _ auth.C
 		must(s.store.Save())
 		writeJSON(w, map[string]any{"ok": true})
 	default:
-		http.Error(w, "method", 405)
+		methodNotAllowed(w, r)
 	}
 }
 
@@ -651,7 +651,7 @@ func (s *server) openRoundLocked(gid string) string {
 
 func (s *server) handleOpenRound(w http.ResponseWriter, r *http.Request, _ auth.Claims) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method", 405)
+		methodNotAllowed(w, r)
 		return
 	}
 	s.mu.Lock()
@@ -717,7 +717,7 @@ func (s *server) armAutoSubmit(gid string, round int, deadline int64) {
 // between groups). Accounts and the session open/closed flag are left intact.
 func (s *server) handleReset(w http.ResponseWriter, r *http.Request, _ auth.Claims) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method", 405)
+		methodNotAllowed(w, r)
 		return
 	}
 	s.mu.Lock()
@@ -739,7 +739,7 @@ func clampInt(v, lo, hi int) int {
 // team posts its current game state; admin board reads them all
 func (s *server) handleState(w http.ResponseWriter, r *http.Request, c auth.Claims) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method", 405)
+		methodNotAllowed(w, r)
 		return
 	}
 	body, err := readAll(r.Body, 1<<20)
