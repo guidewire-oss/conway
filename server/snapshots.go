@@ -27,7 +27,7 @@ func (s *server) handleSnapshots(w http.ResponseWriter, r *http.Request, c auth.
 		return
 	}
 	if r.Method != http.MethodGet {
-		http.Error(w, "method", 405)
+		methodNotAllowed(w, r)
 		return
 	}
 	rows, err := s.db.ListSnapshots(c.Sub, c.Has("admin"))
@@ -106,7 +106,7 @@ func (s *server) handleSnapshotItem(w http.ResponseWriter, r *http.Request, c au
 	case action == "" && r.Method == http.MethodPatch:
 		s.patchSnapshot(w, r, id, c)
 	default:
-		http.Error(w, "method", 405)
+		methodNotAllowed(w, r)
 	}
 }
 
