@@ -315,16 +315,12 @@ async function toggleRemedies(btn) {
   }
   // A redraw without an input change (opening a pod queue) does not bump the
   // epoch but still replaces the table — the holder can be detached while the
-  // plan and epoch checks pass. Re-attach to the live expander if it exists,
-  // so the priced answer reaches the reader who asked for it.
-  let live = document.querySelector(`.ord-options[data-init="${CSS.escape(name)}"]`);
+  // plan and epoch checks pass. Moving the existing holder under the live
+  // expander re-parents it (no new elements, nothing to reassign), so the
+  // priced answer reaches the reader who asked for it.
+  const live = document.querySelector(`.ord-options[data-init="${CSS.escape(name)}"]`);
   if (!holder.isConnected) {
     if (!live) return; // the redraw removed the miss: nothing to attach to
-    holder = document.createElement('tr');
-    holder.className = 'ord-remedies';
-    body = document.createElement('td');
-    body.colSpan = 8;
-    holder.appendChild(body);
     live.closest('tr').after(holder);
     live.textContent = 'options ▴';
   }
