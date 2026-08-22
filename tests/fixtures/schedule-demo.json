@@ -27,7 +27,9 @@
           "startWeek": 10,
           "finishWeek": 22,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 10,
+          "slackWeeks": 0
         },
         {
           "initiative": "Self-service app platform",
@@ -37,7 +39,12 @@
           "finishWeek": 28,
           "waitWeeks": 0,
           "bindingConstraint": "dependency",
-          "estimated": true
+          "estimated": true,
+          "dependsOn": [
+            "Delta"
+          ],
+          "latestStartWeek": 22,
+          "slackWeeks": 0
         },
         {
           "initiative": "Self-service app platform",
@@ -47,7 +54,12 @@
           "finishWeek": 33,
           "waitWeeks": 0,
           "bindingConstraint": "dependency",
-          "estimated": true
+          "estimated": true,
+          "dependsOn": [
+            "Atlas"
+          ],
+          "latestStartWeek": 28,
+          "slackWeeks": 0
         }
       ]
     },
@@ -77,7 +89,9 @@
           "startWeek": 0,
           "finishWeek": 14,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 0,
+          "slackWeeks": 0
         },
         {
           "initiative": "Telemetry GA",
@@ -87,7 +101,12 @@
           "finishWeek": 19,
           "waitWeeks": 0,
           "bindingConstraint": "dependency",
-          "estimated": true
+          "estimated": true,
+          "dependsOn": [
+            "Delta"
+          ],
+          "latestStartWeek": 14,
+          "slackWeeks": 0
         }
       ]
     },
@@ -116,7 +135,9 @@
           "startWeek": 26,
           "finishWeek": 38,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 26,
+          "slackWeeks": 0
         },
         {
           "initiative": "Autoscaling rollout",
@@ -126,7 +147,12 @@
           "finishWeek": 42,
           "waitWeeks": 0,
           "bindingConstraint": "dependency",
-          "estimated": true
+          "estimated": true,
+          "dependsOn": [
+            "Delta"
+          ],
+          "latestStartWeek": 38,
+          "slackWeeks": 0
         }
       ]
     },
@@ -157,7 +183,9 @@
           "startWeek": 33,
           "finishWeek": 43,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 33,
+          "slackWeeks": 0
         },
         {
           "initiative": "Managed database MVP",
@@ -167,7 +195,12 @@
           "finishWeek": 49,
           "waitWeeks": 0,
           "bindingConstraint": "dependency",
-          "estimated": true
+          "estimated": true,
+          "dependsOn": [
+            "Delta"
+          ],
+          "latestStartWeek": 43,
+          "slackWeeks": 0
         }
       ]
     },
@@ -198,7 +231,9 @@
           "startWeek": 42,
           "finishWeek": 51,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 42,
+          "slackWeeks": 0
         },
         {
           "initiative": "Disaster recovery for event streaming",
@@ -208,7 +243,12 @@
           "finishWeek": 56,
           "waitWeeks": 0,
           "bindingConstraint": "dependency",
-          "estimated": true
+          "estimated": true,
+          "dependsOn": [
+            "Delta"
+          ],
+          "latestStartWeek": 51,
+          "slackWeeks": 0
         }
       ]
     },
@@ -237,7 +277,9 @@
           "startWeek": 0,
           "finishWeek": 7,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 0,
+          "slackWeeks": 0
         },
         {
           "initiative": "Bring-your-own-auth (early access)",
@@ -247,7 +289,12 @@
           "finishWeek": 10,
           "waitWeeks": 0,
           "bindingConstraint": "dependency",
-          "estimated": true
+          "estimated": true,
+          "dependsOn": [
+            "Ember"
+          ],
+          "latestStartWeek": 7,
+          "slackWeeks": 0
         },
         {
           "initiative": "Bring-your-own-auth (early access)",
@@ -256,7 +303,9 @@
           "startWeek": 0,
           "finishWeek": 2,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 8,
+          "slackWeeks": 8
         }
       ]
     },
@@ -285,7 +334,9 @@
           "startWeek": 49,
           "finishWeek": 56,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 49,
+          "slackWeeks": 0
         },
         {
           "initiative": "SCIM provisioning",
@@ -295,7 +346,12 @@
           "finishWeek": 69,
           "waitWeeks": 0,
           "bindingConstraint": "dependency",
-          "estimated": true
+          "estimated": true,
+          "dependsOn": [
+            "Beacon"
+          ],
+          "latestStartWeek": 56,
+          "slackWeeks": 0
         }
       ]
     },
@@ -326,7 +382,9 @@
           "startWeek": 56,
           "finishWeek": 70,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 56,
+          "slackWeeks": 0
         },
         {
           "initiative": "Secrets rotation",
@@ -336,7 +394,12 @@
           "finishWeek": 75,
           "waitWeeks": 0,
           "bindingConstraint": "dependency",
-          "estimated": true
+          "estimated": true,
+          "dependsOn": [
+            "Ember"
+          ],
+          "latestStartWeek": 70,
+          "slackWeeks": 0
         }
       ]
     },
@@ -367,7 +430,9 @@
           "startWeek": 69,
           "finishWeek": 75,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 69,
+          "slackWeeks": 0
         },
         {
           "initiative": "Tenant isolation",
@@ -377,7 +442,12 @@
           "finishWeek": 90,
           "waitWeeks": 0,
           "bindingConstraint": "dependency",
-          "estimated": true
+          "estimated": true,
+          "dependsOn": [
+            "Cascade"
+          ],
+          "latestStartWeek": 75,
+          "slackWeeks": 0
         },
         {
           "initiative": "Tenant isolation",
@@ -386,7 +456,9 @@
           "startWeek": 69,
           "finishWeek": 73,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 86,
+          "slackWeeks": 17
         }
       ]
     },
@@ -416,7 +488,9 @@
           "startWeek": 19,
           "finishWeek": 26,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 19,
+          "slackWeeks": 0
         },
         {
           "initiative": "Access-control rollout",
@@ -425,7 +499,9 @@
           "startWeek": 19,
           "finishWeek": 24,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 21,
+          "slackWeeks": 2
         },
         {
           "initiative": "Access-control rollout",
@@ -434,7 +510,9 @@
           "startWeek": 19,
           "finishWeek": 23,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 22,
+          "slackWeeks": 3
         }
       ]
     }
@@ -1021,7 +1099,12 @@
           "finishWeek": 10,
           "waitWeeks": 0,
           "bindingConstraint": "dependency",
-          "estimated": true
+          "estimated": true,
+          "dependsOn": [
+            "Ember"
+          ],
+          "latestStartWeek": 7,
+          "slackWeeks": 0
         },
         {
           "initiative": "Self-service app platform",
@@ -1031,7 +1114,12 @@
           "finishWeek": 28,
           "waitWeeks": 0,
           "bindingConstraint": "dependency",
-          "estimated": true
+          "estimated": true,
+          "dependsOn": [
+            "Delta"
+          ],
+          "latestStartWeek": 22,
+          "slackWeeks": 0
         }
       ]
     },
@@ -1615,7 +1703,9 @@
           "startWeek": 0,
           "finishWeek": 2,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 8,
+          "slackWeeks": 8
         },
         {
           "initiative": "SCIM provisioning",
@@ -1624,7 +1714,9 @@
           "startWeek": 49,
           "finishWeek": 56,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 49,
+          "slackWeeks": 0
         }
       ]
     },
@@ -2215,7 +2307,12 @@
           "finishWeek": 33,
           "waitWeeks": 0,
           "bindingConstraint": "dependency",
-          "estimated": true
+          "estimated": true,
+          "dependsOn": [
+            "Atlas"
+          ],
+          "latestStartWeek": 28,
+          "slackWeeks": 0
         },
         {
           "initiative": "Tenant isolation",
@@ -2224,7 +2321,9 @@
           "startWeek": 69,
           "finishWeek": 75,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 69,
+          "slackWeeks": 0
         }
       ]
     },
@@ -2932,7 +3031,9 @@
           "startWeek": 0,
           "finishWeek": 14,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 0,
+          "slackWeeks": 0
         },
         {
           "initiative": "Self-service app platform",
@@ -2941,7 +3042,9 @@
           "startWeek": 10,
           "finishWeek": 22,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 10,
+          "slackWeeks": 0
         },
         {
           "initiative": "Autoscaling rollout",
@@ -2950,7 +3053,9 @@
           "startWeek": 26,
           "finishWeek": 38,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 26,
+          "slackWeeks": 0
         },
         {
           "initiative": "Managed database MVP",
@@ -2959,7 +3064,9 @@
           "startWeek": 33,
           "finishWeek": 43,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 33,
+          "slackWeeks": 0
         },
         {
           "initiative": "Disaster recovery for event streaming",
@@ -2968,7 +3075,9 @@
           "startWeek": 42,
           "finishWeek": 51,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 42,
+          "slackWeeks": 0
         }
       ]
     },
@@ -3646,7 +3755,9 @@
           "startWeek": 0,
           "finishWeek": 7,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 0,
+          "slackWeeks": 0
         },
         {
           "initiative": "SCIM provisioning",
@@ -3656,7 +3767,12 @@
           "finishWeek": 69,
           "waitWeeks": 0,
           "bindingConstraint": "dependency",
-          "estimated": true
+          "estimated": true,
+          "dependsOn": [
+            "Beacon"
+          ],
+          "latestStartWeek": 56,
+          "slackWeeks": 0
         },
         {
           "initiative": "Secrets rotation",
@@ -3665,7 +3781,9 @@
           "startWeek": 56,
           "finishWeek": 70,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 56,
+          "slackWeeks": 0
         },
         {
           "initiative": "Tenant isolation",
@@ -3675,7 +3793,12 @@
           "finishWeek": 90,
           "waitWeeks": 0,
           "bindingConstraint": "dependency",
-          "estimated": true
+          "estimated": true,
+          "dependsOn": [
+            "Cascade"
+          ],
+          "latestStartWeek": 75,
+          "slackWeeks": 0
         }
       ]
     },
@@ -4245,7 +4368,12 @@
           "finishWeek": 42,
           "waitWeeks": 0,
           "bindingConstraint": "dependency",
-          "estimated": true
+          "estimated": true,
+          "dependsOn": [
+            "Delta"
+          ],
+          "latestStartWeek": 38,
+          "slackWeeks": 0
         }
       ]
     },
@@ -4851,7 +4979,12 @@
           "finishWeek": 19,
           "waitWeeks": 0,
           "bindingConstraint": "dependency",
-          "estimated": true
+          "estimated": true,
+          "dependsOn": [
+            "Delta"
+          ],
+          "latestStartWeek": 14,
+          "slackWeeks": 0
         },
         {
           "initiative": "Access-control rollout",
@@ -4860,7 +4993,9 @@
           "startWeek": 19,
           "finishWeek": 26,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 19,
+          "slackWeeks": 0
         },
         {
           "initiative": "Tenant isolation",
@@ -4869,7 +5004,9 @@
           "startWeek": 69,
           "finishWeek": 73,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 86,
+          "slackWeeks": 17
         }
       ]
     },
@@ -5459,7 +5596,9 @@
           "startWeek": 19,
           "finishWeek": 24,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 21,
+          "slackWeeks": 2
         },
         {
           "initiative": "Managed database MVP",
@@ -5469,7 +5608,12 @@
           "finishWeek": 49,
           "waitWeeks": 0,
           "bindingConstraint": "dependency",
-          "estimated": true
+          "estimated": true,
+          "dependsOn": [
+            "Delta"
+          ],
+          "latestStartWeek": 43,
+          "slackWeeks": 0
         }
       ]
     },
@@ -6053,7 +6197,9 @@
           "startWeek": 19,
           "finishWeek": 23,
           "waitWeeks": 0,
-          "estimated": true
+          "estimated": true,
+          "latestStartWeek": 22,
+          "slackWeeks": 3
         },
         {
           "initiative": "Disaster recovery for event streaming",
@@ -6063,7 +6209,12 @@
           "finishWeek": 56,
           "waitWeeks": 0,
           "bindingConstraint": "dependency",
-          "estimated": true
+          "estimated": true,
+          "dependsOn": [
+            "Delta"
+          ],
+          "latestStartWeek": 51,
+          "slackWeeks": 0
         }
       ]
     },
@@ -6636,7 +6787,12 @@
           "finishWeek": 75,
           "waitWeeks": 0,
           "bindingConstraint": "dependency",
-          "estimated": true
+          "estimated": true,
+          "dependsOn": [
+            "Ember"
+          ],
+          "latestStartWeek": 70,
+          "slackWeeks": 0
         }
       ]
     }
