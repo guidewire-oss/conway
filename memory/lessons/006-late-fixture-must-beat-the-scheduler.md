@@ -14,7 +14,8 @@ supposed to make it miss.
 
 The second attempt failed the same way for a subtler reason: a locked
 predecessor at priority 1 cannot be displaced by raising the target's priority,
-because locked ties break by sheet order (spec 001 §10 Q8) — so AC 5.2's
+because locked ties break by sheet order — a property of `rankOrder`'s stable
+sort in server/planning/schedule.go, not of any §10 answer — so AC 5.2's
 raise-priority remedy could never exist in that fixture.
 
 ## Root cause
