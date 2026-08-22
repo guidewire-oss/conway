@@ -792,7 +792,7 @@ that never mutate the plan, plus explicit save endpoints.
 | Method | Path | Description | Request | Response |
 |--------|------|-------------|---------|----------|
 | POST | /api/plan/{id}/schedule | Compute the execution order. Accepts optional draft initiatives and levers so an unsaved upload can be sequenced, matching the existing simulate/preview behaviour. Absent scheduling params fall back to the plan's saved policy; the response reports the WIP model in force and what each model would cost | scheduling params, optional initiatives override, optional levers | Schedule |
-| POST | /api/plan/{id}/schedule/remedies | Generate ranked remedies for missed dates | schedule request plus target initiative(s) | list of Remedy |
+| POST | /api/plan/{id}/schedule/remedies | Generate ranked remedies for missed dates | schedule request plus target initiative(s) | `{remedies: list of Remedy, warnings: list of string}` — the envelope carries warnings, e.g. that transfer-capacity is deferred pending Q1 (§11 D7) |
 | PATCH | /api/plan/{id}/initiatives | Edit the sequencing attributes of one or more initiatives in place | initiative name plus attributes from §7 | updated initiatives |
 | PATCH | /api/plan/{id}/scheduling | Save plan-level scheduling params and calendar windows, including `wipModel` | SchedulingParams, CalendarWindows | ok |
 | POST | /api/plan/{id}/baseline | Save the current schedule as a named baseline | name, schedule request | baseline id |
