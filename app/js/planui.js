@@ -7,6 +7,7 @@ import {
   enablePanZoom, enableNodeDrag, makeSpotlight,
 } from './netgraph.js';
 import { esc, orderViewHTML, schedulingFromForm } from './order.js';
+import { baselineChipHTML, baselinePanelHTML, saveErrorMessage } from './baseline.js';
 
 let root, current = null;
 
@@ -68,6 +69,7 @@ async function openPlan(id) {
   const r = await req('/api/plan/' + id);
   if (!r || !r.ok) { root.innerHTML = '<p class="hint">Could not load plan.</p>'; return; }
   current = await r.json();
+  await loadBaselines(); // the header chip needs these before the first paint
   renderPlan();
 }
 
@@ -104,7 +106,7 @@ function renderPlan() {
     ${unknown.length ? `<p class="plan-warn">⚠ ${unknown.length} pod(s) referenced by initiatives but missing from the roster: ${unknown.map(esc).join(', ')} — fix the sheet or add them to the roster.</p>` : ''}
     ${nTeams > 0 && nInit > 0 ? `<div class="plan-views"><span class="seg">
       <button class="${view() === 'network' ? 'seg-on' : ''}" id="view-network">Network</button><button class="${view() === 'order' ? 'seg-on' : ''}" id="view-order">Order</button>
-    </span></div>` : ''}
+    </span>${baselineChipHTML(current.baselines)}</div>` : ''}
     ${nTeams === 0 ? '<p class="hint">Step 1: pick a roster (team composition drifts over time — this pins it). Step 2: upload the initiatives matrix.</p>'
       : nInit === 0 ? '<p class="hint">Roster loaded. Now upload the initiatives matrix.</p>'
       : '<div id="plan-dash"></div>'}`;
@@ -121,6 +123,15 @@ function renderPlan() {
   document.getElementById('plan-strict-deps')?.addEventListener('change', (e) => { current.strictDeps = e.target.checked; });
   document.getElementById('view-network')?.addEventListener('click', () => setView('network'));
   document.getElementById('view-order')?.addEventListener('click', () => setView('order'));
+  // The chip summarises a panel that only exists in the Order view, so it has to be
+  // able to get there — otherwise it is a status message with no way through. The
+  // scroll happens in renderOrder once the panel actually exists: with a stale
+  // cached order the async path returns early and there is nothing to scroll to yet.
+  document.getElementById('bl-chip')?.addEventListener('click', () => {
+    if (view() !== 'order') { current.baselineFocus = true; setView('order'); return; }
+    document.querySelector('.bl-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.getElementById('bl-name')?.focus();
+  });
   renderRosterPicker(nTeams);
   if (nTeams > 0 && nInit > 0) {
     current.levers = current.levers || [];
@@ -163,6 +174,104 @@ async function saveScheduling() {
   if (!current || current.id !== forPlan || orderEpoch !== atEpoch) return; // a stale save
   current.scheduling = saved.scheduling || body;
   staleOrder(); // the assumptions moved, so the order has to be recomputed
+  renderOrder();
+}
+
+// loadBaselines refreshes the list, which also carries whether the plan's inputs
+// have moved since each was saved (FR-030). Cheap: metadata only, no frozen blobs.
+async function loadBaselines() {
+  const forPlan = current.id;
+  const r = await req('/api/plan/' + forPlan + '/baseline');
+  if (!r || !r.ok) return;
+  const body = await r.json();
+  if (!current || current.id !== forPlan) return; // an answer to a stale question
+  current.baselines = body.baselines || [];
+}
+
+function wireBaselineControls() {
+  document.getElementById('bl-save')?.addEventListener('click', saveBaseline);
+  document.querySelectorAll('.bl-activate').forEach((b) =>
+    b.addEventListener('click', () => activateBaseline(b.dataset.id)));
+  document.querySelectorAll('.bl-compare').forEach((b) =>
+    b.addEventListener('click', () => compareBaseline(b.dataset.id)));
+}
+
+// orderRequestBody is what /schedule was given, so a baseline or a comparison uses
+// the same inputs as the order on screen rather than re-deriving them differently.
+function orderRequestBody() {
+  const body = {};
+  if (current.isDraft) body.initiatives = current.initiatives;
+  if ((current.levers || []).length) body.levers = current.levers;
+  return body;
+}
+
+// baselineError renders a failed request. It takes the response rather than a
+// string so that translating a status into readable copy is not something a call
+// site can skip — echoing the body is how a 405 once reached the page as "method".
+// op names the operation so a compare failure does not wear the word "save".
+async function baselineError(r, op) {
+  baselineNote(saveErrorMessage(r ? r.status : 0, r ? await r.text() : '', op));
+}
+
+// baselineNote paints one message beside the save control, replacing any previous
+// one. Callers pass HTML-safe text: saveErrorMessage escapes what came from the
+// server, and the local validation messages are literals.
+function baselineNote(msg) {
+  document.getElementById('bl-error')?.remove();
+  document.querySelector('.bl-save')?.insertAdjacentHTML('beforeend',
+    `<span class="plan-warn" id="bl-error">${msg}</span>`);
+}
+
+// saveBaseline freezes the order currently on screen, under a name. The body
+// carries the same draft initiatives and levers the order was computed from, so a
+// baseline records what the planner was actually looking at.
+async function saveBaseline() {
+  const input = document.getElementById('bl-name');
+  const name = (input?.value || '').trim();
+  if (!name) {
+    input?.focus();
+    baselineNote('Give the baseline a name \u2014 it is how this period\u2019s agreed order is referred to later.');
+    return;
+  }
+  const btn = document.getElementById('bl-save');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
+  const forPlan = current.id;
+  const r = await req('/api/plan/' + forPlan + '/baseline', {
+    method: 'POST', body: JSON.stringify({ name, ...orderRequestBody() }),
+  });
+  if (!current || current.id !== forPlan) return;
+  if (!r || !r.ok) {
+    await baselineError(r);
+    const live = document.getElementById('bl-save');
+    if (live) { live.disabled = false; live.textContent = 'Save as baseline'; }
+    return;
+  }
+  await loadBaselines();
+  current.baselineCompare = null;
+  renderPlan(); // the header chip changes too, so repaint the plan rather than the panel
+}
+
+async function activateBaseline(id) {
+  const forPlan = current.id;
+  const r = await req('/api/plan/' + forPlan + '/baseline/' + id, {
+    method: 'PATCH', body: JSON.stringify({ active: true }),
+  });
+  if (!current || current.id !== forPlan) return;
+  if (!r || !r.ok) { await baselineError(r); return; }
+  await loadBaselines();
+  renderPlan();
+}
+
+// compareBaseline measures the order on screen against a saved one (AC 7.4).
+async function compareBaseline(id) {
+  const forPlan = current.id;
+  const atEpoch = orderEpoch; // a lever or upload can land while this request is out
+  const r = await req('/api/plan/' + forPlan + '/baseline/' + id + '/compare', {
+    method: 'POST', body: JSON.stringify(orderRequestBody()),
+  });
+  if (!current || current.id !== forPlan || orderEpoch !== atEpoch) return; // answers the plan it left
+  if (!r || !r.ok) { await baselineError(r, 'compare'); return; }
+  current.baselineCompare = await r.json();
   renderOrder();
 }
 
@@ -230,7 +339,8 @@ async function renderOrder() {
     // Always an object, never undefined: passing undefined is how the view is told
     // to omit the form entirely, and on a real plan it must always be offered.
     scheduling: current.scheduling || {},
-  });
+  }) + baselinePanelHTML(current.baselines, current.baselineCompare, current.isDraft);
+  wireBaselineControls();
   document.getElementById('sched-save')?.addEventListener('click', saveScheduling);
   document.getElementById('sched-cancel')?.addEventListener('click', () => renderOrder());
   host.querySelectorAll('.ord-podlink').forEach((a) => a.addEventListener('click', () => {
@@ -239,6 +349,11 @@ async function renderOrder() {
     renderOrder();
   }));
   document.querySelector('.ord-queue')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  if (current.baselineFocus) {
+    current.baselineFocus = false; // one-shot: clicking the chip, not every render
+    document.querySelector('.bl-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.getElementById('bl-name')?.focus();
+  }
 }
 
 // previewInitiativesFile parses an uploaded sheet server-side and shows the
@@ -503,6 +618,7 @@ async function reloadPlan() {
   const r = await req('/api/plan/' + current.id);
   if (!r || !r.ok) return;
   current = await r.json();
+  await loadBaselines(); // replaced wholesale above, so re-fetch rather than show none
   current.levers = levers;
   // Keep the reader where they were. Replacing `current` wholesale is what drops
   // the stale order, which is wanted; bouncing them back to Network is not.

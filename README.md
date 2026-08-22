@@ -80,6 +80,16 @@ CONWAY_ADMIN_PASSWORD=letmein make server   # DATABASE_URL defaults to the compo
 as the reset: set it and restart. Leave it unset and the existing password is kept;
 on a first boot with nothing set, one is generated and printed to the log once.
 
+`make server` is a **restart**: it stops whatever is running (including anything
+else holding the port), rebuilds, and then waits for the server to actually answer
+before reporting success. That last part matters more than it sounds — `app/` is
+served from disk, so a checkout updates the page immediately, while routes are
+compiled into the binary. A dev loop that says "started" when the old binary is
+still bound to the port gives you a page calling endpoints the server does not
+have, which arrives as a 405 with no obvious cause. If startup blocks (usually an
+unreachable `DATABASE_URL` — the server dials Postgres before it binds), you get
+the log tail and a non-zero exit instead of a success line.
+
 Sign in gates everything: the admin panel creates/extends/revokes expiring
 team accounts and shows a live board. Frontend has no external deps (vendored
 d3); the Go server vendors pgx + goose, self-migrating on boot. The demo

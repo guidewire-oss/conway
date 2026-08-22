@@ -249,6 +249,18 @@ var _ = Describe("schedulePlan", func() {
 		Expect(rec.Body.String()).To(ContainSubstring("single JSON object"))
 	})
 
+	It("rejects two concatenated objects with no separator (dec.More misses these)", func() {
+		// Regression for the review finding: More() only inspects the current
+		// composite, so "{...}{...}" sailed through it. The second-Decode-to-EOF
+		// contract is what actually enforces one object.
+		req := httptest.NewRequest("POST", "/api/plan/plan1/schedule",
+			strings.NewReader(`{"params":{"periodStart":"2026-01-05"}}{"params":{"maxConcurrentInitiatives":99}}`))
+		rec := httptest.NewRecorder()
+		srv.schedulePlan(rec, req, plan)
+		Expect(rec.Code).To(Equal(400))
+		Expect(rec.Body.String()).To(ContainSubstring("single JSON object"))
+	})
+
 	It("rejects a malformed body instead of silently scheduling the saved plan", func() {
 		req := httptest.NewRequest("POST", "/api/plan/plan1/schedule", strings.NewReader(`{"params":`))
 		rec := httptest.NewRecorder()
@@ -623,5 +635,190 @@ var _ = Describe("retireLegacyStore", func() {
 		// this is a warning, not a failure.
 		Expect(func() { retireLegacyStore(filepath.Join(GinkgoT().TempDir(), "absent.json")) }).
 			NotTo(Panic())
+	})
+})
+
+// The baseline endpoints (§8, Story 7). The database paths need a live Postgres,
+// so these cover what a handler can be held to alone: what it refuses, and the
+// input resolution it shares with /schedule.
+var _ = Describe("the baseline endpoints", func() {
+	var srv *server
+	var plan *db.PlanRow
+
+	BeforeEach(func() {
+		teams, inits := planning.Demo()
+		teamsB, err := json.Marshal(teams)
+		Expect(err).NotTo(HaveOccurred())
+		initsB, err := json.Marshal(inits)
+		Expect(err).NotTo(HaveOccurred())
+		schedB, err := json.Marshal(planning.DemoScheduling())
+		Expect(err).NotTo(HaveOccurred())
+		srv = &server{}
+		plan = &db.PlanRow{ID: "plan1", HorizonWeeks: 26, CapacityLoss: 0.1,
+			Teams: teamsB, Initiatives: initsB, Scheduling: schedB}
+	})
+
+	post := func(path, body string, h func(http.ResponseWriter, *http.Request, *db.PlanRow, auth.Claims)) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("POST", path, strings.NewReader(body))
+		rec := httptest.NewRecorder()
+		h(rec, req, plan, auth.Claims{Sub: "ann@example.com"})
+		return rec
+	}
+
+	Describe("POST /baseline", func() {
+		// FR-033: a baseline is how a period's agreed order is referred to later, so
+		// an unnamed one is not much use to anybody.
+		It("refuses a baseline with no name", func() {
+			rec := post("/api/plan/plan1/baseline", `{}`, srv.saveBaseline)
+			Expect(rec.Code).To(Equal(400))
+			Expect(rec.Body.String()).To(ContainSubstring("name"))
+		})
+
+		It("refuses a name that is only whitespace", func() {
+			Expect(post("/api/plan/plan1/baseline", `{"name":"   "}`, srv.saveBaseline).Code).To(Equal(400))
+		})
+
+		It("refuses a malformed body", func() {
+			Expect(post("/api/plan/plan1/baseline", `{"name":`, srv.saveBaseline).Code).To(Equal(400))
+		})
+
+		It("refuses two concatenated objects (the shared-body contract with /schedule)", func() {
+			rec := post("/api/plan/plan1/baseline", `{"name":"v1"}{"name":"v2"}`, srv.saveBaseline)
+			Expect(rec.Code).To(Equal(400))
+			Expect(rec.Body.String()).To(ContainSubstring("single JSON object"))
+		})
+
+		It("refuses to baseline a plan with no initiatives", func() {
+			plan.Initiatives = nil
+			rec := post("/api/plan/plan1/baseline", `{"name":"v1"}`, srv.saveBaseline)
+			Expect(rec.Code).To(Equal(400))
+			Expect(rec.Body.String()).To(ContainSubstring("no initiatives"))
+		})
+	})
+
+	Describe("PATCH /baseline/{bid}", func() {
+		patch := func(body string) *httptest.ResponseRecorder {
+			req := httptest.NewRequest("PATCH", "/api/plan/plan1/baseline/b1", strings.NewReader(body))
+			rec := httptest.NewRecorder()
+			srv.patchBaseline(rec, req, plan, "b1")
+			return rec
+		}
+
+		It("refuses a request that changes nothing", func() {
+			rec := patch(`{}`)
+			Expect(rec.Code).To(Equal(400))
+			Expect(rec.Body.String()).To(ContainSubstring("active or name"))
+		})
+
+		It("refuses an empty rename", func() {
+			Expect(patch(`{"name":"  "}`).Code).To(Equal(400))
+		})
+
+		It("refuses a malformed body", func() {
+			Expect(patch(`{"active":`).Code).To(Equal(400))
+		})
+	})
+
+	Describe("routing /baseline/{bid}", func() {
+		route := func(method, rest string) int {
+			req := httptest.NewRequest(method, "/api/plan/plan1/baseline/"+rest, strings.NewReader(`{}`))
+			rec := httptest.NewRecorder()
+			srv.baselineItem(rec, req, plan, rest)
+			return rec.Code
+		}
+
+		It("refuses a missing baseline id", func() {
+			Expect(route("GET", "")).To(Equal(400))
+		})
+
+		It("refuses a method the endpoint does not have", func() {
+			Expect(route("DELETE", "b1")).To(Equal(405),
+				"baselines are immutable, so there is no delete (FR-030)")
+			Expect(route("PUT", "b1/compare")).To(Equal(405))
+		})
+	})
+
+	// The resolution shared with /schedule. If these two ever disagree, a baseline
+	// records an order the planner never saw.
+	Describe("planScheduleFor", func() {
+		It("reads the plan's saved roster, initiatives and policy", func() {
+			in, err := srv.planScheduleFor(plan, scheduleRequest{})
+			Expect(err).NotTo(HaveOccurred())
+			_, demoInits := planning.Demo()
+			Expect(in.Initiatives).To(HaveLen(len(demoInits)))
+			Expect(in.Teams).NotTo(BeEmpty())
+			Expect(in.Scheduling.PeriodStart).To(Equal(planning.DemoPeriodStart))
+			Expect(in.Params.HorizonWeeks).To(Equal(26.0))
+		})
+
+		It("prefers a draft override to the saved sheet", func() {
+			in, err := srv.planScheduleFor(plan, scheduleRequest{
+				Initiatives: []planning.Initiative{{Name: "Draft only"}},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(in.Initiatives).To(HaveLen(1))
+			Expect(in.Initiatives[0].Name).To(Equal("Draft only"))
+		})
+
+		It("applies levers, so a baseline records the plan that was on screen", func() {
+			plain, err := srv.planScheduleFor(plan, scheduleRequest{})
+			Expect(err).NotTo(HaveOccurred())
+			levered, err := srv.planScheduleFor(plan, scheduleRequest{
+				Levers: []planning.Lever{{Type: "addCapacity", Pod: "Delta", N: 4}},
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			tracks := func(in planning.BaselineInputs) int {
+				for _, t := range in.Teams {
+					if t.Name == "Delta" {
+						return t.EffectiveTracks()
+					}
+				}
+				return 0
+			}
+			Expect(tracks(levered)).To(BeNumerically(">", tracks(plain)))
+		})
+
+		It("replaces the saved policy when params are supplied", func() {
+			in, err := srv.planScheduleFor(plan, scheduleRequest{
+				Params: &planning.SchedulingParams{MaxConcurrentInitiatives: 3},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(in.Scheduling.PeriodStart).To(BeEmpty(), "a what-if is complete, not a patch")
+			Expect(in.Scheduling.MaxConcurrentInitiatives).To(Equal(3))
+		})
+
+		It("reports unreadable stored initiatives rather than scheduling nothing", func() {
+			plan.Initiatives = []byte(`{"not":"an array"`)
+			_, err := srv.planScheduleFor(plan, scheduleRequest{})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("initiatives"))
+		})
+	})
+})
+
+var _ = Describe("methodNotAllowed", func() {
+	// A 405 whose body is the word "method" is unreadable in a network tab and
+	// worse in a UI that surfaces it: the baselines panel once rendered exactly
+	// that beside its Save button, looking like a control labelled "Method". The
+	// cause was a server binary older than the page, which the body should say,
+	// because app/ is served from disk while routes are compiled in.
+	It("names the method and path it refused", func() {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/api/plan/p1/baseline", nil)
+
+		methodNotAllowed(w, r)
+
+		Expect(w.Code).To(Equal(http.StatusMethodNotAllowed))
+		body := w.Body.String()
+		Expect(body).To(ContainSubstring("POST"))
+		Expect(body).To(ContainSubstring("/api/plan/p1/baseline"))
+		Expect(strings.TrimSpace(body)).NotTo(Equal("method"))
+	})
+
+	It("points at the likeliest cause, since a stale binary is not guessable", func() {
+		w := httptest.NewRecorder()
+		methodNotAllowed(w, httptest.NewRequest(http.MethodPost, "/api/plan/p1/baseline", nil))
+		Expect(w.Body.String()).To(MatchRegexp(`(?i)older|restart|rebuil`))
 	})
 })
