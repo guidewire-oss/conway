@@ -59,7 +59,7 @@ func (s *server) handleRosters(w http.ResponseWriter, r *http.Request, c auth.Cl
 		}
 		writeJSON(w, map[string]any{"id": id, "name": name, "pods": len(b.Pods)})
 	default:
-		http.Error(w, "method", 405)
+		methodNotAllowed(w, r)
 	}
 }
 
@@ -128,7 +128,7 @@ func (s *server) handleRosterItem(w http.ResponseWriter, r *http.Request, c auth
 		}
 		writeJSON(w, map[string]any{"ok": true})
 	default:
-		http.Error(w, "method", 405)
+		methodNotAllowed(w, r)
 	}
 }
 

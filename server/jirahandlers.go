@@ -30,7 +30,7 @@ func (cr jiraCreds) valid() bool {
 // import picker — via their OAuth session if connected, else pasted credentials.
 func (s *server) handleJiraProjects(w http.ResponseWriter, r *http.Request, c auth.Claims) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method", 405)
+		methodNotAllowed(w, r)
 		return
 	}
 	var cr jiraCreds
@@ -79,7 +79,7 @@ func (s *server) handleSnapshotImport(w http.ResponseWriter, r *http.Request, c 
 		return
 	}
 	if r.Method != http.MethodPost {
-		http.Error(w, "method", 405)
+		methodNotAllowed(w, r)
 		return
 	}
 	var b struct {
@@ -269,7 +269,7 @@ func podsAndOverlapDoc(pods []NetPod) []byte {
 // Jira by pod name. Reuses the robust planning parser (handles quoted lists).
 func (s *server) handleParseRoster(w http.ResponseWriter, r *http.Request, _ auth.Claims) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method", 405)
+		methodNotAllowed(w, r)
 		return
 	}
 	data, err := readUpload(w, r)

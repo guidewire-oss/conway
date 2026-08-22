@@ -821,4 +821,20 @@ var _ = Describe("methodNotAllowed", func() {
 		methodNotAllowed(w, httptest.NewRequest(http.MethodPost, "/api/plan/p1/baseline", nil))
 		Expect(w.Body.String()).To(MatchRegexp(`(?i)older|restart|rebuil`))
 	})
+
+	// The sweep: the fifteen older "method" refusals across gamesadmin.go,
+	// jirahandlers.go, main.go, snapshots.go and rosterhandlers.go were converted
+	// to this helper. One of them, exercised through its handler (not the helper
+	// directly), stands for the batch — the others differ only in setup cost.
+	It("refuses through the converted admin-users handler, not just the helper", func() {
+		srv := &server{}
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodDelete, "/api/admin/users", nil)
+
+		srv.handleUsers(w, r, auth.Claims{})
+
+		Expect(w.Code).To(Equal(http.StatusMethodNotAllowed))
+		Expect(w.Body.String()).To(ContainSubstring("DELETE /api/admin/users"))
+		Expect(strings.TrimSpace(w.Body.String())).NotTo(Equal("method"))
+	})
 })
