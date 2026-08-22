@@ -647,3 +647,25 @@ test('the model is sent only when it is one the server implements', () => {
   assert.ok(!('wipModel' in schedulingFromForm(readerOf(''))), 'unchosen stays unchosen');
   assert.ok(!('wipModel' in schedulingFromForm(readerOf('wishful'))), 'no inventing models');
 });
+
+// The [options ▾] expander (§13.2, AC 5.1): a missed date's row carries it,
+// an on-time one does not, and it never appears without the trace row that
+// holds it — the wiring in planui.js depends on that shape.
+test('a missed date gets an options expander on its trace row', () => {
+  // Start from a clean board: the raw fixture already carries misses, so
+  // mutating it alone would not demarcate anything.
+  const missed = structuredClone(sched);
+  missed.initiatives.forEach((si) => { si.verdict = 'on-time'; });
+  assert.ok(!orderTableHTML(missed).includes('ord-options'), 'clean board has no expanders');
+  missed.initiatives[1].verdict = 'late';
+  const html = orderTableHTML(missed);
+  const expanders = html.match(/ord-options/g) || [];
+  assert.equal(expanders.length, 1, 'exactly the missed date gets an expander');
+  assert.match(html, /<tr class="ord-why"><td><\/td><td colspan="7">[^]*?ord-options/);
+});
+
+test('a plan with no misses renders no expanders', () => {
+  const fine = structuredClone(sched);
+  fine.initiatives.forEach((si) => { si.verdict = 'on-time'; });
+  assert.ok(!orderTableHTML(fine).includes('ord-options'));
+});

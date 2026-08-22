@@ -73,6 +73,12 @@ const (
 	remedyUnlock        = "unlock"
 )
 
+// TransferDeferredWarning is the response warning that says why transfer-capacity
+// remedies are absent (Decision 7 defers them until §10 Q1 is decided). Exported
+// because two emitters must say the same thing — the endpoint and the fixture
+// generator — and a duplicated literal is how they drift.
+const TransferDeferredWarning = "transfer-capacity remedies are not offered yet: the site-overlap factor is undecided (spec 001 §10 Q1, Decision 7)"
+
 // ComputeRemedies prices the rescue options for the named targets. A nil or
 // empty target list means every initiative that missed its date, which is
 // FR-015's "for each missed date"; naming an on-time initiative yields nothing,
@@ -226,7 +232,7 @@ func remediesFor(teams []Team, inits []Initiative, params Params, sp SchedulingP
 			return t, i
 		})
 		if improvesOutcome(target, after) {
-			out = append(out, newRemedy(remedyDescope, fmt.Sprintf("descope %d%% of the work", int(frac*100)), frac, s, after, moved))
+			out = append(out, newRemedy(remedyDescope, fmt.Sprintf("cut %d%% of the estimated work", int(frac*100)), frac, s, after, moved))
 		}
 	}
 
