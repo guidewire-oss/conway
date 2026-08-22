@@ -167,7 +167,7 @@ func (s *server) handleGames(w http.ResponseWriter, r *http.Request, c auth.Clai
 		s.mu.Unlock()
 		writeJSON(w, map[string]any{"id": g.ID, "joinCode": g.JoinCode, "name": g.Name})
 	default:
-		http.Error(w, "method", 405)
+		methodNotAllowed(w, r)
 	}
 }
 
@@ -270,7 +270,7 @@ func (s *server) handleGameItem(w http.ResponseWriter, r *http.Request, c auth.C
 		s.mu.Unlock()
 		writeJSON(w, lb)
 	default:
-		http.Error(w, "method", 405)
+		methodNotAllowed(w, r)
 	}
 }
 
@@ -337,7 +337,7 @@ func (s *server) handleGameJoin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method != http.MethodPost {
-		http.Error(w, "method", 405)
+		methodNotAllowed(w, r)
 		return
 	}
 	var b struct{ Code, Team string }
