@@ -176,6 +176,10 @@ async function saveScheduling() {
   const saved = await r.json();
   if (!current || current.id !== forPlan || orderEpoch !== atEpoch) return; // a stale save
   current.scheduling = saved.scheduling || body;
+  current.calDraft = null; // the draft is saved now; the form reads the policy
+  // The carried assumptions are saved too: leaving them would make the next
+  // render restore the pre-save snapshot over the fresh policy.
+  current.assumptionDraft = null;
   staleOrder(); // the assumptions moved, so the order has to be recomputed
   renderOrder();
 }
@@ -355,6 +359,33 @@ function setView(v) {
   renderPlan();
 }
 
+// ASSUMPTION_FIELDS are the scheduling form's inputs. carryLiveAssumptions
+// snapshots them so an add/del re-render cannot drop a planner's edits —
+// including a cleared field, which is an edit, not a reversion.
+const ASSUMPTION_FIELDS = ['sched-period-start', 'sched-wip-model', 'sched-wip', 'sched-buffer',
+  'sched-kit', 'sched-pod-wip', 'sched-quarter'];
+
+// Hoisted function declarations, not consts: renderOrder calls
+// applyLiveAssumptions mid-body, and a const there would still be in its
+// temporal dead zone on the first render.
+function carryLiveAssumptions() {
+  if (!current) return;
+  const live = {};
+  for (const id of ASSUMPTION_FIELDS) {
+    const el = document.getElementById(id);
+    if (el) live[id] = el.value;
+  }
+  current.assumptionDraft = live;
+}
+
+function applyLiveAssumptions() {
+  if (!current || !current.assumptionDraft) return;
+  for (const [id, v] of Object.entries(current.assumptionDraft)) {
+    const el = document.getElementById(id);
+    if (el) el.value = v;
+  }
+}
+
 // renderTimeline paints Stories 8-9's views (§13.3-§13.5). It shares the order
 // cache: the timeline IS the same schedule seen as spans, so a second fetch
 // would be a second answer to one question. Same epoch discipline as
@@ -416,7 +447,12 @@ async function renderTimeline() {
     if (!main) return;
     main.innerHTML = lens === 'pod'
       ? podLensHTML(sched, { horizonWeeks: horizon })
-      : portfolioTimelineHTML(sched, { horizonWeeks: horizon, todayWeek, expand: current.tlExpand });
+      : portfolioTimelineHTML(sched, {
+        horizonWeeks: horizon, todayWeek, expand: current.tlExpand,
+        // AC 8.5: the bands come off the saved policy, not the schedule — the
+        // schedule itself only carries the windows' effects, not their dates.
+        calendars: (current.scheduling || {}).calendars || [],
+      });
     // AC 8.4: expanding a row shows its pod slices. One open row at a time, so
     // the lens stays readable — the wireframe is one expanded initiative.
     main.querySelectorAll('.tl-row[data-expandable="1"] .tl-label').forEach((el) =>
@@ -489,20 +525,58 @@ async function renderOrder() {
     }
     current.schedule = payload;
   }
+  // The form's calendar rows come from the draft when one exists (an added or
+  // deleted row is a planner mid-edit, not a policy change), else the saved
+  // policy. Always an object, never undefined: passing undefined is how the
+  // view is told to omit the form entirely, and on a real plan it must be offered.
+  const schedOpts = current.scheduling || {};
+  const schedForForm = current.calDraft
+    ? { ...schedOpts, calendars: current.calDraft }
+    : schedOpts;
   host.innerHTML = orderViewHTML(current.schedule, {
     horizonWeeks: current.horizonWeeks,
     pod: current.orderPod,
-    // Always an object, never undefined: passing undefined is how the view is told
-    // to omit the form entirely, and on a real plan it must always be offered.
-    scheduling: current.scheduling || {},
+    scheduling: schedForForm,
   }) + baselinePanelHTML(current.baselines, current.baselineCompare, current.isDraft);
+  applyLiveAssumptions(); // edits carried across an add/del re-render
   wireBaselineControls();
   host.querySelectorAll('.ord-options').forEach((b) =>
     b.addEventListener('click', () => toggleRemedies(b)));
   // AC 8.1: the timeline opens from the order view in one action.
   document.getElementById('tl-open')?.addEventListener('click', () => setView('timeline'));
   document.getElementById('sched-save')?.addEventListener('click', saveScheduling);
-  document.getElementById('sched-cancel')?.addEventListener('click', () => renderOrder());
+  // FR-018's editor: adding appends an empty row; removing drops one. Both
+  // snapshot the LIVE form first — the planner may have edited dates in rows
+  // that exist only in the DOM, and rebuilding from the stale draft would
+  // silently revert them.
+  const snapshotCalRows = () => {
+    const rows = [...host.querySelectorAll('.cal-win')].map((el, i) => ({
+      kind: document.getElementById(`cal-kind-${i}`)?.value || 'change-freeze',
+      scope: document.getElementById(`cal-scope-${i}`)?.value || '',
+      fromDate: document.getElementById(`cal-from-${i}`)?.value || '',
+      toDate: document.getElementById(`cal-to-${i}`)?.value || '',
+      effect: document.getElementById(`cal-effect-${i}`)?.value || 'block-start',
+    }));
+    return rows.length ? rows : null;
+  };
+  document.getElementById('cal-add')?.addEventListener('click', () => {
+    carryLiveAssumptions();
+    const live = snapshotCalRows() ?? schedForForm.calendars ?? [];
+    current.calDraft = [...live,
+      { kind: 'change-freeze', scope: 'org', fromDate: '', toDate: '', effect: 'block-start' }];
+    renderOrder();
+  });
+  host.querySelectorAll('.cal-del').forEach((b) => b.addEventListener('click', () => {
+    carryLiveAssumptions();
+    const i = Number(b.closest('.cal-win')?.dataset.row);
+    const live = snapshotCalRows() ?? schedForForm.calendars ?? [];
+    current.calDraft = live.filter((_, j) => j !== i);
+    renderOrder();
+  }));
+  document.getElementById('sched-cancel')?.addEventListener('click', () => {
+    current.calDraft = null; // cancel discards window edits, not just hides them
+    renderOrder();
+  });
   host.querySelectorAll('.ord-podlink').forEach((a) => a.addEventListener('click', () => {
     // Clicking the open pod again closes it, so the grid is never stuck behind a panel.
     current.orderPod = current.orderPod === a.dataset.pod ? null : a.dataset.pod;

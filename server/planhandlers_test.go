@@ -549,6 +549,57 @@ var _ = Describe("the plan's sequencing inputs", func() {
 			rec := patch("/api/plan/plan1/scheduling", `{"periodStart":`, srv.savePlanScheduling)
 			Expect(rec.Code).To(Equal(400))
 		})
+
+		// FR-018: a window with unusable dates or an unknown effect would
+		// either move the schedule on a constraint nobody set, or sit in the
+		// blob looking applied while the engine ignores it. Both are refused
+		// at the door.
+		It("refuses a calendar window with unparseable dates", func() {
+			rec := patch("/api/plan/plan1/scheduling",
+				`{"periodStart":"2026-01-05","calendars":[{"kind":"change-freeze","scope":"org","fromDate":"soon","toDate":"2026-02-02","effect":"block-start"}]}`,
+				srv.savePlanScheduling)
+			Expect(rec.Code).To(Equal(400))
+			Expect(rec.Body.String()).To(ContainSubstring("calendar"))
+		})
+
+		It("refuses a window whose end precedes its start", func() {
+			rec := patch("/api/plan/plan1/scheduling",
+				`{"periodStart":"2026-01-05","calendars":[{"kind":"change-freeze","scope":"org","fromDate":"2026-03-02","toDate":"2026-02-02","effect":"block-start"}]}`,
+				srv.savePlanScheduling)
+			Expect(rec.Code).To(Equal(400))
+		})
+
+		It("refuses an unknown effect rather than storing an inert one", func() {
+			rec := patch("/api/plan/plan1/scheduling",
+				`{"periodStart":"2026-01-05","calendars":[{"kind":"event","scope":"org","fromDate":"2026-02-02","toDate":"2026-02-09","effect":"teleport"}]}`,
+				srv.savePlanScheduling)
+			Expect(rec.Code).To(Equal(400))
+			Expect(rec.Body.String()).To(ContainSubstring("effect"))
+		})
+
+		It("refuses a bad window on the stateless schedule endpoint too", func() {
+			// The windows ride in the request params; the save path is not
+			// involved, so the refusal has to live in the shared resolution.
+			req := httptest.NewRequest("POST", "/api/plan/plan1/schedule",
+				strings.NewReader(`{"params":{"periodStart":"2026-01-05","calendars":[`+
+					`{"kind":"event","scope":"org","fromDate":"soon","toDate":"2026-02-02","effect":"reduce-capacity"}]}}`))
+			rec := httptest.NewRecorder()
+			srv.schedulePlan(rec, req, plan)
+			Expect(rec.Code).To(Equal(400))
+			Expect(rec.Body.String()).To(ContainSubstring("YYYY-MM-DD"))
+		})
+
+		It("round-trips a well-formed window through the stored blob", func() {
+			// The write path needs a live Postgres (see the baseline specs); the
+			// persistence contract this guards is the decode side — a window
+			// the planner saved must come back off the blob, not vanish.
+			plan.Scheduling = []byte(`{"periodStart":"2026-01-05","calendars":[` +
+				`{"kind":"change-freeze","scope":"org","fromDate":"2026-02-02","toDate":"2026-02-09","effect":"block-start"}]}`)
+			sp := planScheduling(plan)
+			Expect(sp.Calendars).To(HaveLen(1))
+			Expect(sp.Calendars[0].Effect).To(Equal("block-start"))
+			Expect(sp.Calendars[0].From).To(Equal("2026-02-02"))
+		})
 	})
 
 	Describe("POST /api/plan/{id}/schedule", func() {

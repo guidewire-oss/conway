@@ -376,6 +376,43 @@ const intField = (id, label, value, placeholder, help) =>
 const asPct = (v) => (v === null || v === undefined || v === '') ? '' : String(Math.round(v * 100));
 const asInt = (v) => (!v ? '' : String(v));
 
+// calendarWindowsHTML is FR-018's editor: one row per saved window (kind,
+// scope, dates, effect), an add button, and one sentence saying what windows
+// are for. Rows are numbered so schedulingFromForm can read them back; a
+// half-filled row is dropped at read time rather than refused by the server.
+const CAL_KINDS = [
+  ['change-freeze', 'change freeze'],
+  ['site-nonworking', 'site non-working'],
+  ['event', 'event'],
+];
+const CAL_EFFECTS = [
+  ['block-start', 'block starts'],
+  ['block-finish', 'block completions'],
+  ['reduce-capacity', 'reduce capacity'],
+];
+
+function calendarWindowsHTML(windows) {
+  const sel = (id, opts, val, label) => `<select class="cal-sel" id="${id}" aria-label="${esc(label)}">${opts.map(([v, l]) =>
+    `<option value="${v}"${v === val ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
+  const row = (w, i) => `<div class="cal-win" data-row="${i}">
+    ${sel(`cal-kind-${i}`, CAL_KINDS, w.kind || 'change-freeze', `window ${i + 1} kind`)}
+    <input class="cal-in" placeholder="scope (org, a site, a pod)" id="cal-scope-${i}"
+      aria-label="window ${i + 1} scope" value="${esc(w.scope || '')}">
+    <input class="cal-in" type="date" id="cal-from-${i}" aria-label="window ${i + 1} from date" value="${esc(w.fromDate || '')}">
+    <input class="cal-in" type="date" id="cal-to-${i}" aria-label="window ${i + 1} to date" value="${esc(w.toDate || '')}">
+    ${sel(`cal-effect-${i}`, CAL_EFFECTS, w.effect || 'block-start', `window ${i + 1} effect`)}
+    <button type="button" class="cal-del" aria-label="remove window ${i + 1}">✕</button>
+  </div>`;
+  const intro = windows.length
+    ? '' : `<p class="hint">Calendar windows: a change freeze that blocks starts or completions, a site's non-working weeks, or an event that reduces a pod's capacity — drawn on the timeline and enforced by the order.</p>`;
+  return `<div class="cal-wins">
+    <b class="hint">calendar windows</b>
+    ${intro}
+    ${windows.map(row).join('')}
+    <button type="button" id="cal-add">add a window</button>
+  </div>`;
+}
+
 // schedulingFormHTML renders the assumptions behind the order, with the current
 // values filled in. Placeholders carry what happens when a field is left blank,
 // since "blank" is a real setting for every one of these and not an omission.
@@ -411,6 +448,7 @@ export function schedulingFormHTML(sp = {}, wip, sched) {
       ${intField('sched-quarter', 'starts per quarter', asInt(sp.maxStartsPerQuarter), 'uncapped',
     'how much change the org can absorb')}
     </div>
+    ${calendarWindowsHTML(sp.calendars || [])}
     <button type="button" id="sched-save" class="primary">Save assumptions</button>
     <button type="button" id="sched-cancel">Cancel</button>
     ${sched ? wipModelsTableHTML(sched) : ''}
@@ -514,5 +552,20 @@ export function schedulingFromForm(read) {
     const f = pctToFraction(raw(id));
     if (f !== null) out[key] = f;
   }
+
+  // Calendar windows: read every numbered row, keep only the complete ones.
+  // A half-filled row is a planner mid-edit, not a constraint.
+  out.calendars = [];
+  for (let i = 0; ; i++) {
+    const kind = raw(`cal-kind-${i}`);
+    const scope = raw(`cal-scope-${i}`);
+    const from = raw(`cal-from-${i}`);
+    if (!kind && !scope && !from) break;
+    const to = raw(`cal-to-${i}`);
+    const effect = raw(`cal-effect-${i}`);
+    if (!from || !to || !effect) continue;
+    out.calendars.push({ kind: kind || 'event', scope, fromDate: from, toDate: to, effect });
+  }
+  if (!out.calendars.length) delete out.calendars;
   return out;
 }
