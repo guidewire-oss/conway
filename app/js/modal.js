@@ -20,6 +20,9 @@
 // A Map, not a WeakMap: the one-modal-at-a-time handoff needs to iterate the
 // live instances; entries are bounded by the app's ~10 overlays.
 const instances = new Map();
+// Per-overlay listener cleanup, so the dispose-and-rebuild path (a reused
+// overlay replacing innerHTML) never stacks a second set of handlers.
+const cleanups = new Map();
 
 function bsModal() {
   return window.bootstrap?.Modal;
@@ -38,6 +41,8 @@ function modalFor(ov) {
     // because BS caches its dialog reference at construction; a new wrapper
     // under a stale instance means show/hide drive a detached dialog.
     if (!ov.firstElementChild?.classList.contains('modal-dialog')) {
+      cleanups.get(ov)?.();
+      cleanups.delete(ov);
       existing.dispose();
       instances.delete(ov);
       return modalFor(ov);
@@ -63,11 +68,22 @@ function modalFor(ov) {
   // One document listener per instance, alive for the instance's life —
   // NOT once-per-show, which any other keydown would consume.
   const onKey = (ev) => { if (ev.key === 'Escape' && ov.classList.contains('show')) m.hide(); };
-  ov.addEventListener('shown.bs.modal', () => document.addEventListener('keydown', onKey));
-  ov.addEventListener('hidden.bs.modal', () => document.removeEventListener('keydown', onKey));
-  // Sync the legacy `hidden` attr on EVERY hide path (✕, ESC, programmatic),
-  // so callers' state machines stay truthful.
-  ov.addEventListener('hidden.bs.modal', () => { ov.hidden = true; });
+  const onShown = () => document.addEventListener('keydown', onKey);
+  const onHidden = () => { document.removeEventListener('keydown', onKey); ov.hidden = true; };
+  ov.addEventListener('shown.bs.modal', onShown);
+  // onHidden both detaches the ESC listener and syncs the legacy `hidden`
+  // attr — every hide path (✕, ESC, programmatic) leaves callers' state
+  // machines truthful.
+  ov.addEventListener('hidden.bs.modal', onHidden);
+  // detach(ov) is used by the re-wrap path: dispose() alone leaves these
+  // element listeners attached, and a recreated instance would stack a second
+  // set — accumulating ESC handlers on every innerHTML replacement.
+  const detach = () => {
+    ov.removeEventListener('shown.bs.modal', onShown);
+    ov.removeEventListener('hidden.bs.modal', onHidden);
+    document.removeEventListener('keydown', onKey);
+  };
+  cleanups.set(ov, detach);
   instances.set(ov, m);
   return m;
 }
