@@ -622,6 +622,13 @@ async function previewInitiativesFile(file) {
   current.isDraft = true;
   current.draftFile = file;
   renderPlan();
+  // A picked file whose only feedback is a banner far above the scroll reads as
+  // "the button did nothing". Bring the banner into view once the re-rendered
+  // view has settled (renderOrder is async; the timeout covers its schedule
+  // fetch without coupling to its internals).
+  setTimeout(() => {
+    document.getElementById('plan-draft-save')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 600);
 }
 
 async function saveDraftInitiatives() {
