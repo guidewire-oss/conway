@@ -66,12 +66,18 @@ main { padding: 16px 20px; }
 /* Inputs: bare input/select/textarea match .form-control's spec through the
    token layer — the ~40 generated templates inherit the system look without
    markup changes; new markup uses .form-control/.form-select directly. */
-input, select, textarea { background: var(--bg); color: var(--text);
+input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),
+select, textarea { background: var(--bg); color: var(--text);
   border: 1px solid var(--border); border-radius: var(--bs-border-radius-sm);
   padding: 6px 10px; font-size: 13px; font-family: inherit; line-height: 1.5; }
-input:focus, select:focus, textarea:focus { border-color: var(--bs-primary);
+input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):focus,
+select:focus, textarea:focus { border-color: var(--bs-primary);
   outline: 0; box-shadow: 0 0 0 .2rem var(--bs-focus-ring-color); }
-input::placeholder { color: var(--muted); opacity: 1; }
+input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file])::placeholder { color: var(--muted); opacity: 1; }
+/* Checkboxes/radios/ranges keep their native controls; only the accent
+   follows the system. */
+input[type=checkbox], input[type=radio] { accent-color: var(--bs-primary); width: 14px; height: 14px; }
+input[type=range] { accent-color: var(--bs-primary); padding: 0; }
 
 /* auth */
 #login-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 200; display: flex; align-items: center; justify-content: center; }
@@ -304,14 +310,17 @@ button { background: var(--bs-secondary-bg); color: var(--text); border: 1px sol
   border-radius: var(--bs-border-radius-sm); padding: 6px 12px; cursor: pointer;
   font-size: 13px; font-family: inherit; line-height: 1.4; }
 button.primary { background: var(--bs-primary); color: #04222f; font-weight: 600; border-color: var(--bs-primary); }
-button:hover { border-color: var(--bs-primary-text-emphasis); }
+button.primary:hover:not(:disabled) { background: var(--bs-primary-text-emphasis); border-color: var(--bs-primary-text-emphasis); }
+button:hover:not(.primary) { border-color: var(--bs-primary-text-emphasis); }
 button:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 1px; }
 button:disabled { opacity: .55; cursor: not-allowed; }
 /* The framework's own classes, for new markup. */
 .btn { font-size: 13px; }
 .btn-primary { --bs-btn-bg: var(--bs-primary); --bs-btn-color: #04222f;
   --bs-btn-border-color: var(--bs-primary); --bs-btn-hover-bg: var(--bs-primary-text-emphasis);
-  --bs-btn-hover-color: #04222f; --bs-btn-active-bg: var(--bs-primary-text-emphasis); }
+  --bs-btn-hover-color: #04222f; --bs-btn-hover-border-color: var(--bs-primary-text-emphasis);
+  --bs-btn-active-color: #04222f; --bs-btn-active-bg: var(--bs-primary-text-emphasis);
+  --bs-btn-active-border-color: var(--bs-primary-text-emphasis); }
 .btn-secondary { --bs-btn-bg: var(--bs-secondary-bg); --bs-btn-color: var(--text);
   --bs-btn-border-color: var(--border); --bs-btn-hover-bg: var(--panel2);
   --bs-btn-hover-color: var(--text); --bs-btn-hover-border-color: var(--bs-primary-text-emphasis); }

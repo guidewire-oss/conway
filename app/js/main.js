@@ -213,8 +213,8 @@ document.querySelectorAll('.tab[data-view]').forEach((b) => b.addEventListener('
 // bootstrap.bundle.js): ESC, arrow keys, focus handling and outside-click
 // close come from the framework. Dynamically injected items (🎮 Run games)
 // work because BS's dropdown close listener is delegated at document level.
-// The `hidden` attribute that used to gate the plan menu is set by auth.js on
-// the GROUP div, not the menu, so BS's display toggling does not fight it.
+// The `hidden` attribute initially gates the plan GROUP in index.html; load()
+// in this file removes it for managers, so Bootstrap only ever toggles the menu.
 
 // The org network is one view seen two ways: read-only under Observe (no
 // simulation panel) and as the what-if tool under Plan (panel shown).
