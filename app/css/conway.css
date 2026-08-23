@@ -44,8 +44,9 @@
 
 /* ── Conway's palette on Bootstrap's variables ─────────────────────────
  * Same values under :root and [data-bs-theme=dark]: Conway is dark-only,
- * and declaring both scopes means the palette wins over Bootstrap's own
- * dark block regardless of load order between this file and the theme.
+ * and the two scopes cover both selector spellings Bootstrap uses. Load
+ * order still matters against an equally specific later stylesheet — this
+ * file must load after bootstrap.min.css (it does, in every page).
  */
 :root,
 [data-bs-theme=dark] {
@@ -75,6 +76,7 @@
   --bs-link-color: #4cc2ff;
   --bs-link-hover-color: #7dd4ff;
   --bs-link-color-rgb: 76, 194, 255;
+  --bs-link-hover-color-rgb: 125, 212, 255;
 
   --bs-success: #3ecf8e;            /*                 (was --green)  */
   --bs-success-rgb: 62, 207, 142;
