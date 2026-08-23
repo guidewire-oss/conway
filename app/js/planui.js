@@ -14,6 +14,25 @@ import { portfolioTimelineHTML, podLensHTML, podSheetHTML } from './timeline.js'
 let root, current = null;
 
 export function initPlanUI() {
+  // The assumptions dialog's ESC + focus management: ONE handler for the app's
+  // lifetime (renderOrder re-renders the dialog constantly; per-render
+  // listeners would stack). ESC closes wherever focus sits; on close, focus
+  // returns to the ⚙ that opened it — the same contract modal.js gives the
+  // shared modals.
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Escape') return;
+    const d = document.getElementById('sched-dialog');
+    if (d && !d.hidden) { d.hidden = true; document.getElementById('sched-open')?.focus(); }
+  });
+  // Focus-in on open: the first field, so keyboard and screen-reader users
+  // land inside the dialog that aria-modal just told them owns the page.
+  // Delegated — the ⚙ button is re-rendered with every renderOrder.
+  document.addEventListener('click', (ev) => {
+    const open = ev.target.closest?.('#sched-open');
+    if (!open) return;
+    const d = document.getElementById('sched-dialog');
+    if (d && !d.hidden) d.querySelector('input, select')?.focus();
+  });
   root = document.getElementById('plan-root');
   if (!root) return;
   document.querySelector('.tab[data-view="plan"]')?.addEventListener('click', () => {
@@ -554,6 +573,14 @@ async function renderOrder() {
   // AC 8.1: the timeline opens from the order view in one action.
   document.getElementById('tl-open')?.addEventListener('click', () => setView('timeline'));
   document.getElementById('sched-save')?.addEventListener('click', saveScheduling);
+  // Assumptions live behind the ⚙ button (IA #2): set-once config out of the
+  // reading path. The dialog itself auto-opens when something's outstanding.
+  document.getElementById('sched-open')?.addEventListener('click', () => {
+    const d = document.getElementById('sched-dialog');
+    if (d) d.hidden = !d.hidden;
+  });
+  // (ESC handling and focus live in the stable document-level handler wired
+  // once in initPlanUI — renderOrder must not stack a listener per render.)
   // FR-018's editor: adding appends an empty row; removing drops one. Both
   // snapshot the LIVE form first — the planner may have edited dates in rows
   // that exist only in the DOM, and rebuilding from the stale draft would
@@ -584,7 +611,13 @@ async function renderOrder() {
   }));
   document.getElementById('sched-cancel')?.addEventListener('click', () => {
     current.calDraft = null; // cancel discards window edits, not just hides them
-    renderOrder();
+    current.assumptionDraft = null;
+    renderOrder().then(() => {
+      // The re-render rebuilds the dialog; urgency (missing period/model) would
+      // auto-open it again, and a Cancel that re-opens is not a Cancel.
+      const d = document.getElementById('sched-dialog');
+      if (d) d.hidden = true;
+    });
   });
   host.querySelectorAll('.ord-podlink').forEach((a) => a.addEventListener('click', () => {
     // Clicking the open pod again closes it, so the grid is never stuck behind a panel.
