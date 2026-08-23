@@ -48,6 +48,7 @@ const (
 	bindKitGate       = "kit-gate"
 	bindEarliestStart = "earliest-start"
 	bindPredecessor   = "predecessor"
+	bindFreeze        = "freeze" // a calendar window refused the start or finish (FR-018)
 )
 
 // Dispatch rules, run in this order. D6 keeps the best by objective; ties keep
@@ -123,6 +124,7 @@ type SchedulingParams struct {
 	FeedingBufferPct         *float64       `json:"feedingBufferPct,omitempty"`         // reserved for feeding paths
 	MaxStartsPerQuarter      int            `json:"maxStartsPerQuarter,omitempty"`      // change-absorption cap; 0 = uncapped
 	LeadCapacity             map[string]int `json:"leadCapacity,omitempty"`             // role -> concurrent initiatives
+	Calendars                []CalendarWindow `json:"calendars,omitempty"`            // FR-018 calendar constraints
 	AllowTransfers           bool           `json:"allowTransfers,omitempty"`           // reserved for capacity transfer
 	TransferRampWeeks        int            `json:"transferRampWeeks,omitempty"`        // reserved for capacity transfer
 	LookaheadK               float64        `json:"lookaheadK,omitempty"`               // tardiness-index slack discount
@@ -432,13 +434,14 @@ func computeOne(teams []Team, inits []Initiative, params Params, sp SchedulingPa
 	}
 
 	pBar := meanProcessing(prepared)
+	rules := compileCalendars(parseCalendars(sp, horizon))
 
 	var best *runResult
 	var bestRule string
 	statedObjective := 0.0
 	var tried []RuleScore
 	for _, rule := range dispatchRules {
-		run := generate(prepared, rankOrder(rule, prepared, sp, pBar), byName, tracks, sp, wip, horizon, pBar)
+		run := generate(prepared, rankOrder(rule, prepared, sp, pBar), byName, tracks, sp, wip, horizon, pBar, rules)
 		tried = append(tried, RuleScore{Rule: rule, Objective: run.objective})
 		if rule == ruleStatedPriority {
 			statedObjective = run.objective
@@ -918,11 +921,23 @@ type podCalendar struct {
 // rule's order, gate each one's release (Decision 5), then place its slices as
 // early as capacity allows. Releases are what get held back; released work runs.
 func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tracks map[string]int,
-	sp SchedulingParams, wip WipLimit, horizon int, pBar float64) *runResult {
+	sp SchedulingParams, wip WipLimit, horizon int, pBar float64, rules *calendarRules) *runResult {
 
 	maxWeek := horizon
 	for _, in := range all {
 		maxWeek += in.chainAlone + 1
+	}
+	// A freeze can push a finish past the ordinary bound by at most the number
+	// of frozen weeks; without this headroom the retry loop can exhaust.
+	for w := range rules.blockStart {
+		if w > maxWeek {
+			maxWeek = w
+		}
+	}
+	for w := range rules.blockFinish {
+		if w > maxWeek {
+			maxWeek = w
+		}
 	}
 
 	cal := map[string]*podCalendar{}
@@ -957,7 +972,7 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 		var placed []WorkSlice
 		var start, finish int
 		for {
-			placed, start, finish = planSlices(in, release, cal, teams, tracks, sp.MaxInitiativesPerPod)
+			placed, start, finish = planSlices(in, release, cal, teams, tracks, sp.MaxInitiativesPerPod, rules)
 			// Carryover is already running, so no release gate can push it later — but
 			// it does occupy its slots, which the bookkeeping below records (AC X.4).
 			if in.init.InFlight {
@@ -1159,7 +1174,7 @@ func releaseGates(in *schedInput, sp SchedulingParams, wip WipLimit, start, fini
 // refused release can be retried a week later. Slices run as early as capacity
 // allows once released (Decision 5).
 func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
-	teams map[string]Team, tracks map[string]int, perPodCap int) ([]WorkSlice, int, int) {
+	teams map[string]Team, tracks map[string]int, perPodCap int, rules *calendarRules) ([]WorkSlice, int, int) {
 
 	finishOf := map[string]int{}
 	slices := make([]WorkSlice, 0, len(in.order))
@@ -1175,24 +1190,55 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 		}
 		d := in.durations[pod]
 		begin := ready
+		if rules != nil {
+			// FR-018: no slice may begin in a frozen week. The freeze is the
+			// binding constraint only when it moved the slice; otherwise
+			// whatever else delayed it keeps the blame.
+			if s, moved := rules.firstStartFrom(pod, ready); moved {
+				begin, reason = s, bindFreeze
+			}
+		}
+		sliceFinish := begin + d
 		if d > 0 && tracks[pod] > 0 {
-			if s, why := firstFreeWeek(cal[pod], tracks[pod], ready, d, in.init.Name, perPodCap); s > ready {
-				begin, reason = s, why
+			// Returns both ends: a reduce-capacity window stretches the span,
+			// so the finish is not simply begin + d any more.
+			if s, f, why := firstFreeWeek(cal[pod], tracks[pod], begin, d, in.init.Name, perPodCap, rules, pod, siteOf(teams, pod)); s > begin || f > begin+d {
+				begin, sliceFinish = s, f
+				if why != "" {
+					reason = why
+				}
+			}
+		}
+		if rules != nil && d > 0 {
+			// FR-018: no completion inside a freeze. The duration stretches by
+			// the weeks the finish had to move, so the slice still runs its
+			// estimated weeks of work — the freeze adds waiting, not scope.
+			// sliceFinish, not finish: shadowing the returned aggregate here
+			// once left every initiative with a zero raw finish.
+			if f, moved := rules.firstFinishFrom(pod, sliceFinish); moved {
+				d += f - sliceFinish
+				sliceFinish = f
+				if reason == "" {
+					reason = bindFreeze
+				}
 			}
 		}
 		w := in.init.Work[pod]
 		slices = append(slices, WorkSlice{
 			Initiative: in.init.Name, Pod: pod, RemainingWeeks: float64(d),
-			StartWeek: begin, FinishWeek: begin + d, WaitWeeks: float64(begin - ready),
+			StartWeek: begin, FinishWeek: sliceFinish, WaitWeeks: float64(begin - ready),
 			BindingConstraint: reason, Estimated: w.Estimated && w.Weeks > 0,
 			DependsOn: append([]string(nil), in.deps[pod]...),
 		})
-		finishOf[pod] = begin + d
+		finishOf[pod] = sliceFinish
 		if i == 0 || begin < start {
 			start = begin
 		}
-		if begin+d > finish {
-			finish = begin + d
+		// sliceFinish, not begin+d: a reduce-capacity window stretches the
+		// span beyond d working weeks, and the aggregate must follow the
+		// stretch or the initiative reports a finish its own slice beats.
+		if sliceFinish > finish {
+			finish = sliceFinish
 		}
 	}
 	if len(slices) == 0 {
@@ -1209,33 +1255,71 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 // Two separate limits apply, and they are reported separately because the
 // remedies differ: no free track is pod capacity, answered by tracks or descope;
 // too many initiatives at once is the pod's own WIP cap, answered by sequencing.
-func firstFreeWeek(c *podCalendar, tracks, from, d int, initiative string, perPodCap int) (int, string) {
+func firstFreeWeek(c *podCalendar, tracks, from, d int, initiative string, perPodCap int,
+	rules *calendarRules, pod, site string) (start int, finish int, reason string) {
 	// The limit that refused the slice's own ready week is the one worth naming;
 	// whatever refuses a later candidate week is a consequence of that first wait.
 	refused := ""
+	// The walk needs a bound: overlapping reduce-capacity windows are clipped to
+	// the horizon at parse time, so any legal span ends within d + horizon weeks
+	// of the earliest start. Without the bound, a fully-frozen pod would spin.
+	ceiling := from + d + horizonBound
 	for s := from; ; s++ {
+		w, work := s, 0
+		spanStart := -1 // the first week the slice actually works
 		fits, why := true, ""
-		for w := s; w < s+d; w++ {
-			if c == nil {
-				break
+		for work < d && w <= ceiling {
+			weekTracks := tracks
+			if rules != nil {
+				weekTracks = rules.reducedTracks(pod, site, tracks, w)
 			}
-			if weekAt(c.busy, w) >= tracks {
+			if weekTracks <= 0 {
+				// A non-working week stretches the span but adds no work —
+				// the team is on holiday, not re-scoping (FR-018).
+				w++
+				continue
+			}
+			if c != nil && weekAt(c.busy, w) >= weekTracks {
 				fits, why = false, bindPodCapacity
+				if weekTracks < tracks {
+					why = bindFreeze
+				}
 				break
 			}
-			if perPodCap > 0 && podWeekInitiatives(c, w, initiative) >= perPodCap {
+			if perPodCap > 0 && c != nil && podWeekInitiatives(c, w, initiative) >= perPodCap {
 				fits, why = false, bindPodWipLimit
 				break
 			}
+			if spanStart < 0 {
+				// The slice starts when its first working week starts, not
+				// when its earliest holiday began: leading non-working weeks
+				// are waiting, not work.
+				spanStart = w
+			}
+			work++
+			w++
 		}
-		if fits {
-			return s, refused
+		if fits && work >= d {
+			if spanStart < 0 {
+				spanStart = s
+			}
+			return spanStart, w, refused
+		}
+		if fits && work < d {
+			// The bound ran out before d working weeks existed: nothing fits,
+			// and reporting a start would promise work the period cannot hold.
+			return s, s + d, bindFreeze
 		}
 		if refused == "" {
 			refused = why
 		}
 	}
 }
+
+// horizonBound is the walk ceiling above; generous rather than exact, because
+// the exact bound (horizon + all frozen weeks) costs another pass to compute
+// and the loop exits on the first fitting span long before this in practice.
+const horizonBound = 208
 
 // podWeekInitiatives counts the distinct initiatives already occupying the pod in
 // one week, not counting the one asking — a slice does not contend with itself.
@@ -1515,4 +1599,10 @@ func markWeek(weeks *[]map[string]bool, i int, name string) {
 		(*weeks)[i] = map[string]bool{}
 	}
 	(*weeks)[i][name] = true
+}
+
+// siteOf is the roster's site for a pod, lowercased for the calendar scope
+// join — the same case-insensitivity every other pod-name match uses.
+func siteOf(teams map[string]Team, pod string) string {
+	return strings.ToLower(strings.TrimSpace(teams[pod].Site))
 }
