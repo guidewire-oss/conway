@@ -17,7 +17,9 @@
 // legacy overlay shape onto it rather than inventing a second modal system.
 // Registered in docs/COMPONENTS.md.
 
-const instances = new WeakMap();
+// A Map, not a WeakMap: the one-modal-at-a-time handoff needs to iterate the
+// live instances; entries are bounded by the app's ~10 overlays.
+const instances = new Map();
 
 function bsModal() {
   return window.bootstrap?.Modal;
@@ -32,8 +34,14 @@ function modalFor(ov) {
   const existing = instances.get(ov);
   if (existing) {
     // A reused overlay may have replaced its innerHTML since the last show,
-    // orphaning the wrapped dialog. Re-wrap the new content in place.
-    if (!ov.firstElementChild?.classList.contains('modal-dialog')) wrapDialog(ov);
+    // orphaning the wrapped dialog. Re-wrap — and recreate the instance,
+    // because BS caches its dialog reference at construction; a new wrapper
+    // under a stale instance means show/hide drive a detached dialog.
+    if (!ov.firstElementChild?.classList.contains('modal-dialog')) {
+      existing.dispose();
+      instances.delete(ov);
+      return modalFor(ov);
+    }
     return existing;
   }
   ov.classList.add('modal');
@@ -84,9 +92,13 @@ function wrapDialog(ov) {
 // hosting), falls back to plain display so the modal still opens.
 export function openModal(ov) {
   if (!ov) return;
-  // A previous direct `ov.hidden = true` (any legacy path) can orphan BS's
-  // backdrop: the class was stripped without the hide transition running.
-  // Clear strays before showing so backdrops never stack.
+  // One modal at a time: opening a second (e.g. the halt modal over an open
+  // admin panel) while the first is shown leaves the first visible with a
+  // stolen backdrop. Dispose of any shown instance first — same cleanup the
+  // strays path needs for legacy `ov.hidden = true` writers.
+  for (const [el, inst] of instances) {
+    if (el !== ov && el.classList.contains('show')) { inst.hide(); }
+  }
   document.querySelectorAll('.modal-backdrop').forEach((b) => b.remove());
   document.body.classList.remove('modal-open');
   const m = modalFor(ov);
