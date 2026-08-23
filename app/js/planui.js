@@ -508,6 +508,7 @@ async function renderOrder() {
     pod: current.orderPod,
     scheduling: schedForForm,
   }) + baselinePanelHTML(current.baselines, current.baselineCompare, current.isDraft);
+  applyLiveAssumptions(); // edits carried across an add/del re-render
   wireBaselineControls();
   host.querySelectorAll('.ord-options').forEach((b) =>
     b.addEventListener('click', () => toggleRemedies(b)));
@@ -528,13 +529,36 @@ async function renderOrder() {
     }));
     return rows.length ? rows : null;
   };
+  // A re-render rebuilds every assumption field from the saved policy, so any
+  // live edit to them must be carried across the render — otherwise adding a
+  // window silently reverts the period start the planner just typed, and Save
+  // then persists the old one.
+  const carryLiveAssumptions = () => {
+    const live = {};
+    for (const id of ['sched-period-start', 'sched-wip-model', 'sched-wip', 'sched-buffer',
+      'sched-kit', 'sched-pod-wip', 'sched-quarter']) {
+      const el = document.getElementById(id);
+      if (el && el.value !== '') live[id] = el.value;
+    }
+    current.assumptionDraft = live;
+  };
+  const applyLiveAssumptions = () => {
+    const d = current.assumptionDraft;
+    if (!d) return;
+    for (const [id, v] of Object.entries(d)) {
+      const el = document.getElementById(id);
+      if (el) el.value = v;
+    }
+  };
   document.getElementById('cal-add')?.addEventListener('click', () => {
+    carryLiveAssumptions();
     const live = snapshotCalRows() ?? schedForForm.calendars ?? [];
     current.calDraft = [...live,
       { kind: 'change-freeze', scope: 'org', fromDate: '', toDate: '', effect: 'block-start' }];
     renderOrder();
   });
   host.querySelectorAll('.cal-del').forEach((b) => b.addEventListener('click', () => {
+    carryLiveAssumptions();
     const i = Number(b.closest('.cal-win')?.dataset.row);
     const live = snapshotCalRows() ?? schedForForm.calendars ?? [];
     current.calDraft = live.filter((_, j) => j !== i);
