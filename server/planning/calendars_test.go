@@ -340,6 +340,10 @@ var _ = Describe("calendar window edge cases, round two", func() {
 			}
 		}
 		Expect(delta).NotTo(BeNil())
+		// Guard the premise: without the freeze moving the finish, weeks 4-5
+		// would read empty for a plain 4-week slice and the assertions below
+		// would pass vacuously.
+		Expect(delta.Slices[0].FinishWeek).To(Equal(6), "the freeze moved the completion to w6")
 		// The 4 estimated weeks are w0-w3; the finish moved from w4 to w6, so
 		// weeks 4-5 are freeze waiting and must not book. Week 3 is work.
 		Expect(delta.Weeks[3].Busy).To(Equal(1), "the last estimated week is work")
