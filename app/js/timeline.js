@@ -154,7 +154,7 @@ function bandHTML(win, sched, horizon) {
   const dates = `${esc(win.fromDate)}–${esc(win.toDate)}`;
   return `<div class="tl-band tl-trunc ${win.kind === 'change-freeze' ? 'tl-band-freeze' : ''}"
     style="${pct(s(left))};width:${width.toFixed(2)}%">
-    <span class="tl-band-label">${esc(label)} ${dates}</span>
+    <span class="tl-band-label">${dates} ${esc(label)}</span>
   </div>`;
 }
 
