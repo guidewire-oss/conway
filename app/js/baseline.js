@@ -6,6 +6,7 @@
 // the whole surface under `node --test`.
 
 import { esc, weekLabel } from './order.js';
+import { term } from './terms.js';
 
 // fmtWhen renders a unix timestamp the way the rest of Plan does: short and local,
 // because "12 Jan" is what a planner recognises, not an ISO string.
@@ -61,7 +62,7 @@ export function baselineListHTML(baselines) {
     </td>
   </tr>`).join('');
   return `<table class="wip-table bl-table"><thead><tr>
-      <th>Baseline</th><th>Saved</th><th>By</th><th>Against this plan</th><th></th>
+      <th>Baseline${term('baseline')}</th><th>Saved</th><th>By</th><th>Against this plan</th><th></th>
     </tr></thead><tbody>${rows}</tbody></table>
     <p class="hint">Actuals and variance are measured against the active one. The others stay readable as history.</p>`;
 }
@@ -119,7 +120,7 @@ export function compareTableHTML(result) {
 export function baselinePanelHTML(baselines, compare, draft) {
   return `<div class="card ord-card bl-panel">
     <div class="ord-head">
-      <b>Baselines</b>
+      <b>Baselines${term('baseline')}</b>
       <span class="hint">the agreed order for this period, frozen with the inputs that produced it</span>
     </div>
     ${baselineListHTML(baselines)}

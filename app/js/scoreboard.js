@@ -1,5 +1,6 @@
 import { heatColor } from './graph.js';
 
+import { term } from './terms.js';
 export function initScoreboard(state) {
   // inbound demand: who is waiting on this pod's work?
   const dependents = {}; const demand = {}; const upstreams = {};
@@ -33,7 +34,7 @@ export function initScoreboard(state) {
       '85th-percentile lead time — the date you can promise with confidence. Rules of Flow / probabilistic forecasting: commit the P85, not the optimistic P50, or you break promises half the time.'],
     ['Load ρ', (p, s) => (s.load ?? s.rho0),
       'Load = WIP ÷ (work-streams × 2) — the REAL ratio (we show it uncapped, so >1 means over capacity; the bar saturates at a full plate). The Goal & queueing theory: a system near or past full utilisation is not fast — it is where delay explodes.'],
-    ['Kingman ×', (p, s) => {
+    ['Wait ×', (p, s) => {
       const load = s.load ?? s.rho0;
       return load >= 1 ? '∞' : `${(load / (1 - load)).toFixed(1)}×`;
     },
