@@ -356,6 +356,33 @@ function setView(v) {
   renderPlan();
 }
 
+// ASSUMPTION_FIELDS are the scheduling form's inputs. carryLiveAssumptions
+// snapshots them so an add/del re-render cannot drop a planner's edits —
+// including a cleared field, which is an edit, not a reversion.
+const ASSUMPTION_FIELDS = ['sched-period-start', 'sched-wip-model', 'sched-wip', 'sched-buffer',
+  'sched-kit', 'sched-pod-wip', 'sched-quarter'];
+
+// Hoisted function declarations, not consts: renderOrder calls
+// applyLiveAssumptions mid-body, and a const there would still be in its
+// temporal dead zone on the first render.
+function carryLiveAssumptions() {
+  if (!current) return;
+  const live = {};
+  for (const id of ASSUMPTION_FIELDS) {
+    const el = document.getElementById(id);
+    if (el) live[id] = el.value;
+  }
+  current.assumptionDraft = live;
+}
+
+function applyLiveAssumptions() {
+  if (!current || !current.assumptionDraft) return;
+  for (const [id, v] of Object.entries(current.assumptionDraft)) {
+    const el = document.getElementById(id);
+    if (el) el.value = v;
+  }
+}
+
 // renderTimeline paints Stories 8-9's views (§13.3-§13.5). It shares the order
 // cache: the timeline IS the same schedule seen as spans, so a second fetch
 // would be a second answer to one question. Same epoch discipline as
@@ -528,27 +555,6 @@ async function renderOrder() {
       effect: document.getElementById(`cal-effect-${i}`)?.value || 'block-start',
     }));
     return rows.length ? rows : null;
-  };
-  // A re-render rebuilds every assumption field from the saved policy, so any
-  // live edit to them must be carried across the render — otherwise adding a
-  // window silently reverts the period start the planner just typed, and Save
-  // then persists the old one.
-  const carryLiveAssumptions = () => {
-    const live = {};
-    for (const id of ['sched-period-start', 'sched-wip-model', 'sched-wip', 'sched-buffer',
-      'sched-kit', 'sched-pod-wip', 'sched-quarter']) {
-      const el = document.getElementById(id);
-      if (el && el.value !== '') live[id] = el.value;
-    }
-    current.assumptionDraft = live;
-  };
-  const applyLiveAssumptions = () => {
-    const d = current.assumptionDraft;
-    if (!d) return;
-    for (const [id, v] of Object.entries(d)) {
-      const el = document.getElementById(id);
-      if (el) el.value = v;
-    }
   };
   document.getElementById('cal-add')?.addEventListener('click', () => {
     carryLiveAssumptions();
