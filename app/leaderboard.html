@@ -8,21 +8,22 @@
 <link rel="stylesheet" href="vendor/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="css/conway.css">
 <style>
-  :root{--bg:#0f1419;--panel:#18202a;--panel2:#1f2937;--text:#e5eef7;--muted:#8aa0b4;
-    --accent:#4cc2ff;--green:#3ecf8e;--amber:#f5b94c;--red:#f4655f;--gold:#ffd76a;--border:#2b3a4a;}
+  /* Only page-specific tokens here; the palette lives in conway.css. */
+  :root{--gold:#ffd76a;}
   *{box-sizing:border-box;}
-  body{margin:0;background:var(--bg);color:var(--text);font:18px/1.4 'Segoe UI',system-ui,sans-serif;}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:var(--bs-body-font-family);font-size:18px;line-height:1.4;}
   header{display:flex;justify-content:space-between;align-items:center;padding:28px 48px 14px;}
   h1{font-size:40px;margin:0;letter-spacing:-.5px;}
   h1 .sub{color:var(--accent);font-size:18px;font-weight:600;letter-spacing:2px;text-transform:uppercase;display:block;margin-bottom:4px;}
   .updated{color:var(--muted);font-size:15px;}
   .board{padding:8px 48px 48px;display:flex;flex-direction:column;gap:14px;max-width:1400px;margin:0 auto;}
-  .row{display:grid;grid-template-columns:64px 1fr 150px;align-items:center;gap:24px;
+  .lb-row{display:grid;grid-template-columns:64px 1fr 150px;align-items:center;gap:24px;
     background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:20px 28px;
     transition:transform .4s ease, background .4s ease;}
-  .row.lead{border-color:var(--gold);background:linear-gradient(180deg,rgba(255,215,106,.10),transparent);}
+  .lb-row.lead{border-color:var(--gold);background:linear-gradient(180deg,rgba(255,215,106,.10),transparent);}
   .rank{font-size:42px;font-weight:800;color:var(--muted);text-align:center;}
-  .row.lead .rank{color:var(--gold);}
+  .lb-row.lead .rank{color:var(--gold);}
   .name{font-size:30px;font-weight:700;}
   .name .meta{display:block;font-size:15px;color:var(--muted);font-weight:400;margin-top:2px;}
   .total{font-size:48px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums;}
@@ -64,7 +65,7 @@ async function tick(){
   if(!rows.length){ board.innerHTML='<div class="empty">Waiting for teams to play their first quarter…</div>'; }
   else {
     board.innerHTML = rows.map((r,i)=>`
-      <div class="row ${i===0&&r.total>0?'lead':''}">
+      <div class="lb-row ${i===0&&r.total>0?'lead':''}">
         <div class="rank">${i+1}</div>
         <div class="name">${r.team}<span class="meta">${r.round?('through quarter '+(r.round-1>0?r.round-1:r.round)):'not started'}</span></div>
         <div class="total">${Math.round(r.total)}</div>
