@@ -33,11 +33,11 @@ export function initScoreboard(state) {
       '85th-percentile lead time — the date you can promise with confidence. Rules of Flow / probabilistic forecasting: commit the P85, not the optimistic P50, or you break promises half the time.'],
     ['Load ρ', (p, s) => (s.load ?? s.rho0),
       'Load = WIP ÷ (work-streams × 2) — the REAL ratio (we show it uncapped, so >1 means over capacity; the bar saturates at a full plate). The Goal & queueing theory: a system near or past full utilisation is not fast — it is where delay explodes.'],
-    ['Kingman ×', (p, s) => {
+    ['Wait ×', (p, s) => {
       const load = s.load ?? s.rho0;
       return load >= 1 ? '∞' : `${(load / (1 - load)).toFixed(1)}×`;
     },
-      'Wait-time multiplier ρ/(1−ρ) — but it only exists while load < 1 (a stable queue): at ρ=0.5 work waits ~1× its touch time, at 0.9 ~9×. At load ≥ 1 the queue is UNSTABLE — the backlog grows without bound, so there is no finite multiplier (shown as ∞). The Goal: a pod past 100% load never catches up until you cut its WIP below 1.'],
+      'Wait multiplier — how long work waits in queue relative to its touch time. It only exists while load < 1 (a stable queue): at ρ=0.5 work waits ~1× its touch time, at 0.9 ~9×. At load ≥ 1 the queue is UNSTABLE — the backlog grows without bound, so there is no finite multiplier (shown as ∞). The Goal: a pod past 100% load never catches up until you cut its WIP below 1.'],
     ['Dependents', (p) => (depCount(p) ? `${depCount(p)} pods (×${demand[p.name]})` : '—'),
       'Distinct pods waiting on THIS pod\'s work (× total blocking links, last 12 months). The Goal: the pod everyone queues behind is your system constraint — improve it and the whole system speeds up.'],
     ['Upstreams', (p) => (upstreams[p.name]?.size ?? 0) || '—',

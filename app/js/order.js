@@ -15,6 +15,7 @@
 // cycle (remedyui imports esc from here) is safe because neither module calls
 // the other's exports while evaluating — only inside functions invoked later.
 import { optionsExpanderHTML } from './remedyui.js';
+import { term } from './terms.js';
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
   (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -180,7 +181,7 @@ export function orderTableHTML(sched) {
   return `<table class="wip-table ord-table">
     <thead><tr>
       <th>#</th><th>Initiative</th><th>Stated</th><th>Start</th>
-      <th>Commit</th><th>Target</th><th>Verdict</th><th>Binds</th>
+      <th>${term('commit', 'Commit')}</th><th>${term('target', 'Target')}</th><th>${term('verdict', 'Verdict')}</th><th>${term('binds', 'Binds')}</th>
     </tr></thead>
     <tbody>${rows.map(orderRowHTML).join('')}</tbody>
   </table>`;
@@ -318,7 +319,7 @@ export function orderHeaderHTML(sched) {
   } else if (obj.allOnTime) {
     score = '<b class="ord-green">every date in this plan holds</b> <span class="hint">— nothing is late under either order</span>';
   } else {
-    score = `your stated order: <b>${obj.stated}</b> weighted weeks late · proposed: <b>${obj.proposed}</b>
+    score = `your stated order: <b>${obj.stated}</b> weighted weeks late${term('weighted-late')} · proposed: <b>${obj.proposed}</b>
       ${obj.delta !== 0 ? `· <b class="${obj.better ? 'ord-green' : 'ord-red'}">Δ ${obj.delta > 0 ? '+' : ''}${obj.delta}</b>` : ''}`;
   }
   return `<div class="ord-head">
@@ -339,7 +340,7 @@ export function orderViewHTML(sched, opts = {}) {
     ${noticesHTML(sched)}
   </div>
   <div class="card ord-card" style="margin-top:12px">
-    <b>Pod load, week by week</b>
+    <b>Pod load, week by week</b>${term('rho')}
     <div class="ord-heatwrap">${podHeatmapHTML(sched, opts.horizonWeeks)}</div>
   </div>
   ${opts.pod ? podQueueHTML(sched, opts.pod) : ''}`;
@@ -433,7 +434,7 @@ export function schedulingFormHTML(sp = {}, wip, sched) {
       as <b>strict</b> so nothing moves under you, but the choice changes what the schedule means —
       compare the three below and pick one.</p>` : ''}
     <div class="sched-grid">
-      <label class="hint sched-f">work-in-progress model
+      <label class="hint sched-f">work-in-progress model${term('wip-model')}
         <span class="sched-row"><select id="sched-wip-model">${options}</select></span>
         <span class="hint">which initiatives count against the org limit</span></label>
       <label class="hint sched-f">period starts
@@ -495,7 +496,7 @@ export function wipModelsTableHTML(sched) {
   const sameMisses = missed.size === 1 && rows.length > 1;
 
   return `<table class="wip-table ord-models"><thead><tr>
-      <th>model</th><th>limit</th><th>ends</th><th>dates missed</th><th>pods idle all period</th><th>cost</th>
+      <th>model${term('wip-model')}</th><th>limit</th><th>ends</th><th>dates missed</th><th>pods idle all period</th><th>cost${term('weighted-late')}</th>
     </tr></thead><tbody>${body}</tbody></table>
     <ul class="hint ord-models-why">
       ${WIP_MODELS.map((m) => `<li><b>${esc(m.label)}</b> — ${esc(m.blurb)}</li>`).join('')}
