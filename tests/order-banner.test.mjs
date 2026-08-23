@@ -88,7 +88,7 @@ test('zero-cost plans get the plain-language fallback, not zero-value bars', () 
   assert.ok(!html.includes('ord-bars'), 'no bars when both orders cost nothing');
   // The copy must not claim 'every date holds' — comparable covers priority-only
   // plans where no date can be missed either.
-  assert.match(html, /nothing is late/i);
+  assert.match(html, /any weighted lateness/i);
   assert.ok(!html.includes('every date holds'), 'no unsupported all-held claim');
   assert.ok(!html.includes('NaN') && !html.includes('Infinity'));
 });
