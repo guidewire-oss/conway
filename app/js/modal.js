@@ -29,8 +29,42 @@ function bsModal() {
 // hangs). The overlay's existing first child becomes the dialog: our classes
 // keep the visual, BS gets the structure it expects.
 function modalFor(ov) {
-  if (instances.has(ov)) return instances.get(ov);
+  const existing = instances.get(ov);
+  if (existing) {
+    // A reused overlay may have replaced its innerHTML since the last show,
+    // orphaning the wrapped dialog. Re-wrap the new content in place.
+    if (!ov.firstElementChild?.classList.contains('modal-dialog')) wrapDialog(ov);
+    return existing;
+  }
   ov.classList.add('modal');
+  wrapDialog(ov);
+  const M = bsModal();
+  if (!M) {
+    // Bootstrap CSS is loaded but its JS is not: .modal hides the overlay
+    // (display:none beats the hidden-attr removal), so undo the class before
+    // the caller's fallback runs — otherwise the modal opens invisible.
+    ov.classList.remove('modal');
+    return null;
+  }
+  const m = new M(ov, {
+    backdrop: 'static', // no click-outside-to-close (see module comment)
+    keyboard: true,     // ESC closes — new, and what the framework is for
+  });
+  // ESC independent of focus: BS wires ESC through its focus trap, which
+  // requires focus inside the modal; our legacy overlays never receive it.
+  // One document listener per instance, alive for the instance's life —
+  // NOT once-per-show, which any other keydown would consume.
+  const onKey = (ev) => { if (ev.key === 'Escape' && ov.classList.contains('show')) m.hide(); };
+  ov.addEventListener('shown.bs.modal', () => document.addEventListener('keydown', onKey));
+  ov.addEventListener('hidden.bs.modal', () => document.removeEventListener('keydown', onKey));
+  // Sync the legacy `hidden` attr on EVERY hide path (✕, ESC, programmatic),
+  // so callers' state machines stay truthful.
+  ov.addEventListener('hidden.bs.modal', () => { ov.hidden = true; });
+  instances.set(ov, m);
+  return m;
+}
+
+function wrapDialog(ov) {
   const inner = ov.firstElementChild;
   if (inner && !inner.classList.contains('modal-dialog')) {
     const dialog = document.createElement('div');
@@ -43,28 +77,6 @@ function modalFor(ov) {
     inner.classList.add('modal-content'); // BS restores pointer-events on .modal-content; without it, clicks inside the dialog are dead
     dialog.appendChild(inner);
   }
-  const M = bsModal();
-  if (!M) return null; // bundle absent (static dev): callers' fallback runs
-  const m = new M(ov, {
-    backdrop: 'static', // no click-outside-to-close (see module comment)
-    keyboard: true,     // ESC closes — new, and what the framework is for
-  });
-  // BS wires ESC through its focus trap, which requires focus inside the
-  // modal; our legacy overlays never receive it (BS's own templates put
-  // tabindex=-1 on .modal-dialog AND move focus; ours get focus stolen by
-  // the invoking button's re-render). A document-level ESC closes the open
-  // modal regardless of where focus sits — the honest behavior for a tool
-  // where modals are deliberate.
-  ov.addEventListener('shown.bs.modal', () => {
-    document.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Escape' && ov.classList.contains('show')) m.hide();
-    }, { once: true });
-  });
-  // Sync the legacy `hidden` attr on EVERY hide path (✕, ESC, programmatic),
-  // so callers' state machines stay truthful.
-  ov.addEventListener('hidden.bs.modal', () => { ov.hidden = true; });
-  instances.set(ov, m);
-  return m;
 }
 
 // openModal shows a legacy overlay through Bootstrap's Modal: focus is
@@ -87,6 +99,6 @@ export function openModal(ov) {
 export function closeModal(ov) {
   if (!ov) return;
   const m = instances.get(ov);
-  if (m) { m.hide(); return; } // hidden-sync is bound for the instance's life
+  if (m) { m.hide(); return; }
   ov.hidden = true;
 }

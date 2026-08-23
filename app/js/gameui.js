@@ -1,3 +1,4 @@
+import { openModal, closeModal } from './modal.js';
 // Thin client for the Flow Game. The rules live ONLY on the server (Go engine);
 // this file sends moves and renders the sanitized view the server returns, so
 // players can't read the mechanics from source. Requires the Conway server
@@ -331,8 +332,8 @@ function showHaltModal(kind) {
     : 'If they re-open the game, your screen switches back automatically.'}</p>
       <div class="row-actions"><button id="halt-ok" class="primary">${reset ? 'Back to start ▶' : 'OK'}</button></div>
     </div>`;
-  ov.hidden = false;
-  ov.querySelector('#halt-ok').addEventListener('click', () => { ov.hidden = true; render(); });
+  openModal(ov);
+  ov.querySelector('#halt-ok').addEventListener('click', () => { closeModal(ov); render(); });
 }
 
 function bar(label, v, hint) {
@@ -541,8 +542,8 @@ function showResolveModal(rep, scenario) {
       ${scenario ? `<div class="curveball"><b>⚡ Heading into the next quarter — ${scenario.title}</b><br>${scenario.text}</div>` : ''}
       <div class="row-actions"><button id="resolve-continue" class="primary">${btnLabel}</button></div>
     </div>`;
-  ov.hidden = false;
-  ov.querySelector('#resolve-continue').addEventListener('click', () => { ov.hidden = true; });
+  openModal(ov);
+  ov.querySelector('#resolve-continue').addEventListener('click', () => { closeModal(ov); });
 }
 
 const TONE_ICON = { bad: '▼', warn: '⚠', good: '▲', info: '•' };
