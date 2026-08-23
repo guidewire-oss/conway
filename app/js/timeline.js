@@ -131,6 +131,41 @@ export function timelineRowHTML(si, opts = {}) {
   </div>`;
 }
 
+// bandHTML renders one calendar window as a marked vertical band (AC 8.5,
+// FR-038). The band carries its name in text, not colour alone (FR-044): a
+// freeze says "freeze", a holiday names its site, and the tooltip holds the
+// dates. Weeks are mapped off the period start exactly as the Go side maps
+// them — toDate inclusive.
+function bandHTML(win, sched, horizon) {
+  const s = axisScale(horizon);
+  const from = weekOfDate(sched.periodStart, win.fromDate);
+  const toInclusive = weekOfDate(sched.periodStart, win.toDate);
+  if (from === null || toInclusive === null) return '';
+  const left = Math.max(0, from);
+  const right = Math.min(horizon, toInclusive + 1); // exclusive end
+  if (right <= left) return '';
+  const width = s(right) - s(left);
+  const label = win.kind === 'change-freeze' ? '░freeze░'
+    : win.kind === 'site-nonworking' ? `▒ ${win.scope} non-working ▒`
+    : `▒ ${win.scope} ▒`;
+  // The dates render as visible text beside the label: bands sit in the
+  // pointer-events:none overlay, so a title would never fire, and a data
+  // attribute is inert — the dates must be readable for a narrow band too.
+  const dates = `${esc(win.fromDate)}–${esc(win.toDate)}`;
+  return `<div class="tl-band tl-trunc ${win.kind === 'change-freeze' ? 'tl-band-freeze' : ''}"
+    style="${pct(s(left))};width:${width.toFixed(2)}%">
+    <span class="tl-band-label">${dates} ${esc(label)}</span>
+  </div>`;
+}
+
+function weekOfDate(periodStart, date) {
+  if (!periodStart || !date) return null;
+  const t0 = new Date(`${periodStart.trim()}T00:00:00Z`).getTime();
+  const t1 = new Date(`${date.trim()}T00:00:00Z`).getTime();
+  if (Number.isNaN(t0) || Number.isNaN(t1)) return null;
+  return Math.floor((t1 - t0) / (7 * 86400000));
+}
+
 // portfolioTimelineHTML is §13.3: the axis, one ranked row per initiative,
 // today, and the legend. Freeze/non-working bands wait for FR-018's calendar
 // windows; their absence renders nothing, which is why there is no branch for
@@ -152,12 +187,15 @@ export function portfolioTimelineHTML(sched, opts = {}) {
     .join('');
   const today = opts.todayWeek === undefined || opts.todayWeek === null
     ? '' : todayLineHTML(opts.todayWeek, horizon);
+  const bands = (opts.calendars || [])
+    .map((win) => bandHTML(win, sched, horizon))
+    .join('');
   return `<div class="card tl-card">
     <div class="ord-head"><b>Timeline</b>
       <span class="hint">one row per initiative · the lighter tail is the buffer · ◆ is the promise</span></div>
-    <div class="tl-axis tl-trunc">${ticks}</div>
-    <div class="tl-body">${rows}<div class="tl-overlay">${grid}${today}</div></div>
-    <div class="hint">█ scheduled · ░ buffer · ◆ target · → waits on another pod · ↑ today</div>
+    <div class="tl-axis">${ticks}</div>
+    <div class="tl-body">${rows}<div class="tl-overlay">${grid}${bands}${today}</div></div>
+    <div class="hint">█ scheduled · ░ buffer · ◆ target · → waits on another pod · ↑ today${bands ? ' · ░freeze░ change freeze · ▒ non-working' : ''}</div>
   </div>`;
 }
 

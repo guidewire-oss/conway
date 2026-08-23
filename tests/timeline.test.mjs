@@ -295,3 +295,37 @@ test('the portfolio timeline expands exactly the named initiative', () => {
 function escRe(s) {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+// AC 8.5 / FR-038: freeze and non-working windows render as marked bands,
+// positioned by date off the same axis. The renderer deliberately produced no
+// branch for these until FR-018 landed; now they arrive on the schedule's
+// scheduling params.
+test('calendar windows render as marked vertical bands', () => {
+  const html = portfolioTimelineHTML(sched, {
+    horizonWeeks: 26,
+    calendars: [
+      { kind: 'change-freeze', scope: 'org', fromDate: '2026-02-02', toDate: '2026-02-16', effect: 'block-start' },
+      { kind: 'site-nonworking', scope: 'Kraków', fromDate: '2026-01-19', toDate: '2026-01-26', effect: 'reduce-capacity' },
+    ],
+  });
+  assert.match(html, /tl-band/);
+  const bands = [...html.matchAll(/class="tl-band tl-trunc/g)];
+  assert.equal(bands.length, 2, 'one band per window');
+  // The freeze starts at week 4 (2026-02-02 is 4 weeks after 2026-01-05) and
+  // the band is positioned by percentage on the same axis as the bars.
+  const s = axisScale(26);
+  assert.ok(html.includes(`left:${s(4)}`), 'the freeze band starts at its mapped week');
+});
+
+test('a freeze band is labelled so the mark is not just colour (FR-044)', () => {
+  const html = portfolioTimelineHTML(sched, {
+    horizonWeeks: 26,
+    calendars: [{ kind: 'change-freeze', scope: 'org', fromDate: '2026-02-02', toDate: '2026-02-16', effect: 'block-start' }],
+  });
+  assert.match(html, /freeze/i, 'the band says what it is');
+  assert.match(html, /2026-02-02–2026-02-16/, 'the band carries its dates visibly');
+});
+
+test('no windows render no bands', () => {
+  assert.ok(!portfolioTimelineHTML(sched, { horizonWeeks: 26 }).includes('tl-band'));
+});
