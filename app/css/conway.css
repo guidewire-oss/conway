@@ -214,7 +214,10 @@
   --tint-strong-green: rgba(14, 159, 110, .78);
   --tint-strong-amber: rgba(192, 120, 7, .80);
   --tint-strong-red: rgba(220, 47, 62, .82);
-  --tint-cell-ink: #ffffff;
+  /* Dark ink, not white: the fills are translucent over white cards, so the
+     blended backgrounds are mid-tone (green CR 2.6 for white ink — fails AA;
+     dark ink passes at 4.7–6.7). */
+  --tint-cell-ink: var(--bs-body-color);
 }
 /* Legacy aliases: style.css's original tokens now resolve into the system,
  * so a future theme change re-skins everything, old rules included. */
