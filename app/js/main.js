@@ -221,5 +221,23 @@ document.querySelectorAll('.tab[data-view]').forEach((b) => b.addEventListener('
 document.getElementById('net-observe')?.addEventListener('click', () => document.getElementById('view-network')?.classList.add('readonly'));
 document.getElementById('net-plan')?.addEventListener('click', () => document.getElementById('view-network')?.classList.remove('readonly'));
 
+// Theme: dark by default, Daylight behind the ☾ toggle. Applied before any
+// view paints so there's no flash. Bootstrap's own dark-mode styles follow the
+// same attribute, so modals/dropdowns re-skin with everything else.
+(() => {
+  const saved = localStorage.getItem('conway-theme');
+  if (saved === 'light' || saved === 'dark') {
+    document.documentElement.dataset.bsTheme = saved;
+  }
+  const btn = document.getElementById('theme-btn');
+  btn?.addEventListener('click', () => {
+    const next = document.documentElement.dataset.bsTheme === 'light' ? 'dark' : 'light';
+    document.documentElement.dataset.bsTheme = next;
+    localStorage.setItem('conway-theme', next);
+    btn.textContent = next === 'light' ? '☀' : '☾';
+  });
+  if (btn) btn.textContent = document.documentElement.dataset.bsTheme === 'light' ? '☀' : '☾';
+})();
+
 // gate the app behind login when the server is present (dev/static: passes through)
 initAuth().then(load);
