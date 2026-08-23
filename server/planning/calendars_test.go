@@ -300,3 +300,53 @@ var _ = Describe("calendar window edge cases", func() {
 	})
 })
 
+
+var _ = Describe("calendar window edge cases, round two", func() {
+	weekDate := func(w int) string {
+		t0, _ := time.Parse(isoDate, specPeriodStart)
+		return t0.AddDate(0, 0, w*7).Format(isoDate)
+	}
+
+	It("never starts a slice in a block-start week reached after reduced-capacity weeks", func() {
+		// A holiday w0-w2 walks the span forward; w3 is frozen for starts.
+		// The start must be w4, not the frozen w3 the walk reaches first.
+		teams := []Team{{Name: "Delta", Devs: 4, Tracks: 2, Site: "Kraków"}}
+		inits := []Initiative{{Name: "Dated", Work: map[string]TeamWork{"Delta": podWork(2)}, StatedPriority: 1}}
+		sp := SchedulingParams{PeriodStart: specPeriodStart, WipModel: WipOff, BufferPct: pctOf(0.25),
+			Calendars: []CalendarWindow{
+				{Kind: CalSiteNonWorking, Scope: "Kraków", From: weekDate(0), To: weekDate(2), Effect: EffectReduceCapacity},
+				{Kind: CalChangeFreeze, Scope: ScopeOrg, From: weekDate(3), To: weekDate(3), Effect: EffectBlockStart},
+			}}
+		s := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0}, sp)
+		sl := s.Initiatives[0].Slices[0]
+		Expect(sl.StartWeek).To(Equal(4), "the frozen week after the holiday is not a start")
+	})
+
+	It("does not book block-finish waiting weeks as occupancy", func() {
+		// The finish w4 lands in a freeze w3-w5, so the completion moves to
+		// w6 — but weeks 4-5 are waiting, not work: the pod must not read
+		// busy through them.
+		teams := []Team{{Name: "Delta", Devs: 4, Tracks: 2}}
+		inits := []Initiative{{Name: "Dated", Work: map[string]TeamWork{"Delta": podWork(4)}, StatedPriority: 1}}
+		sp := SchedulingParams{PeriodStart: specPeriodStart, WipModel: WipOff, BufferPct: pctOf(0.25),
+			Calendars: []CalendarWindow{
+				{Kind: CalChangeFreeze, Scope: ScopeOrg, From: weekDate(3), To: weekDate(5), Effect: EffectBlockFinish},
+			}}
+		s := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0}, sp)
+		var delta *PodSchedule
+		for i := range s.PodWeeks {
+			if s.PodWeeks[i].Pod == "Delta" {
+				delta = &s.PodWeeks[i]
+			}
+		}
+		Expect(delta).NotTo(BeNil())
+		// The 4 estimated weeks are w0-w3; the finish moved from w4 to w6, so
+		// weeks 4-5 are freeze waiting and must not book. Week 3 is work.
+		Expect(delta.Weeks[3].Busy).To(Equal(1), "the last estimated week is work")
+		for w := 4; w <= 5; w++ {
+			Expect(delta.Weeks[w].Busy).To(Equal(0),
+				"week %d is freeze waiting, not work", w)
+		}
+		Expect(delta.Weeks[0].Busy).To(Equal(1), "the work before the freeze is booked")
+	})
+})
