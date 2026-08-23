@@ -489,7 +489,8 @@ test('a hostile value cannot break out of the value attribute', () => {
 test('the form controls are explicitly type=button', () => {
   const html = schedulingFormHTML({ periodStart: '2026-01-05' }, {});
   const buttons = html.match(/<button[^>]*>/g) || [];
-  assert.equal(buttons.length, 2, 'save and cancel');
+  // save, cancel, and the calendar windows' add button (FR-018).
+  assert.equal(buttons.length, 3);
   for (const b of buttons) {
     assert.match(b, /type="button"/, `missing type: ${b}`);
   }
@@ -669,3 +670,52 @@ test('a plan with no misses renders no expanders', () => {
   fine.initiatives.forEach((si) => { si.verdict = 'on-time'; });
   assert.ok(!orderTableHTML(fine).includes('ord-options'));
 });
+
+// FR-018's editor: the assumptions form lists the saved calendar windows with
+// their fields filled, offers an add button, and reads them back on save.
+test('the assumptions form lists saved calendar windows', () => {
+  const html = schedulingFormHTML({
+    periodStart: '2026-01-05',
+    calendars: [
+      { kind: 'change-freeze', scope: 'org', fromDate: '2026-02-02', toDate: '2026-02-16', effect: 'block-start' },
+    ],
+  }, { value: 2, derived: true, fromPod: 'Delta', model: 'strict' }, modelsFixture);
+  assert.match(html, /calendar windows/i);
+  assert.match(html, /value="change-freeze" selected/);
+  assert.match(html, /value="block-start" selected/);
+  assert.match(html, /2026-02-02/);
+  // One row per saved window plus the add control.
+  assert.equal((html.match(/class="cal-win"/g) || []).length, 1);
+  assert.match(html, /add a window/i);
+});
+
+test('a plan with no windows shows the add control and an explanation, not a blank', () => {
+  const html = schedulingFormHTML({ periodStart: '2026-01-05' },
+    { value: 2, derived: true, fromPod: 'Delta', model: 'strict' }, modelsFixture);
+  assert.match(html, /add a window/i);
+  assert.match(html, /freeze|holiday|window/i, 'what a window is for is stated');
+  assert.ok(!html.includes('undefined'));
+});
+
+test('the form reads windows back with only complete rows kept', () => {
+  // schedulingFromForm takes a reader; the window rows are numbered, so the
+  // reader answers by suffix. A row missing its dates is dropped rather than
+  // sent — the server would refuse it anyway, and the planner should not have
+  // to re-type the good rows.
+  const rows = [
+    { kind: 'change-freeze', scope: 'org', from: '2026-02-02', to: '2026-02-16', effect: 'block-start' },
+    { kind: 'event', scope: '', from: '', to: '', effect: '' }, // half-filled
+  ];
+  const read = (id) => {
+    const m = id.match(/^cal-(kind|scope|from|to|effect)-(\d+)$/);
+    if (!m) return '';
+    const row = rows[Number(m[2])];
+    return row ? (row[m[1]] ?? '') : '';
+  };
+  const out = schedulingFromForm(read);
+  assert.ok(Array.isArray(out.calendars));
+  assert.equal(out.calendars.length, 1);
+  assert.equal(out.calendars[0].fromDate, '2026-02-02');
+  assert.equal(out.calendars[0].effect, 'block-start');
+}
+);

@@ -176,6 +176,7 @@ async function saveScheduling() {
   const saved = await r.json();
   if (!current || current.id !== forPlan || orderEpoch !== atEpoch) return; // a stale save
   current.scheduling = saved.scheduling || body;
+  current.calDraft = null; // the draft is saved now; the form reads the policy
   staleOrder(); // the assumptions moved, so the order has to be recomputed
   renderOrder();
 }
@@ -416,7 +417,12 @@ async function renderTimeline() {
     if (!main) return;
     main.innerHTML = lens === 'pod'
       ? podLensHTML(sched, { horizonWeeks: horizon })
-      : portfolioTimelineHTML(sched, { horizonWeeks: horizon, todayWeek, expand: current.tlExpand });
+      : portfolioTimelineHTML(sched, {
+        horizonWeeks: horizon, todayWeek, expand: current.tlExpand,
+        // AC 8.5: the bands come off the saved policy, not the schedule — the
+        // schedule itself only carries the windows' effects, not their dates.
+        calendars: (current.scheduling || {}).calendars || [],
+      });
     // AC 8.4: expanding a row shows its pod slices. One open row at a time, so
     // the lens stays readable — the wireframe is one expanded initiative.
     main.querySelectorAll('.tl-row[data-expandable="1"] .tl-label').forEach((el) =>
@@ -489,12 +495,18 @@ async function renderOrder() {
     }
     current.schedule = payload;
   }
+  // The form's calendar rows come from the draft when one exists (an added or
+  // deleted row is a planner mid-edit, not a policy change), else the saved
+  // policy. Always an object, never undefined: passing undefined is how the
+  // view is told to omit the form entirely, and on a real plan it must be offered.
+  const schedOpts = current.scheduling || {};
+  const schedForForm = current.calDraft
+    ? { ...schedOpts, calendars: current.calDraft }
+    : schedOpts;
   host.innerHTML = orderViewHTML(current.schedule, {
     horizonWeeks: current.horizonWeeks,
     pod: current.orderPod,
-    // Always an object, never undefined: passing undefined is how the view is told
-    // to omit the form entirely, and on a real plan it must always be offered.
-    scheduling: current.scheduling || {},
+    scheduling: schedForForm,
   }) + baselinePanelHTML(current.baselines, current.baselineCompare, current.isDraft);
   wireBaselineControls();
   host.querySelectorAll('.ord-options').forEach((b) =>
@@ -502,7 +514,23 @@ async function renderOrder() {
   // AC 8.1: the timeline opens from the order view in one action.
   document.getElementById('tl-open')?.addEventListener('click', () => setView('timeline'));
   document.getElementById('sched-save')?.addEventListener('click', saveScheduling);
-  document.getElementById('sched-cancel')?.addEventListener('click', () => renderOrder());
+  // FR-018's editor: adding appends an empty row to the form's window list
+  // (kept on `current` so a re-render keeps it); removing drops the row.
+  document.getElementById('cal-add')?.addEventListener('click', () => {
+    current.calDraft = [...(current.calDraft ?? schedForForm.calendars ?? []),
+      { kind: 'change-freeze', scope: 'org', fromDate: '', toDate: '', effect: 'block-start' }];
+    renderOrder();
+  });
+  host.querySelectorAll('.cal-del').forEach((b) => b.addEventListener('click', () => {
+    const i = Number(b.closest('.cal-win')?.dataset.row);
+    const base = current.calDraft ?? schedForForm.calendars ?? [];
+    current.calDraft = base.filter((_, j) => j !== i);
+    renderOrder();
+  }));
+  document.getElementById('sched-cancel')?.addEventListener('click', () => {
+    current.calDraft = null; // cancel discards window edits, not just hides them
+    renderOrder();
+  });
   host.querySelectorAll('.ord-podlink').forEach((a) => a.addEventListener('click', () => {
     // Clicking the open pod again closes it, so the grid is never stuck behind a panel.
     current.orderPod = current.orderPod === a.dataset.pod ? null : a.dataset.pod;

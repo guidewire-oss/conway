@@ -465,6 +465,16 @@ func (s *server) savePlanScheduling(w http.ResponseWriter, r *http.Request, p *d
 			return
 		}
 	}
+	// FR-018: a calendar window with unusable dates or an unknown effect is
+	// refused rather than stored — the engine silently ignores what it cannot
+	// honour, and a saved-but-inert window is a constraint the planner believes
+	// in and the schedule has never met.
+	for _, win := range sp.Calendars {
+		if msg := validateCalendarWindow(win); msg != "" {
+			http.Error(w, msg, 400)
+			return
+		}
+	}
 	b, err := json.Marshal(sp)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -982,4 +992,30 @@ func readUpload(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 		return readAll(f, maxUpload)
 	}
 	return readAll(r.Body, maxUpload)
+}
+
+// validateCalendarWindow checks one FR-018 window: parseable dates, a sane
+// span, and an effect and kind the engine actually honours. The message names
+// the field that was wrong, because "invalid window" is not actionable.
+func validateCalendarWindow(win planning.CalendarWindow) string {
+	const iso = "2006-01-02"
+	from, errF := time.Parse(iso, strings.TrimSpace(win.From))
+	to, errT := time.Parse(iso, strings.TrimSpace(win.To))
+	if errF != nil || errT != nil {
+		return "calendar window fromDate and toDate must be dates in YYYY-MM-DD form"
+	}
+	if to.Before(from) {
+		return "calendar window toDate must not precede fromDate"
+	}
+	switch win.Effect {
+	case planning.EffectReduceCapacity, planning.EffectBlockStart, planning.EffectBlockFinish:
+	default:
+		return "calendar window effect must be one of reduce-capacity, block-start, block-finish"
+	}
+	switch win.Kind {
+	case planning.CalSiteNonWorking, planning.CalChangeFreeze, planning.CalEvent:
+	default:
+		return "calendar window kind must be one of site-nonworking, change-freeze, event"
+	}
+	return ""
 }
