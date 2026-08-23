@@ -961,6 +961,12 @@ function drawNetwork(p, loads) {
 // "click a node, see its detail card" interaction, with Plan-relevant fields
 // (demand/capacity/tracks, initiatives it's on the path for) instead of Jira
 // activity.
+//
+// The initiatives list is a numbered, row-separated list — not consecutive
+// <dd>s — because sheet-typed names are long and wrap; without numbering and
+// rules, a wrapped name reads as a new paragraph (the "blob" the maintainer
+// flagged). Each row also carries this pod's weeks on that initiative, which
+// the blob was hiding.
 function showPlanPodPanel(n, p, loads, net) {
   const l = (loads || []).find((x) => x.team === n.name) || {};
   const inAll = (net.edges || []).filter((e) => e.to === n.name);
@@ -970,6 +976,13 @@ function showPlanPodPanel(n, p, loads, net) {
   if (n.rho >= 1e8) flags.push('<span class="flag red">demand with zero capacity</span>');
   else if (n.rho >= 1) flags.push('<span class="flag red">over capacity (ρ≥1)</span>');
   else if (n.rho >= 0.85) flags.push('<span class="flag amber">queue hot (ρ≥0.85)</span>');
+  const initRows = inits.map((i, idx) => {
+    const w = i.work[n.name];
+    const weeks = (w?.estimated && w?.weeks > 0)
+      ? `<span class="insp-weeks">${Math.round(w.weeks)}w</span>`
+      : (w?.weeks > 0 ? `<span class="insp-weeks">${Math.round(w.weeks)}w</span>` : '<span class="insp-weeks hint">no estimate</span>');
+    return `<li><span class="insp-num">${idx + 1}</span><span class="insp-name">${esc(i.name)}</span>${weeks}</li>`;
+  }).join('');
   document.getElementById('plan-netpanel').innerHTML = `
     <h2>${esc(n.name)}</h2>
     <div>${flags.join(' ') || '<span class="flag" style="color:var(--green)">healthy</span>'}</div>
@@ -978,6 +991,6 @@ function showPlanPodPanel(n, p, loads, net) {
       <dt>Utilization</dt><dd>ρ ${rhoTxt(n.rho)}</dd>
       <dt>Coupling</dt><dd>depends on ${inAll.length} · ${outAll.length} depend on it</dd>
       <dt>Initiatives (${inits.length})</dt>
-      ${inits.map((i) => `<dd>${esc(i.name)}</dd>`).join('') || '<dd>—</dd>'}
+      <dd>${initRows ? `<ol class="insp-list">${initRows}</ol>` : '—'}</dd>
     </dl>`;
 }
