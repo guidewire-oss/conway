@@ -97,15 +97,17 @@ th { text-align: left; color: var(--muted); text-transform: uppercase;
   padding: 6px 8px; border-bottom: 1px solid var(--border); }
 /* Sticky headers only inside scroll containers — a page-scrolling table
    pinned at top:0 would slide under the app header. */
-.wip-drill th, .ord-heatwrap th { position: sticky; top: 0; background: var(--panel); z-index: 1; }
+.wip-drill th, .ord-heatwrap th,
+#admin-modal th, #games-modal th { position: sticky; top: 0; background: var(--panel); z-index: 1; }
 td { padding: 6px 8px; border-bottom: 1px solid var(--bs-border-color-translucent);
   vertical-align: top; }
 tbody tr:hover td { background: var(--panel2); }
-/* Dense variant: the wide data grids only (WIP drill, heatmap) — NOT the
-   decision log, which reads at body size. */
-table.wip-table, table.ord-heat { font-size: 11.5px; }
-table.wip-table th, table.ord-heat th { padding: 4px 6px; font-size: 10px; }
-table.wip-table td, table.ord-heat td { padding: 3px 6px; }
+/* Dense variant: opt-in per container for the genuinely wide grids (the WIP
+   drill, the pod heatmap). Most wip-tables are short lists (games, baselines)
+   and read at body size — the old class-based denseness squeezed them all. */
+.wip-drill table, table.ord-heat { font-size: 11.5px; }
+.wip-drill table th, table.ord-heat th { padding: 4px 6px; font-size: 10px; }
+.wip-drill table td, table.ord-heat td { padding: 3px 6px; }
 
 /* auth */
 #login-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 200; display: flex; align-items: center; justify-content: center; }
