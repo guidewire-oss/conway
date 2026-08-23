@@ -554,6 +554,12 @@ async function renderOrder() {
   // AC 8.1: the timeline opens from the order view in one action.
   document.getElementById('tl-open')?.addEventListener('click', () => setView('timeline'));
   document.getElementById('sched-save')?.addEventListener('click', saveScheduling);
+  // Assumptions live behind the ⚙ button (IA #2): set-once config out of the
+  // reading path. The dialog itself auto-opens when something's outstanding.
+  document.getElementById('sched-open')?.addEventListener('click', () => {
+    const d = document.getElementById('sched-dialog');
+    if (d) d.hidden = !d.hidden;
+  });
   // FR-018's editor: adding appends an empty row; removing drops one. Both
   // snapshot the LIVE form first — the planner may have edited dates in rows
   // that exist only in the DOM, and rebuilding from the stale draft would
@@ -584,7 +590,8 @@ async function renderOrder() {
   }));
   document.getElementById('sched-cancel')?.addEventListener('click', () => {
     current.calDraft = null; // cancel discards window edits, not just hides them
-    renderOrder();
+    const d = document.getElementById('sched-dialog');
+    if (d) d.hidden = true;
   });
   host.querySelectorAll('.ord-podlink').forEach((a) => a.addEventListener('click', () => {
     // Clicking the open pod again closes it, so the grid is never stuck behind a panel.
