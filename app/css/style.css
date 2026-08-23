@@ -461,3 +461,6 @@ button.bl-chip:focus-visible { outline: 2px solid var(--accent); outline-offset:
   cursor: pointer; font-size: 12px; }
 #cal-add:hover { background: var(--panel2); }
 .tl-band-label { position: sticky; left: 2px; }
+
+/* FR-039 shared: clip with an ellipsis, never overflow. */
+.tl-trunc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

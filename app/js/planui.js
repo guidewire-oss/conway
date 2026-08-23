@@ -177,6 +177,9 @@ async function saveScheduling() {
   if (!current || current.id !== forPlan || orderEpoch !== atEpoch) return; // a stale save
   current.scheduling = saved.scheduling || body;
   current.calDraft = null; // the draft is saved now; the form reads the policy
+  // The carried assumptions are saved too: leaving them would make the next
+  // render restore the pre-save snapshot over the fresh policy.
+  current.assumptionDraft = null;
   staleOrder(); // the assumptions moved, so the order has to be recomputed
   renderOrder();
 }
