@@ -184,9 +184,10 @@ const tip = document.createElement('div');
 tip.id = 'tooltip';
 tip.hidden = true;
 document.body.appendChild(tip);
-document.addEventListener('mouseover', (ev) => {
-  const h = ev.target.closest?.('.help');
-  if (!h) { tip.hidden = true; return; }
+// Keyboard parity (WCAG 1.3.1): the glossary affordances are buttons, so
+// focusin/focusout shows the same definition a mouseover does — a keyboard
+// user must not get a silent '?'.
+const showTip = (h) => {
   tip.textContent = h.dataset.tip ?? '';
   tip.hidden = false;
   const r = h.getBoundingClientRect();
@@ -198,7 +199,17 @@ document.addEventListener('mouseover', (ev) => {
   if (y + th > vh - 8) y = Math.max(8, r.top - th - 8);
   tip.style.left = `${x}px`;
   tip.style.top = `${y}px`;
+};
+document.addEventListener('mouseover', (ev) => {
+  const h = ev.target.closest?.('.help');
+  if (!h) { tip.hidden = true; return; }
+  showTip(h);
 });
+document.addEventListener('focusin', (ev) => {
+  const h = ev.target.closest?.('.help');
+  if (h) showTip(h);
+});
+document.addEventListener('focusout', () => { tip.hidden = true; });
 document.addEventListener('scroll', () => { tip.hidden = true; }, true);
 
 document.querySelectorAll('.tab[data-view]').forEach((b) => b.addEventListener('click', () => {

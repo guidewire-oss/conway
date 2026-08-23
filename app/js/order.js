@@ -496,7 +496,7 @@ export function wipModelsTableHTML(sched) {
   const sameMisses = missed.size === 1 && rows.length > 1;
 
   return `<table class="wip-table ord-models"><thead><tr>
-      <th>model${term('wip-model', 'WIP')}</th><th>limit</th><th>ends</th><th>dates missed</th><th>pods idle all period</th><th>cost${term('weighted-late', 'Weighted weeks late')}</th>
+      <th>model${term('wip-model')}</th><th>limit</th><th>ends</th><th>dates missed</th><th>pods idle all period</th><th>cost${term('weighted-late')}</th>
     </tr></thead><tbody>${body}</tbody></table>
     <ul class="hint ord-models-why">
       ${WIP_MODELS.map((m) => `<li><b>${esc(m.label)}</b> — ${esc(m.blurb)}</li>`).join('')}

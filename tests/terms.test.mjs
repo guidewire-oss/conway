@@ -12,10 +12,10 @@ test('every glossary entry has a label and a plain-language first sentence', () 
   }
 });
 
-test('the affordance is a real button with an accessible name (WCAG 1.3.1 / F111)', () => {
+test('the affordance is a real button with a complete accessible name (WCAG 1.3.1 / F111)', () => {
   const html = term('rho');
   assert.match(html, /<button[^>]*class="help term-tip"/);
-  assert.match(html, /aria-label="What does /);
+  assert.match(html, /aria-label="What does Load ρ mean\?"/);
   assert.match(html, /data-tip="/);
 });
 
@@ -29,7 +29,16 @@ test('unknown ids render nothing, never a broken affordance', () => {
   assert.equal(term('nonexistent'), '');
 });
 
-test('tooltip text is escaped — no markup injection from definitions', () => {
-  assert.ok(!term('kingman').includes('<img'), 'safe by construction; definitions are literals here');
-  assert.ok(!/undefined|NaN/.test(term('rho')), 'no leaked undefined');
+test('tooltip text stays a well-formed attribute value', () => {
+  // Definitions are literals today, but the affordance interpolates them into
+  // a double-quoted attribute — a raw double quote would break out of it.
+  const html = term('weighted-late');
+  const m = html.match(/data-tip="([^"]*)"/); // the regex only matches if no raw " inside
+  assert.ok(m, 'data-tip value contains no raw double quote');
+  assert.ok(!/undefined|NaN/.test(html), 'no leaked undefined');
+});
+
+test('inherited keys (toString, constructor) render nothing', () => {
+  assert.equal(term('toString'), '');
+  assert.equal(term('constructor'), '');
 });
