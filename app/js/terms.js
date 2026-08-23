@@ -103,8 +103,10 @@ export const TERMS = {
 // optional (use it beside a bare column header; omit when the term itself is
 // already on screen — then only the ? button appears).
 export function term(id, label) {
+  // Own-property only: an inherited key like 'toString' would otherwise render
+  // a broken affordance from a non-entry.
+  if (!Object.prototype.hasOwnProperty.call(TERMS, id)) return '';
   const t = TERMS[id];
-  if (!t) return '';
   const text = String(t.tip).replace(/"/g, '&quot;');
   return `${label ? `${esc(label)} ` : ''}` +
     `<button type="button" class="help term-tip" data-tip="${text}" ` +
