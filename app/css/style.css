@@ -1,10 +1,8 @@
-:root {
-  --bg: #0f1419; --panel: #18202a; --panel2: #1f2937; --text: #e5eef7;
-  --muted: #8aa0b4; --accent: #4cc2ff; --green: #3ecf8e; --amber: #f5b94c;
-  --red: #f4655f; --border: #2b3a4a;
-}
+/* Conway's palette now lives in conway.css on Bootstrap's --bs-* variables;
+ * these aliases (defined there) keep every rule below working unchanged. */
 * { box-sizing: border-box; }
-body { margin: 0; font: 14px/1.45 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); }
+body { margin: 0; font-family: var(--bs-body-font-family); font-size: var(--bs-body-font-size);
+  line-height: var(--bs-body-line-height); background: var(--bg); color: var(--text); }
 header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; border-bottom: 1px solid var(--border); background: var(--panel); position: sticky; top: 0; z-index: 5; }
 h1 { font-size: 17px; margin: 0; font-weight: 600; }
 h2 { font-size: 15px; margin: 0 0 10px; }
