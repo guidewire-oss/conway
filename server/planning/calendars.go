@@ -75,14 +75,16 @@ func parseCalendars(sp SchedulingParams, horizon int) []calendarWindow {
 		}
 		from := weekIndexOf(t0, f)
 		to := weekIndexOf(t0, t)
-		if to < 0 || from > horizon {
+		// The schedule exposes weeks 0..horizon-1; horizon itself is the first
+		// week past the end, so a window starting there constrains nothing.
+		if horizon <= 0 || to < 0 || from >= horizon {
 			continue // entirely before or after the period: inert
 		}
 		if from < 0 {
 			from = 0 // started before the period: constrains from week 0
 		}
-		if to > horizon {
-			to = horizon
+		if to >= horizon {
+			to = horizon - 1
 		}
 		if from > to {
 			continue
@@ -95,37 +97,71 @@ func parseCalendars(sp SchedulingParams, horizon int) []calendarWindow {
 	return out
 }
 
-// weekIndexOf maps a date to its week from the period start, rounding down —
-// a date part-way through a week is in that week. Negative means before the
-// period start.
+// weekIndexOf maps a date to its week from the period start, rounding toward
+// minus infinity — a date part-way through a week is in that week, and a date
+// up to six days before the period start is week -1, not week 0. Truncation
+// toward zero here once made an entirely pre-period window constrain week 0.
 func weekIndexOf(t0, t time.Time) int {
-	days := t.Sub(t0).Hours() / 24
-	return int(days / 7)
+	days := int(t.Sub(t0).Hours() / 24)
+	if days >= 0 {
+		return days / 7
+	}
+	return -(( -days + 6) / 7)
 }
 
-// calendarRules is the compiled constraint set the scheduler consults:
-// the frozen weeks (per effect) and the reduced-capacity spans (per scope).
+// calendarRules is the compiled constraint set the scheduler consults. Every
+// effect is scope-aware: org-wide windows apply to all pods, and a window
+// scoped to a site or pod applies only there — a Kraków freeze must not stop
+// Toronto starting, and the reverse omission (an org window ignored because
+// only site scopes were probed) is the bug this shape replaces.
 type calendarRules struct {
-	blockStart  map[int]bool // org-wide block-start weeks
-	blockFinish map[int]bool // org-wide block-finish weeks
+	orgBlockStart  map[int]bool
+	orgBlockFinish map[int]bool
+	// scoped[scope] holds block-start and block-finish weeks for one site/pod.
+	scopedBlockStart  map[string]map[int]bool
+	scopedBlockFinish map[string]map[int]bool
 	// reduced[scope] lists the week spans where that site/pod runs reduced.
+	// The org scope means every pod.
 	reduced map[string][]calendarWindow
 }
 
 func compileCalendars(ws []calendarWindow) *calendarRules {
-	r := &calendarRules{blockStart: map[int]bool{}, blockFinish: map[int]bool{}, reduced: map[string][]calendarWindow{}}
+	r := &calendarRules{
+		orgBlockStart: map[int]bool{}, orgBlockFinish: map[int]bool{},
+		scopedBlockStart: map[string]map[int]bool{}, scopedBlockFinish: map[string]map[int]bool{},
+		reduced: map[string][]calendarWindow{},
+	}
+	isOrg := func(scope string) bool { return scope == "" || scope == ScopeOrg }
 	for _, w := range ws {
 		switch w.effect {
 		case EffectBlockStart:
-			if w.scope == "" || w.scope == ScopeOrg {
+			if isOrg(w.scope) {
 				for k := w.fromWeek; k <= w.toWeek; k++ {
-					r.blockStart[k] = true
+					r.orgBlockStart[k] = true
+				}
+			} else {
+				m := r.scopedBlockStart[w.scope]
+				if m == nil {
+					m = map[int]bool{}
+					r.scopedBlockStart[w.scope] = m
+				}
+				for k := w.fromWeek; k <= w.toWeek; k++ {
+					m[k] = true
 				}
 			}
 		case EffectBlockFinish:
-			if w.scope == "" || w.scope == ScopeOrg {
+			if isOrg(w.scope) {
 				for k := w.fromWeek; k <= w.toWeek; k++ {
-					r.blockFinish[k] = true
+					r.orgBlockFinish[k] = true
+				}
+			} else {
+				m := r.scopedBlockFinish[w.scope]
+				if m == nil {
+					m = map[int]bool{}
+					r.scopedBlockFinish[w.scope] = m
+				}
+				for k := w.fromWeek; k <= w.toWeek; k++ {
+					m[k] = true
 				}
 			}
 		case EffectReduceCapacity:
@@ -135,37 +171,64 @@ func compileCalendars(ws []calendarWindow) *calendarRules {
 	return r
 }
 
+// startBlocked reports whether week w refuses a start for this pod — org-wide
+// or scoped to its site or pod name. Names are normalised the way parseCalendars
+// normalised the scopes: lowercased and trimmed, the same join every other
+// pod-name match in the app uses.
+func (r *calendarRules) startBlocked(pod, site string, w int) bool {
+	if r.orgBlockStart[w] {
+		return true
+	}
+	pod, site = normScope(pod), normScope(site)
+	return r.scopedBlockStart[pod][w] || r.scopedBlockStart[site][w]
+}
+
+// finishBlocked reports whether week w refuses a completion for this pod.
+func (r *calendarRules) finishBlocked(pod, site string, w int) bool {
+	if r.orgBlockFinish[w] {
+		return true
+	}
+	pod, site = normScope(pod), normScope(site)
+	return r.scopedBlockFinish[pod][w] || r.scopedBlockFinish[site][w]
+}
+
+func normScope(s string) string {
+	return strings.ToLower(strings.TrimSpace(s))
+}
+
 // firstStartFrom advances a candidate start week past any blocked-start week.
 // The freeze is the binding constraint whenever it moved the slice, so the
-// reason is returned alongside.
-func (r *calendarRules) firstStartFrom(_ string, from int) (int, bool) {
+// move is reported alongside.
+func (r *calendarRules) firstStartFrom(pod, site string, from int) (int, bool) {
 	w := from
-	for r.blockStart[w] {
+	for r.startBlocked(pod, site, w) {
 		w++
 	}
 	return w, w != from
 }
 
 // firstFinishFrom advances a candidate finish week past any blocked-finish
-// week, stretching the slice's duration by the same amount so the completion
-// lands on legal ground rather than being quietly clipped.
-func (r *calendarRules) firstFinishFrom(_ string, finish int) (int, bool) {
+// week, so the completion lands on legal ground rather than being quietly
+// clipped.
+func (r *calendarRules) firstFinishFrom(pod, site string, finish int) (int, bool) {
 	w := finish
-	for r.blockFinish[w] {
+	for r.finishBlocked(pod, site, w) {
 		w++
 	}
 	return w, w != finish
 }
 
 // reducedTracks returns the tracks a pod offers in week w, after the
-// reduce-capacity windows that scope it. The current model reduces to zero —
-// a site holiday is not a partial holiday — but the window shape allows a
-// future fraction without changing the wire format.
+// reduce-capacity windows that scope it: its own name, its site, or the org
+// (the whole org on holiday is a real thing — a company-wide shutdown). The
+// current model reduces to zero — a holiday is not a partial holiday — but the
+// window shape allows a future fraction without changing the wire format.
 func (r *calendarRules) reducedTracks(pod, site string, tracks, w int) int {
 	if tracks <= 0 {
 		return 0
 	}
-	for _, scope := range []string{strings.ToLower(strings.TrimSpace(pod)), strings.ToLower(strings.TrimSpace(site))} {
+	scopes := []string{strings.ToLower(strings.TrimSpace(pod)), strings.ToLower(strings.TrimSpace(site)), ScopeOrg}
+	for _, scope := range scopes {
 		if scope == "" {
 			continue
 		}

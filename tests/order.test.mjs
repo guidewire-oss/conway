@@ -693,8 +693,19 @@ test('a plan with no windows shows the add control and an explanation, not a bla
   const html = schedulingFormHTML({ periodStart: '2026-01-05' },
     { value: 2, derived: true, fromPod: 'Delta', model: 'strict' }, modelsFixture);
   assert.match(html, /add a window/i);
-  assert.match(html, /freeze|holiday|window/i, 'what a window is for is stated');
+  assert.match(html, /non-working|blocks starts|blocks completions/i,
+    'what a window is for is stated (not just the button label)');
   assert.ok(!html.includes('undefined'));
+});
+
+test('calendar window fields are escaped, not interpolated raw', () => {
+  const nasty = '<img src=x onerror=alert(1)>';
+  const html = schedulingFormHTML({
+    periodStart: '2026-01-05',
+    calendars: [{ kind: 'event', scope: nasty, fromDate: '2026-02-02', toDate: '2026-02-09', effect: 'reduce-capacity' }],
+  }, { value: 2, derived: true, fromPod: 'Delta', model: 'strict' }, modelsFixture);
+  assert.ok(!html.includes(`<img src=x`), 'the scope is escaped in the value attribute');
+  assert.match(html, /&lt;img/, 'escaped, not dropped');
 });
 
 test('the form reads windows back with only complete rows kept', () => {
