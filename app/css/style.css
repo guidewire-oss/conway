@@ -4,8 +4,10 @@
 body { margin: 0; font-family: var(--bs-body-font-family); font-size: var(--bs-body-font-size);
   line-height: var(--bs-body-line-height); background: var(--bg); color: var(--text); }
 header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; border-bottom: 1px solid var(--border); background: var(--panel); position: sticky; top: 0; z-index: 5; }
-h1 { font-size: 17px; margin: 0; font-weight: 600; }
-h2 { font-size: 15px; margin: 0 0 10px; }
+/* One heading hierarchy (audit: the old 17/15/13 steps were
+   indistinguishable; the plan page's h2 beat the app h1). */
+h1 { font-size: 20px; margin: 0; font-weight: 700; letter-spacing: -.01em; }
+h2 { font-size: 16px; margin: 0 0 10px; font-weight: 600; }
 h3 { font-size: 13px; margin: 14px 0 6px; color: var(--muted); font-weight: 600; }
 .brand { display: flex; align-items: center; gap: 12px; }
 .badge { font-size: 11px; padding: 2px 9px; border-radius: 10px; background: var(--panel2); color: var(--muted); border: 1px solid var(--border); }
@@ -31,7 +33,7 @@ nav { display: flex; gap: 6px; }
 .briefing-frame { width: 100%; height: 72vh; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
 /* Plan pillar */
 .plan-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
-.plan-head h2 { margin: 0; font-size: 18px; }
+.plan-head h2 { margin: 0; font-size: 16px; }
 .plan-back, .plan-open { color: var(--accent); cursor: pointer; }
 .plan-uploads { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
 .plan-up { display: flex; align-items: center; gap: 8px; }
@@ -85,6 +87,28 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):
 input[type=checkbox], input[type=radio] { accent-color: var(--bs-primary); width: 14px; height: 14px; }
 input[type=range] { accent-color: var(--bs-primary); padding: 0; }
 
+/* Tables: the app's one table spec (Bootstrap .table's shape via tokens).
+   Generated templates emit bare <table class="wip-table|score-table|..."> —
+   they inherit this base; new markup uses .table + .table-sm directly. */
+table { width: 100%; border-collapse: collapse; font-size: 13px;
+  font-variant-numeric: tabular-nums; }
+th { text-align: left; color: var(--muted); text-transform: uppercase;
+  font-size: 10.5px; letter-spacing: .05em; font-weight: 600;
+  padding: 6px 8px; border-bottom: 1px solid var(--border); }
+/* Sticky headers only inside scroll containers — a page-scrolling table
+   pinned at top:0 would slide under the app header. */
+.wip-drill th, .ord-heatwrap th,
+#admin-modal th, #games-modal th { position: sticky; top: 0; background: var(--panel); z-index: 1; }
+td { padding: 6px 8px; border-bottom: 1px solid var(--bs-border-color-translucent);
+  vertical-align: top; }
+tbody tr:hover td { background: var(--panel2); }
+/* Dense variant: opt-in per container for the genuinely wide grids (the WIP
+   drill, the pod heatmap). Most wip-tables are short lists (games, baselines)
+   and read at body size — the old class-based denseness squeezed them all. */
+.wip-drill table, table.ord-heat { font-size: 11.5px; }
+.wip-drill table th, table.ord-heat th { padding: 4px 6px; font-size: 10px; }
+.wip-drill table td, table.ord-heat td { padding: 3px 6px; }
+
 /* auth */
 #login-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 200; display: flex; align-items: center; justify-content: center; }
 #login-box { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 28px 32px; width: 340px; display: flex; flex-direction: column; gap: 10px; }
@@ -134,9 +158,7 @@ input[type=range] { accent-color: var(--bs-primary); padding: 0; }
 .beat-info { border-left-color: var(--accent); } .beat-info .beat-i { color: var(--accent); }
 .watch { background: rgba(76,194,255,.07); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-top: 8px; font-size: 13px; }
 .watch ul { margin: 5px 0 0; padding-left: 18px; } .watch li { margin: 3px 0; }
-.dl-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-.dl-table th { text-align: left; color: var(--muted); text-transform: uppercase; font-size: 10px; padding: 5px 8px; border-bottom: 1px solid var(--border); }
-.dl-table td { padding: 8px; border-bottom: 1px solid rgba(43,58,74,.5); vertical-align: top; }
+
 .dl-q { font-weight: 700; color: var(--accent); white-space: nowrap; }
 .dl-moves { width: 28%; } .dl-out { width: 50%; }
 .dl-score { text-align: right; font-weight: 700; white-space: nowrap; }
@@ -188,9 +210,8 @@ input[type=range] { accent-color: var(--bs-primary); padding: 0; }
 .freeze-row { cursor: pointer; }
 .freeze-row:hover { background: rgba(76,194,255,.05); border-radius: 5px; }
 .wip-drill { margin: 4px 0 12px 12px; border-left: 2px solid var(--border); padding-left: 12px; max-height: 320px; overflow-y: auto; }
-.wip-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
-.wip-table th { text-align: left; color: var(--muted); text-transform: uppercase; font-size: 10px; padding: 4px 6px; position: sticky; top: 0; background: var(--panel); }
-.wip-table td { padding: 3px 6px; border-bottom: 1px solid rgba(43,58,74,.4); }
+
+
 .wip-table a { color: var(--accent); text-decoration: none; }
 .wip-table tr.v-freeze td:nth-child(2) { color: var(--muted); }
 
@@ -347,10 +368,8 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 #crit-list { font-size: 12px; color: var(--muted); margin-top: 8px; }
 
 /* scoreboard */
-#score-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-#score-table th { text-align: left; padding: 7px 9px; color: var(--muted); font-size: 11px; text-transform: uppercase; cursor: pointer; border-bottom: 1px solid var(--border); white-space: nowrap; }
-#score-table td { padding: 6px 9px; border-bottom: 1px solid rgba(43,58,74,.5); }
-#score-table tr:hover td { background: var(--panel2); }
+#score-table th { padding: 7px 9px; cursor: pointer; white-space: nowrap; }
+#score-table td { padding: 6px 9px; }
 .bar { display: inline-block; height: 9px; border-radius: 3px; background: var(--accent); vertical-align: middle; }
 
 /* --- Execution order (spec 001 §13.2) + pod load grid (AC 4.1) ------------ */
@@ -371,7 +390,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 /* The grid must fit its container at every width (FR-035): cells flex down rather
    than the table growing a horizontal scrollbar. */
 .ord-heatwrap { overflow-x: auto; }
-.ord-heat { border-collapse: collapse; font-size: 10px; table-layout: fixed; width: 100%; }
+.ord-heat { table-layout: fixed; width: 100%; } /* font + paddings: the dense variant above */
 .ord-heat th.ord-pod { width: 150px; text-align: left; font-size: 11px; font-weight: 400;
   color: var(--text); padding: 2px 6px 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ord-heat th.ord-wk { color: var(--muted); font-weight: 400; font-size: 9px; padding: 0; text-align: center; }
