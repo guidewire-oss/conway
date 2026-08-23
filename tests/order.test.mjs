@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  esc, zoneOf, weekLabel, verdictView, statedCell, objectiveView, wipLimitNote,
+  esc, zoneOf, weekLabel, verdictView, statedCell, objectiveView, wipLimitNote, schedulingDialogHTML,
   orderRows, orderTableHTML, infeasibleNote, heatmapWeeks, overrunNote,
   podHeatmapHTML, podQueueHTML, noticesHTML, orderViewHTML, rowTraceHTML,
   schedulingFormHTML, schedulingFromForm, pctToFraction,
@@ -436,27 +436,27 @@ test('the form shows the current assumptions as percentages a person types', () 
 
 // The one thing a planner cannot recover from on their own: no period start means
 // no dates anywhere, and nothing else in the view explains why.
-test('the form opens itself and says so when the plan has no period start', () => {
-  const html = schedulingFormHTML({}, { value: 2, derived: true, fromPod: 'Delta' });
-  assert.match(html, /<details class="ord-sched" open>/);
-  assert.match(html, /no period start/);
-  assert.match(html, /derived: 2 from Delta/, 'the blank WIP field says what blank does');
+test('the dialog opens itself and says so when the plan has no period start', () => {
+  const html = schedulingDialogHTML({}, { value: 2, derived: true, fromPod: 'Delta' });
+  assert.match(html, /<div class="ord-sched" id="sched-dialog">/); // NOT hidden
+  const form = schedulingFormHTML({}, { value: 2, derived: true, fromPod: 'Delta' });
+  assert.match(form, /no period start/);
+  assert.match(form, /derived: 2 from Delta/, 'the blank WIP field says what blank does');
 });
 
 // The panel forces itself open for anything the planner must decide, and there are
 // two such things: the period start and the WIP model. Both settled, both quiet.
-test('the form does not open itself once nothing is outstanding', () => {
-  const html = schedulingFormHTML({ periodStart: '2026-01-05', wipModel: 'strict' },
+test('the dialog stays closed once nothing is outstanding', () => {
+  const html = schedulingDialogHTML({ periodStart: '2026-01-05', wipModel: 'strict' },
     { value: 2, derived: true, fromPod: 'Delta', model: 'strict' });
-  assert.ok(!html.includes('ord-sched" open'));
+  assert.match(html, /hidden/); // not urgent: opens on the ⚙ button only
   assert.ok(!html.includes('no period start'));
   assert.ok(!html.includes('No work-in-progress model chosen'));
 });
 
-test('the form still opens for a missing period start even with a model chosen', () => {
-  const html = schedulingFormHTML({ wipModel: 'strict' }, { value: 2, model: 'strict' });
-  assert.match(html, /<details class="ord-sched" open>/);
-  assert.match(html, /no period start/);
+test('the dialog still opens for a missing period start even with a model chosen', () => {
+  const html = schedulingDialogHTML({ wipModel: 'strict' }, { value: 2, model: 'strict' });
+  assert.match(html, /<div class="ord-sched" id="sched-dialog">/);
 });
 
 test('the form offers no knob that does nothing', () => {
@@ -607,9 +607,10 @@ test('the comparison is nothing at all when the server sent none', () => {
   assert.equal(wipModelsTableHTML({ wipModels: [] }), '');
 });
 
-test('the form opens itself and explains when no model is chosen', () => {
+test('the dialog opens itself and explains when no model is chosen', () => {
+  const dialog = schedulingDialogHTML({ periodStart: '2026-01-05' }, modelsFixture.wipLimit, modelsFixture);
+  assert.match(dialog, /<div class="ord-sched" id="sched-dialog">/);
   const html = schedulingFormHTML({ periodStart: '2026-01-05' }, modelsFixture.wipLimit, modelsFixture);
-  assert.match(html, /<details class="ord-sched" open>/);
   assert.match(html, /No work-in-progress model chosen/);
   assert.match(html, /computed\s+as <b>strict<\/b> so nothing moves under you/);
   assert.match(html, /<option value=""\s*selected>— not chosen —<\/option>/);
@@ -618,9 +619,11 @@ test('the form opens itself and explains when no model is chosen', () => {
 // A stored model this build does not implement is scheduled as unchosen by the
 // server, so the form must not go quiet as though a choice had been made.
 test('an unsupported stored model still counts as unchosen', () => {
+  const dialog = schedulingDialogHTML({ periodStart: '2026-01-05', wipModel: 'wishful' },
+    { value: 2, derived: true, fromPod: 'Delta', model: 'unchosen' }, modelsFixture);
+  assert.match(dialog, /<div class="ord-sched" id="sched-dialog">/);
   const html = schedulingFormHTML({ periodStart: '2026-01-05', wipModel: 'wishful' },
     { value: 2, derived: true, fromPod: 'Delta', model: 'unchosen' }, modelsFixture);
-  assert.match(html, /<details class="ord-sched" open>/);
   assert.match(html, /No work-in-progress model chosen/);
   assert.match(html, /<option value=""\s*selected>/, 'the selector falls back to not-chosen');
 });
