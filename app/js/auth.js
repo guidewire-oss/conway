@@ -199,7 +199,7 @@ function mountChip() {
     const trainMenu = document.getElementById('train-menu');
     const games = document.createElement('button');
     games.id = 'run-games-btn';
-    games.className = 'tab';
+    games.className = 'tab dropdown-item';
     games.textContent = '🎮 Run games';
     games.title = 'Create and run games — scenarios, join codes, rounds, leaderboard';
     games.addEventListener('click', openGames);
