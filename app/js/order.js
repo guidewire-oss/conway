@@ -354,7 +354,9 @@ export function comparisonBarsHTML(obj) {
     return '<span class="hint">no dates or priorities set yet, so there is no order to argue with</span>';
   }
   if (obj.stated === 0 && obj.proposed === 0) {
-    return '<span class="hint">neither order costs anything — every date holds</span>';
+    // "Every date holds" is only true when there ARE dates; a priority-only
+    // plan scores zero because no date can be missed, not because all held.
+    return '<span class="hint">neither order costs anything — nothing is late</span>';
   }
   const max = Math.max(obj.stated, obj.proposed, 1);
   const pctOf = (v) => Math.max(2, Math.round((v / max) * 100)); // 2% floor: a bar must be visible

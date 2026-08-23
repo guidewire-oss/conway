@@ -86,6 +86,9 @@ test('uncomparable plans get no bars, just the plain-language note', () => {
 test('zero-cost plans get the plain-language fallback, not zero-value bars', () => {
   const html = comparisonBarsHTML({ comparable: true, stated: 0, proposed: 0, delta: 0 });
   assert.ok(!html.includes('ord-bars'), 'no bars when both orders cost nothing');
-  assert.match(html, /every date holds/i);
+  // The copy must not claim 'every date holds' — comparable covers priority-only
+  // plans where no date can be missed either.
+  assert.match(html, /nothing is late/i);
+  assert.ok(!html.includes('every date holds'), 'no unsupported all-held claim');
   assert.ok(!html.includes('NaN') && !html.includes('Infinity'));
 });
