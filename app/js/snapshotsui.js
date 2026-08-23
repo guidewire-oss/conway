@@ -1,3 +1,4 @@
+import { openModal, closeModal } from './modal.js';
 // Snapshots: a single page to see everything captured/uploaded — rosters
 // (from Observe ▸ 👥 Rosters) and dated Jira snapshots (from Observe ▸ 📥
 // Import from Jira) — as two sections. Rename/delete the Jira snapshots you
@@ -28,8 +29,8 @@ export async function openSnapshots() {
         Rename or delete the ones you own; the baseline (mined seed) is kept.</p>
       <div id="snap-list"></div>
     </div>`;
-  ov.hidden = false;
-  ov.querySelector('#snap-close').addEventListener('click', () => { ov.hidden = true; });
+  openModal(ov);
+  ov.querySelector('#snap-close').addEventListener('click', () => closeModal(ov));
   mountRosters(ov.querySelector('#snap-rosters'));
   renderList(ov);
 }
