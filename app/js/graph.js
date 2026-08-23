@@ -385,9 +385,11 @@ function showPanel(d, m, simulated, cmp, onHide) {
 
   const fmtEdge = (other, count, dir) => {
     const ov = m.overlap[d.name]?.[other] ?? '?';
-    return `<dd>${dir} <b>${other}</b> ×${count} <span class="hint">(${ov}h overlap)</span></dd>`;
+    return `<li><span class="insp-name">${dir} <b>${other}</b> ×${count}</span><span class="insp-weeks">${ov}h overlap</span></li>`;
   };
 
+  const edgeList = (rows, empty) => rows.length
+    ? `<ol class="insp-list">${rows.join('')}</ol>` : `<dd>${empty}</dd>`;
   document.getElementById('netpanel').innerHTML = `
     <h2>${d.name}</h2>
     <div>${flags.join(' ') || '<span class="flag" style="color:var(--green)">healthy</span>'}</div>
@@ -399,8 +401,8 @@ function showPanel(d, m, simulated, cmp, onHide) {
       <dt>WIP / queue heat</dt><dd>${s.wip} items · ρ≈${s.rho0.toFixed(2)}${cmp && cmp.podDelta.has(d.name) ? compareWipNote(cmp, d.name) : ''}</dd>
       <dt>Coupling</dt><dd>depends on ${fanIn} · ${fanOut} depend on it
         <span class="hint">(instability ${instability.toFixed(2)} — 1 = at others' mercy, 0 = others rely on it)</span></dd>
-      <dt>Blocked by (top)</dt>${inbound.map((e) => fmtEdge(e.from, e.count, '⬅ blocked by')).join('') || '<dd>—</dd>'}
-      <dt>Blocks (top)</dt>${outbound.map((e) => fmtEdge(e.to, e.count, '➡ blocks')).join('') || '<dd>—</dd>'}
+      <dt>Blocked by (top)</dt>${edgeList(inbound.map((e) => fmtEdge(e.from, e.count, '⬅')), '—')}
+      <dt>Blocks (top)</dt>${edgeList(outbound.map((e) => fmtEdge(e.to, e.count, '➡')), '—')}
     </dl>
     ${onHide ? '<button id="np-hide">🙈 Hide this pod</button> <span class="hint">temporarily, this session</span>' : ''}`;
   if (onHide) document.getElementById('np-hide').addEventListener('click', () => {
