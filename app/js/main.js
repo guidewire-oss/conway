@@ -221,14 +221,9 @@ document.querySelectorAll('.tab[data-view]').forEach((b) => b.addEventListener('
 document.getElementById('net-observe')?.addEventListener('click', () => document.getElementById('view-network')?.classList.add('readonly'));
 document.getElementById('net-plan')?.addEventListener('click', () => document.getElementById('view-network')?.classList.remove('readonly'));
 
-// Theme: dark by default, Daylight behind the ☾ toggle. Applied before any
-// view paints so there's no flash. Bootstrap's own dark-mode styles follow the
-// same attribute, so modals/dropdowns re-skin with everything else.
+// Theme toggle wiring (the saved mode itself is applied by the inline script
+// in <head>, before first paint — this module loads too late for that).
 (() => {
-  const saved = localStorage.getItem('conway-theme');
-  if (saved === 'light' || saved === 'dark') {
-    document.documentElement.dataset.bsTheme = saved;
-  }
   const btn = document.getElementById('theme-btn');
   btn?.addEventListener('click', () => {
     const next = document.documentElement.dataset.bsTheme === 'light' ? 'dark' : 'light';

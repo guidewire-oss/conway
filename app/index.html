@@ -4,6 +4,15 @@
 <meta charset="utf-8">
 <title>Conway Flow Game</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<!-- Theme before first paint: the saved mode must be on <html> before any
+     render, or a persisted light theme flashes dark. Kept inline and tiny —
+     the toggle's wiring lives in main.js. -->
+<script>
+  (function () {
+    var t = localStorage.getItem('conway-theme');
+    if (t === 'light' || t === 'dark') document.documentElement.dataset.bsTheme = t;
+  })();
+</script>
 <link rel="stylesheet" href="vendor/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="css/conway.css">
 <link rel="stylesheet" href="css/style.css">
@@ -46,7 +55,7 @@
       </div>
     </div>
     <button id="guide-btn" class="tab guide-tab">Guide</button>
-    <button id="theme-btn" class="tab" title="Switch dark / light (for projectors and screenshots)">☾</button>
+    <button id="theme-btn" class="tab" aria-label="Switch color theme" title="Switch dark / light (for projectors and screenshots)">☾</button>
   </nav>
 </header>
 
