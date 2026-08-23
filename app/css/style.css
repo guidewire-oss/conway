@@ -39,7 +39,7 @@ nav { display: flex; gap: 6px; }
 .plan-up { display: flex; align-items: center; gap: 8px; }
 .plan-upbtn { background: var(--panel2); border: 1px solid var(--border); border-radius: 7px; padding: 7px 12px; cursor: pointer; font-size: 13px; color: var(--text); }
 .plan-upbtn:hover { border-color: var(--accent); }
-.plan-warn { color: var(--amber); background: rgba(245,185,76,.08); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin: 6px 0; }
+.plan-warn { color: var(--amber); background: rgba(var(--c-warning), .08); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin: 6px 0; }
 .plan-net-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
 /* same left-to-right layered layout + inspector-panel format as Observe's Org Network (.net-wrap) */
 .plan-net-wrap { display: grid; grid-template-columns: 1fr 280px; gap: 12px; }
@@ -156,7 +156,7 @@ tbody tr:hover td { background: var(--panel2); }
 .beat-warn { border-left-color: var(--amber); } .beat-warn .beat-i { color: var(--amber); }
 .beat-good { border-left-color: var(--green); } .beat-good .beat-i { color: var(--green); }
 .beat-info { border-left-color: var(--accent); } .beat-info .beat-i { color: var(--accent); }
-.watch { background: rgba(76,194,255,.07); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-top: 8px; font-size: 13px; }
+.watch { background: rgba(var(--c-primary), .07); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-top: 8px; font-size: 13px; }
 .watch ul { margin: 5px 0 0; padding-left: 18px; } .watch li { margin: 3px 0; }
 
 .dl-q { font-weight: 700; color: var(--accent); white-space: nowrap; }
@@ -166,9 +166,9 @@ tbody tr:hover td { background: var(--panel2); }
 .dl-beats li { margin: 2px 0; }
 .dl-beats .beat-bad { color: var(--red); } .dl-beats .beat-warn { color: var(--amber); }
 .dl-beats .beat-good { color: var(--green); } .dl-beats .beat-info { color: var(--text); }
-.curveball { background: rgba(245,185,76,.12); border: 1px solid rgba(245,185,76,.4); border-radius: 7px; padding: 9px 11px; margin-top: 8px; font-size: 13px; }
+.curveball { background: rgba(var(--c-warning), .12); border: 1px solid rgba(var(--c-warning), .4); border-radius: 7px; padding: 9px 11px; margin-top: 8px; font-size: 13px; }
 .game-moves { margin: 10px 0; font-size: 12.5px; }
-.move-chip { display: inline-block; background: rgba(76,194,255,.13); color: var(--accent); border: 1px solid rgba(76,194,255,.35); border-radius: 12px; padding: 2px 9px; margin: 2px 3px 0 0; }
+.move-chip { display: inline-block; background: rgba(var(--c-primary), .13); color: var(--accent); border: 1px solid rgba(var(--c-primary), .35); border-radius: 12px; padding: 2px 9px; margin: 2px 3px 0 0; }
 .chip-x { cursor: pointer; margin-left: 6px; opacity: .7; font-weight: 700; }
 .chip-x:hover { opacity: 1; color: var(--red); }
 
@@ -208,7 +208,7 @@ tbody tr:hover td { background: var(--panel2); }
 .freeze-track .excess { position: absolute; height: 100%; background: var(--red); opacity: .75; }
 .freeze-gain { color: var(--green); }
 .freeze-row { cursor: pointer; }
-.freeze-row:hover { background: rgba(76,194,255,.05); border-radius: 5px; }
+.freeze-row:hover { background: rgba(var(--c-primary), .05); border-radius: 5px; }
 .wip-drill { margin: 4px 0 12px 12px; border-left: 2px solid var(--border); padding-left: 12px; max-height: 320px; overflow-y: auto; }
 
 
@@ -304,8 +304,8 @@ button.seg.seg-on { background: var(--panel2); color: var(--text); }
 #netpanel dt { color: var(--muted); font-size: 11px; text-transform: uppercase; margin-top: 9px; }
 #netpanel dd { margin: 1px 0 0; }
 .flag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 8px; margin: 2px 3px 0 0; }
-.flag.red { background: rgba(244,101,95,.15); color: var(--red); }
-.flag.amber { background: rgba(245,185,76,.15); color: var(--amber); }
+.flag.red { background: rgba(var(--c-danger), .15); color: var(--red); }
+.flag.amber { background: rgba(var(--c-warning), .15); color: var(--amber); }
 .legend { margin-top: 8px; color: var(--muted); font-size: 12px; display: flex; gap: 18px; }
 .legend .sw { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
 
@@ -319,14 +319,14 @@ button.seg.seg-on { background: var(--panel2); color: var(--text); }
 .row-actions { display: flex; gap: 8px; margin: 12px 0; }
 .epic-import { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
 .epic-import input { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 5px; padding: 6px 8px; }
-.suggestion { background: rgba(245,185,76,.08); border: 1px solid rgba(245,185,76,.35); border-radius: 7px; padding: 8px 10px; margin: 6px 0; font-size: 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.suggestion { background: rgba(var(--c-warning), .08); border: 1px solid rgba(var(--c-warning), .35); border-radius: 7px; padding: 8px 10px; margin: 6px 0; font-size: 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .suggestion button { padding: 3px 9px; font-size: 12px; }
 #fullkit { margin: 4px 0 10px; }
 .kit-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
 .kit-score { font-size: 15px; font-weight: 700; padding: 3px 12px; border-radius: 12px; }
-.kit-score.g { background: rgba(62,207,142,.15); color: var(--green); }
-.kit-score.a { background: rgba(245,185,76,.15); color: var(--amber); }
-.kit-score.r { background: rgba(244,101,95,.15); color: var(--red); }
+.kit-score.g { background: rgba(var(--c-success), .15); color: var(--green); }
+.kit-score.a { background: rgba(var(--c-warning), .15); color: var(--amber); }
+.kit-score.r { background: rgba(var(--c-danger), .15); color: var(--red); }
 .kit-item { display: flex; gap: 8px; font-size: 12.5px; padding: 3px 0; align-items: baseline; }
 .kit-item .ki { width: 14px; text-align: center; }
 .kit-item.pass .ki { color: var(--green); }
@@ -395,11 +395,13 @@ button:disabled { opacity: .55; cursor: not-allowed; }
   color: var(--text); padding: 2px 6px 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ord-heat th.ord-wk { color: var(--muted); font-weight: 400; font-size: 9px; padding: 0; text-align: center; }
 .ord-cell { text-align: center; padding: 0; height: 17px; border: 1px solid var(--bg);
-  color: rgba(15,20,25,.85); font-size: 9px; font-weight: 700; }
+  /* ink on tinted cells: dark ink on dark-mode tints, white on the darker
+     light-mode strong tints */
+  color: var(--tint-cell-ink); font-size: 9px; font-weight: 700; }
 .ord-cell.ord-idle { background: var(--panel2); }
-.ord-cell.ord-green { background: rgba(62,207,142,.55); }
-.ord-cell.ord-amber { background: rgba(245,185,76,.75); }
-.ord-cell.ord-red { background: rgba(244,101,95,.85); }
+.ord-cell.ord-green { background: var(--tint-strong-green); }
+.ord-cell.ord-amber { background: var(--tint-strong-amber); }
+.ord-cell.ord-red { background: var(--tint-strong-red); }
 /* A real button, so it is keyboard-reachable and announced as a control, styled
    as a link so the grid stays a grid. focus-visible matters here: the outline is
    the only thing telling a keyboard user where they are. */
@@ -427,7 +429,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 
 /* WIP-model comparison, inside the scheduling assumptions panel */
 .ord-models { margin: 10px 0 4px; }
-.ord-models tr.ord-inforce td { background: rgba(76,194,255,.10); }
+.ord-models tr.ord-inforce td { background: rgba(var(--c-primary), .10); }
 .ord-models-why { margin: 6px 0 0 18px; padding: 0; }
 .ord-models-why li { margin: 2px 0; }
 .sched-f select { background: var(--bg); color: var(--text); border: 1px solid var(--border);
@@ -441,7 +443,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .bl-none { color: var(--muted); }
 .plan-views { align-items: center; }
 .bl-panel { margin-top: 12px; }
-.bl-table tr.bl-active td { background: rgba(76,194,255,.10); }
+.bl-table tr.bl-active td { background: rgba(var(--c-primary), .10); }
 .bl-table button { background: transparent; color: var(--accent); border: 1px solid var(--border);
   border-radius: 5px; padding: 2px 8px; cursor: pointer; font-size: 11px; margin-right: 4px; }
 .bl-table button:hover { background: var(--panel2); }
@@ -475,8 +477,8 @@ button.bl-chip:focus-visible { outline: 2px solid var(--accent); outline-offset:
   padding: 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   min-width: 6px; } /* FR-039: a 1-week bar on a 104w horizon stays visible and clickable */
 .tl-buffer { position: absolute; top: 4px; height: 14px; border-radius: 3px;
-  background: repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(76,194,255,.4) 3px, rgba(76,194,255,.4) 5px);
-  border: 1px dashed rgba(76,194,255,.6); color: var(--muted); font-size: 9px; line-height: 12px;
+  background: repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(var(--c-primary), .4) 3px, rgba(var(--c-primary), .4) 5px);
+  border: 1px dashed rgba(var(--c-primary), .6); color: var(--muted); font-size: 9px; line-height: 12px;
   padding: 0 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 6px; }
 .tl-target { position: absolute; top: 1px; transform: translateX(-50%); color: var(--amber);
   font-size: 13px; line-height: 1; cursor: help; }
