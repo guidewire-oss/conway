@@ -50,11 +50,13 @@
  */
 :root,
 [data-bs-theme=dark] {
-  /* surfaces — the existing three-step elevation */
-  --bs-body-bg: #0f1419;            /* page            (was --bg)     */
-  --bs-card-bg: #18202a;            /* panels          (was --panel)  */
-  --bs-secondary-bg: #1f2937;       /* raised          (was --panel2) */
-  --bs-tertiary-bg: #18202a;
+  /* surfaces — Slate: the elevation steps up (page < card < raised) so cards
+     read as cards; the old panel/panel2 pair was a ~3% luminance difference
+     that made stacking invisible. */
+  --bs-body-bg: #0d1218;            /* page            (was --bg)     */
+  --bs-card-bg: #161e28;            /* panels          (was --panel)  */
+  --bs-secondary-bg: #1f2a38;       /* raised          (was --panel2) */
+  --bs-tertiary-bg: #161e28;
 
   /* ink */
   --bs-body-color: #e5eef7;         /* text            (was --text)   */
@@ -116,12 +118,107 @@
   /* focus */
   --bs-focus-ring-color: rgba(76, 194, 255, .35);
 
-  --bs-body-bg-rgb: 15, 20, 25;
+  --bs-body-bg-rgb: 13, 18, 24;
   --bs-body-color-rgb: 229, 238, 247;
-  --bs-secondary-bg-rgb: 31, 41, 55;
+  --bs-secondary-bg-rgb: 31, 42, 56;
   --bs-secondary-color-rgb: 138, 160, 180;
+
+  /* ── Tints: status-colored backgrounds, from flags and kit-scores to the
+   * heatmap cells. Defined as rgb triplets so alpha variants derive freely.
+   * THEse replace every hardcoded rgba() in style.css — a light theme swaps
+   * this block, not 18 scattered literals. */
+  --c-primary: 76, 194, 255;
+  --c-success: 62, 207, 142;
+  --c-warning: 245, 185, 76;
+  --c-danger: 244, 101, 95;
 }
 
+/* ── Daylight: the light theme for projectors, screenshots and meetings. ──
+ * Selected by [data-bs-theme=light] on <html>; every component follows the
+ * same tokens, so nothing else changes. Status colors shift to their
+ * dark-on-light equivalents to keep AA contrast. */
+[data-bs-theme=light] {
+  color-scheme: light;
+  --bs-body-bg: #f4f5f7;
+  --bs-card-bg: #ffffff;
+  --bs-secondary-bg: #eef0f3;
+  --bs-tertiary-bg: #ffffff;
+  --bs-border-color: #d8dbe0;
+  --bs-border-color-translucent: rgba(24, 27, 35, .14);
+
+  --bs-body-color: #191b23;
+  --bs-secondary-color: #5c6273;
+  --bs-tertiary-color: #8b90a0;
+  --bs-emphasis-color: #000000;
+  --bs-heading-color: var(--bs-body-color);
+
+  --bs-primary: #3b6cff;
+  --bs-primary-rgb: 59, 108, 255;
+  --bs-primary-text-emphasis: #2b52cc;
+  --bs-primary-bg-subtle: rgba(59, 108, 255, .08);
+  --bs-primary-border-subtle: rgba(59, 108, 255, .35);
+  --bs-link-color: #3b6cff;
+  --bs-link-hover-color: #2b52cc;
+  --bs-link-color-rgb: 59, 108, 255;
+  --bs-link-hover-color-rgb: 43, 82, 204;
+
+  --bs-success: #0e9f6e;
+  --bs-success-rgb: 14, 159, 110;
+  --bs-success-text-emphasis: #0a7a54;
+  --bs-success-bg-subtle: rgba(14, 159, 110, .10);
+  --bs-success-border-subtle: rgba(14, 159, 110, .4);
+
+  --bs-warning: #c07807;
+  --bs-warning-rgb: 192, 120, 7;
+  --bs-warning-text-emphasis: #94600a;
+  --bs-warning-bg-subtle: rgba(192, 120, 7, .12);
+  --bs-warning-border-subtle: rgba(192, 120, 7, .4);
+
+  --bs-danger: #dc2f3e;
+  --bs-danger-rgb: 220, 47, 62;
+  --bs-danger-text-emphasis: #b01f2d;
+  --bs-danger-bg-subtle: rgba(220, 47, 62, .10);
+  --bs-danger-border-subtle: rgba(220, 47, 62, .4);
+
+  --bs-info: #3b6cff;
+  --bs-info-rgb: 59, 108, 255;
+
+  --bs-focus-ring-color: rgba(59, 108, 255, .3);
+
+  --bs-body-bg-rgb: 244, 245, 247;
+  --bs-body-color-rgb: 25, 27, 35;
+  --bs-secondary-bg-rgb: 238, 240, 243;
+  --bs-secondary-color-rgb: 92, 98, 115;
+
+  --c-primary: 59, 108, 255;
+  --c-success: 14, 159, 110;
+  --c-warning: 192, 120, 7;
+  --c-danger: 220, 47, 62;
+}
+
+/* Daylight needs its own tint handling for the heatmap cells and similar
+   strong fills: dark-mode tints were built as translucencies over dark;
+   over white the same alpha washes out, so the strong fills darken. */
+/* :root only, NOT [data-bs-theme=dark]: both selectors tie in specificity
+   with [data-bs-theme=light], and the later dark block would win over it.
+   The html tag ships data-bs-theme=dark in every page, and the toggle keeps
+   one of the two set — :root alone is the pre-JS default. */
+:root {
+  --tint-strong-green: rgba(62, 207, 142, .55);
+  --tint-strong-amber: rgba(245, 185, 76, .75);
+  --tint-strong-red: rgba(244, 101, 95, .85);
+  --tint-cell-ink: rgba(15, 20, 25, .85);
+}
+
+[data-bs-theme=light] {
+  --tint-strong-green: rgba(14, 159, 110, .78);
+  --tint-strong-amber: rgba(192, 120, 7, .80);
+  --tint-strong-red: rgba(220, 47, 62, .82);
+  /* Dark ink, not white: the fills are translucent over white cards, so the
+     blended backgrounds are mid-tone (green CR 2.6 for white ink — fails AA;
+     dark ink passes at 4.7–6.7). */
+  --tint-cell-ink: var(--bs-body-color);
+}
 /* Legacy aliases: style.css's original tokens now resolve into the system,
  * so a future theme change re-skins everything, old rules included. */
 :root {
