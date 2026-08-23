@@ -209,23 +209,12 @@ document.querySelectorAll('.tab[data-view]').forEach((b) => b.addEventListener('
 // Explore ▾ dropdown: groups the analytics views under one menu so the top bar
 // stays focused on running the game. Click to toggle; a selection or an outside
 // click closes it.
-function wireDropdown(btnId, menuId) {
-  const btn = document.getElementById(btnId);
-  const menu = document.getElementById(menuId);
-  if (!btn || !menu) return;
-  const close = () => { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    menu.hidden = !menu.hidden;
-    btn.setAttribute('aria-expanded', String(!menu.hidden));
-  });
-  // delegate so dynamically-injected items (e.g. 🎮 Run games) also close the menu
-  menu.addEventListener('click', (e) => { if (e.target.closest('button')) close(); });
-  document.addEventListener('click', (e) => { if (!btn.contains(e.target) && !menu.contains(e.target)) close(); });
-}
-wireDropdown('explore-btn', 'explore-menu'); // Observe ▾
-wireDropdown('train-btn', 'train-menu');     // Train ▾ (Play + facilitator's Run games)
-wireDropdown('plan-btn', 'plan-menu');       // Plan ▾ (import/snapshots/levers/what-if/period)
+// Nav dropdowns are Bootstrap dropdowns now (data-bs-toggle in the markup,
+// bootstrap.bundle.js): ESC, arrow keys, focus handling and outside-click
+// close come from the framework. Dynamically injected items (🎮 Run games)
+// work because BS's dropdown close listener is delegated at document level.
+// The `hidden` attribute that used to gate the plan menu is set by auth.js on
+// the GROUP div, not the menu, so BS's display toggling does not fight it.
 
 // The org network is one view seen two ways: read-only under Observe (no
 // simulation panel) and as the what-if tool under Plan (panel shown).
