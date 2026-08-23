@@ -309,7 +309,7 @@ test('calendar windows render as marked vertical bands', () => {
     ],
   });
   assert.match(html, /tl-band/);
-  const bands = [...html.matchAll(/class="tl-band[^"]*"/g)];
+  const bands = [...html.matchAll(/class="tl-band tl-trunc/g)];
   assert.equal(bands.length, 2, 'one band per window');
   // The freeze starts at week 4 (2026-02-02 is 4 weeks after 2026-01-05) and
   // the band is positioned by percentage on the same axis as the bars.
@@ -323,7 +323,7 @@ test('a freeze band is labelled so the mark is not just colour (FR-044)', () => 
     calendars: [{ kind: 'change-freeze', scope: 'org', fromDate: '2026-02-02', toDate: '2026-02-16', effect: 'block-start' }],
   });
   assert.match(html, /freeze/i, 'the band says what it is');
-  assert.match(html, /2026-02-02 to 2026-02-16/, 'the tooltip holds the dates');
+  assert.match(html, /2026-02-02–2026-02-16/, 'the band carries its dates visibly');
 });
 
 test('no windows render no bands', () => {

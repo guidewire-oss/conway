@@ -148,9 +148,14 @@ function bandHTML(win, sched, horizon) {
   const label = win.kind === 'change-freeze' ? '░freeze░'
     : win.kind === 'site-nonworking' ? `▒ ${win.scope} non-working ▒`
     : `▒ ${win.scope} ▒`;
+  // The dates ride as a visible edge sliver rather than a tooltip: bands sit
+  // in the pointer-events:none overlay, so a title would never fire, and a
+  // narrow band's clipped text would otherwise hide them entirely.
+  const dates = `${esc(win.fromDate)}–${esc(win.toDate)}`;
   return `<div class="tl-band tl-trunc ${win.kind === 'change-freeze' ? 'tl-band-freeze' : ''}"
-    style="${pct(s(left))};width:${width.toFixed(2)}%"
-    title="${esc(label)} ${esc(win.fromDate)} to ${esc(win.toDate)} (${esc(win.effect)})">${esc(label)}</div>`;
+    style="${pct(s(left))};width:${width.toFixed(2)}%" data-dates="${dates}">
+    <span class="tl-band-label">${esc(label)}</span>
+  </div>`;
 }
 
 function weekOfDate(periodStart, date) {

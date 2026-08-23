@@ -990,7 +990,14 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 			if c.tracks <= 0 || s.FinishWeek <= s.StartWeek {
 				continue // unknown pods consume nothing; zero-length slices occupy nothing
 			}
+			// The work end, distinct from the finish: a block-finish window
+			// moves the completion without adding work, so the weeks between
+			// are waiting and must not book.
+			workEnd := s.StartWeek + int(s.RemainingWeeks)
 			for w := s.StartWeek; w < s.FinishWeek; w++ {
+				if w >= workEnd {
+					continue // freeze waiting past the estimated work: not occupancy
+				}
 				// FR-018: a reduce-capacity week is not occupancy — a holiday
 				// must not read as work in the heatmap or the flat rho.
 				if rules != nil && rules.reducedTracks(s.Pod, siteOf(teams, s.Pod), c.tracks, w) <= 0 {
@@ -1284,6 +1291,13 @@ func firstFreeWeek(c *podCalendar, tracks, from, d int, initiative string, perPo
 		spanStart := -1 // the first week the slice actually works
 		fits, why := true, ""
 		for work < d && w <= ceiling {
+			// The candidate check above guarded s, not w: a reduce-capacity
+			// window can walk the span forward into a block-start week, and
+			// that week must not become the recorded start.
+			if rules != nil && !inFlight && rules.startBlocked(pod, site, w) {
+				fits, why = false, bindFreeze
+				break
+			}
 			weekTracks := tracks
 			if rules != nil {
 				weekTracks = rules.reducedTracks(pod, site, tracks, w)
