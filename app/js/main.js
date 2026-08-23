@@ -221,5 +221,18 @@ document.querySelectorAll('.tab[data-view]').forEach((b) => b.addEventListener('
 document.getElementById('net-observe')?.addEventListener('click', () => document.getElementById('view-network')?.classList.add('readonly'));
 document.getElementById('net-plan')?.addEventListener('click', () => document.getElementById('view-network')?.classList.remove('readonly'));
 
+// Theme toggle wiring (the saved mode itself is applied by the inline script
+// in <head>, before first paint — this module loads too late for that).
+(() => {
+  const btn = document.getElementById('theme-btn');
+  btn?.addEventListener('click', () => {
+    const next = document.documentElement.dataset.bsTheme === 'light' ? 'dark' : 'light';
+    document.documentElement.dataset.bsTheme = next;
+    localStorage.setItem('conway-theme', next);
+    btn.textContent = next === 'light' ? '☀' : '☾';
+  });
+  if (btn) btn.textContent = document.documentElement.dataset.bsTheme === 'light' ? '☀' : '☾';
+})();
+
 // gate the app behind login when the server is present (dev/static: passes through)
 initAuth().then(load);
