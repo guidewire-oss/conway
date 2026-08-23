@@ -148,13 +148,13 @@ function bandHTML(win, sched, horizon) {
   const label = win.kind === 'change-freeze' ? '░freeze░'
     : win.kind === 'site-nonworking' ? `▒ ${win.scope} non-working ▒`
     : `▒ ${win.scope} ▒`;
-  // The dates ride as a visible edge sliver rather than a tooltip: bands sit
-  // in the pointer-events:none overlay, so a title would never fire, and a
-  // narrow band's clipped text would otherwise hide them entirely.
+  // The dates render as visible text beside the label: bands sit in the
+  // pointer-events:none overlay, so a title would never fire, and a data
+  // attribute is inert — the dates must be readable for a narrow band too.
   const dates = `${esc(win.fromDate)}–${esc(win.toDate)}`;
   return `<div class="tl-band tl-trunc ${win.kind === 'change-freeze' ? 'tl-band-freeze' : ''}"
-    style="${pct(s(left))};width:${width.toFixed(2)}%" data-dates="${dates}">
-    <span class="tl-band-label">${esc(label)}</span>
+    style="${pct(s(left))};width:${width.toFixed(2)}%">
+    <span class="tl-band-label">${esc(label)} ${dates}</span>
   </div>`;
 }
 
