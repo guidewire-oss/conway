@@ -187,7 +187,13 @@ tbody tr:hover td { background: var(--panel2); }
 .insight .i-obs { margin-bottom: 6px; }
 .insight .i-act { color: var(--green); margin-bottom: 6px; }
 .insight .i-why { color: var(--muted); font-size: 12.5px; }
-.help { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--panel2); border: 1px solid var(--border); color: var(--muted); font-size: 11px; cursor: help; vertical-align: 2px; margin-left: 6px; }
+.help { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px;
+  border-radius: 50%; background: var(--panel2); border: 1px solid var(--border); color: var(--muted);
+  font-size: 11px; cursor: help; vertical-align: 2px; margin-left: 6px; }
+/* As <button> (terms.js), the global button padding would shrink the 16px
+   circle's content box to nothing — reset it so the ? stays centered. */
+button.help { padding: 0; line-height: 1; font-family: inherit; }
+button.help:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 1px; }
 #tooltip { position: fixed; max-width: 340px; background: #0b1117; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text); font-size: 12px; line-height: 1.5; z-index: 100; pointer-events: none; font-weight: 400; text-transform: none; letter-spacing: 0; box-shadow: 0 4px 18px rgba(0,0,0,.5); }
 #tooltip[hidden] { display: none; }
 

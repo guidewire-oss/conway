@@ -200,7 +200,16 @@ function wireBaselineControls() {
   document.querySelectorAll('.bl-activate').forEach((b) =>
     b.addEventListener('click', () => activateBaseline(b.dataset.id)));
   document.querySelectorAll('.bl-compare').forEach((b) =>
-    b.addEventListener('click', () => compareBaseline(b.dataset.id)));
+    b.addEventListener('click', () => {
+      // Toggle: comparing the already-compared baseline dismisses the card —
+      // a second click that does nothing reads as broken (button audit, 2026-08-23).
+      if (current.baselineCompare && current.baselineCompare.baseline?.id === b.dataset.id) {
+        current.baselineCompare = null;
+        renderOrder();
+        return;
+      }
+      compareBaseline(b.dataset.id);
+    }));
 }
 
 // orderRequestBody is what /schedule was given, so a baseline or a comparison uses
@@ -613,6 +622,13 @@ async function previewInitiativesFile(file) {
   current.isDraft = true;
   current.draftFile = file;
   renderPlan();
+  // A picked file whose only feedback is a banner far above the scroll reads as
+  // "the button did nothing". Bring the banner into view once the re-rendered
+  // view has settled (renderOrder is async; the timeout covers its schedule
+  // fetch without coupling to its internals).
+  setTimeout(() => {
+    document.getElementById('plan-draft-save')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 600);
 }
 
 async function saveDraftInitiatives() {
