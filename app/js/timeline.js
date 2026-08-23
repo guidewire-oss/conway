@@ -193,7 +193,7 @@ export function portfolioTimelineHTML(sched, opts = {}) {
   return `<div class="card tl-card">
     <div class="ord-head"><b>Timeline</b>
       <span class="hint">one row per initiative · the lighter tail is the buffer · ◆ is the promise</span></div>
-    <div class="tl-axis tl-trunc">${ticks}</div>
+    <div class="tl-axis">${ticks}</div>
     <div class="tl-body">${rows}<div class="tl-overlay">${grid}${bands}${today}</div></div>
     <div class="hint">█ scheduled · ░ buffer · ◆ target · → waits on another pod · ↑ today${bands ? ' · ░freeze░ change freeze · ▒ non-working' : ''}</div>
   </div>`;
