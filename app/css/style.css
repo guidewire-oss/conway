@@ -549,3 +549,36 @@ button.bl-chip:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .insp-name { flex: 1 1 auto; min-width: 0; }
 .insp-weeks { flex: 0 0 auto; color: var(--muted);
   font-variant-numeric: tabular-nums; font-size: 12px; }
+
+/* ── IA #2: verdict banner, comparison bars, assumptions dialog ─────────── */
+.verdict-banner { border-radius: var(--bs-border-radius); padding: 10px 16px;
+  margin: 0 0 10px; font-size: 14px; line-height: 1.55; border: 1px solid var(--border); }
+.verdict-banner b { font-size: 15px; }
+.verdict-miss { background: rgba(var(--c-danger), .10); border-color: rgba(var(--c-danger), .45);
+  color: var(--text); }
+.verdict-ok { background: rgba(var(--c-success), .10); border-color: rgba(var(--c-success), .45); }
+.verdict-none { background: var(--bs-secondary-bg); color: var(--muted); }
+
+.ord-bars { display: inline-flex; flex-direction: column; gap: 4px;
+  min-width: min(340px, 100%); max-width: 100%; }
+.ord-bar-row { display: flex; align-items: center; gap: 8px; }
+.ord-bar-lbl { width: 64px; text-align: right; color: var(--muted); font-size: 12px; }
+.ord-bar-track { flex: 1 1 200px; height: 12px; background: var(--bs-secondary-bg);
+  border-radius: 6px; overflow: hidden; }
+.ord-bar-fill { display: block; height: 100%; border-radius: 6px; }
+.ord-yours { background: var(--muted); opacity: .55; }
+.ord-prop { background: var(--bs-primary); }
+.ord-bar-val { min-width: 52px; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13px; }
+.ord-bars .hint { font-size: 12px; }
+
+/* The assumptions dialog: the form floats over the order, above the page. */
+.ord-sched { position: fixed; inset: 0; z-index: 1055; display: flex;
+  align-items: flex-start; justify-content: center; padding: 6vh 16px;
+  background: rgba(0, 0, 0, .5); margin: 0; border: 0; border-radius: 0; }
+.ord-sched[hidden] { display: none; }
+.ord-sched-box { background: var(--bs-card-bg); border: 1px solid var(--border);
+  border-radius: var(--bs-border-radius-lg); padding: 22px 26px; max-width: 760px;
+  width: 100%; max-height: 84vh; overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .5); }
+.ord-sched-box .ord-sched { all: unset; } /* the form's own wrapper if nested */
+#sched-open { font-size: 12.5px; }

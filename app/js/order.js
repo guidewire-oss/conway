@@ -310,31 +310,86 @@ export function noticesHTML(sched) {
     ${assume ? `<details class="ord-assume"><summary class="hint">${(sched.assumptions || []).length} assumption(s) applied</summary><ul>${assume}</ul></details>` : ''}`;
 }
 
+// verdictBannerHTML is the answer-first sentence (IA audit, Finding 2): what a
+// VP needs before any machinery — how many dated initiatives miss under the
+// best order found, and the worst case by name. The objective line beneath it
+// remains for the planner who wants the arithmetic.
+export function verdictBannerHTML(sched) {
+  const inits = sched.initiatives || [];
+  const dated = inits.filter((si) => si.targetWeek !== null && si.targetWeek !== undefined);
+  if (!dated.length && !inits.some((si) => si.statedRank > 0)) {
+    return `<div class="verdict-banner verdict-none">No dates set yet — the order below is by capacity and priority, not against promises.
+      Add target dates to see verdicts.</div>`;
+  }
+  if (!dated.length) {
+    return `<div class="verdict-banner verdict-none">No dated initiatives — nothing to miss.</div>`;
+  }
+  // Every non-on-time verdict counts — unschedulable rows have weeksLate 0
+  // (the verdict carries the information), so filtering on verdict alone is
+  // what keeps the "every dated initiative holds" claim honest.
+  const missing = dated.filter((si) => si.verdict !== 'on-time');
+  if (!missing.length) {
+    return `<div class="verdict-banner verdict-ok">Every dated initiative holds its target under this order.</div>`;
+  }
+  // Reduce over the misses with ||0: an on-time first row has no weeksLate,
+  // and `undefined > n` is false — the banner would name the clean row and
+  // print "undefinedw over".
+  const worst = missing.reduce((a, b) => ((b.weeksLate || 0) > (a.weeksLate || 0) ? b : a));
+  const n = missing.length;
+  const worstWhy = worst.verdict === 'structurally-infeasible' ? 'no ordering meets it'
+    : worst.verdict === 'unschedulable' ? 'it cannot be scheduled as entered'
+    : `${worst.weeksLate || 0}w over`;
+  return `<div class="verdict-banner verdict-miss">
+    <b>${n} of ${dated.length} dated initiatives miss their target</b> under the best order found.
+    Worst: ${esc(worst.name)} — ${worstWhy}${term('verdict')}
+  </div>`;
+}
+
+// comparisonBarsHTML renders yours-vs-proposed as two bars (IA audit: the
+// arithmetic line stays, but the shape of the comparison should be seen, not
+// computed). Numbers ride on the bars — length never carries meaning alone
+// (WCAG 1.4.1).
+export function comparisonBarsHTML(obj) {
+  if (!obj.comparable) {
+    return '<span class="hint">no dates or priorities set yet, so there is no order to argue with</span>';
+  }
+  if (obj.stated === 0 && obj.proposed === 0) {
+    // "Every date holds" is only true when there ARE dates; a priority-only
+    // plan scores zero because no date can be missed, not because all held.
+    return '<span class="hint">neither order costs any weighted lateness</span>';
+  }
+  const max = Math.max(obj.stated, obj.proposed, 1);
+  const pctOf = (v) => Math.max(2, Math.round((v / max) * 100)); // 2% floor: a bar must be visible
+  const yours = pctOf(obj.stated), prop = pctOf(obj.proposed);
+  return `<div class="ord-bars" title="weighted weeks late under each order — lower is better">
+    <div class="ord-bar-row"><span class="ord-bar-lbl">yours</span>
+      <span class="ord-bar-track"><span class="ord-bar-fill ord-yours" style="width:${yours}%"></span></span>
+      <span class="ord-bar-val">${obj.stated}</span></div>
+    <div class="ord-bar-row"><span class="ord-bar-lbl">proposed</span>
+      <span class="ord-bar-track"><span class="ord-bar-fill ord-prop" style="width:${prop}%"></span></span>
+      <span class="ord-bar-val">${obj.proposed}</span></div>
+    <span class="hint">weighted weeks late${term('weighted-late')} — lower is better${obj.delta !== 0 ? ` · the proposed order ${obj.better ? 'saves' : 'costs'} <b>${Math.abs(obj.delta)}</b>` : ''}</span>
+  </div>`;
+}
+
 export function orderHeaderHTML(sched) {
   const obj = objectiveView(sched);
   const rules = (sched.rulesTried || []).length;
-  let score;
-  if (!obj.comparable) {
-    score = '<span class="hint">no dates or priorities set yet, so there is no order to argue with</span>';
-  } else if (obj.allOnTime) {
-    score = '<b class="ord-green">every date in this plan holds</b> <span class="hint">— nothing is late under either order</span>';
-  } else {
-    score = `your stated order: <b>${obj.stated}</b> weighted weeks late${term('weighted-late')} · proposed: <b>${obj.proposed}</b>
-      ${obj.delta !== 0 ? `· <b class="${obj.better ? 'ord-green' : 'ord-red'}">Δ ${obj.delta > 0 ? '+' : ''}${obj.delta}</b>` : ''}`;
-  }
-  return `<div class="ord-head">
+  return `${verdictBannerHTML(sched)}
+  <div class="ord-head">
     <b>Execution order</b>
     <span class="hint">rule: ${esc(sched.rule || '—')}${rules ? ` (best of ${rules})` : ''}</span>
     <span class="hint">${wipLimitNote(sched.wipLimit)}</span>
+    <button type="button" id="sched-open" title="period start, WIP model, buffers, freezes — set once">⚙ Assumptions</button>
     <button type="button" id="tl-open" title="open this order as a timeline (Story 8)">▦ Open timeline ▸</button>
   </div>
-  <div class="plan-summary">${score}</div>`;
+  <div class="plan-summary">${comparisonBarsHTML(obj)}</div>`;
 }
 
 export function orderViewHTML(sched, opts = {}) {
   return `<div class="card ord-card">
     ${orderHeaderHTML(sched)}
-    ${opts.scheduling === undefined ? '' : schedulingFormHTML(opts.scheduling, sched.wipLimit, sched)}
+    ${opts.scheduling === undefined ? '' : schedulingDialogHTML(opts.scheduling, sched.wipLimit, sched)}
     ${orderTableHTML(sched)}
     ${infeasibleNote(sched)}
     ${noticesHTML(sched)}
@@ -417,6 +472,20 @@ function calendarWindowsHTML(windows) {
 // schedulingFormHTML renders the assumptions behind the order, with the current
 // values filled in. Placeholders carry what happens when a field is left blank,
 // since "blank" is a real setting for every one of these and not an omission.
+// The assumptions form is a settings dialog (IA audit, Finding 2): set-once
+// configuration that used to live in the reading path. The header keeps a
+// compact "assumptions" button; the dialog carries the full form.
+export function schedulingDialogHTML(sp, wip, sched) {
+  // Auto-open on the same conditions the old <details open> used: a missing
+  // period start or an unchosen WIP model is a decision the plan cannot be
+  // read without. Everything else opens on the ⚙ button.
+  const urgent = !sp.periodStart || !WIP_MODELS.some((m) => m.id === sp.wipModel);
+  return `<div class="ord-sched" id="sched-dialog" role="dialog" aria-modal="true"
+    aria-label="Scheduling assumptions"${urgent ? '' : ' hidden'}>
+    <div class="ord-sched-box">${schedulingFormHTML(sp, wip, sched)}</div>
+  </div>`;
+}
+
 export function schedulingFormHTML(sp = {}, wip, sched) {
   const derived = wip && wip.derived
     ? `derived: ${wip.value} from ${wip.fromPod}` : 'derived from the drum';
@@ -426,8 +495,7 @@ export function schedulingFormHTML(sp = {}, wip, sched) {
     `<option value=""${unchosenModel ? ' selected' : ''}>— not chosen —</option>`,
     ...WIP_MODELS.map((m) => `<option value="${m.id}"${sp.wipModel === m.id ? ' selected' : ''}>${esc(m.label)}</option>`),
   ].join('');
-  return `<details class="ord-sched"${missingPeriod || unchosenModel ? ' open' : ''}>
-    <summary class="hint">scheduling assumptions</summary>
+  return `<div>
     ${missingPeriod ? `<p class="plan-warn">This plan has no period start, so target dates cannot be
       turned into weeks and every initiative reads as "no date". Set one to see the verdicts.</p>` : ''}
     ${unchosenModel ? `<p class="plan-warn">No work-in-progress model chosen. The order below is computed
@@ -453,7 +521,7 @@ export function schedulingFormHTML(sp = {}, wip, sched) {
     <button type="button" id="sched-save" class="primary">Save assumptions</button>
     <button type="button" id="sched-cancel">Cancel</button>
     ${sched ? wipModelsTableHTML(sched) : ''}
-  </details>`;
+  </div>`;
 }
 
 // The WIP models a planner chooses between (spec 001 §11 D22, amended). The wording
