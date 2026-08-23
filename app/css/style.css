@@ -462,3 +462,20 @@ button.bl-chip:focus-visible { outline: 2px solid var(--accent); outline-offset:
 
 /* FR-039 shared: clip with an ellipsis, never overflow. */
 .tl-trunc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Inspector lists (both panels: #netpanel, #plan-netpanel) ──────────
+   A numbered, row-ruled list for anything that was a run of <dd>s: pod
+   names and edge rows wrap, and wrapped text inside consecutive <dd>s
+   reads as a paragraph. Numbers separate the items; the hanging grid keeps
+   wrapped lines aligned under the name, not under the number. */
+.insp-list { list-style: none; margin: 4px 0 0; padding: 0; }
+.insp-list li { display: flex; gap: 8px; align-items: baseline;
+  padding: 5px 0; border-bottom: 1px solid var(--bs-border-color-translucent); }
+.insp-list li:last-child { border-bottom: 0; }
+.insp-num { flex: 0 0 auto; min-width: 16px; text-align: center;
+  font-size: 10px; font-weight: 600; color: var(--muted);
+  background: var(--panel2); border: 1px solid var(--border);
+  border-radius: var(--bs-border-radius-sm); padding: 0 3px; line-height: 15px; }
+.insp-name { flex: 1 1 auto; min-width: 0; }
+.insp-weeks { flex: 0 0 auto; color: var(--muted);
+  font-variant-numeric: tabular-nums; font-size: 12px; }
