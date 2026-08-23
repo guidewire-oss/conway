@@ -324,17 +324,24 @@ export function verdictBannerHTML(sched) {
   if (!dated.length) {
     return `<div class="verdict-banner verdict-none">No dated initiatives — nothing to miss.</div>`;
   }
-  const missing = dated.filter((si) => si.verdict === 'late' || si.verdict === 'structurally-infeasible');
+  // Every non-on-time verdict counts — unschedulable rows have weeksLate 0
+  // (the verdict carries the information), so filtering on verdict alone is
+  // what keeps the "every dated initiative holds" claim honest.
+  const missing = dated.filter((si) => si.verdict !== 'on-time');
   if (!missing.length) {
     return `<div class="verdict-banner verdict-ok">Every dated initiative holds its target under this order.</div>`;
   }
-  const worst = dated.reduce((a, b) => (b.weeksLate > a.weeksLate ? b : a));
+  // Reduce over the misses with ||0: an on-time first row has no weeksLate,
+  // and `undefined > n` is false — the banner would name the clean row and
+  // print "undefinedw over".
+  const worst = missing.reduce((a, b) => ((b.weeksLate || 0) > (a.weeksLate || 0) ? b : a));
   const n = missing.length;
+  const worstWhy = worst.verdict === 'structurally-infeasible' ? 'no ordering meets it'
+    : worst.verdict === 'unschedulable' ? 'it cannot be scheduled as entered'
+    : `${worst.weeksLate || 0}w over`;
   return `<div class="verdict-banner verdict-miss">
     <b>${n} of ${dated.length} dated initiatives miss their target</b> under the best order found.
-    Worst: ${esc(worst.name)} — ${worst.verdict === 'structurally-infeasible'
-      ? `no ordering meets it${term('verdict')}`
-      : `${worst.weeksLate}w over${term('verdict')}`}
+    Worst: ${esc(worst.name)} — ${worstWhy}${term('verdict')}
   </div>`;
 }
 
@@ -471,7 +478,8 @@ export function schedulingDialogHTML(sp, wip, sched) {
   // period start or an unchosen WIP model is a decision the plan cannot be
   // read without. Everything else opens on the ⚙ button.
   const urgent = !sp.periodStart || !WIP_MODELS.some((m) => m.id === sp.wipModel);
-  return `<div class="ord-sched" id="sched-dialog"${urgent ? '' : ' hidden'}>
+  return `<div class="ord-sched" id="sched-dialog" role="dialog" aria-modal="true"
+    aria-label="Scheduling assumptions"${urgent ? '' : ' hidden'}>
     <div class="ord-sched-box">${schedulingFormHTML(sp, wip, sched)}</div>
   </div>`;
 }
