@@ -14,6 +14,7 @@
 // ⚠ beside the number.
 
 import { esc } from './order.js';
+import { term } from './terms.js';
 
 // axisScale maps a week onto the row width as a percentage. The row is the
 // whole horizon — a 104-week plan renders 1 week at ~1%, which is exactly the
@@ -192,7 +193,7 @@ export function portfolioTimelineHTML(sched, opts = {}) {
     .join('');
   return `<div class="card tl-card">
     <div class="ord-head"><b>Timeline</b>
-      <span class="hint">one row per initiative · the lighter tail is the buffer · ◆ is the promise</span></div>
+      <span class="hint">one row per initiative · the lighter tail is the buffer${term('buffer')} · ◆ is the target${term('target')}</span></div>
     <div class="tl-axis">${ticks}</div>
     <div class="tl-body">${rows}<div class="tl-overlay">${grid}${bands}${today}</div></div>
     <div class="hint">█ scheduled · ░ buffer · ◆ target · → waits on another pod · ↑ today${bands ? ' · ░freeze░ change freeze · ▒ non-working' : ''}</div>
