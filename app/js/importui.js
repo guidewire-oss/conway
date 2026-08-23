@@ -1,3 +1,4 @@
+import { openModal, closeModal } from './modal.js';
 // "Import from Jira" — builds a dated org snapshot. Auth is OAuth-via-Okta when
 // the server is configured for it (a "Connect Jira" button → SSO → no token),
 // otherwise it falls back to a pasted API token. Either way: pick projects +
@@ -58,8 +59,8 @@ export async function openImport() {
         </div>
       </div>
     </div>`;
-  ov.hidden = false;
-  ov.querySelector('#imp-close').addEventListener('click', () => { ov.hidden = true; });
+  openModal(ov);
+  ov.querySelector('#imp-close').addEventListener('click', () => closeModal(ov));
   ov.querySelector('#imp-go').addEventListener('click', () => runImport(ov));
   renderAuth(ov);
 }

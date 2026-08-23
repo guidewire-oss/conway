@@ -1,3 +1,4 @@
+import { openModal, closeModal } from './modal.js';
 // Facilitator panel for multi-game: create games (with a scenario), share the
 // join code/link, open rounds, project the per-game leaderboard, reset/delete.
 import { authFetch } from './auth.js';
@@ -28,10 +29,10 @@ export async function openGames() {
     document.body.appendChild(ov);
     // no click-outside-to-close — an in-progress "create game" form or edit
     // shouldn't vanish on a stray click; the ✕ button is the deliberate exit.
-    ov.querySelector('#games-close').addEventListener('click', () => { ov.hidden = true; });
+    ov.querySelector('#games-close').addEventListener('click', () => closeModal(ov));
     ov.querySelector('#g-create').addEventListener('click', createGame);
   }
-  ov.hidden = false;
+  openModal(ov);
   refreshGames();
   populateScenario(document.getElementById('g-scenario'), 'default');
   renderScenarios();
