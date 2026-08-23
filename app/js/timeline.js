@@ -155,7 +155,7 @@ function bandHTML(win, sched, horizon) {
 
 function weekOfDate(periodStart, date) {
   if (!periodStart || !date) return null;
-  const t0 = new Date(`${periodStart}T00:00:00Z`).getTime();
+  const t0 = new Date(`${periodStart.trim()}T00:00:00Z`).getTime();
   const t1 = new Date(`${date.trim()}T00:00:00Z`).getTime();
   if (Number.isNaN(t0) || Number.isNaN(t1)) return null;
   return Math.floor((t1 - t0) / (7 * 86400000));

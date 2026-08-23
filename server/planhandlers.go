@@ -465,10 +465,11 @@ func (s *server) savePlanScheduling(w http.ResponseWriter, r *http.Request, p *d
 			return
 		}
 	}
-	// FR-018: a calendar window with unusable dates or an unknown effect is
-	// refused rather than stored — the engine silently ignores what it cannot
-	// honour, and a saved-but-inert window is a constraint the planner believes
-	// in and the schedule has never met.
+	// FR-018: a window with unusable dates or an unknown effect is refused
+	// rather than stored — the engine silently ignores what it cannot honour,
+	// and a saved-but-inert window is a constraint the planner believes in and
+	// the schedule has never met. The stateless endpoints validate the same
+	// way inside planScheduleFor.
 	for _, win := range sp.Calendars {
 		if msg := validateCalendarWindow(win); msg != "" {
 			http.Error(w, msg, 400)
@@ -557,6 +558,10 @@ func (s *server) schedulePlan(w http.ResponseWriter, r *http.Request, p *db.Plan
 	// with no WIP limit" impossible to ask for.
 	inputs, err := s.planScheduleFor(p, body)
 	if err != nil {
+		if msg, bad := windowError(err); bad {
+			http.Error(w, msg, 400)
+			return
+		}
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -596,6 +601,10 @@ func (s *server) remediesPlan(w http.ResponseWriter, r *http.Request, p *db.Plan
 	}
 	inputs, err := s.planScheduleFor(p, body.scheduleRequest)
 	if err != nil {
+		if msg, bad := windowError(err); bad {
+			http.Error(w, msg, 400)
+			return
+		}
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -631,6 +640,14 @@ func (s *server) planScheduleFor(p *db.PlanRow, body scheduleRequest) (planning.
 	if body.Params != nil {
 		sp = *body.Params
 	}
+	// FR-018: the stateless endpoints carry windows in their params, and those
+	// deserve the same refusal the save path gives — a constraint the engine
+	// would silently ignore is worse than a 400, because it looks applied.
+	for _, win := range sp.Calendars {
+		if msg := validateCalendarWindow(win); msg != "" {
+			return planning.BaselineInputs{}, errBadWindow{msg}
+		}
+	}
 	return planning.NewBaselineInputs(teams, inits,
 		planning.Params{HorizonWeeks: p.HorizonWeeks, CapacityLoss: p.CapacityLoss}, sp), nil
 }
@@ -663,6 +680,10 @@ func (s *server) saveBaseline(w http.ResponseWriter, r *http.Request, p *db.Plan
 	}
 	inputs, err := s.planScheduleFor(p, body.scheduleRequest)
 	if err != nil {
+		if msg, bad := windowError(err); bad {
+			http.Error(w, msg, 400)
+			return
+		}
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -850,6 +871,10 @@ func (s *server) compareBaseline(w http.ResponseWriter, r *http.Request, p *db.P
 	}
 	inputs, err := s.planScheduleFor(p, body)
 	if err != nil {
+		if msg, bad := windowError(err); bad {
+			http.Error(w, msg, 400)
+			return
+		}
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -1018,4 +1043,21 @@ func validateCalendarWindow(win planning.CalendarWindow) string {
 		return "calendar window kind must be one of site-nonworking, change-freeze, event"
 	}
 	return ""
+}
+
+// errBadWindow marks a calendar-window validation failure so handlers can
+// answer 400 rather than 500 — the caller sent a constraint the engine will
+// not honour, and that is their error, not the server's.
+type errBadWindow struct{ msg string }
+
+func (e errBadWindow) Error() string { return e.msg }
+
+// windowError unwraps a validation failure, reporting whether it is the
+// caller's (400) or the server's (500).
+func windowError(err error) (string, bool) {
+	var bad errBadWindow
+	if errors.As(err, &bad) {
+		return bad.msg, true
+	}
+	return "", false
 }
