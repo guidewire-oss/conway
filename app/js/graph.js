@@ -1,5 +1,6 @@
 import { constraintScores, mergePods, orgFlowScore, suggestMerges } from './sim.js';
 import { listSnapshots, getSnapshot, snapshotDataJson, apiGet, getJiraBaseUrl } from './data.js';
+import { openModal, closeModal } from './modal.js';
 import {
   heatColor, layerDag, layoutColumns, bezierEdgePath, appendArrowMarker,
   enablePanZoom, enableNodeDrag, makeSpotlight,
@@ -436,8 +437,8 @@ async function showEdgeIssuesModal(e) {
       <p class="hint">Jira issues in <b>${esc(e.from)}</b> blocking work in <b>${esc(e.to)}</b> (×${e.count} counted into this edge).</p>
       <div id="edge-issues-body"><p class="hint">Loading…</p></div>
     </div>`;
-  ov.hidden = false;
-  ov.querySelector('#edge-issues-close').addEventListener('click', () => { ov.hidden = true; });
+  openModal(ov);
+  ov.querySelector('#edge-issues-close').addEventListener('click', () => closeModal(ov));
 
   const body = ov.querySelector('#edge-issues-body');
   const [rows, jiraBase] = await Promise.all([

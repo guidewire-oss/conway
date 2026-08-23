@@ -302,7 +302,6 @@ export function initGuide(state) {
     if (title) title.textContent = 'How to use this — pick your seat';
     renderGuide('exec');
   });
-  overlay.addEventListener('click', (ev) => { if (ev.target === overlay) closeModal(overlay); });
   document.getElementById('guide-close').addEventListener('click', () => closeModal(overlay));
 
   function renderGuide(who) {
