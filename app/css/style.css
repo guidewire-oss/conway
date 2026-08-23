@@ -441,3 +441,26 @@ button.bl-chip:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .tl-beyond { position: absolute; top: 4px; right: 0; color: var(--amber);
   font-size: 12px; line-height: 14px; cursor: help; }
 .tl-nocap { background: repeating-linear-gradient(45deg, var(--amber), var(--amber) 4px, transparent 4px, transparent 7px); color: var(--text); }
+/* Calendar bands (AC 8.5): vertical, marked, and labelled — never colour alone. */
+.tl-band { position: absolute; top: 0; bottom: 0; font-size: 9px; color: var(--muted);
+  background: repeating-linear-gradient(90deg, transparent, transparent 6px, rgba(255,166,87,.25) 6px, rgba(255,166,87,.25) 10px);
+  border-left: 1px dashed rgba(255,166,87,.6); border-right: 1px dashed rgba(255,166,87,.6);
+  overflow: hidden; pointer-events: none; }
+.tl-band-freeze { background: repeating-linear-gradient(90deg, transparent, transparent 4px, rgba(255,99,99,.22) 4px, rgba(255,99,99,.22) 8px);
+  border-color: rgba(255,99,99,.6); color: var(--red); }
+/* Calendar windows editor (FR-018) */
+.cal-wins { margin-top: 12px; padding-top: 8px; border-top: 1px dashed var(--border); }
+.cal-win { display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+.cal-sel, .cal-in { background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 5px; padding: 4px 6px; font-size: 12px; }
+.cal-sel { flex: 0 0 auto; }
+.cal-in { flex: 1 1 120px; min-width: 100px; }
+.cal-del { background: transparent; color: var(--muted); border: none; cursor: pointer; }
+#cal-add { margin-top: 6px; background: transparent; color: var(--accent);
+  border: 1px dashed var(--border); border-radius: 5px; padding: 3px 10px;
+  cursor: pointer; font-size: 12px; }
+#cal-add:hover { background: var(--panel2); }
+.tl-band-label { position: sticky; left: 2px; }
+
+/* FR-039 shared: clip with an ellipsis, never overflow. */
+.tl-trunc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
