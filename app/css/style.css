@@ -94,15 +94,18 @@ table { width: 100%; border-collapse: collapse; font-size: 13px;
   font-variant-numeric: tabular-nums; }
 th { text-align: left; color: var(--muted); text-transform: uppercase;
   font-size: 10.5px; letter-spacing: .05em; font-weight: 600;
-  padding: 6px 8px; border-bottom: 1px solid var(--border);
-  position: sticky; top: 0; background: var(--panel); z-index: 1; }
+  padding: 6px 8px; border-bottom: 1px solid var(--border); }
+/* Sticky headers only inside scroll containers — a page-scrolling table
+   pinned at top:0 would slide under the app header. */
+.wip-drill th, .ord-heatwrap th { position: sticky; top: 0; background: var(--panel); z-index: 1; }
 td { padding: 6px 8px; border-bottom: 1px solid var(--bs-border-color-translucent);
   vertical-align: top; }
 tbody tr:hover td { background: var(--panel2); }
-/* Dense variant: the wide data grids (WIP drill, heatmap, models). */
-table.wip-table, table.ord-heat, table.dl-table { font-size: 11.5px; }
-table.wip-table th, table.ord-heat th, table.dl-table th { padding: 4px 6px; font-size: 10px; }
-table.wip-table td, table.ord-heat td, table.dl-table td { padding: 3px 6px; }
+/* Dense variant: the wide data grids only (WIP drill, heatmap) — NOT the
+   decision log, which reads at body size. */
+table.wip-table, table.ord-heat { font-size: 11.5px; }
+table.wip-table th, table.ord-heat th { padding: 4px 6px; font-size: 10px; }
+table.wip-table td, table.ord-heat td { padding: 3px 6px; }
 
 /* auth */
 #login-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 200; display: flex; align-items: center; justify-content: center; }
@@ -154,7 +157,6 @@ table.wip-table td, table.ord-heat td, table.dl-table td { padding: 3px 6px; }
 .watch { background: rgba(76,194,255,.07); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-top: 8px; font-size: 13px; }
 .watch ul { margin: 5px 0 0; padding-left: 18px; } .watch li { margin: 3px 0; }
 
-.dl-table td { padding: 8px; border-bottom: 1px solid rgba(43,58,74,.5); vertical-align: top; }
 .dl-q { font-weight: 700; color: var(--accent); white-space: nowrap; }
 .dl-moves { width: 28%; } .dl-out { width: 50%; }
 .dl-score { text-align: right; font-weight: 700; white-space: nowrap; }
@@ -386,7 +388,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 /* The grid must fit its container at every width (FR-035): cells flex down rather
    than the table growing a horizontal scrollbar. */
 .ord-heatwrap { overflow-x: auto; }
-.ord-heat { border-collapse: collapse; font-size: 10px; table-layout: fixed; width: 100%; }
+.ord-heat { table-layout: fixed; width: 100%; } /* font + paddings: the dense variant above */
 .ord-heat th.ord-pod { width: 150px; text-align: left; font-size: 11px; font-weight: 400;
   color: var(--text); padding: 2px 6px 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ord-heat th.ord-wk { color: var(--muted); font-weight: 400; font-size: 9px; padding: 0; text-align: center; }
