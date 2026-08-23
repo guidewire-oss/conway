@@ -14,7 +14,7 @@ for how UI work happens:
 
 | Need | Use | Notes |
 |---|---|---|
-| Menus | `dropdown` + `dropdown-menu` + `dropdown-item` | see the nav in `index.html` |
+| Menus | `dropdown` + `dropdown-menu` + `dropdown-item` | see the nav in `app/index.html` |
 | Modals | `Modal` JS via `app/js/modal.js` (`openModal`/`closeModal`) | adapter, see extensions |
 | Buttons | `.btn .btn-primary` / `.btn-secondary` | bare `<button>` matches `.btn-secondary` via tokens |
 | Inputs | `.form-control` / `.form-select` | bare inputs match via tokens; checkbox/radio/range stay native |
@@ -49,13 +49,16 @@ Also: one modal at a time (opening a second hides the first), and the legacy
 The pod inspector's initiative/edge rows: numbered, row-ruled lists with a
 hanging grid so wrapped names align under the name (not under the number).
 Bootstrap has no "node inspector"; this composes `list-group`-style rows
-from tokens. See `#netpanel`/`#plan-netpanel` in style.css.
+from tokens. See `#netpanel`/`#plan-netpanel` in `app/css/style.css`.
 
 ## Domain visualizations (token layer only)
 
-Never Bootstrap components — they are Conway's product. They draw **only**
-from `--bs-*` variables (via the legacy aliases) so any future theme change
-re-skins them for free:
+Never Bootstrap components — they are Conway's product. They draw from
+`--bs-*` variables (via the legacy aliases) so any future theme change
+re-skins them for free. One known exception: the network graphs' heat
+gradient (`heatColor()` in `app/js/netgraph.js`) interpolates between the
+status colors in code — d3 needs concrete values, not CSS variables; if the
+palette moves, that interpolation moves with it.
 
 - Timeline (`app/js/timeline.js`): bars, buffer tails, target diamonds, bands
 - Order table + heatmap (`app/js/order.js`)
