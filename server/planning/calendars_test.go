@@ -188,3 +188,115 @@ func frozenWeeks(ws []calendarWindow, effect string) map[int]bool {
 	}
 	return out
 }
+
+// The P1 regressions of the first review round, each pinned to the shape that
+// was broken.
+var _ = Describe("calendar window edge cases", func() {
+	weekDate := func(w int) string {
+		t0, _ := time.Parse(isoDate, specPeriodStart)
+		return t0.AddDate(0, 0, w*7).Format(isoDate)
+	}
+	dayDate := func(days int) string {
+		t0, _ := time.Parse(isoDate, specPeriodStart)
+		return t0.AddDate(0, 0, days).Format(isoDate)
+	}
+
+	It("maps a window ending days before the period start to a negative week, not week 0", func() {
+		sp := SchedulingParams{PeriodStart: specPeriodStart, Calendars: []CalendarWindow{
+			// Entirely before the period, ending 3 days before week 0.
+			{Kind: CalChangeFreeze, Scope: ScopeOrg, From: dayDate(-17), To: dayDate(-3), Effect: EffectBlockStart},
+		}}
+		Expect(parseCalendars(sp, 26)).To(BeEmpty(),
+			"a pre-period window must be inert, not a freeze on week 0")
+	})
+
+	It("ignores a window starting at the horizon: the period ends before it", func() {
+		sp := SchedulingParams{PeriodStart: specPeriodStart, Calendars: []CalendarWindow{
+			{Kind: CalChangeFreeze, Scope: ScopeOrg, From: weekDate(26), To: weekDate(30), Effect: EffectBlockStart},
+		}}
+		Expect(parseCalendars(sp, 26)).To(BeEmpty())
+	})
+
+	It("applies a site-scoped freeze only to that site's pods", func() {
+		teams := []Team{
+			{Name: "Near", Devs: 4, Tracks: 2, Site: "Kraków"},
+			{Name: "Far", Devs: 4, Tracks: 2, Site: "Toronto"},
+		}
+		inits := []Initiative{
+			{Name: "Home", Work: map[string]TeamWork{"Near": podWork(4)}, StatedPriority: 1},
+			{Name: "Away", Work: map[string]TeamWork{"Far": podWork(4)}, StatedPriority: 2},
+		}
+		sp := SchedulingParams{PeriodStart: specPeriodStart, WipModel: WipOff, BufferPct: pctOf(0.25),
+			Calendars: []CalendarWindow{
+				{Kind: CalChangeFreeze, Scope: "Kraków", From: weekDate(0), To: weekDate(3), Effect: EffectBlockStart},
+			}}
+		s := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0}, sp)
+		byName := map[string]ScheduledInitiative{}
+		for _, si := range s.Initiatives {
+			byName[si.Name] = si
+		}
+		Expect(byName["Home"].StartWeek).To(Equal(4), "Kraków is frozen for weeks 0-3")
+		Expect(byName["Away"].StartWeek).To(Equal(0), "Toronto starts regardless")
+	})
+
+	It("reduces capacity org-wide when the scope is org", func() {
+		teams := []Team{{Name: "Delta", Devs: 4, Tracks: 2, Site: "Kraków"}}
+		inits := []Initiative{{Name: "Dated", Work: map[string]TeamWork{"Delta": podWork(4)}, StatedPriority: 1}}
+		sp := SchedulingParams{PeriodStart: specPeriodStart, WipModel: WipOff, BufferPct: pctOf(0.25),
+			Calendars: []CalendarWindow{
+				{Kind: CalEvent, Scope: ScopeOrg, From: weekDate(0), To: weekDate(3), Effect: EffectReduceCapacity},
+			}}
+		s := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0}, sp)
+		Expect(s.Initiatives[0].StartWeek).To(Equal(4), "an org-wide shutdown is a shutdown for every pod")
+	})
+
+	It("does not move carryover work past a freeze covering week 0 (AC X.4)", func() {
+		teams := []Team{{Name: "Delta", Devs: 4, Tracks: 2}}
+		inits := []Initiative{{Name: "Carry", Work: map[string]TeamWork{"Delta": podWork(4)},
+			StatedPriority: 1, InFlight: true, ProgressPct: 0.5}}
+		sp := SchedulingParams{PeriodStart: specPeriodStart, WipModel: WipOff, BufferPct: pctOf(0.25),
+			Calendars: []CalendarWindow{
+				{Kind: CalChangeFreeze, Scope: ScopeOrg, From: weekDate(0), To: weekDate(3), Effect: EffectBlockStart},
+			}}
+		s := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0}, sp)
+		Expect(s.Initiatives[0].StartWeek).To(Equal(0),
+			"carryover began before the period; a freeze cannot un-start it")
+	})
+
+	It("keeps the estimated weeks when a block-finish moves the completion", func() {
+		teams := []Team{{Name: "Delta", Devs: 4, Tracks: 2}}
+		inits := []Initiative{{Name: "Dated", Work: map[string]TeamWork{"Delta": podWork(4)}, StatedPriority: 1}}
+		sp := SchedulingParams{PeriodStart: specPeriodStart, WipModel: WipOff, BufferPct: pctOf(0.25),
+			Calendars: []CalendarWindow{
+				// The finish would land at w4; the freeze holds w3-5, so the
+				// completion moves to w6 — with the same 4 estimated weeks.
+				{Kind: CalChangeFreeze, Scope: ScopeOrg, From: weekDate(3), To: weekDate(5), Effect: EffectBlockFinish},
+			}}
+		s := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0}, sp)
+		sl := s.Initiatives[0].Slices[0]
+		Expect(sl.FinishWeek).To(Equal(6), "the first legal completion week")
+		Expect(sl.RemainingWeeks).To(Equal(float64(4)), "the freeze adds waiting, not scope")
+	})
+
+	It("does not report holiday weeks as busy occupancy", func() {
+		teams := []Team{{Name: "Delta", Devs: 4, Tracks: 2, Site: "Kraków"}}
+		inits := []Initiative{{Name: "Dated", Work: map[string]TeamWork{"Delta": podWork(4)}, StatedPriority: 1}}
+		sp := SchedulingParams{PeriodStart: specPeriodStart, WipModel: WipOff, BufferPct: pctOf(0.25),
+			Calendars: []CalendarWindow{
+				{Kind: CalSiteNonWorking, Scope: "Kraków", From: weekDate(1), To: weekDate(2), Effect: EffectReduceCapacity},
+			}}
+		s := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0}, sp)
+		var delta *PodSchedule
+		for i := range s.PodWeeks {
+			if s.PodWeeks[i].Pod == "Delta" {
+				delta = &s.PodWeeks[i]
+			}
+		}
+		Expect(delta).NotTo(BeNil())
+		Expect(delta.Weeks[0].Busy).To(Equal(1), "week 0 works")
+		Expect(delta.Weeks[1].Busy).To(Equal(0), "week 1 is a holiday, not work")
+		Expect(delta.Weeks[2].Busy).To(Equal(0), "week 2 is a holiday, not work")
+		Expect(delta.Weeks[3].Busy).To(Equal(1), "work resumes after the holiday")
+	})
+})
+

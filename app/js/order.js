@@ -392,15 +392,16 @@ const CAL_EFFECTS = [
 ];
 
 function calendarWindowsHTML(windows) {
-  const sel = (id, opts, val) => `<select class="cal-sel" id="${id}">${opts.map(([v, label]) =>
-    `<option value="${v}"${v === val ? ' selected' : ''}>${label}</option>`).join('')}</select>`;
+  const sel = (id, opts, val, label) => `<select class="cal-sel" id="${id}" aria-label="${esc(label)}">${opts.map(([v, l]) =>
+    `<option value="${v}"${v === val ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
   const row = (w, i) => `<div class="cal-win" data-row="${i}">
-    ${sel(`cal-kind-${i}`, CAL_KINDS, w.kind || 'change-freeze')}
-    <input class="cal-in" placeholder="scope (org, a site, a pod)" id="cal-scope-${i}" value="${esc(w.scope || '')}">
-    <input class="cal-in" type="date" id="cal-from-${i}" value="${esc(w.fromDate || '')}">
-    <input class="cal-in" type="date" id="cal-to-${i}" value="${esc(w.toDate || '')}">
-    ${sel(`cal-effect-${i}`, CAL_EFFECTS, w.effect || 'block-start')}
-    <button type="button" class="cal-del">✕</button>
+    ${sel(`cal-kind-${i}`, CAL_KINDS, w.kind || 'change-freeze', `window ${i + 1} kind`)}
+    <input class="cal-in" placeholder="scope (org, a site, a pod)" id="cal-scope-${i}"
+      aria-label="window ${i + 1} scope" value="${esc(w.scope || '')}">
+    <input class="cal-in" type="date" id="cal-from-${i}" aria-label="window ${i + 1} from date" value="${esc(w.fromDate || '')}">
+    <input class="cal-in" type="date" id="cal-to-${i}" aria-label="window ${i + 1} to date" value="${esc(w.toDate || '')}">
+    ${sel(`cal-effect-${i}`, CAL_EFFECTS, w.effect || 'block-start', `window ${i + 1} effect`)}
+    <button type="button" class="cal-del" aria-label="remove window ${i + 1}">✕</button>
   </div>`;
   const intro = windows.length
     ? '' : `<p class="hint">Calendar windows: a change freeze that blocks starts or completions, a site's non-working weeks, or an event that reduces a pod's capacity — drawn on the timeline and enforced by the order.</p>`;

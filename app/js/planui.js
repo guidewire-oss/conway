@@ -514,17 +514,30 @@ async function renderOrder() {
   // AC 8.1: the timeline opens from the order view in one action.
   document.getElementById('tl-open')?.addEventListener('click', () => setView('timeline'));
   document.getElementById('sched-save')?.addEventListener('click', saveScheduling);
-  // FR-018's editor: adding appends an empty row to the form's window list
-  // (kept on `current` so a re-render keeps it); removing drops the row.
+  // FR-018's editor: adding appends an empty row; removing drops one. Both
+  // snapshot the LIVE form first — the planner may have edited dates in rows
+  // that exist only in the DOM, and rebuilding from the stale draft would
+  // silently revert them.
+  const snapshotCalRows = () => {
+    const rows = [...host.querySelectorAll('.cal-win')].map((el, i) => ({
+      kind: document.getElementById(`cal-kind-${i}`)?.value || 'change-freeze',
+      scope: document.getElementById(`cal-scope-${i}`)?.value || '',
+      fromDate: document.getElementById(`cal-from-${i}`)?.value || '',
+      toDate: document.getElementById(`cal-to-${i}`)?.value || '',
+      effect: document.getElementById(`cal-effect-${i}`)?.value || 'block-start',
+    }));
+    return rows.length ? rows : null;
+  };
   document.getElementById('cal-add')?.addEventListener('click', () => {
-    current.calDraft = [...(current.calDraft ?? schedForForm.calendars ?? []),
+    const live = snapshotCalRows() ?? schedForForm.calendars ?? [];
+    current.calDraft = [...live,
       { kind: 'change-freeze', scope: 'org', fromDate: '', toDate: '', effect: 'block-start' }];
     renderOrder();
   });
   host.querySelectorAll('.cal-del').forEach((b) => b.addEventListener('click', () => {
     const i = Number(b.closest('.cal-win')?.dataset.row);
-    const base = current.calDraft ?? schedForForm.calendars ?? [];
-    current.calDraft = base.filter((_, j) => j !== i);
+    const live = snapshotCalRows() ?? schedForForm.calendars ?? [];
+    current.calDraft = live.filter((_, j) => j !== i);
     renderOrder();
   }));
   document.getElementById('sched-cancel')?.addEventListener('click', () => {

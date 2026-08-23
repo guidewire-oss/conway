@@ -68,6 +68,13 @@ func copyInitiatives(inits []Initiative) []Initiative {
 
 func copySchedulingParams(sp SchedulingParams) SchedulingParams {
 	c := sp
+	// Calendars is a slice: without its own copy, a saved baseline would share
+	// its backing array with the caller, and a later window edit would reach
+	// into a frozen baseline (FR-030).
+	if sp.Calendars != nil {
+		c.Calendars = make([]CalendarWindow, len(sp.Calendars))
+		copy(c.Calendars, sp.Calendars)
+	}
 	if sp.LeadCapacity != nil {
 		c.LeadCapacity = make(map[string]int, len(sp.LeadCapacity))
 		for k, v := range sp.LeadCapacity {

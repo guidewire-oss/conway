@@ -323,7 +323,7 @@ test('a freeze band is labelled so the mark is not just colour (FR-044)', () => 
     calendars: [{ kind: 'change-freeze', scope: 'org', fromDate: '2026-02-02', toDate: '2026-02-16', effect: 'block-start' }],
   });
   assert.match(html, /freeze/i, 'the band says what it is');
-  assert.ok(html.includes('title='), 'and carries a tooltip with the dates');
+  assert.match(html, /2026-02-02 to 2026-02-16/, 'the tooltip holds the dates');
 });
 
 test('no windows render no bands', () => {

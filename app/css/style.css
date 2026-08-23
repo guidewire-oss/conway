@@ -445,7 +445,7 @@ button.bl-chip:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .tl-band { position: absolute; top: 0; bottom: 0; font-size: 9px; color: var(--muted);
   background: repeating-linear-gradient(90deg, transparent, transparent 6px, rgba(255,166,87,.25) 6px, rgba(255,166,87,.25) 10px);
   border-left: 1px dashed rgba(255,166,87,.6); border-right: 1px dashed rgba(255,166,87,.6);
-  overflow: hidden; pointer-events: auto; }
+  overflow: hidden; pointer-events: none; }
 .tl-band-freeze { background: repeating-linear-gradient(90deg, transparent, transparent 4px, rgba(255,99,99,.22) 4px, rgba(255,99,99,.22) 8px);
   border-color: rgba(255,99,99,.6); color: var(--red); }
 /* Calendar windows editor (FR-018) */

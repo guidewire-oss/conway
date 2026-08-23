@@ -577,6 +577,18 @@ var _ = Describe("the plan's sequencing inputs", func() {
 			Expect(rec.Body.String()).To(ContainSubstring("effect"))
 		})
 
+		It("refuses a bad window on the stateless schedule endpoint too", func() {
+			// The windows ride in the request params; the save path is not
+			// involved, so the refusal has to live in the shared resolution.
+			req := httptest.NewRequest("POST", "/api/plan/plan1/schedule",
+				strings.NewReader(`{"params":{"periodStart":"2026-01-05","calendars":[`+
+					`{"kind":"event","scope":"org","fromDate":"soon","toDate":"2026-02-02","effect":"reduce-capacity"}]}}`))
+			rec := httptest.NewRecorder()
+			srv.schedulePlan(rec, req, plan)
+			Expect(rec.Code).To(Equal(400))
+			Expect(rec.Body.String()).To(ContainSubstring("YYYY-MM-DD"))
+		})
+
 		It("round-trips a well-formed window through the stored blob", func() {
 			// The write path needs a live Postgres (see the baseline specs); the
 			// persistence contract this guards is the decode side — a window
