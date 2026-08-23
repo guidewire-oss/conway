@@ -30,11 +30,35 @@ test('a clean plan reads as clean', () => {
   assert.match(html, /every dated initiative holds/i);
 });
 
-test('the banner carries no jargon without a glossary affordance', () => {
+test('an unschedulable dated initiative is a miss, not a silent pass (the every-holds guard)', () => {
+  const odd = JSON.parse(JSON.stringify(sched));
+  // one dated row unschedulable (weeksLate omitted as the server does), rest on-time
+  const dated = odd.initiatives.filter((i) => i.targetWeek !== null && i.targetWeek !== undefined);
+  odd.initiatives.forEach((i) => { i.verdict = 'on-time'; i.weeksLate = 0; });
+  dated[0].verdict = 'unschedulable'; dated[0].weeksLate = 0;
+  const html = verdictBannerHTML(odd);
+  assert.match(html, /1 of \d+ dated initiatives miss/);
+  assert.match(html, /cannot be scheduled as entered/);
+  assert.ok(!html.includes('undefined'), 'no undefined weeks in the banner');
+});
+
+test('the worst case names a miss, never an on-time row', () => {
+  const mixed = JSON.parse(JSON.stringify(sched));
+  const dated = mixed.initiatives.filter((i) => i.targetWeek !== null && i.targetWeek !== undefined);
+  mixed.initiatives.forEach((i) => { i.verdict = 'on-time'; delete i.weeksLate; });
+  const lateOne = dated[1];
+  lateOne.verdict = 'late'; lateOne.weeksLate = 5;
+  const html = verdictBannerHTML(mixed);
+  assert.match(html, new RegExp(lateOne.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.ok(!html.includes('undefinedw'), 'no undefined leaked into the weeks');
+});
+
+test('a miss banner carries the glossary affordance unconditionally', () => {
+  // The banner's worst-case clause names a verdict; the shared glossary
+  // affordance rides along whenever there IS a miss.
   const html = verdictBannerHTML(sched);
-  // The banner's plain sentence is the point — where it uses a domain term,
-  // the shared glossary affordance rides along.
-  if (html.includes('cannot fit')) assert.match(html, /term-tip/);
+  assert.match(html, /verdict-miss/);
+  assert.match(html, /term-tip/);
 });
 
 // The yours-vs-proposed comparison becomes two bars, not arithmetic. Numbers
@@ -45,8 +69,10 @@ test('the comparison renders both bars with their numbers', () => {
   assert.match(html, /ord-bars/);
   assert.match(html, /yours/i);
   assert.match(html, /proposed/i);
-  assert.match(html, /100/);
-  assert.match(html, /40/);
+  // values ride ON the bars (WCAG 1.4.1) — assert them inside .ord-bar-val,
+  // not anywhere in the markup.
+  const vals = [...html.matchAll(/class="ord-bar-val">([^<]+)</g)].map((m) => m[1].trim());
+  assert.deepEqual(vals, ['100', '40']);
   // bar widths derive from the values: proposed/stated ratio
   assert.match(html, /width:\s*40%/);
 });
@@ -57,7 +83,9 @@ test('uncomparable plans get no bars, just the plain-language note', () => {
   assert.match(html, /no dates|no priorities/i);
 });
 
-test('zero-cost plans do not divide by zero', () => {
+test('zero-cost plans get the plain-language fallback, not zero-value bars', () => {
   const html = comparisonBarsHTML({ comparable: true, stated: 0, proposed: 0, delta: 0 });
+  assert.ok(!html.includes('ord-bars'), 'no bars when both orders cost nothing');
+  assert.match(html, /every date holds/i);
   assert.ok(!html.includes('NaN') && !html.includes('Infinity'));
 });
