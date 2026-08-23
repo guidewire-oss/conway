@@ -8,13 +8,11 @@
 <link rel="stylesheet" href="vendor/bootstrap/bootstrap.min.css">
 <link rel="stylesheet" href="css/conway.css">
 <style>
-  :root{
-    --bg:#0f1419;--panel:#18202a;--panel2:#1f2937;--text:#e5eef7;--muted:#8aa0b4;
-    --accent:#4cc2ff;--green:#3ecf8e;--amber:#f5b94c;--red:#f4655f;--violet:#b58cff;--border:#2b3a4a;
-  }
+  /* Only page-specific tokens here; the palette lives in conway.css. */
+  :root{--violet:#b58cff;}
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--text);
-    font:16px/1.65 'Segoe UI',system-ui,-apple-system,sans-serif;}
+    font-family:var(--bs-body-font-family);font-size:16px;line-height:1.65;}
   .wrap{max-width:820px;margin:0 auto;padding:48px 24px 80px;}
   header.hero{border-bottom:1px solid var(--border);padding-bottom:24px;margin-bottom:8px;}
   .kicker{color:var(--accent);letter-spacing:2px;text-transform:uppercase;font-size:12px;font-weight:700;}
