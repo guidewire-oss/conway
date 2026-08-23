@@ -1,3 +1,4 @@
+import { openModal, closeModal } from './modal.js';
 // Rosters: reusable, editable team-structure definitions (pods: name, site,
 // pairing, headcount, lanes). Created/uploaded once, edited anytime, and
 // associated with a Jira import. Manager-only.
@@ -22,8 +23,8 @@ export async function openRosters() {
         joins a roster to live activity by pod name. Edit anytime; re-associate a snapshot from Observe ▸ 🗂 Snapshots.</p>
       <div id="rosters-body"></div>
     </div>`;
-  ov.hidden = false;
-  ov.querySelector('#rosters-close').addEventListener('click', () => { ov.hidden = true; });
+  openModal(ov);
+  ov.querySelector('#rosters-close').addEventListener('click', () => closeModal(ov));
   renderList(ov);
 }
 
