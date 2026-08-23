@@ -1,5 +1,6 @@
 import { constraintScores, freezeProjection, feverPoint, simulateFeature } from './sim.js';
 import { apiGet, getJiraBaseUrl } from './data.js';
+import { openModal, closeModal } from './modal.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -307,6 +308,6 @@ function showFeverEpicModal(p) {
       <p class="hint">Elapsed ${p.elapsed.toFixed(0)} working days · forecast P50 ${p.p50.toFixed(0)}d / P85 ${p.p85.toFixed(0)}d</p>
       <p class="hint">${p.duedate ? `Due ${esc(p.duedate)} ${p.dateRisk ? DATE_BADGE[p.dateRisk] : ''}` : 'No due date set'}</p>
     </div>`;
-  ov.hidden = false;
-  ov.querySelector('#fever-epic-close').addEventListener('click', () => { ov.hidden = true; });
+  openModal(ov);
+  ov.querySelector('#fever-epic-close').addEventListener('click', () => closeModal(ov));
 }

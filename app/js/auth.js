@@ -1,3 +1,4 @@
+import { openModal, closeModal } from './modal.js';
 // Login gate + admin panel. Detects whether the Conway Go server is present:
 // - server present, no/invalid token  -> show login overlay (enforced)
 // - server present, valid token        -> proceed, expose role
@@ -248,11 +249,11 @@ function openAdmin() {
     ov.querySelector('#admin-close').addEventListener('click', closeAdmin);
     ov.querySelector('#admin-add').addEventListener('click', addUser);
   }
-  ov.hidden = false;
+  openModal(ov);
   refreshUsers();
 }
 function closeAdmin() {
-  document.getElementById('admin-overlay').hidden = true;
+  closeModal(document.getElementById('admin-overlay'));
 }
 
 async function addUser() {
