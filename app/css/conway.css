@@ -1,0 +1,175 @@
+/* conway.css — Conway's design-system foundation.
+ *
+ * Bootstrap 5.3 (vendored, MIT) is the base layer; this file is Conway's
+ * identity ON that layer: fonts, palette, radii, and the legacy token
+ * aliases that keep style.css working unchanged.
+ *
+ * The rule for everything that follows (docs/COMPONENTS.md, PR series):
+ * adopt Bootstrap components wholesale; extend with `cv-` components built
+ * from BS utilities and variables when BS lacks one; domain visualizations
+ * (timeline, heatmap, network) draw from --bs-* variables only.
+ *
+ * Load order: bootstrap.min.css → conway.css → style.css.
+ */
+
+/* ── Fonts (vendored in app/vendor/fonts, SIL OFL 1.1 — see NOTICE) ── */
+@font-face {
+  font-family: 'Public Sans';
+  font-style: normal;
+  font-weight: 400 700; /* variable font */
+  font-display: swap;
+  src: url('../vendor/fonts/public-sans-normal-400-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Public Sans';
+  font-style: italic;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../vendor/fonts/public-sans-italic-400-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../vendor/fonts/ibm-plex-mono-normal-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../vendor/fonts/ibm-plex-mono-normal-500.woff2') format('woff2');
+}
+
+/* ── Conway's palette on Bootstrap's variables ─────────────────────────
+ * Same values under :root and [data-bs-theme=dark]: Conway is dark-only,
+ * and declaring both scopes means the palette wins over Bootstrap's own
+ * dark block regardless of load order between this file and the theme.
+ */
+:root,
+[data-bs-theme=dark] {
+  /* surfaces — the existing three-step elevation */
+  --bs-body-bg: #0f1419;            /* page            (was --bg)     */
+  --bs-card-bg: #18202a;            /* panels          (was --panel)  */
+  --bs-secondary-bg: #1f2937;       /* raised          (was --panel2) */
+  --bs-tertiary-bg: #18202a;
+
+  /* ink */
+  --bs-body-color: #e5eef7;         /* text            (was --text)   */
+  --bs-secondary-color: #8aa0b4;    /* muted           (was --muted)  */
+  --bs-tertiary-color: #6d8398;
+  --bs-emphasis-color: #ffffff;
+  --bs-heading-color: var(--bs-body-color);
+
+  /* lines */
+  --bs-border-color: #2b3a4a;       /*                 (was --border) */
+  --bs-border-color-translucent: rgba(43, 58, 74, .5);
+
+  /* brand + status — Conway's measured, AA-passing set */
+  --bs-primary: #4cc2ff;            /*                 (was --accent) */
+  --bs-primary-rgb: 76, 194, 255;
+  --bs-primary-text-emphasis: #7dd4ff;
+  --bs-primary-bg-subtle: rgba(76, 194, 255, .10);
+  --bs-primary-border-subtle: rgba(76, 194, 255, .35);
+  --bs-link-color: #4cc2ff;
+  --bs-link-hover-color: #7dd4ff;
+  --bs-link-color-rgb: 76, 194, 255;
+
+  --bs-success: #3ecf8e;            /*                 (was --green)  */
+  --bs-success-rgb: 62, 207, 142;
+  --bs-success-text-emphasis: #6fdead;
+  --bs-success-bg-subtle: rgba(62, 207, 142, .12);
+  --bs-success-border-subtle: rgba(62, 207, 142, .4);
+
+  --bs-warning: #f5b94c;            /*                 (was --amber)  */
+  --bs-warning-rgb: 245, 185, 76;
+  --bs-warning-text-emphasis: #f8cd7e;
+  --bs-warning-bg-subtle: rgba(245, 185, 76, .12);
+  --bs-warning-border-subtle: rgba(245, 185, 76, .4);
+
+  --bs-danger: #f4655f;             /*                 (was --red)    */
+  --bs-danger-rgb: 244, 101, 95;
+  --bs-danger-text-emphasis: #f78e8a;
+  --bs-danger-bg-subtle: rgba(244, 101, 95, .12);
+  --bs-danger-border-subtle: rgba(244, 101, 95, .4);
+
+  --bs-info: #4cc2ff;
+  --bs-info-rgb: 76, 194, 255;
+
+  /* type — Public Sans body, Plex Mono for numerals/IDs/code */
+  --bs-font-sans-serif: 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --bs-font-monospace: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --bs-body-font-family: var(--bs-font-sans-serif);
+  --bs-body-font-size: 14px;
+  --bs-body-font-weight: 400;
+  --bs-body-line-height: 1.5;
+
+  /* geometry — Conway's card radius drives the scale */
+  --bs-border-radius: .625rem;      /* 10px cards        */
+  --bs-border-radius-sm: .375rem;   /*  6px inputs/chips */
+  --bs-border-radius-lg: .75rem;    /* 12px modals       */
+  --bs-border-radius-xl: 1rem;
+
+  /* focus */
+  --bs-focus-ring-color: rgba(76, 194, 255, .35);
+
+  --bs-body-bg-rgb: 15, 20, 25;
+  --bs-body-color-rgb: 229, 238, 247;
+  --bs-secondary-bg-rgb: 31, 41, 55;
+  --bs-secondary-color-rgb: 138, 160, 180;
+}
+
+/* Legacy aliases: style.css's original tokens now resolve into the system,
+ * so a future theme change re-skins everything, old rules included. */
+:root {
+  --bg: var(--bs-body-bg);
+  --panel: var(--bs-card-bg);
+  --panel2: var(--bs-secondary-bg);
+  --text: var(--bs-body-color);
+  --muted: var(--bs-secondary-color);
+  --accent: var(--bs-primary);
+  --green: var(--bs-success);
+  --amber: var(--bs-warning);
+  --red: var(--bs-danger);
+  --border: var(--bs-border-color);
+}
+
+/* ── Body type ─────────────────────────────────────────────────────────
+ * style.css also styles body; that rule predates the system and is updated
+ * there to longhands over these tokens. This keeps the font winning even
+ * if that edit is ever reverted.
+ */
+body {
+  font-family: var(--bs-body-font-family);
+  font-size: var(--bs-body-font-size);
+  line-height: var(--bs-body-line-height);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Numerals that must align in columns: every table in the app is data.
+ * (.tabular-nums is the opt-out-free default; tabular figures are a
+ * Public Sans feature.) */
+table, .tl-tick, .score-val, .stat .v, .home-tile-v {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Reboot compatibility ──────────────────────────────────────────────
+ * Bootstrap's reboot changes a few defaults Conway's hand-written CSS
+ * never anticipated. These restores keep PR 1 (foundation) visually quiet;
+ * PR 2-3 migrate the components properly.
+ */
+
+/* Reboot bolds <dt>; Conway's inspectors style their own terms. */
+dt { font-weight: 600; }
+
+/* Reboot zeroes <dd> margins; panels that rely on the browser default
+ * indent keep a hint of it. */
+dd { margin-bottom: .25rem; margin-inline-start: 1.25rem; }
+
+/* Reboot sets summary::marker invisible; our disclosures keep a marker. */
+summary { list-style: revert; }
+
+/* Week numbers, IDs, code: the mono voice, one place. */
+code, kbd, .mono { font-family: var(--bs-font-monospace); }
+code { font-size: .92em; color: var(--bs-primary-text-emphasis); }
