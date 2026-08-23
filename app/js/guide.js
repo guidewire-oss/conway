@@ -1,6 +1,7 @@
 import { constraintScores } from './sim.js';
 import { isStaff, authMode } from './auth.js';
 import { apiGet } from './data.js';
+import { openModal, closeModal } from './modal.js';
 
 // Players get a rules-only guide (how the game is played + what it's about), with
 // no strategy. The full leader/analytics guide is admin-only.
@@ -288,7 +289,7 @@ export function initGuide(state) {
 
   const overlay = document.getElementById('guide-overlay');
   document.getElementById('guide-btn').addEventListener('click', () => {
-    overlay.hidden = false;
+    openModal(overlay);
     if (isPlayer()) {
       // players get the full briefing (the single canonical "how to play")
       const t = document.getElementById('guide-title'); if (t) t.textContent = 'How to play';
@@ -301,8 +302,7 @@ export function initGuide(state) {
     if (title) title.textContent = 'How to use this — pick your seat';
     renderGuide('exec');
   });
-  overlay.addEventListener('click', (ev) => { if (ev.target === overlay) overlay.hidden = true; });
-  document.getElementById('guide-close').addEventListener('click', () => { overlay.hidden = true; });
+  document.getElementById('guide-close').addEventListener('click', () => closeModal(overlay));
 
   function renderGuide(who) {
     const p = PERSONAS[who];
