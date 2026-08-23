@@ -438,7 +438,7 @@ test('the form shows the current assumptions as percentages a person types', () 
 // no dates anywhere, and nothing else in the view explains why.
 test('the dialog opens itself and says so when the plan has no period start', () => {
   const html = schedulingDialogHTML({}, { value: 2, derived: true, fromPod: 'Delta' });
-  assert.match(html, /<div class="ord-sched" id="sched-dialog">/); // NOT hidden
+  assert.match(html, /<div class="ord-sched" id="sched-dialog" role="dialog" aria-modal="true"/); // NOT hidden
   const form = schedulingFormHTML({}, { value: 2, derived: true, fromPod: 'Delta' });
   assert.match(form, /no period start/);
   assert.match(form, /derived: 2 from Delta/, 'the blank WIP field says what blank does');
@@ -456,7 +456,7 @@ test('the dialog stays closed once nothing is outstanding', () => {
 
 test('the dialog still opens for a missing period start even with a model chosen', () => {
   const html = schedulingDialogHTML({ wipModel: 'strict' }, { value: 2, model: 'strict' });
-  assert.match(html, /<div class="ord-sched" id="sched-dialog">/);
+  assert.match(html, /<div class="ord-sched" id="sched-dialog" role="dialog" aria-modal="true"/);
 });
 
 test('the form offers no knob that does nothing', () => {
@@ -609,7 +609,7 @@ test('the comparison is nothing at all when the server sent none', () => {
 
 test('the dialog opens itself and explains when no model is chosen', () => {
   const dialog = schedulingDialogHTML({ periodStart: '2026-01-05' }, modelsFixture.wipLimit, modelsFixture);
-  assert.match(dialog, /<div class="ord-sched" id="sched-dialog">/);
+  assert.match(dialog, /<div class="ord-sched" id="sched-dialog" role="dialog" aria-modal="true"/);
   const html = schedulingFormHTML({ periodStart: '2026-01-05' }, modelsFixture.wipLimit, modelsFixture);
   assert.match(html, /No work-in-progress model chosen/);
   assert.match(html, /computed\s+as <b>strict<\/b> so nothing moves under you/);
@@ -621,7 +621,7 @@ test('the dialog opens itself and explains when no model is chosen', () => {
 test('an unsupported stored model still counts as unchosen', () => {
   const dialog = schedulingDialogHTML({ periodStart: '2026-01-05', wipModel: 'wishful' },
     { value: 2, derived: true, fromPod: 'Delta', model: 'unchosen' }, modelsFixture);
-  assert.match(dialog, /<div class="ord-sched" id="sched-dialog">/);
+  assert.match(dialog, /<div class="ord-sched" id="sched-dialog" role="dialog" aria-modal="true"/);
   const html = schedulingFormHTML({ periodStart: '2026-01-05', wipModel: 'wishful' },
     { value: 2, derived: true, fromPod: 'Delta', model: 'unchosen' }, modelsFixture);
   assert.match(html, /No work-in-progress model chosen/);

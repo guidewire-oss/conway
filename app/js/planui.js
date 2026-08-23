@@ -560,6 +560,11 @@ async function renderOrder() {
     const d = document.getElementById('sched-dialog');
     if (d) d.hidden = !d.hidden;
   });
+  // ESC closes the assumptions dialog wherever focus sits (keyboard parity
+  // with the shared modals — binding on the dialog itself needs focus inside).
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') { const d = document.getElementById('sched-dialog'); if (d && !d.hidden) d.hidden = true; }
+  });
   // FR-018's editor: adding appends an empty row; removing drops one. Both
   // snapshot the LIVE form first — the planner may have edited dates in rows
   // that exist only in the DOM, and rebuilding from the stale draft would
@@ -590,8 +595,8 @@ async function renderOrder() {
   }));
   document.getElementById('sched-cancel')?.addEventListener('click', () => {
     current.calDraft = null; // cancel discards window edits, not just hides them
-    const d = document.getElementById('sched-dialog');
-    if (d) d.hidden = true;
+    current.assumptionDraft = null;
+    renderOrder(); // re-render from the SAVED policy so discarded rows cannot persist
   });
   host.querySelectorAll('.ord-podlink').forEach((a) => a.addEventListener('click', () => {
     // Clicking the open pod again closes it, so the grid is never stuck behind a panel.
