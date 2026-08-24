@@ -582,3 +582,15 @@ button.bl-chip:focus-visible { outline: 2px solid var(--accent); outline-offset:
   box-shadow: 0 20px 60px rgba(0, 0, 0, .5); }
 .ord-sched-box .ord-sched { all: unset; } /* the form's own wrapper if nested */
 #sched-open { font-size: 12.5px; }
+
+/* ── IA #4: Home status alerts — the first thing a returning user reads ── */
+.home-alerts { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 4px; }
+.home-alert { display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  text-align: left; padding: 12px 16px; border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--bs-card-bg); min-width: 200px; flex: 1 1 240px; }
+.home-alert b { font-size: 14px; }
+.home-alert .hint { font-size: 12px; }
+.home-alert:hover { border-color: var(--bs-primary); }
+.home-alert-miss { background: rgba(var(--c-danger), .10); border-color: rgba(var(--c-danger), .45); }
+.home-alert-warn { background: rgba(var(--c-warning), .10); border-color: rgba(var(--c-warning), .45); }
+.home-alert-ok { background: rgba(var(--c-success), .08); border-color: rgba(var(--c-success), .4); }

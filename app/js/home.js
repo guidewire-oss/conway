@@ -1,7 +1,7 @@
 // Home — a neutral, role-aware overview: at-a-glance org stats from the current
 // snapshot plus the actions that matter for your role. Not the guide, not the
 // game board. Reads the same `state` Observe builds.
-import { authUser, authRoles, hasRole, authMode } from './auth.js';
+import { authUser, authRoles, hasRole, authMode, authFetch } from './auth.js';
 import { constraintScores } from './sim.js';
 import { getSnapshot, listSnapshots } from './data.js';
 
@@ -57,6 +57,55 @@ export async function initHome(state) {
     return;
   }
 
+  // ── Status alerts (IA #4): "is anything wrong right now?" — the only
+  // question a returning user has. Org-level (hot pods, data quality) from
+  // the snapshot; plan-level (dates at risk) from the manager's own most
+  // recently updated plan with a schedule. Cards deep-link to the views.
+  const alertCard = (level, title, sub, go) =>
+    `<button class="home-alert home-alert-${level}" data-go="${go}">
+      <b>${title}</b><span class="hint">${sub}</span></button>`;
+
+  let planAlert = '';
+  if (hasRole('manager')) {
+    try {
+      const r = await authFetch('/api/plan');
+      if (r && r.ok) {
+        const plans = (await r.json()) || [];
+        // The most recent plan WITH initiatives — an empty scaffold (just
+        // created, nothing uploaded) is not a status anyone can act on, and
+        // its "no dates" state would swallow the card.
+        const latest = [...plans].filter((p) => (p.initiativeCount || 0) > 0)
+          .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+        if (latest) {
+          const sr = await authFetch(`/api/plan/${encodeURIComponent(latest.id)}/schedule`, { method: 'POST', body: '{}' });
+          if (sr && sr.ok) {
+            const sched = await sr.json();
+            const dated = (sched.initiatives || []).filter((i) => i.targetWeek !== null && i.targetWeek !== undefined);
+            const missing = dated.filter((i) => i.verdict !== 'on-time');
+            if (missing.length) {
+              planAlert = alertCard('miss',
+                `${missing.length} of ${dated.length} dates at risk`,
+                `in ${latest.name || 'your latest plan'} under the best order found`, 'plan');
+            } else if (dated.length) {
+              planAlert = alertCard('ok', 'Every dated initiative holds',
+                `in ${latest.name || 'your latest plan'}`, 'plan');
+            }
+          }
+        }
+      }
+    } catch { /* the plan pillar is optional; no alert rather than a broken home */ }
+  }
+
+  const alerts = [];
+  if (hot > 0) alerts.push(alertCard('miss', `${hot} pod${hot > 1 ? 's' : ''} over capacity`,
+    'load ρ ≥ 0.85 — where flow chokes first', 'scoreboard'));
+  if (dq != null && dq < 0.4) alerts.push(alertCard('warn', 'Data quality is low',
+    'decisions on this data inherit its gaps', 'hygiene'));
+  if (planAlert) alerts.push(planAlert);
+  const alertsHTML = alerts.length
+    ? `<div class="home-alerts">${alerts.join('')}</div>`
+    : `<div class="home-alerts">${alertCard('ok', 'Nothing needs attention', 'pods under load, dates holding, data usable', 'network')}</div>`;
+
   const tile = (label, value, sub, color) => `
     <div class="home-tile">
       <div class="home-tile-v" ${color ? `style="color:${color}"` : ''}>${value}</div>
@@ -80,6 +129,8 @@ export async function initHome(state) {
       <p class="home-sub">${who}. ${roleBadges} <span class="hint">— organizations ship their communication structure; this makes it visible.</span></p>
       ${snapNote ? `<p class="home-snap">${snapNote}</p>` : ''}
     </div>
+
+    ${alertsHTML}
 
     <div class="home-stats">
       ${tile('Pods', pods.length, 'teams in the network')}
