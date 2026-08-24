@@ -53,7 +53,7 @@ export async function initHome(state) {
         ? '<p>Capture the current state from Jira to get started:</p><button class="home-act" data-ctl="obs-import" style="max-width:280px"><b>📥 Import from Jira</b><span class="hint">build your first snapshot</span></button>'
         : '<p class="hint">Ask a manager to import a snapshot from Jira, or (facilitators) upload a scenario under Train ▸ Run games.</p>'}
       </div>`;
-    el.querySelectorAll('[data-ctl]').forEach((b) => b.addEventListener('click', () => document.getElementById(b.dataset.ctl)?.click()));
+    el.querySelectorAll('button[data-ctl]').forEach((b) => b.addEventListener('click', () => document.getElementById(b.dataset.ctl)?.click()));
     return;
   }
 
@@ -111,7 +111,7 @@ export async function initHome(state) {
 
   el.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => document.querySelector(`.tab[data-view="${b.dataset.go}"]`)?.click()));
   el.querySelectorAll('a[data-ctl]').forEach((a) => a.addEventListener('click', (ev) => { ev.preventDefault(); document.getElementById(a.dataset.ctl)?.click(); }));
-  el.querySelectorAll('[data-ctl]').forEach((b) => b.addEventListener('click', () => document.getElementById(b.dataset.ctl)?.click()));
+  el.querySelectorAll('button[data-ctl]').forEach((b) => b.addEventListener('click', () => document.getElementById(b.dataset.ctl)?.click()));
 }
 
 function esc(s) { return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
