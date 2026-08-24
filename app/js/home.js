@@ -53,7 +53,7 @@ export async function initHome(state) {
         ? '<p>Capture the current state from Jira to get started:</p><button class="home-act" data-ctl="obs-import" style="max-width:280px"><b>📥 Import from Jira</b><span class="hint">build your first snapshot</span></button>'
         : '<p class="hint">Ask a manager to import a snapshot from Jira, or (facilitators) upload a scenario under Train ▸ Run games.</p>'}
       </div>`;
-    el.querySelectorAll('[data-ctl]').forEach((b) => b.addEventListener('click', () => document.getElementById(b.dataset.ctl)?.click()));
+    el.querySelectorAll('button[data-ctl]').forEach((b) => b.addEventListener('click', () => document.getElementById(b.dataset.ctl)?.click()));
     return;
   }
 
@@ -68,28 +68,11 @@ export async function initHome(state) {
   const list = (items, empty) => (items.length
     ? `<ul class="home-list">${items.join('')}</ul>` : `<p class="hint">${empty}</p>`);
 
-  // role-aware actions: each opens an existing nav item / control (only present
-  // for roles that have it, so no extra gating needed here).
+  // IA #3: Home is a dashboard, not a directory — the nav (Measure/Plan/Learn)
+  // is the way around now. Two intent cards answer "what do I do from here",
+  // each deep-linking into the nav's own destinations.
   const viewBtn = (view, label, desc) => `<button class="home-act" data-go="${view}"><b>${label}</b><span class="hint">${desc}</span></button>`;
   const ctlBtn = (id, label, desc) => `<button class="home-act" data-ctl="${id}"><b>${label}</b><span class="hint">${desc}</span></button>`;
-
-  const observeActs = [
-    viewBtn('network', 'Org Network', 'the cross-pod dependency map'),
-    viewBtn('scoreboard', 'WIP Scoreboard', 'where work is piling up'),
-    viewBtn('hygiene', 'Data Quality', 'how trustworthy the data is'),
-    viewBtn('simulator', 'Feature Simulator', 'forecast an epic'),
-  ];
-  const roleActs = [];
-  if (hasRole('manager')) {
-    roleActs.push(ctlBtn('obs-rosters', '👥 Rosters', 'team structure: headcount, pairing, lanes'));
-    roleActs.push(ctlBtn('obs-import', '📥 Import from Jira', 'capture a dated org snapshot (Observe)'));
-    roleActs.push(ctlBtn('obs-snapshots', '🗂 Snapshots', 'rosters + Jira captures: view, compare & publish'));
-    roleActs.push(viewBtn('flow', '🎚 Levers', 'what-if on the current state (Plan)'));
-    roleActs.push(viewBtn('plan', '📋 Plan a future period', 'roster + initiatives (Plan)'));
-  }
-  if (hasRole('facilitator')) roleActs.push(ctlBtn('run-games-btn', '🎮 Run games', 'create & run a learning game'));
-  if (hasRole('admin')) roleActs.push(ctlBtn('admin-btn', '⚙ Admin', 'users & roles'));
-  roleActs.push(viewBtn('game', '🎲 Play the game', 'try a round yourself'));
 
   el.innerHTML = `
     <div class="home-hero">
@@ -117,13 +100,18 @@ export async function initHome(state) {
       </div>
     </div>
 
-    <h3 style="margin-top:18px">Explore</h3>
-    <div class="home-acts">${observeActs.join('')}</div>
-    <h3 style="margin-top:14px">Your tools</h3>
-    <div class="home-acts">${roleActs.join('')}</div>`;
+    <h3 style="margin-top:18px">Start here</h3>
+    <div class="home-acts">
+      ${viewBtn('network', 'Measure what\'s happening', 'the dependency map, WIP and data quality')}
+      ${hasRole('manager') ? viewBtn('plan', 'Plan the next period', 'your plans, orders and baselines') : ''}
+      ${hasRole('facilitator') ? ctlBtn('run-games-btn', 'Run a learning game', 'scenarios, join codes, rounds') : ''}
+      ${viewBtn('game', 'Learn the game', 'try a round yourself')}
+    </div>
+    ${hasRole('manager') ? `<p class="hint" style="margin-top:10px">Data tools: <a href="#" data-ctl="obs-rosters">rosters</a> · <a href="#" data-ctl="obs-import">import from Jira</a> · <a href="#" data-ctl="obs-snapshots">snapshots</a>${hasRole('admin') ? ' · <a href="#" data-ctl="admin-btn">admin</a>' : ''}</p>` : ''}`;
 
   el.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => document.querySelector(`.tab[data-view="${b.dataset.go}"]`)?.click()));
-  el.querySelectorAll('[data-ctl]').forEach((b) => b.addEventListener('click', () => document.getElementById(b.dataset.ctl)?.click()));
+  el.querySelectorAll('a[data-ctl]').forEach((a) => a.addEventListener('click', (ev) => { ev.preventDefault(); document.getElementById(a.dataset.ctl)?.click(); }));
+  el.querySelectorAll('button[data-ctl]').forEach((b) => b.addEventListener('click', () => document.getElementById(b.dataset.ctl)?.click()));
 }
 
 function esc(s) { return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
