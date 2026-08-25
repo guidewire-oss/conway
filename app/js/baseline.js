@@ -181,3 +181,21 @@ export function saveErrorMessage(status, body, op) {
   // A 4xx body is written for a person — it is the useful part, so keep it.
   return detail ? `That was refused: ${detail}` : 'That was refused by the server.';
 }
+
+// latestOnly guards a view against a slower earlier request landing last.
+//
+// Each request claims a ticket before it goes out and checks it is still the
+// current one before rendering. The plan-id check that guards these calls cannot
+// do this job: choosing a second baseline pair while the first request is out
+// leaves the plan unchanged, so the stale response passes that check and
+// overwrites the newer card.
+//
+// This is the same idea as planui's orderEpoch, kept here as a pure factory
+// because that is what makes it testable — planui.js is the fetch-and-DOM layer.
+export function latestOnly() {
+  let issued = 0;
+  return {
+    claim: () => ++issued,
+    isCurrent: (ticket) => ticket === issued,
+  };
+}

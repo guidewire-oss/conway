@@ -8,7 +8,7 @@ import {
 } from './netgraph.js';
 import { esc, orderViewHTML, schedulingFromForm, initiativeEditDialogHTML, initiativeEditFromBody } from './order.js';
 import { exportBlockPNG } from './exportpng.js';
-import { baselineChipHTML, baselinePanelHTML, saveErrorMessage } from './baseline.js';
+import { baselineChipHTML, baselinePanelHTML, saveErrorMessage, latestOnly } from './baseline.js';
 import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
 import { portfolioTimelineHTML, podLensHTML, podSheetHTML } from './timeline.js';
 
@@ -248,18 +248,21 @@ function wireBaselineControls() {
       }
       compareBaseline(b.dataset.id);
     }));
-  // Pairwise baseline compare (spec 005): both schedules are stored, so this
-  // never touches the live plan — no epoch guard needed beyond the plan id.
+  // Pairwise baseline compare (spec 005): both schedules are stored, so this never
+  // touches the live plan and needs no orderEpoch guard. It does need the compare
+  // gate: choose a second pair while the first request is out and the slower reply
+  // would otherwise land last and overwrite the newer card.
   document.querySelectorAll('.bl-vs-sel').forEach((sel) =>
     sel.addEventListener('change', async () => {
       const other = sel.value;
       sel.value = ''; // a one-shot trigger, not a persistent selection
       if (!other) return;
       const forPlan = current.id;
+      const ticket = compareGate.claim();
       const r = await req('/api/plan/' + forPlan + '/baseline/' + sel.dataset.from + '/compare-to/' + other, {
         method: 'POST', body: '{}',
       });
-      if (!current || current.id !== forPlan) return;
+      if (!current || current.id !== forPlan || !compareGate.isCurrent(ticket)) return;
       if (!r || !r.ok) { await baselineError(r, 'compare'); return; }
       const res = await r.json();
       // The card reads result.baseline for the "from" end; the pairwise
@@ -269,6 +272,11 @@ function wireBaselineControls() {
       renderOrder();
     }));
 }
+
+// Both compare paths render into current.baselineCompare, so they share one gate:
+// whichever request was issued last is the only one allowed to paint. The plan-id
+// and orderEpoch checks cannot cover this — picking a second pair changes neither.
+const compareGate = latestOnly();
 
 // orderRequestBody is what /schedule was given, so a baseline or a comparison uses
 // the same inputs as the order on screen rather than re-deriving them differently.
@@ -340,10 +348,12 @@ async function activateBaseline(id) {
 async function compareBaseline(id) {
   const forPlan = current.id;
   const atEpoch = orderEpoch; // a lever or upload can land while this request is out
+  const ticket = compareGate.claim(); // and a newer compare can be asked for
   const r = await req('/api/plan/' + forPlan + '/baseline/' + id + '/compare', {
     method: 'POST', body: JSON.stringify(orderRequestBody()),
   });
   if (!current || current.id !== forPlan || orderEpoch !== atEpoch) return; // answers the plan it left
+  if (!compareGate.isCurrent(ticket)) return; // a newer comparison superseded this one
   if (!r || !r.ok) { await baselineError(r, 'compare'); return; }
   current.baselineCompare = await r.json();
   renderOrder();
