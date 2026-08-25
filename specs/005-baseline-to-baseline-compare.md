@@ -81,7 +81,14 @@ proposed one, without reverting plan inputs to reconstruct either side
 | ID | Requirement | Threshold | How to Verify |
 |----|------------|-----------|---------------|
 | NFR-001 | No regression | existing suites green | `go test ./...`, `node --test` |
-| NFR-002 | Comparison of two 35-initiative baselines | < 1s server-side | in-browser timing |
+| NFR-002 | Comparison of two 35-initiative baselines | < 1s end-to-end, as observed in the browser | in-browser timing |
+
+NFR-002 is deliberately an end-to-end budget rather than a server-side one, because
+in-browser timing is what was actually measured and it includes network transfer and
+rendering. Isolating the handler would need a Go benchmark against a seeded
+database; that has not been run, so no server-side figure is claimed here. If the
+end-to-end budget is ever missed, that benchmark is the way to find out which half
+is responsible.
 
 ---
 
@@ -121,8 +128,12 @@ None.
 deltas between two `Schedule` values.
 
 **Decision:** The new endpoint unmarshals both stored schedules and calls the
-same function; "from" is the older-by-id baseline unless the URL names the
-direction explicitly.
+same function. Direction is **positional, never inferred**: `{bid}` is always the
+`from` end and `{other}` always the `to` end, so deltas run from the first id in
+the URL toward the second whatever their relative age. Passing a newer baseline as
+`{bid}` is legal and reports the movement backwards; nothing in the handler
+compares timestamps or ids to reorder the pair. The UI builds the URL from the row
+the select sits on, which makes that row the `from` end.
 
 **Alternatives considered:**
 - A bespoke pairwise diff with its own shape — rejected: two comparison
