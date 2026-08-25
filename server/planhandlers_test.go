@@ -194,9 +194,19 @@ var _ = Describe("schedulePlan", func() {
 			Expect(si.ProposedRank).To(BeNumerically(">", 0))
 			Expect(ranks).NotTo(HaveKey(si.ProposedRank), "ranks must be unique")
 			ranks[si.ProposedRank] = true
+			Expect(si.Verdict).NotTo(BeEmpty())
+			// Decision 28: an initiative that could not begin inside the period has
+			// no span, because none was computed. It still carries a rank and a
+			// verdict -- FR-003's guarantee is that every initiative is accounted
+			// for, not that every one is placed.
+			if si.Verdict == "beyond-horizon" {
+				Expect(si.StartWeek).To(BeZero(), si.Name)
+				Expect(si.CommitWeek).To(BeZero(), si.Name)
+				Expect(si.Slices).To(BeEmpty(), si.Name)
+				continue
+			}
 			Expect(si.CommitWeek).To(BeNumerically(">=", si.RawFinishWeek))
 			Expect(si.RawFinishWeek).To(BeNumerically(">", si.StartWeek))
-			Expect(si.Verdict).NotTo(BeEmpty())
 			Expect(si.Slices).NotTo(BeEmpty())
 		}
 
