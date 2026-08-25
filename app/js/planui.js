@@ -262,9 +262,13 @@ function wireBaselineControls() {
       const r = await req('/api/plan/' + forPlan + '/baseline/' + sel.dataset.from + '/compare-to/' + other, {
         method: 'POST', body: '{}',
       });
-      if (!current || current.id !== forPlan || !compareGate.isCurrent(ticket)) return;
-      if (!r || !r.ok) { await baselineError(r, 'compare'); return; }
+      const mine = () => !!current && current.id === forPlan && compareGate.isCurrent(ticket);
+      if (!mine()) return;
+      if (!r || !r.ok) { await baselineError(r, 'compare', mine); return; }
       const res = await r.json();
+      // Parsing suspended too, so the gate is checked again before the write:
+      // passing it above only proved this was current a moment ago.
+      if (!mine()) return;
       // The card reads result.baseline for the "from" end; the pairwise
       // endpoint returns `from`. Same object, the view's name for it.
       if (res && res.from && !res.baseline) res.baseline = res.from;
@@ -291,8 +295,13 @@ function orderRequestBody() {
 // string so that translating a status into readable copy is not something a call
 // site can skip — echoing the body is how a 405 once reached the page as "method".
 // op names the operation so a compare failure does not wear the word "save".
-async function baselineError(r, op) {
-  baselineNote(saveErrorMessage(r ? r.status : 0, r ? await r.text() : '', op));
+async function baselineError(r, op, stillWanted) {
+  // Reading the body suspends, so a newer request can be issued in between. The
+  // predicate is checked after the read, immediately before painting: an error
+  // from a superseded request is as wrong to show as its result would be.
+  const msg = saveErrorMessage(r ? r.status : 0, r ? await r.text() : '', op);
+  if (stillWanted && !stillWanted()) return;
+  baselineNote(msg);
 }
 
 // baselineNote paints one message beside the save control, replacing any previous
@@ -352,10 +361,13 @@ async function compareBaseline(id) {
   const r = await req('/api/plan/' + forPlan + '/baseline/' + id + '/compare', {
     method: 'POST', body: JSON.stringify(orderRequestBody()),
   });
-  if (!current || current.id !== forPlan || orderEpoch !== atEpoch) return; // answers the plan it left
-  if (!compareGate.isCurrent(ticket)) return; // a newer comparison superseded this one
-  if (!r || !r.ok) { await baselineError(r, 'compare'); return; }
-  current.baselineCompare = await r.json();
+  const mine = () => !!current && current.id === forPlan
+    && orderEpoch === atEpoch && compareGate.isCurrent(ticket);
+  if (!mine()) return; // answers the plan and the order it left, and is not superseded
+  if (!r || !r.ok) { await baselineError(r, 'compare', mine); return; }
+  const res = await r.json(); // parse first, then re-check: awaiting is a gap
+  if (!mine()) return;
+  current.baselineCompare = res;
   renderOrder();
 }
 
