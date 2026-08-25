@@ -594,3 +594,10 @@ button.bl-chip:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .home-alert-miss { background: rgba(var(--c-danger), .10); border-color: rgba(var(--c-danger), .45); }
 .home-alert-warn { background: rgba(var(--c-warning), .10); border-color: rgba(var(--c-warning), .45); }
 .home-alert-ok { background: rgba(var(--c-success), .08); border-color: rgba(var(--c-success), .4); }
+
+/* ── IA closeout: plan empty-state starting line + breadcrumbs ─────────── */
+.plan-start { margin: 4px 0 14px; }
+.plan-start h3 { margin: 0 0 6px; }
+.plan-start-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.plan-crumbs { display: inline-flex; align-items: baseline; gap: 6px; font-size: 15px; }
+.plan-crumbs b { font-weight: 600; }
