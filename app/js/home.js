@@ -143,11 +143,21 @@ export async function initHome(state) {
     <div class="home-cols">
       <div class="card">
         <h3>Top constraints <span class="hint">— where flow chokes first</span></h3>
-        ${list(constraints.map((c) => `<li><b>${esc(c.pod)}</b> <span class="hint">queue ×${c.queueFactor.toFixed(1)} · ${c.dependents} dependents</span></li>`), 'No constraints detected.')}
+        ${list(constraints.map((c) => {
+          const q = Math.min(1, c.queueFactor / 40); // 40x = full bar
+          return `<li class="home-bar-row"><b>${esc(c.pod)}</b>
+            <span class="home-bar"><span class="home-bar-fill" style="width:${Math.round(q * 100)}%"></span></span>
+            <span class="hint">×${c.queueFactor.toFixed(1)} · ${c.dependents} deps</span></li>`;
+        }), 'No constraints detected.')}
       </div>
       <div class="card">
         <h3>Heaviest dependencies <span class="hint">— the costly seams</span></h3>
-        ${list(topEdges.map((e) => `<li><b>${esc(e.from)}</b> → <b>${esc(e.to)}</b> <span class="hint">×${e.count}</span></li>`), 'No cross-pod dependencies.')}
+        ${list(topEdges.map((e) => {
+          const w = topEdges[0].count ? Math.min(1, e.count / topEdges[0].count) : 0;
+          return `<li class="home-bar-row"><b>${esc(e.from)}</b> → <b>${esc(e.to)}</b>
+            <span class="home-bar"><span class="home-bar-fill" style="width:${Math.round(w * 100)}%"></span></span>
+            <span class="hint">×${e.count}</span></li>`;
+        }), 'No cross-pod dependencies.')}
       </div>
     </div>
 

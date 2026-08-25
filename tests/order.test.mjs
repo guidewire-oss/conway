@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  esc, zoneOf, weekLabel, verdictView, statedCell, objectiveView, wipLimitNote, schedulingDialogHTML,
+  esc, zoneOf, weekLabel, verdictView, verdictBadgeHTML, statedCell, objectiveView, wipLimitNote, schedulingDialogHTML,
   orderRows, orderTableHTML, infeasibleNote, heatmapWeeks, overrunNote,
   podHeatmapHTML, podQueueHTML, noticesHTML, orderViewHTML, rowTraceHTML,
   schedulingFormHTML, schedulingFromForm, pctToFraction,
@@ -734,3 +734,31 @@ test('the form reads windows back with only complete rows kept', () => {
   assert.equal(out.calendars[0].effect, 'block-start');
 }
 );
+
+// The verdict badge (UX-audit polish): tinted pill, symbol + text survive.
+test('the verdict badge keeps symbol and text with a zone class (FR-044)', () => {
+  const html = verdictBadgeHTML({ verdict: 'late', weeksLate: 5 });
+  assert.match(html, /class="vbadge v-red"/);
+  assert.match(html, /▲ late 5w/);
+  assert.ok(html.includes('>▲'), 'symbol inside the pill, not just text');
+});
+
+test('each verdict zone gets its own badge class', () => {
+  assert.match(verdictBadgeHTML({ verdict: 'on-time' }), /v-green/);
+  assert.match(verdictBadgeHTML({ verdict: 'at-risk' }), /v-amber/);
+  assert.match(verdictBadgeHTML({ verdict: 'no-date' }), /v-idle/);
+  assert.match(verdictBadgeHTML({ verdict: 'structurally-infeasible', weeksLate: 8 }), /v-red/);
+});
+
+test('the badge escapes hostile verdict text', () => {
+  const html = verdictBadgeHTML({ verdict: '<img src=x>' });
+  assert.ok(!html.includes('<img'), 'unknown verdicts are escaped, not raw');
+});
+
+// Numeric alignment: the row markup carries the num class on week columns.
+test('order rows right-align the week columns', () => {
+  const row = orderRows(sched).find((r) => r.si.targetWeek !== null);
+  const html = orderTableHTML(sched);
+  assert.match(html, /<td class="num">w\d+/);
+  assert.ok(html.includes('class="num"'), 'numeric cells are marked');
+});
