@@ -16,7 +16,7 @@ test('the fixture carries the fields the timeline reads', () => {
   assert.ok(typeof si.startWeek === 'number');
   assert.ok(typeof si.commitWeek === 'number');
   assert.ok(typeof si.rawFinishWeek === 'number');
-  for (const sl of si.slices) {
+  for (const sl of (si.slices || [])) {
     assert.ok(typeof sl.latestStartWeek === 'number', 'slack pair present');
     assert.ok(typeof sl.slackWeeks === 'number');
   }
@@ -99,7 +99,9 @@ test('a row without a target date renders no diamond', () => {
 // AC 8.4: expansion adds one sub-row per pod slice, dependency order, with the
 // upstream pods named (FR-042).
 test('an expanded initiative shows pod sub-rows in dependency order', () => {
-  const si = sched.initiatives.find((x) => x.slices.some((s) => (s.dependsOn || []).length > 0));
+  // Guarded: since Decision 28 the fixture contains initiatives with no slices at
+  // all (beyond-horizon carries none), and an unguarded .some crashes on them.
+  const si = sched.initiatives.find((x) => (x.slices || []).some((s) => (s.dependsOn || []).length > 0));
   assert.ok(si, 'fixture has cross-pod dependencies');
   const html = timelineRowHTML(si, { horizonWeeks: 26, expand: true });
   assert.match(html, /tl-subrow/);
@@ -257,7 +259,7 @@ test('the pod sheet names downstream waiters (Blocks)', () => {
   // Find a slice that another slice waits on, within one initiative.
   let found = null;
   for (const si of sched.initiatives) {
-    for (const sl of si.slices) {
+    for (const sl of (si.slices || [])) {
       for (const other of si.slices) {
         if ((other.dependsOn || []).includes(sl.pod) && other.pod !== sl.pod) {
           found = { si, blocker: sl, waiter: other };

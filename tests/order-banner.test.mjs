@@ -15,7 +15,10 @@ test('the verdict banner counts the misses and names the worst case', () => {
   assert.match(html, /verdict-banner/);
   // how many dated initiatives miss (computed from the fixture, not hardcoded)
   const dated = sched.initiatives.filter((i) => i.targetWeek !== null && i.targetWeek !== undefined);
-  const missing = dated.filter((i) => i.verdict === 'late' || i.verdict === 'structurally-infeasible');
+  // Mirror the banner's own rule -- any dated verdict that is not on-time is a
+  // miss. Listing the verdicts by hand drifted the moment Decision 28 added
+  // beyond-horizon, and the test then disagreed with the code it was checking.
+  const missing = dated.filter((i) => i.verdict !== 'on-time');
   assert.ok(missing.length > 0, 'fixture must have misses for this spec');
   assert.match(html, new RegExp(`${missing.length} of ${dated.length} dated initiatives miss`));
   // worst case named: the largest weeksLate among dated
