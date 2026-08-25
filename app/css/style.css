@@ -394,6 +394,41 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .ord-move { color: var(--accent); font-weight: 600; }
 .ord-up { color: var(--green); }
 .ord-down { color: var(--amber); }
+/* Pin toggle in the Stated cell (spec 004 Story 1): small, quiet — it is an
+   action on the deviation, not a row-level primary control. */
+.ord-pin { font-size: 10px; padding: 1px 7px; border-radius: 8px; background: var(--panel2);
+  color: var(--muted); border: 1px solid var(--border); cursor: pointer; margin-left: 6px; }
+.ord-pin:hover { color: var(--text); border-color: var(--accent); }
+.ord-pin:disabled { opacity: .5; cursor: wait; }
+
+/* Fever chart (FR-024, spec 004 Story 2): dot color follows the Observe zones,
+   but the position carries the meaning (FR-044) — the zones are also drawn as
+   background regions and named in the caption. */
+.fever-wrap { margin: 12px 0; }
+.fever-wrap svg { width: 100%; max-width: 420px; display: block; }
+.fever-axis { stroke: var(--border); stroke-width: 1; }
+.fever-tick { fill: var(--muted); font-size: 9px; }
+.fever-label { fill: var(--muted); font-size: 10px; }
+.fever-dot { stroke: var(--bg); stroke-width: 1; }
+.fever-green { fill: var(--green); }
+.fever-amber { fill: var(--amber); }
+.fever-red { fill: var(--red); }
+
+/* PNG export buttons on the pod blocks (FR-043, spec 004 Story 3) */
+.pod-export { font-size: 10px; padding: 1px 7px; border-radius: 8px; background: var(--panel2);
+  color: var(--muted); border: 1px solid var(--border); cursor: pointer; margin-left: auto; }
+.pod-export:hover { color: var(--text); border-color: var(--accent); }
+.tl-pod .ord-head, [data-pod-sheet] .ord-head { display: flex; align-items: baseline; gap: 8px; }
+
+/* ✎ initiative editor button (spec 004) — same quiet register as the pin */
+.ord-edit { font-size: 10.5px; padding: 1px 8px; border-radius: 8px; background: var(--panel2);
+  color: var(--muted); border: 1px solid var(--border); cursor: pointer; margin-left: 6px; white-space: nowrap; }
+.ord-edit:hover { color: var(--text); border-color: var(--accent); }
+/* The tick hover date is the discoverable bridge between week numbers and the
+   calendar; give the cursor a hint that there is something to read. */
+.tl-tick[title], .ord-wk[title] { cursor: help; }
+.ord-idle { margin-top: 6px; }
+.ord-idle ul { margin: 4px 0 4px 18px; padding: 0; }
 .ord-green { color: var(--green); } .ord-amber { color: var(--amber); }
 .ord-red { color: var(--red); } .ord-idle { color: var(--muted); }
 
