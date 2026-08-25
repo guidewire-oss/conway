@@ -20,10 +20,11 @@ Two compounding traps while fixing it:
    (`UPDATE accounts SET expires_at = 0 WHERE username = 'admin'`) *and*
    restarting the server to reload it.
 2. **Values that fit int64-hours still fit int64-seconds.** 999999999999999
-   hours is year ~35000 but only ~3.6e18 seconds — representable in the
-   int64 column. The real overflow boundary is `(MaxInt64 - base) / 3600`
-   seconds; values beyond int64 itself are rejected earlier by JSON unmarshal
-   into `int`.
+   hours is ~3.6e18 seconds ≈ 114 billion years — absurd, but representable in
+   the int64 column. The real overflow boundary is
+   `(MaxInt64 - base) / 3600` **hours** (the largest hour count whose
+   seconds still fit); values beyond int64 itself are rejected earlier by
+   JSON unmarshal into `int`.
 
 Guard shape that works: refuse non-positive hours outright (explicit zero is a
 request, not a missing field — hence `*int` in the request body), and range-check

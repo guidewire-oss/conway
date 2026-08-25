@@ -114,6 +114,9 @@ tbody tr:hover td { background: var(--panel2); }
 #login-box { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 28px 32px; width: 340px; display: flex; flex-direction: column; gap: 10px; }
 #login-box h2 { margin: 0; }
 #login-box form { display: flex; flex-direction: column; gap: 10px; }
+/* gap adds to (not replaces) the hint <p>'s Bootstrap 1rem bottom margin —
+   zero it so hint->input matches the 10px input rhythm. */
+#login-box form .hint { margin-bottom: 0; }
 #login-box input { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 9px 11px; font-size: 14px; }
 .login-err { color: var(--red); font-size: 12px; min-height: 14px; }
 .sso-btn { width: 100%; }
