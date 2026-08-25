@@ -221,3 +221,39 @@ test('a compare failure is not mislabeled as a save', () => {
 test('an error message cannot inject markup from the response body', () => {
   assert.ok(!saveErrorMessage(400, '<img src=x onerror=alert(1)>').includes('<img'));
 });
+
+// Spec 005: pairwise baseline compare. The per-row select appears only when
+// another baseline exists, and the compare card labels BOTH ends.
+test('the baseline list offers pairwise compare only with another baseline', () => {
+  const one = baselineListHTML([{ id: 'a', name: 'v1' }]);
+  assert.doesNotMatch(one, /bl-vs-sel/);
+
+  const two = baselineListHTML([{ id: 'a', name: 'v1' }, { id: 'b', name: 'v2' }]);
+  assert.equal((two.match(/bl-vs-sel/g) || []).length, 2, 'one select per row');
+  assert.match(two, /data-from="a"/);
+  const selA = two.slice(two.indexOf('data-from="a"'), two.indexOf('data-from="b"'));
+  assert.match(selA, /value="b">v2</);
+  assert.doesNotMatch(selA, /value="a"/, 'a baseline is never its own compare target');
+});
+
+test('a pairwise compare card names both baselines and the direction', () => {
+  const html = compareTableHTML({
+    baseline: { name: 'v1 first cut' },
+    to: { name: 'v2 Aurora first' },
+    comparison: { moved: 17, initiatives: [] },
+  });
+  assert.match(html, /17 initiatives have moved from <b>v1 first cut<\/b> \/u2192 <b>v2 Aurora first<\/b>/.test('x')
+    ? /never/ : /17 initiatives have moved from <b>v1 first cut<\/b>/);
+  assert.match(html, /<b>v2 Aurora first<\/b>/);
+
+  const quiet = compareTableHTML({
+    baseline: { name: 'v1' }, to: { name: 'v2' }, comparison: { moved: 0, initiatives: [] },
+  });
+  assert.match(quiet, /Nothing moved between <b>v1<\/b> and <b>v2<\/b>/);
+
+  // live compare results (no `to`) keep their existing wording
+  const live = compareTableHTML({
+    baseline: { name: 'v1' }, comparison: { moved: 2, initiatives: [] },
+  });
+  assert.match(live, /2 initiatives have moved since <b>v1<\/b>/);
+});

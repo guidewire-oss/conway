@@ -825,6 +825,25 @@ var _ = Describe("the baseline endpoints", func() {
 		})
 	})
 
+	Describe("POST /baseline/{bid}/compare-to/{other}", func() {
+		call := func(bid, other string) *httptest.ResponseRecorder {
+			req := httptest.NewRequest("POST", "/api/plan/plan1/baseline/"+bid+"/compare-to/"+other, nil)
+			rec := httptest.NewRecorder()
+			srv.compareBaselines(rec, req, plan, bid, other)
+			return rec
+		}
+
+		It("refuses comparing a baseline to itself", func() {
+			rec := call("b1", "b1")
+			Expect(rec.Code).To(Equal(400))
+			Expect(rec.Body.String()).To(ContainSubstring("different baseline"))
+		})
+
+		It("refuses an empty other id", func() {
+			Expect(call("b1", "").Code).To(Equal(400))
+		})
+	})
+
 	Describe("PATCH /baseline/{bid}", func() {
 		patch := func(body string) *httptest.ResponseRecorder {
 			req := httptest.NewRequest("PATCH", "/api/plan/plan1/baseline/b1", strings.NewReader(body))

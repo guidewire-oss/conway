@@ -248,6 +248,26 @@ function wireBaselineControls() {
       }
       compareBaseline(b.dataset.id);
     }));
+  // Pairwise baseline compare (spec 005): both schedules are stored, so this
+  // never touches the live plan — no epoch guard needed beyond the plan id.
+  document.querySelectorAll('.bl-vs-sel').forEach((sel) =>
+    sel.addEventListener('change', async () => {
+      const other = sel.value;
+      sel.value = ''; // a one-shot trigger, not a persistent selection
+      if (!other) return;
+      const forPlan = current.id;
+      const r = await req('/api/plan/' + forPlan + '/baseline/' + sel.dataset.from + '/compare-to/' + other, {
+        method: 'POST', body: '{}',
+      });
+      if (!current || current.id !== forPlan) return;
+      if (!r || !r.ok) { await baselineError(r, 'compare'); return; }
+      const res = await r.json();
+      // The card reads result.baseline for the "from" end; the pairwise
+      // endpoint returns `from`. Same object, the view's name for it.
+      if (res && res.from && !res.baseline) res.baseline = res.from;
+      current.baselineCompare = res;
+      renderOrder();
+    }));
 }
 
 // orderRequestBody is what /schedule was given, so a baseline or a comparison uses

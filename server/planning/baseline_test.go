@@ -274,3 +274,43 @@ var _ = Describe("CompareToBaseline", func() {
 		}
 	})
 })
+
+// Spec 005: baseline-to-baseline comparison uses the same engine and shape as
+// the live compare, so both flavours report identical deltas.
+var _ = Describe("baseline-to-baseline comparison", func() {
+	It("reports the delta between two stored schedules", func() {
+		teams, inits := Demo()
+		base := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0.1},
+			DemoScheduling())
+
+		// Pin the stated-#1 and recompute: locking the top makes the
+		// stated-priority rule win outright (its schedule becomes best), so
+		// v2's order follows the stated ranks — the demo's reconciliation
+		// fixture shows exactly this flip.
+		var changed []Initiative
+		for _, it := range inits {
+			cp := it
+			if cp.StatedPriority == 1 {
+				cp.PriorityLocked = true
+			}
+			changed = append(changed, cp)
+		}
+		next := ComputeSchedule(teams, changed, Params{HorizonWeeks: 26, CapacityLoss: 0.1},
+			DemoScheduling())
+
+		cmp := CompareToBaseline(base, next)
+		Expect(cmp.Moved).To(BeNumerically(">", 0))
+		Expect(cmp.Initiatives).NotTo(BeEmpty())
+		// Same shape as the live compare: every initiative present, with the
+		// baseline side carrying its own rank.
+		byName := map[string]BaselineDelta{}
+		for _, d := range cmp.Initiatives {
+			byName[d.Name] = d
+		}
+		Expect(byName).To(HaveLen(len(next.Initiatives)))
+		// The stated-#2 (Telemetry GA) held rank 1 in v1's constraint-first
+		// order but follows its stated rank under v2's stated-priority run.
+		Expect(byName["Telemetry GA"].BaselineRank).To(Equal(1))
+		Expect(byName["Telemetry GA"].ProposedRank).To(Equal(2))
+	})
+})
