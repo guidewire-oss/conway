@@ -602,3 +602,25 @@ button.bl-chip:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .plan-crumbs { display: inline-flex; align-items: baseline; gap: 6px; font-size: 15px; }
 .plan-crumbs b { font-weight: 600; }
 button.plan-back { background: none; border: 0; padding: 0; font: inherit; }
+
+/* ── Admin expiry: a date, not a +24h button ───────────────────────────── */
+.admin-ext { display: inline-flex; gap: 4px; align-items: center; }
+.admin-ext input[type=date] { background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: 5px; padding: 2px 6px; font-size: 12px; }
+
+/* ── UX-audit polish: numeric alignment, verdict badges, home mini-bars ──── */
+.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.vbadge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 9px;
+  border-radius: 99px; white-space: nowrap; }
+.v-green { background: rgba(var(--c-success), .14); color: var(--bs-success); }
+.v-amber { background: rgba(var(--c-warning), .16); color: var(--bs-warning); }
+.v-red { background: rgba(var(--c-danger), .14); color: var(--bs-danger); }
+.v-idle { background: rgba(var(--c-primary), .10); color: var(--muted); }
+
+.home-bar-row { display: flex; align-items: center; gap: 8px; }
+.home-bar-row b { flex: 0 0 auto; }
+.home-bar { flex: 1 1 60px; height: 8px; background: var(--bs-secondary-bg);
+  border-radius: 4px; overflow: hidden; min-width: 40px; }
+.home-bar-fill { display: block; height: 100%; background: var(--bs-primary); border-radius: 4px; }
+.home-bar-row .hint { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
