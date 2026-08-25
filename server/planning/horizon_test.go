@@ -107,3 +107,37 @@ var _ = Describe("the horizon bound", func() {
 		Expect(sched.Fit.BeyondHorizon).To(BeZero())
 	})
 })
+
+// A successor cannot start before a predecessor that never starts. The first
+// version of Decision 28 skipped the bookkeeping wholesale for a beyond-horizon
+// initiative, which left no commit recorded for it -- so releaseFloor found no
+// entry and let dependents run inside the period, ahead of work that was never
+// scheduled at all.
+var _ = Describe("a predecessor held out of the period", func() {
+	It("holds its dependents out too, rather than freeing them", func() {
+		teams := []Team{{Name: "Alpha", Tracks: 1}, {Name: "Beta", Tracks: 1}}
+		inits := []Initiative{
+			// Fills Alpha for the whole period, so "blocked" cannot get in.
+			{Name: "hog", Work: map[string]TeamWork{"Alpha": podWork(6)},
+				StatedPriority: 1, PriorityLocked: true},
+			{Name: "blocked", Work: map[string]TeamWork{"Alpha": podWork(3)},
+				StatedPriority: 2, PriorityLocked: true},
+			// Beta is completely free, so nothing but the predecessor rule can hold
+			// this one back.
+			{Name: "downstream", Work: map[string]TeamWork{"Beta": podWork(1)},
+				AfterInitiatives: []string{"blocked"}, StatedPriority: 3, PriorityLocked: true},
+		}
+		sp := SchedulingParams{PeriodStart: specPeriodStart, WipModel: WipOff, BufferPct: pctOf(0)}
+		sched := ComputeScheduleWith(teams, inits, Params{HorizonWeeks: 6}, sp, ScheduleOptions{})
+
+		byName := map[string]ScheduledInitiative{}
+		for _, si := range sched.Initiatives {
+			byName[si.Name] = si
+		}
+		Expect(byName["blocked"].Verdict).To(Equal(verdictBeyondHorizon),
+			"the fixture must actually hold this one out, or the spec proves nothing")
+		Expect(byName["downstream"].Verdict).To(Equal(verdictBeyondHorizon),
+			"it may not run ahead of a predecessor that never runs")
+		Expect(byName["downstream"].StartWeek).To(BeZero())
+	})
+})

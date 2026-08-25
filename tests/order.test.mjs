@@ -1017,3 +1017,14 @@ test('the assumptions form always carries a slot for the comparison table', () =
   assert.match(withRows, /id="wip-models"/);
   assert.match(withRows, /strict/);
 });
+
+// A roster with no tracks at all: the load fraction is undefined, and the old
+// fallback quietly reported "0% of capacity is used" and blamed the release
+// rules — sending a planner to look at limits when the answer is that there is
+// nobody to do the work.
+test('fitNote says there is no capacity rather than blaming the release rules', () => {
+  const html = fitNote({ podWeeksDemanded: 40, trackWeeksAvailable: 0, beyondHorizon: 3 }, 26);
+  assert.match(html, /no capacity|no tracks/i);
+  assert.ok(!/release rules/.test(html), 'the rules are not why nothing fits');
+  assert.ok(!/0%/.test(html), '0% of nothing is not a useful number');
+});

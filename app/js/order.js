@@ -930,8 +930,15 @@ export function fitNote(fit, horizonWeeks) {
   const horizon = Math.max(1, Math.ceil(horizonWeeks || 26));
   const n = fit.beyondHorizon;
   const many = n > 1;
-  const load = fit.trackWeeksAvailable > 0
-    ? Math.round((fit.podWeeksDemanded / fit.trackWeeksAvailable) * 100) : 0;
+  // No tracks at all is its own answer, not a 0% load. The percentage branch below
+  // would report "0% of capacity is used" and blame the release rules, sending a
+  // planner to look at limits when the problem is that there is nobody to do the work.
+  if (!(fit.trackWeeksAvailable > 0)) {
+    return `<p class="plan-warn ord-fit">${n} initiative${many ? 's' : ''}
+      ${many ? 'do' : 'does'} not fit this ${horizon}-week period: these pods have
+      no capacity at all — every one is at zero tracks, so nothing can be scheduled.</p>`;
+  }
+  const load = Math.round((fit.podWeeksDemanded / fit.trackWeeksAvailable) * 100);
   // Over capacity, the load is the story. Under it, the pods had room and
   // something else refused the work — saying "125%" there would send the planner
   // to hire people when the lever is a limit they chose.

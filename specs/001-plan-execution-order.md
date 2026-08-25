@@ -729,24 +729,25 @@ critical paths at once.
 
 **Schedule** _(derived; the whole result)_
 - initiatives: list of ScheduledInitiative
-- fit: ScheduleFit — the period's arithmetic (Decision 28), omitted when nothing
-  was held out
+- fit: ScheduleFit — the period's arithmetic (Decision 28). Always present: the
+  load is worth reading before a plan overflows, not only after
 - podWeeks: per pod, per week utilization and occupying slices
 - drumPods: the constraint pods the release rule staggers against
+- objectiveScore, statedOrderObjectiveScore: number
+- reconciliation: list of rank deviations with reason and cost
+- conflicts: list of conflicting locked pairs
+- rejectedTransfers, assumptions, warnings
 
 **ScheduleFit** _(derived; Decision 28)_
 - podWeeksDemanded: number — every initiative's in-path work, whether or not it
   fitted. Counting only placed work would report a plan that fits
 - trackWeeksAvailable: number — tracks x horizon, less `capacityLoss`: what the
-  pods can absorb rather than their nameplate
+  pods can absorb rather than their nameplate. Zero is its own answer, not a 0%
+  load: it means no pod has a track, so nothing can be scheduled at all
 - beyondHorizon: integer — how many initiatives could not begin inside the period
 - heldBy: list of {constraint, count}, most common first — which bindingConstraint
   refused each one. Demand against capacity explains a plan that is over capacity
   and explains nothing about one held out by a WIP limit, and the lever differs
-- objectiveScore, statedOrderObjectiveScore: number
-- reconciliation: list of rank deviations with reason and cost
-- conflicts: list of conflicting locked pairs
-- rejectedTransfers, assumptions, warnings
 
 **Remedy** _(derived, proposed only)_
 - kind: enum (raise-priority, descope, add-capacity, transfer-capacity, relax-date, defer-other, unlock)
