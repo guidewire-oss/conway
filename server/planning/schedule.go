@@ -400,7 +400,7 @@ func (f ScheduleFit) LoadPct() float64 {
 // Schedule is the whole computed order (§7).
 type Schedule struct {
 	Initiatives               []ScheduledInitiative `json:"initiatives"`
-	Fit                       *ScheduleFit          `json:"fit,omitempty"`
+	Fit                       *ScheduleFit          `json:"fit"`
 	PodWeeks                  []PodSchedule         `json:"podWeeks"`
 	DrumPods                  []string              `json:"drumPods"`
 	WipLimit                  WipLimit              `json:"wipLimit"`
@@ -1127,10 +1127,29 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 		// below entirely, and the capacity it would have consumed stays available to
 		// the initiatives that do fit.
 		if !in.init.InFlight && start >= horizon {
-			si := summarise(in, rank, start, finish, nil, reason, sp, pBar)
+			// When placement rather than a release gate pushed it out, the reason lives
+			// on the slices -- pod-capacity, or a freeze. Taking it before they are
+			// cleared is what lets ScheduleFit.HeldBy name those causes instead of
+			// reporting an empty constraint (FR-021).
+			held := reason
+			if held == "" {
+				for _, sl := range placed {
+					if sl.BindingConstraint != "" {
+						held = sl.BindingConstraint
+						break
+					}
+				}
+			}
+			si := summarise(in, rank, start, finish, nil, held, sp, pBar)
 			si.StartWeek, si.RawFinishWeek, si.CommitWeek, si.BufferWeeks = 0, 0, 0, 0
 			si.WeeksLate = 0
 			si.Verdict = verdictBeyondHorizon
+			// A successor cannot start before a predecessor that never starts. The
+			// bookkeeping below is skipped, so releaseFloor would find no commit
+			// recorded for this one and let dependents run inside the period ahead of
+			// work that was never scheduled. The horizon is the sentinel: any floor at
+			// or past it lands the dependent here too, and the block cascades.
+			commitOf[in.init.Name] = horizon
 			// bindingConstraint keeps whatever gate actually refused the release --
 			// "wip-limit" or "pod-capacity" says why it could not get in, which is
 			// more use than a generic "horizon" and needs no new enum value (FR-021).
