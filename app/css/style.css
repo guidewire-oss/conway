@@ -605,7 +605,9 @@ button.plan-back { background: none; border: 0; padding: 0; font: inherit; }
 
 /* ── Admin expiry: a date, not a +24h button ───────────────────────────── */
 .admin-ext { display: inline-flex; gap: 4px; align-items: center; }
-.admin-ext input[type=date] { background: var(--bg); color: var(--text);
+/* The global bare-input rule (13px/6px) outspecifies a plain attribute
+   selector — scope with the panel id so the compact size actually wins. */
+#admin-modal .admin-ext input[type=date] { background: var(--bg); color: var(--text);
   border: 1px solid var(--border); border-radius: 5px; padding: 2px 6px; font-size: 12px; }
 
 /* ── UX-audit polish: numeric alignment, verdict badges, home mini-bars ──── */
