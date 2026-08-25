@@ -50,6 +50,14 @@ export function verdictView(si) {
   return si.provisional ? { ...base, text: `${base.text}, provisional` } : base;
 }
 
+// verdictBadgeHTML is the Order table's verdict as a pill (the audit's
+// Stripe-style status badge): tinted background, symbol + text. Colour is
+// never the only carrier — the symbol and words stay (FR-044).
+export function verdictBadgeHTML(si) {
+  const v = verdictView(si);
+  return `<span class="vbadge v-${v.zone}">${v.symbol} ${esc(v.text)}</span>`;
+}
+
 // statedCell renders "2 →1" — what the planner said, and what the engine
 // proposes. Decision 3 makes this the centre of the table rather than a footnote:
 // a reordering nobody explains reads as being ignored.
@@ -129,13 +137,13 @@ function orderRowHTML(row) {
   const raw = si.rawFinishWeek === undefined ? '' :
     `<span class="hint" title="raw scheduled finish, before its buffer">${weekLabel(si.rawFinishWeek)} +${si.bufferWeeks || 0}w →</span> `;
   const main = `<tr class="ord-row">
-    <td>${si.proposedRank}</td>
+    <td class="num">#${si.proposedRank}</td>
     <td>${esc(si.name)}</td>
     <td>${statedCell(si)}</td>
-    <td>${weekLabel(si.startWeek)}</td>
-    <td>${raw}<b>${weekLabel(si.commitWeek)}</b></td>
-    <td>${target}</td>
-    <td class="ord-${verdict.zone}"><b>${verdict.symbol} ${esc(verdict.text)}</b></td>
+    <td class="num">${weekLabel(si.startWeek)}</td>
+    <td class="num">${raw}<b>${weekLabel(si.commitWeek)}</b></td>
+    <td class="num">${target}</td>
+    <td>${verdictBadgeHTML(si)}</td>
     <td>${esc(row.binds) || '<span class="hint">—</span>'}</td>
   </tr>`;
   const trace = rowTraceHTML(row);

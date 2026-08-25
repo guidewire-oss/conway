@@ -9,6 +9,9 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
+	"math"
 	"log"
 	"net/http"
 	"os"
@@ -574,7 +577,39 @@ func (s *server) handleUserItem(w http.ResponseWriter, r *http.Request, _ auth.C
 		writeJSON(w, map[string]any{"ok": true})
 	case r.Method == http.MethodPost && strings.HasSuffix(name, "/extend"):
 		name = strings.TrimSuffix(name, "/extend")
-		s.store.Extend(name, 24)
+		// An admin can push an account out by weeks, not just the hardcoded
+		// +24h the button shipped with. A missing body keeps the old default.
+		// *int: an explicit {"hours":0} is a request, not a missing field — the
+		// default belongs only to bodies that never set it.
+		var body struct {
+			Hours *int `json:"hours"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
+			http.Error(w, "could not read the extend request: "+err.Error(), 400)
+			return
+		}
+		hours := 24
+		if body.Hours != nil {
+			if *body.Hours <= 0 {
+				http.Error(w, "hours must be positive — to expire a user now, revoke them", 400)
+				return
+			}
+			hours = *body.Hours
+		}
+		// Extend() adds to the current expiry; a horizon that cannot fit in an
+		// int64 second-count would wrap negative and silently expire the user.
+		base := s.store.NowUnix()
+		if u := s.store.Users[name]; u != nil && u.ExpiresAt > base {
+			base = u.ExpiresAt
+		}
+		if hours < 0 || int64(hours) > (math.MaxInt64-base)/3600 {
+			http.Error(w, "hours is outside the supported range — to expire a user now, revoke them", 400)
+			return
+		}
+		if !s.store.Extend(name, hours) {
+			http.Error(w, "user not found", 404)
+			return
+		}
 		must(s.store.Save())
 		writeJSON(w, map[string]any{"ok": true})
 	default:
