@@ -301,3 +301,30 @@ test('latestOnly keeps separate gates independent', () => {
   b.claim();
   assert.equal(a.isCurrent(ta), true, 'another view advancing must not invalidate this one');
 });
+
+// The follow-up finding on the same line: the gate was checked once, before
+// `await r.json()`, so a newer pair claimed during the parse still let the older
+// response write the card. Every await is a gap, so the check has to come after
+// the last one, immediately before the write. This exercises that ordering with
+// real promises rather than trusting the reading.
+test('latestOnly still refuses a claim that went stale during an await', async () => {
+  const gate = latestOnly();
+  const writes = [];
+
+  const request = async (label, parseDelay) => {
+    const ticket = gate.claim();
+    await Promise.resolve();                 // the response arriving
+    if (!gate.isCurrent(ticket)) return;     // the check that used to be the only one
+    await new Promise((done) => setTimeout(done, parseDelay)); // r.json()
+    if (!gate.isCurrent(ticket)) return;     // the check the fix adds
+    writes.push(label);
+  };
+
+  // The older request parses slowly, so without the second check it would land last.
+  const slow = request('older', 20);
+  await new Promise((done) => setTimeout(done, 1));
+  const fast = request('newer', 0);
+  await Promise.all([slow, fast]);
+
+  assert.deepEqual(writes, ['newer'], 'only the newest request may write the card');
+});
