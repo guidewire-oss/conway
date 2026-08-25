@@ -9,6 +9,8 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -574,7 +576,27 @@ func (s *server) handleUserItem(w http.ResponseWriter, r *http.Request, _ auth.C
 		writeJSON(w, map[string]any{"ok": true})
 	case r.Method == http.MethodPost && strings.HasSuffix(name, "/extend"):
 		name = strings.TrimSuffix(name, "/extend")
-		s.store.Extend(name, 24)
+		// An admin can push an account out by weeks, not just the hardcoded
+		// +24h the button shipped with. A missing body keeps the old default.
+		var body struct {
+			Hours int `json:"hours"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
+			http.Error(w, "could not read the extend request: "+err.Error(), 400)
+			return
+		}
+		hours := body.Hours
+		if hours == 0 {
+			hours = 24
+		}
+		if hours < 0 {
+			http.Error(w, "hours cannot be negative — to expire a user now, revoke them", 400)
+			return
+		}
+		if !s.store.Extend(name, hours) {
+			http.Error(w, "user not found", 404)
+			return
+		}
 		must(s.store.Save())
 		writeJSON(w, map[string]any{"ok": true})
 	default:

@@ -236,7 +236,7 @@ function openAdmin() {
               <label><input type="checkbox" class="role-cb" value="manager"> Manager</label>
               <label><input type="checkbox" class="role-cb" value="admin"> Admin</label>
             </span>
-            <label class="hint">expiry hrs <input id="admin-exp" type="number" value="720" style="width:60px"></label>
+            <label class="hint">expires <input id="admin-exp" type="date" value="${defaultExpiry()}" style="width:140px"></label>
             <button id="admin-add" class="primary">Create user</button>
             <span id="admin-new" class="admin-new"></span>
           </div>
@@ -256,9 +256,31 @@ function closeAdmin() {
   closeModal(document.getElementById('admin-overlay'));
 }
 
+// defaultExpiry: today + 30 days, ISO date — the form's default horizon.
+function defaultExpiry() {
+  const d = new Date(Date.now() + 30 * 24 * 3600 * 1000);
+  return d.toISOString().slice(0, 10);
+}
+
+// hoursUntil: whole hours from now to the picked date (min 1 — an expiry in
+// the past is a mistake, not a request to expire someone now).
+function hoursUntil(dateStr) {
+  const t = new Date(dateStr + 'T23:59:59').getTime();
+  return Math.max(1, Math.ceil((t - Date.now()) / 3600000));
+}
+
+// hoursFrom: hours needed to move an account whose expiry is `fromEpoch`
+// (seconds) onto the picked date — Extend() adds to the current expiry, so the
+// request must be the delta, not the absolute horizon.
+function hoursFrom(dateStr, fromEpoch) {
+  const t = new Date(dateStr + 'T23:59:59').getTime();
+  const base = fromEpoch > 0 ? fromEpoch * 1000 : Date.now();
+  return Math.max(1, Math.ceil((t - base) / 3600000));
+}
+
 async function addUser() {
   const disp = document.getElementById('admin-disp').value.trim();
-  const exp = +document.getElementById('admin-exp').value || 48;
+  const exp = document.getElementById('admin-exp').value ? hoursUntil(document.getElementById('admin-exp').value) : 720;
   const roles = Array.from(document.querySelectorAll('.role-cb:checked')).map((c) => c.value);
   if (!disp) return;
   if (!roles.length) { document.getElementById('admin-new').textContent = 'pick at least one role'; return; }
@@ -286,6 +308,12 @@ async function refreshUsers() {
   const BADGE = { admin: 'var(--violet)', facilitator: 'var(--accent)', manager: 'var(--green)', player: 'var(--muted)' };
   const label = (r) => r === 'player' ? 'team' : r;
   const roleBadges = (rs) => (rs || []).map((r) => `<span class="flag" style="color:${BADGE[r] || 'var(--muted)'}">${esc(label(r))}</span>`).join(' ');
+  // The extend picker defaults to the user's current expiry (or +1 day when
+  // none), so pushing a date out is a delta on what's already true.
+  const extDefault = (u) => {
+    const base = u.expiresAt > 0 ? u.expiresAt * 1000 : Date.now() + 24 * 3600 * 1000;
+    return new Date(base).toISOString().slice(0, 10);
+  };
   document.getElementById('admin-users').innerHTML = `
     <thead><tr><th>Username</th><th>Name</th><th>Roles</th><th>Expires</th><th>Status</th><th></th></tr></thead>
     <tbody>${users.map((u) => `<tr>
@@ -293,10 +321,16 @@ async function refreshUsers() {
       <td>${esc(u.display)}</td><td>${roleBadges(u.roles)}</td><td>${u.sso ? '<span class="hint">via IdP</span>' : fmt(u.expiresAt)}</td>
       <td>${u.expired ? '<span class="flag red">expired</span>' : '<span class="flag" style="color:var(--green)">active</span>'}
           ${u.hasState ? '<span class="hint">playing</span>' : ''}</td>
-      <td>${u.sso ? '' : `<button data-ext="${esc(u.username)}">+24h</button>`}${u.username === 'admin' ? '' : ` <button data-del="${esc(u.username)}">revoke</button>`}</td>
+      <td>${u.sso ? '' : `<span class="admin-ext"><input type="date" class="admin-ext-date" data-ext="${esc(u.username)}" value="${extDefault(u)}" title="new expiry date"><button data-extbtn="${esc(u.username)}">extend</button></span>`}${u.username === 'admin' ? '' : ` <button data-del="${esc(u.username)}">revoke</button>`}</td>
     </tr>`).join('') || '<tr><td colspan="6" class="hint">No accounts yet.</td></tr>'}`;
-  document.querySelectorAll('#admin-users [data-ext]').forEach((b) => b.addEventListener('click', async () => {
-    await api(`/api/admin/users/${b.dataset.ext}/extend`, { method: 'POST' }); refreshUsers();
+  document.querySelectorAll('#admin-users [data-extbtn]').forEach((b) => b.addEventListener('click', async () => {
+    const u = users.find((x) => x.username === b.dataset.extbtn);
+    const input = document.querySelector(`.admin-ext-date[data-ext="${CSS.escape(b.dataset.extbtn)}"]`);
+    // "Extend to <date>" must land ON that date, not add (date - today) to the
+    // current expiry — the picker defaults to the current expiry, so the
+    // overshoot was exactly (current - today) ≈ months.
+    const hours = input && input.value ? hoursFrom(input.value, u && u.expiresAt) : 24;
+    await api(`/api/admin/users/${b.dataset.extbtn}/extend`, { method: 'POST', body: JSON.stringify({ hours }) }); refreshUsers();
   }));
   document.querySelectorAll('#admin-users [data-del]').forEach((b) => b.addEventListener('click', async () => {
     await api(`/api/admin/users/${b.dataset.del}`, { method: 'DELETE' }); refreshUsers();
