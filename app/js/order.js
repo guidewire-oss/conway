@@ -784,7 +784,10 @@ export function schedulingFormHTML(sp = {}, wip, sched) {
     ${calendarWindowsHTML(sp.calendars || [])}
     <button type="button" id="sched-save" class="primary">Save assumptions</button>
     <button type="button" id="sched-cancel">Cancel</button>
-    ${sched ? wipModelsTableHTML(sched) : ''}
+    <!-- Always present, even when empty: the comparison is fetched only when this
+         dialog opens (it costs three extra schedules server-side), and planui fills
+         this container in place rather than re-rendering the view around it. -->
+    <div id="wip-models">${sched ? wipModelsTableHTML(sched) : ''}</div>
   </div>`;
 }
 
