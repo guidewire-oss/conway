@@ -1227,6 +1227,13 @@ func drumStagger(in *schedInput, sp SchedulingParams, cal map[string]*podCalenda
 		// then sit above the target. That makes the schedule's actual drum load
 		// respect the target — a start-rate check cannot, because slices from
 		// different releases overlap.
+		// A target that admits less than one track would refuse every
+		// placement forever, and the retry bound would then commit a slice that
+		// violates it anyway — a silent violation is worse than no stagger, so
+		// such a target is ignored for this pod rather than "enforced".
+		if int(math.Ceil(sp.TargetUtilization*float64(c.tracks)-1e-9)) < 1 {
+			continue
+		}
 		for w := s.StartWeek; w < s.FinishWeek; w++ {
 			if float64(weekAt(c.busy, w)+1) > sp.TargetUtilization*float64(c.tracks)+1e-9 {
 				return true, bindStagger
@@ -1577,19 +1584,24 @@ func annotateIdle(sched *Schedule, rules *calendarRules, teams map[string]Team, 
 	for _, l := range loads {
 		rho[l.Team] = l.Rho
 	}
-	// finishBy[pod][upstream pod] = last finish week of a slice that names it
-	// upstream, so "is this pod waiting on upstream at week w" is a lookup.
-	finishBy := map[string]map[string]int{}
+	// readyAt[pod] = the latest week by which the pod's own work becomes READY:
+	// for every slice, the finish of the upstream slice it names (the
+	// predecessor's completion), not the dependent slice's own finish. Waiting
+	// attributed to a week the predecessor had already finished was never a
+	// dependency wait.
+	readyAt := map[string]int{}
 	for _, ps := range sched.PodWeeks {
 		for _, s := range ps.Slices {
 			for _, up := range s.DependsOn {
-				m := finishBy[s.Pod]
-				if m == nil {
-					m = map[string]int{}
-					finishBy[s.Pod] = m
-				}
-				if s.FinishWeek > m[up] {
-					m[up] = s.FinishWeek
+				for _, ups := range sched.PodWeeks {
+					if ups.Pod != up {
+						continue
+					}
+					for _, us := range ups.Slices {
+						if us.Initiative == s.Initiative && us.FinishWeek > readyAt[s.Pod] {
+							readyAt[s.Pod] = us.FinishWeek
+						}
+					}
 				}
 			}
 		}
@@ -1608,20 +1620,15 @@ func annotateIdle(sched *Schedule, rules *calendarRules, teams map[string]Team, 
 				continue
 			}
 			w := pw.Week
-			if rules != nil && rules.reducedTracks(ps.Pod, siteOf(teams, ps.Pod), ps.Tracks, w) < ps.Tracks {
+			site := siteOf(teams, ps.Pod)
+			if rules != nil && (rules.reducedTracks(ps.Pod, site, ps.Tracks, w) < ps.Tracks ||
+				rules.startBlocked(ps.Pod, site, w) || rules.finishBlocked(ps.Pod, site, w)) {
 				ps.Idle.Calendar += idle
 				continue
 			}
-			// Upstream: some pod this one waits on is still running at w (its
-			// last finish is after w) — the wait is a dependency, not a gate.
-			waiting := false
-			for _, fin := range finishBy[ps.Pod] {
-				if fin > w {
-					waiting = true
-					break
-				}
-			}
-			if waiting {
+			// Upstream: the pod's work is not ready yet at w because a
+			// predecessor slice has not finished.
+			if w < readyAt[ps.Pod] {
 				ps.Idle.Upstream += idle
 				continue
 			}

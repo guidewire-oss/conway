@@ -524,9 +524,14 @@ async function renderTimeline() {
         current.tlExpand = current.tlExpand === name ? null : name;
         paint();
       }));
-    // The pod lens's pod blocks open §13.5's sheet (AC 9.1 -> AC 9.5).
+    // The pod lens's pod blocks open §13.5's sheet (AC 9.1 -> AC 9.5);
+    // clicking the open pod again closes it, so the grid is never stuck.
     main.querySelectorAll('.tl-pod[data-pod]').forEach((el) =>
-      el.addEventListener('click', () => paintPodSheet(el.dataset.pod)));
+      el.addEventListener('click', () => {
+        if (current.tlPod === el.dataset.pod) { current.tlPod = null; const h = document.getElementById('tl-pod'); if (h) h.innerHTML = ''; return; }
+        current.tlPod = el.dataset.pod;
+        paintPodSheet(el.dataset.pod);
+      }));
     // FR-043 (spec 004 Story 3): each pod block exports itself as a PNG. The
     // click must not also open the sheet, so it stops here.
     main.querySelectorAll('.pod-export[data-export-pod]').forEach((b) =>
@@ -536,13 +541,14 @@ async function renderTimeline() {
         exportBlockPNG(b.closest('.tl-pod'), `conway-${pod.replace(/\W+/g, '-').toLowerCase()}-timeline.png`);
       }));
   };
+  // The pod toggle (open/close) and the lens-switch redraw share ONE renderer —
+  // duplicating the markup without the wiring left the redrawn sheet's PNG
+  // button inert.
   const paintPodSheet = (pod) => {
     const holder = document.getElementById('tl-pod');
     if (!holder) return;
-    if (current.tlPod === pod) { current.tlPod = null; holder.innerHTML = ''; return; }
-    current.tlPod = pod;
     const ps = (sched.podWeeks || []).find((p) => p.pod === pod);
-    holder.innerHTML = ps ? podSheetHTML(ps, sched, { horizonWeeks: horizon }) : '';
+    holder.innerHTML = ps ? podSheetHTML(ps, sched, { horizonWeeks: horizon, span: spanWeeks }) : '';
     holder.querySelectorAll('.pod-export[data-export-sheet]').forEach((b) =>
       b.addEventListener('click', () => {
         exportBlockPNG(b.closest('[data-pod-sheet]'), `conway-${pod.replace(/\W+/g, '-').toLowerCase()}-sheet.png`);
@@ -552,11 +558,7 @@ async function renderTimeline() {
   // A pod sheet open from before a lens switch stays open: render it directly
   // rather than through the toggle, which would read the selection as a
   // second click and clear it.
-  if (current.tlPod) {
-    const holder = document.getElementById('tl-pod');
-    const ps = (sched.podWeeks || []).find((p) => p.pod === current.tlPod);
-    if (holder) holder.innerHTML = ps ? podSheetHTML(ps, sched, { horizonWeeks: horizon }) : '';
-  }
+  if (current.tlPod) paintPodSheet(current.tlPod);
 
   document.getElementById('tl-by-initiative')?.addEventListener('click', () => { current.tlLens = 'initiative'; renderTimeline(); });
   document.getElementById('tl-by-pod')?.addEventListener('click', () => { current.tlLens = 'pod'; renderTimeline(); });
@@ -679,15 +681,29 @@ async function renderOrder() {
     const name = b.dataset.pin;
     const lock = b.dataset.locked !== '1'; // toggle
     b.disabled = true;
-    const r = await req('/api/plan/' + current.id + '/initiatives', {
+    // Capture the world as the request saw it: the reader may switch plans (or
+    // trigger another recompute) while the PATCH is in flight, and writing a
+    // stale answer into the new plan is worse than dropping it.
+    const forPlan = current.id;
+    const atEpoch = orderEpoch;
+    const r = await req('/api/plan/' + forPlan + '/initiatives', {
       method: 'PATCH',
       body: JSON.stringify({ initiatives: [{ name, priorityLocked: lock }] }),
     });
+    if (!current || current.id !== forPlan) return; // the reader moved on
     if (!r || !r.ok) {
       b.disabled = false;
       b.title = 'the pin did not save — try again';
       return;
     }
+    // The PATCH response is the full post-edit initiative list: use it as the
+    // cache, so a later ✎ save cannot silently re-send the stale lock state
+    // and undo the pin.
+    try {
+      const d = await r.json();
+      if (Array.isArray(d.initiatives)) current.initiatives = d.initiatives;
+    } catch { /* cache stays; the server is still authoritative */ }
+    if (orderEpoch !== atEpoch) return; // a recompute already superseded this
     current.schedule = null; // the order must answer the new pin, not the old one
     await renderOrder();
   }));
@@ -713,29 +729,38 @@ async function renderOrder() {
         if (!el) return '';
         return el.type === 'checkbox' ? el.checked : el.value;
       };
-      const parsed = initiativeEditFromBody(read, it.name);
+      // "had" carries what the STORED initiative had, so an emptied field can
+      // send an explicit clear instead of a "not mentioned" null.
+      const parsed = initiativeEditFromBody(read, it.name, {
+        targetDate: it.targetDate, costOfDelayPerWeek: it.costOfDelayPerWeek,
+        kitPct: it.kitPct, progressPct: it.progressPct,
+      });
       if (parsed.error || !parsed.body) {
         if (errEl) errEl.textContent = parsed.error || 'those values do not parse';
         return;
       }
       const save = document.getElementById('ie-save');
       if (save) { save.disabled = true; save.textContent = 'Saving…'; }
-      const r = await req('/api/plan/' + current.id + '/initiatives', {
+      const forPlan = current.id;
+      const atEpoch = orderEpoch;
+      const r = await req('/api/plan/' + forPlan + '/initiatives', {
         method: 'PATCH', body: JSON.stringify({ initiatives: [parsed.body] }),
       });
+      if (!current || current.id !== forPlan) return; // the reader moved on
       if (!r || !r.ok) {
         if (save) { save.disabled = false; save.textContent = 'Save'; }
         const why = r ? await r.text() : 'the request did not reach the server';
         if (errEl) errEl.textContent = why.slice(0, 200);
         return;
       }
-      // The stored initiatives are the dialog's source of truth; refresh them
-      // before re-rendering or the next open shows the pre-edit values.
-      const refreshed = await req('/api/plan/' + current.id);
-      if (refreshed && refreshed.ok) {
-        const p = await refreshed.json();
-        current.initiatives = p.initiatives;
-      }
+      // The PATCH response carries the full post-edit list: it IS the refreshed
+      // cache, so the next open shows the saved values and the next save cannot
+      // resend stale ones. No second GET whose failure would strand the cache.
+      try {
+        const d = await r.json();
+        if (Array.isArray(d.initiatives)) current.initiatives = d.initiatives;
+      } catch { /* cache stays; the server is still authoritative */ }
+      if (orderEpoch !== atEpoch) return; // a recompute already superseded this
       current.schedule = null;
       await renderOrder();
     });

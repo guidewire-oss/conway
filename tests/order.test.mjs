@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import {
   esc, zoneOf, weekLabel, verdictView, verdictBadgeHTML, statedCell, objectiveView, wipLimitNote, schedulingDialogHTML,
   orderRows, orderTableHTML, infeasibleNote, heatmapWeeks, overrunNote, feverChartHTML, feverZone, idleNoteHTML,
-  initiativeEditDialogHTML, initiativeEditFromBody,
+  initiativeEditDialogHTML, initiativeEditFromBody, quoteName, splitInitiativeNames,
   podHeatmapHTML, podQueueHTML, noticesHTML, orderViewHTML, rowTraceHTML,
   schedulingFormHTML, schedulingFromForm, pctToFraction,
   wipModelsTableHTML, WIP_MODELS,
@@ -857,14 +857,16 @@ test('initiativeEditFromBody maps the dialog fields to the PATCH shape', () => {
   assert.equal(body.dateLocked, false);
 });
 
-test('initiativeEditFromBody refuses out-of-range numbers and blanks mean unset', () => {
+test('initiativeEditFromBody refuses out-of-range numbers; blanks clear explicitly', () => {
   const bad = { 'ie-tier': '9' };
   const { error } = initiativeEditFromBody((id) => bad[id] ?? '', 'X');
   assert.match(error, /tier/);
+  // The clear contract (review fix): blanks are explicit clears, not omissions.
   const blank = initiativeEditFromBody(() => '', 'X').body;
-  assert.equal(blank.statedPriority, undefined);
-  assert.equal(blank.kitPct, undefined);
-  assert.equal(blank.targetDate, null);
+  assert.equal(blank.statedPriority, 0);
+  assert.equal(blank.tier, 0);
+  assert.equal(blank.kitPct, undefined); // no prior value: nothing to clear
+  assert.equal(blank.clearDate, undefined);
   assert.deepEqual(blank.afterInitiatives, []);
 });
 
@@ -903,4 +905,58 @@ test('schedulingFromForm reads the drum target utilization', () => {
     const b = schedulingFromForm((id) => (id === 'sched-stagger' ? v : undefined));
     assert.equal(b.targetUtilization, undefined, `value ${v} should mean off`);
   }
+});
+
+// Review fixes: quoting round-trips through the after-initiatives field.
+test('quoteName wraps names with commas or quotes, splitInitiativeNames undoes it', () => {
+  assert.equal(quoteName('Payments'), 'Payments');
+  assert.equal(quoteName('Payments, phase 2'), '"Payments, phase 2"');
+  const round = splitInitiativeNames(quoteName('Payments, phase 2') + ', Aurora');
+  assert.deepEqual(round, ['Payments, phase 2', 'Aurora']);
+  const quoted = splitInitiativeNames(quoteName('Say "hi"') + ', B');
+  assert.deepEqual(quoted, ['Say "hi"', 'B']);
+});
+
+// Review fix: emptied fields send explicit clears, not "not mentioned" nulls.
+test('initiativeEditFromBody clears explicitly what the dialog emptied', () => {
+  const read = () => '';
+  const { body } = initiativeEditFromBody(read, 'X', {
+    targetDate: '2027-01-15', costOfDelayPerWeek: 5, kitPct: 0.4, progressPct: 0.2,
+  });
+  assert.equal(body.statedPriority, 0); // unranked, not "not mentioned"
+  assert.equal(body.tier, 0);
+  assert.equal(body.clearDate, true); // had a date, now empty
+  assert.equal(body.targetDate, undefined);
+  assert.equal(body.costOfDelayPerWeek, 0);
+  assert.equal(body.kitPct, 0);
+  assert.equal(body.progressPct, 0);
+  // nothing existed and nothing entered: no clear flags at all
+  const fresh = initiativeEditFromBody(() => '', 'Y', {}).body;
+  assert.equal(fresh.clearDate, undefined);
+  assert.equal(fresh.costOfDelayPerWeek, undefined);
+  assert.equal(fresh.kitPct, undefined);
+});
+
+// Review fix: the pin toggle renders only for ranked (or already locked) rows.
+test('unranked initiatives get no pin toggle', () => {
+  const html = orderTableHTML({ initiatives: [
+    { name: 'Ranked', statedRank: 1, proposedRank: 2, verdict: 'on-time' },
+    { name: 'Unranked', proposedRank: 3, verdict: 'no-date' },
+    { name: 'Locked', statedRank: 2, proposedRank: 5, priorityLocked: true, verdict: 'on-time' },
+  ] });
+  const rankedRow = html.slice(html.indexOf('Ranked'), html.indexOf('Unranked'));
+  const unrankedRow = html.slice(html.indexOf('Unranked'), html.indexOf('Locked'));
+  assert.match(rankedRow, /ord-pin/);
+  assert.doesNotMatch(unrankedRow, /ord-pin/);
+  assert.match(html.slice(html.indexOf('Locked')), /ord-pin/); // locked rows can unpin
+});
+
+// Review fix: idle percentages use the PERIOD horizon as denominator.
+test('idleNoteHTML divides by the period track-weeks, not the overrun span', () => {
+  // 2 tracks x 26-week period; the pod's weeks array stretches to 50 with overrun
+  const ps = { pod: 'A', meanUtil: 0.2, flatRho: 0.9, tracks: 2,
+    weeks: Array.from({ length: 50 }, () => ({})),
+    idle: { calendar: 26, upstream: 0, heldForRelease: 0 } };
+  const html = idleNoteHTML([ps], 26);
+  assert.match(html, /50% calendar/); // 26 / (2*26) — not 26 / (2*50) = 26%
 });
