@@ -256,16 +256,25 @@ function closeAdmin() {
   closeModal(document.getElementById('admin-overlay'));
 }
 
-// defaultExpiry: today + 30 days, ISO date — the form's default horizon.
-function defaultExpiry() {
-  const d = new Date(Date.now() + 30 * 24 * 3600 * 1000);
-  return d.toISOString().slice(0, 10);
+// localDate: YYYY-MM-DD from a timestamp in the user's OWN timezone — the
+// picker parses as local midnight, so a UTC ISO string is a day off west of
+// Greenwich. One formatter, used by every default in this panel.
+function localDate(ms) {
+  const d = new Date(ms);
+  const p = (n) => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
 }
 
-// hoursUntil: whole hours from now to the picked date (min 1 — an expiry in
-// the past is a mistake, not a request to expire someone now).
+// defaultExpiry: today + 30 days, local — the form's default horizon.
+function defaultExpiry() {
+  return localDate(Date.now() + 30 * 24 * 3600 * 1000);
+}
+
+// hoursUntil: whole hours from now to the picked LOCAL day's end (min 1 — an
+// expiry in the past is a mistake, not a request to expire someone now).
 function hoursUntil(dateStr) {
-  const t = new Date(dateStr + 'T23:59:59').getTime();
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const t = new Date(y, m - 1, d, 23, 59, 59).getTime();
   return Math.max(1, Math.ceil((t - Date.now()) / 3600000));
 }
 
@@ -273,7 +282,8 @@ function hoursUntil(dateStr) {
 // (seconds) onto the picked date — Extend() adds to the current expiry, so the
 // request must be the delta, not the absolute horizon.
 function hoursFrom(dateStr, fromEpoch) {
-  const t = new Date(dateStr + 'T23:59:59').getTime();
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const t = new Date(y, m - 1, d, 23, 59, 59).getTime();
   const base = fromEpoch > 0 ? fromEpoch * 1000 : Date.now();
   return Math.max(1, Math.ceil((t - base) / 3600000));
 }
@@ -311,8 +321,10 @@ async function refreshUsers() {
   // The extend picker defaults to the user's current expiry (or +1 day when
   // none), so pushing a date out is a delta on what's already true.
   const extDefault = (u) => {
-    const base = u.expiresAt > 0 ? u.expiresAt * 1000 : Date.now() + 24 * 3600 * 1000;
-    return new Date(base).toISOString().slice(0, 10);
+    // Expired accounts seed from tomorrow: their stored expiry is in the past,
+    // and a picker defaultled to it would compute a negative delta.
+    const base = u.expiresAt > Date.now() / 1000 ? u.expiresAt * 1000 : Date.now() + 24 * 3600 * 1000;
+    return localDate(base);
   };
   document.getElementById('admin-users').innerHTML = `
     <thead><tr><th>Username</th><th>Name</th><th>Roles</th><th>Expires</th><th>Status</th><th></th></tr></thead>
