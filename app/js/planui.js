@@ -6,7 +6,8 @@ import {
   heatColor, layoutColumns, bezierEdgePath, appendArrowMarker,
   enablePanZoom, enableNodeDrag, makeSpotlight,
 } from './netgraph.js';
-import { esc, orderViewHTML, schedulingFromForm } from './order.js';
+import { esc, orderViewHTML, schedulingFromForm, initiativeEditDialogHTML, initiativeEditFromBody } from './order.js';
+import { exportBlockPNG } from './exportpng.js';
 import { baselineChipHTML, baselinePanelHTML, saveErrorMessage } from './baseline.js';
 import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
 import { portfolioTimelineHTML, podLensHTML, podSheetHTML } from './timeline.js';
@@ -478,23 +479,39 @@ async function renderTimeline() {
   }
 
   const lens = current.tlLens || 'initiative';
+  // The view span: the period by default; wider spans exist because plans
+  // overrun and the horizon cut made everything past it invisible (the user
+  // could not scroll right). 'all' fits the widest commit week.
+  const widest = (sched.initiatives || []).reduce((m, si) => Math.max(m, si.commitWeek || 0), horizon);
+  const spans = [
+    { id: 'period', label: `${horizon}w period`, weeks: horizon },
+    { id: 'double', label: `${horizon * 2}w`, weeks: horizon * 2 },
+    { id: 'all', label: `all (${widest}w)`, weeks: widest },
+  ].filter((sp) => sp.weeks > horizon || sp.id === 'period');
+  const spanSel = current.tlSpan || 'period';
+  const spanWeeks = (spans.find((sp) => sp.id === spanSel) || spans[0]).weeks;
   const lensBtn = (id, on, label) =>
     `<button class="${on ? 'seg-on' : ''}" id="${id}">${label}</button>`;
   host.innerHTML = `
     <div class="plan-views"><span class="seg">
       ${lensBtn('tl-by-initiative', lens === 'initiative', '◉ by initiative')}
       ${lensBtn('tl-by-pod', lens === 'pod', '○ by pod')}
+    </span>
+    <span class="seg" title="how much of the schedule to draw — the period end is marked when the view is wider">
+      ${spans.map((sp) => `<button class="${sp.id === spanSel ? 'seg-on' : ''}" data-tlspan="${sp.id}">${sp.label}</button>`).join('')}
     </span></div>
     <div id="tl-main"></div>
     <div id="tl-pod"></div>`;
+  host.querySelectorAll('[data-tlspan]').forEach((b) =>
+    b.addEventListener('click', () => { current.tlSpan = b.dataset.tlspan; renderTimeline(); }));
 
   const paint = () => {
     const main = document.getElementById('tl-main');
     if (!main) return;
     main.innerHTML = lens === 'pod'
-      ? podLensHTML(sched, { horizonWeeks: horizon })
+      ? podLensHTML(sched, { horizonWeeks: horizon, span: spanWeeks })
       : portfolioTimelineHTML(sched, {
-        horizonWeeks: horizon, todayWeek, expand: current.tlExpand,
+        horizonWeeks: horizon, span: spanWeeks, todayWeek, expand: current.tlExpand,
         // AC 8.5: the bands come off the saved policy, not the schedule — the
         // schedule itself only carries the windows' effects, not their dates.
         calendars: (current.scheduling || {}).calendars || [],
@@ -507,27 +524,41 @@ async function renderTimeline() {
         current.tlExpand = current.tlExpand === name ? null : name;
         paint();
       }));
-    // The pod lens's pod blocks open §13.5's sheet (AC 9.1 -> AC 9.5).
+    // The pod lens's pod blocks open §13.5's sheet (AC 9.1 -> AC 9.5);
+    // clicking the open pod again closes it, so the grid is never stuck.
     main.querySelectorAll('.tl-pod[data-pod]').forEach((el) =>
-      el.addEventListener('click', () => paintPodSheet(el.dataset.pod)));
+      el.addEventListener('click', () => {
+        if (current.tlPod === el.dataset.pod) { current.tlPod = null; const h = document.getElementById('tl-pod'); if (h) h.innerHTML = ''; return; }
+        current.tlPod = el.dataset.pod;
+        paintPodSheet(el.dataset.pod);
+      }));
+    // FR-043 (spec 004 Story 3): each pod block exports itself as a PNG. The
+    // click must not also open the sheet, so it stops here.
+    main.querySelectorAll('.pod-export[data-export-pod]').forEach((b) =>
+      b.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const pod = b.dataset.exportPod;
+        exportBlockPNG(b.closest('.tl-pod'), `conway-${pod.replace(/\W+/g, '-').toLowerCase()}-timeline.png`);
+      }));
   };
+  // The pod toggle (open/close) and the lens-switch redraw share ONE renderer —
+  // duplicating the markup without the wiring left the redrawn sheet's PNG
+  // button inert.
   const paintPodSheet = (pod) => {
     const holder = document.getElementById('tl-pod');
     if (!holder) return;
-    if (current.tlPod === pod) { current.tlPod = null; holder.innerHTML = ''; return; }
-    current.tlPod = pod;
     const ps = (sched.podWeeks || []).find((p) => p.pod === pod);
-    holder.innerHTML = ps ? podSheetHTML(ps, sched, { horizonWeeks: horizon }) : '';
+    holder.innerHTML = ps ? podSheetHTML(ps, sched, { horizonWeeks: horizon, span: spanWeeks }) : '';
+    holder.querySelectorAll('.pod-export[data-export-sheet]').forEach((b) =>
+      b.addEventListener('click', () => {
+        exportBlockPNG(b.closest('[data-pod-sheet]'), `conway-${pod.replace(/\W+/g, '-').toLowerCase()}-sheet.png`);
+      }));
   };
   paint();
   // A pod sheet open from before a lens switch stays open: render it directly
   // rather than through the toggle, which would read the selection as a
   // second click and clear it.
-  if (current.tlPod) {
-    const holder = document.getElementById('tl-pod');
-    const ps = (sched.podWeeks || []).find((p) => p.pod === current.tlPod);
-    if (holder) holder.innerHTML = ps ? podSheetHTML(ps, sched, { horizonWeeks: horizon }) : '';
-  }
+  if (current.tlPod) paintPodSheet(current.tlPod);
 
   document.getElementById('tl-by-initiative')?.addEventListener('click', () => { current.tlLens = 'initiative'; renderTimeline(); });
   document.getElementById('tl-by-pod')?.addEventListener('click', () => { current.tlLens = 'pod'; renderTimeline(); });
@@ -580,6 +611,7 @@ async function renderOrder() {
     ? { ...schedOpts, calendars: current.calDraft }
     : schedOpts;
   host.innerHTML = orderViewHTML(current.schedule, {
+    noPin: current.isDraft, // nothing is saved to pin against on a draft
     horizonWeeks: current.horizonWeeks,
     pod: current.orderPod,
     scheduling: schedForForm,
@@ -642,6 +674,98 @@ async function renderOrder() {
     current.orderPod = current.orderPod === a.dataset.pod ? null : a.dataset.pod;
     renderOrder();
   }));
+  // Spec 004 AC 1.1/1.2: pin/unpin persists priorityLocked through the edit API
+  // and recomputes. A draft has nothing saved to pin against, so the control is
+  // rendered only on saved plans (orderRowHTML decides per row).
+  host.querySelectorAll('.ord-pin').forEach((b) => b.addEventListener('click', async () => {
+    const name = b.dataset.pin;
+    const lock = b.dataset.locked !== '1'; // toggle
+    b.disabled = true;
+    // Capture the world as the request saw it: the reader may switch plans (or
+    // trigger another recompute) while the PATCH is in flight, and writing a
+    // stale answer into the new plan is worse than dropping it.
+    const forPlan = current.id;
+    const atEpoch = orderEpoch;
+    const r = await req('/api/plan/' + forPlan + '/initiatives', {
+      method: 'PATCH',
+      body: JSON.stringify({ initiatives: [{ name, priorityLocked: lock }] }),
+    });
+    if (!current || current.id !== forPlan) return; // the reader moved on
+    if (!r || !r.ok) {
+      b.disabled = false;
+      b.title = 'the pin did not save — try again';
+      return;
+    }
+    // The PATCH response is the full post-edit initiative list: use it as the
+    // cache, so a later ✎ save cannot silently re-send the stale lock state
+    // and undo the pin.
+    try {
+      const d = await r.json();
+      if (Array.isArray(d.initiatives)) current.initiatives = d.initiatives;
+    } catch { /* cache stays; the server is still authoritative */ }
+    if (orderEpoch !== atEpoch) return; // a recompute already superseded this
+    current.schedule = null; // the order must answer the new pin, not the old one
+    await renderOrder();
+  }));
+  // ✎ sequencing-attribute editor (spec 004): built from the STORED initiative,
+  // not the scheduled row — tier/CoD/kit/progress live only on the stored one.
+  // Like the assumptions dialog, the element is re-rendered with every
+  // renderOrder, so the wiring is per-render and never stacks.
+  host.querySelectorAll('.ord-edit').forEach((b) => b.addEventListener('click', () => {
+    closeInitEditor();
+    const it = (current.initiatives || []).find((i) => i.name === b.dataset.edit);
+    if (!it) return;
+    host.insertAdjacentHTML('beforeend', initiativeEditDialogHTML(it));
+    const dlg = document.getElementById('init-edit-dialog');
+    if (!dlg) return;
+    dlg.hidden = false;
+    document.getElementById('ie-priority')?.focus();
+    document.getElementById('ie-cancel')?.addEventListener('click', closeInitEditor);
+    document.getElementById('ie-save')?.addEventListener('click', async () => {
+      const errEl = document.getElementById('ie-error');
+      // Checkboxes read .checked; everything else .value.
+      const read = (id) => {
+        const el = document.getElementById(id);
+        if (!el) return '';
+        return el.type === 'checkbox' ? el.checked : el.value;
+      };
+      // "had" carries what the STORED initiative had, so an emptied field can
+      // send an explicit clear instead of a "not mentioned" null.
+      const parsed = initiativeEditFromBody(read, it.name, {
+        targetDate: it.targetDate, costOfDelayPerWeek: it.costOfDelayPerWeek,
+        kitPct: it.kitPct, progressPct: it.progressPct,
+      });
+      if (parsed.error || !parsed.body) {
+        if (errEl) errEl.textContent = parsed.error || 'those values do not parse';
+        return;
+      }
+      const save = document.getElementById('ie-save');
+      if (save) { save.disabled = true; save.textContent = 'Saving…'; }
+      const forPlan = current.id;
+      const atEpoch = orderEpoch;
+      const r = await req('/api/plan/' + forPlan + '/initiatives', {
+        method: 'PATCH', body: JSON.stringify({ initiatives: [parsed.body] }),
+      });
+      if (!current || current.id !== forPlan) return; // the reader moved on
+      if (!r || !r.ok) {
+        if (save) { save.disabled = false; save.textContent = 'Save'; }
+        const why = r ? await r.text() : 'the request did not reach the server';
+        if (errEl) errEl.textContent = why.slice(0, 200);
+        return;
+      }
+      // The PATCH response carries the full post-edit list: it IS the refreshed
+      // cache, so the next open shows the saved values and the next save cannot
+      // resend stale ones. No second GET whose failure would strand the cache.
+      try {
+        const d = await r.json();
+        if (Array.isArray(d.initiatives)) current.initiatives = d.initiatives;
+      } catch { /* cache stays; the server is still authoritative */ }
+      if (orderEpoch !== atEpoch) return; // a recompute already superseded this
+      current.schedule = null;
+      await renderOrder();
+    });
+  }));
+  const closeInitEditor = () => document.getElementById('init-edit-dialog')?.remove();
   document.querySelector('.ord-queue')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   if (current.baselineFocus) {
     current.baselineFocus = false; // one-shot: clicking the chip, not every render

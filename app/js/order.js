@@ -128,7 +128,7 @@ export function orderRows(sched) {
     }));
 }
 
-function orderRowHTML(row) {
+function orderRowHTML(row, opts = {}) {
   const { si, verdict } = row;
   const target = si.targetWeek === null || si.targetWeek === undefined
     ? '<span class="hint">—</span>' : weekLabel(si.targetWeek);
@@ -136,10 +136,23 @@ function orderRowHTML(row) {
   // is what may be promised, and Decision 9 exists because they are not one claim.
   const raw = si.rawFinishWeek === undefined ? '' :
     `<span class="hint" title="raw scheduled finish, before its buffer">${weekLabel(si.rawFinishWeek)} +${si.bufferWeeks || 0}w →</span> `;
+  // Spec 004 AC 1.1/1.2: pin/unpin rides the stated-rank cell (the deviation
+  // lives there), as a toggle. Locked rows offer unpin; moved rows offer pin.
+  // An UNRANKED initiative has no stated rank to pin — a lock without a rank
+  // is a misleading "locked" tag that changes nothing — so it gets no control
+  // until the ✎ editor gives it one. A draft has nothing saved to pin against
+  // either, so no control is offered there.
+  const canPin = !opts.noPin && (si.statedRank > 0 || si.priorityLocked);
+  const pin = !canPin ? '' : (si.priorityLocked
+    ? `<button type="button" class="ord-pin" data-pin="${esc(si.name)}" data-locked="1" title="release this priority back to the engine">unpin</button>`
+    : `<button type="button" class="ord-pin" data-pin="${esc(si.name)}" data-locked="" title="lock this initiative to its stated rank">pin</button>`);
+  // ✎ opens the sequencing-attribute editor (spec 004: the in-app half of the
+  // sheet upload). Next to the name, where the row's identity lives.
+  const edit = opts.noPin ? '' : `<button type="button" class="ord-edit" data-edit="${esc(si.name)}" title="edit priority, dates, tier, dependencies…">✎ edit</button>`;
   const main = `<tr class="ord-row">
     <td class="num">#${si.proposedRank}</td>
-    <td>${esc(si.name)}</td>
-    <td>${statedCell(si)}</td>
+    <td>${esc(si.name)} ${edit}</td>
+    <td>${statedCell(si)} ${pin}</td>
     <td class="num">${weekLabel(si.startWeek)}</td>
     <td class="num">${raw}<b>${weekLabel(si.commitWeek)}</b></td>
     <td class="num">${target}</td>
@@ -183,7 +196,7 @@ export function rowTraceHTML(row) {
   return `${reason}${terms || assume ? `<details class="ord-terms"><summary class="hint">why this rank</summary>${terms}${assume}</details>` : ''}`;
 }
 
-export function orderTableHTML(sched) {
+export function orderTableHTML(sched, opts = {}) {
   const rows = orderRows(sched);
   if (!rows.length) return '<p class="hint">No initiatives to order yet.</p>';
   return `<table class="wip-table ord-table">
@@ -191,7 +204,7 @@ export function orderTableHTML(sched) {
       <th>#</th><th>Initiative</th><th>Stated</th><th>Start</th>
       <th>${term('commit', 'Commit')}</th><th>${term('target', 'Target')}</th><th>${term('verdict', 'Verdict')}</th><th>${term('binds', 'Binds')}</th>
     </tr></thead>
-    <tbody>${rows.map(orderRowHTML).join('')}</tbody>
+    <tbody>${rows.map((r) => orderRowHTML(r, opts)).join('')}</tbody>
   </table>`;
 }
 
@@ -204,6 +217,58 @@ export function infeasibleNote(sched) {
   const names = stuck.map((si) => `${esc(si.name)} <span class="hint">(needs ${weekLabel(si.commitWeek)}, wanted ${weekLabel(si.targetWeek)})</span>`);
   return `<p class="plan-warn">⚠ ${stuck.length} date${stuck.length > 1 ? 's' : ''} no ordering can meet: ${names.join(' · ')}.
     Only a later date, less scope or an earlier start moves these.</p>`;
+}
+
+// feverZone applies the Observe fever chart's thresholds (sim.js feverPoint):
+// burn ratio <0.5 green, <1 amber, >=1 red. Same zones in both views, or the
+// planner reads one number two ways — worse than no chart at all.
+export function feverZone(ratio) {
+  return ratio < 0.5 ? 'green' : ratio < 1 ? 'amber' : 'red';
+}
+
+// feverChartHTML is FR-024 (spec 004 Story 2): the plan-time fever chart. One
+// dot per DATED initiative, x = chain progress at the target week, y = buffer
+// consumed by then. Pure SVG (no d3) — it is a scatter, not a simulation, and
+// the axes are fixed 0..1 so the zones are honest comparison territory.
+// Meaning is never color-only (FR-044): position carries it, and the legend
+// names the zones.
+export function feverChartHTML(sched) {
+  const dated = (sched.initiatives || []).filter((si) =>
+    si.targetWeek !== null && si.targetWeek !== undefined);
+  if (!dated.length) return '';
+  const W = 320, H = 200, M = { t: 10, r: 10, b: 30, l: 38 };
+  const x = (v) => M.l + v * (W - M.l - M.r);
+  const y = (v) => H - M.b - Math.min(v, 1.5) / 1.5 * (H - M.b - M.t);
+  const zone = (r, fill) =>
+    `<path d="M${x(0)},${y(0)} L${x(1)},${y(Math.min(r, 1.5))} L${x(1)},${y(0)} Z" fill="${fill}" opacity="0.14"/>`;
+  const dots = dated.map((si) => {
+    const p = si.targetProgress || 0;
+    const b = si.targetBurn || 0;
+    const z = feverZone(si.burnRatio || 0);
+    const label = `${si.name}: ${(p * 100).toFixed(0)}% of chain by its target, ${b.toFixed(1)}x buffer burned`;
+    return `<circle cx="${x(p)}" cy="${y(b)}" r="4" class="fever-dot fever-${z}"><title>${esc(label)}</title></circle>`;
+  }).join('');
+  const pct = (v) => `${Math.round(v * 100)}%`;
+  const yTicks = [0, 0.5, 1, 1.5].map((v) =>
+    `<text x="${M.l - 6}" y="${y(v) + 3}" text-anchor="end" class="fever-tick">${pct(v)}</text>`).join('');
+  const xTicks = [0, 0.5, 1].map((v) =>
+    `<text x="${x(v)}" y="${H - M.b + 14}" text-anchor="middle" class="fever-tick">${pct(v)}</text>`).join('');
+  return `<div class="fever-wrap">
+  <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="buffer fever chart: chain progress at each target date against buffer consumed">
+    ${zone(0.5, 'var(--green)')}${zone(1, 'var(--amber)')}
+    <rect x="${x(0)}" y="${y(1.5)}" width="${x(1) - x(0)}" height="${y(0) - y(1.5)}" fill="var(--red)" opacity="0.10"/>
+    <line x1="${x(0)}" y1="${y(0)}" x2="${x(1)}" y2="${y(0)}" class="fever-axis"/>
+    <line x1="${x(0)}" y1="${y(0)}" x2="${x(0)}" y2="${y(1.5)}" class="fever-axis"/>
+    ${yTicks}${xTicks}${dots}
+    <text x="${(x(0) + x(1)) / 2}" y="${H - 2}" text-anchor="middle" class="fever-label">chain done by the target date</text>
+    <text x="10" y="${(y(0) + y(1.5)) / 2}" text-anchor="middle" class="fever-label"
+      transform="rotate(-90 10 ${(y(0) + y(1.5)) / 2})">buffer consumed</text>
+  </svg>
+  <p class="hint">Fever chart (plan-time): each dot is a dated initiative read at its target date —
+    how much of the chain should be done, against how much buffer the date eats.
+    Zones match the Observe fever chart: below the green line is comfortable, amber is the
+    buffer going fast, red has spent it. ${dated.length} dated of ${(sched.initiatives || []).length}.</p>
+</div>`;
 }
 
 // heatmapWeeks bounds the grid to the period, not the whole schedule. AC 4.1 asks
@@ -226,13 +291,48 @@ export function overrunNote(sched, weeks) {
     and continue past this grid — the period is ${weeks} weeks long.</p>`;
 }
 
+// idleNoteHTML is AC 4.2's attribution sentence, per pod: where the scheduled
+// mean weekly utilization diverges from the flat rho the Network view reports
+// by more than 2 points, say both numbers AND what the idle time was spent on
+// (calendar windows, waiting upstream, or held for a release slot). Within 2
+// points the views agree and NFR-005 demands silence, not a per-pod essay.
+export function idleNoteHTML(pods, horizonWeeks) {
+  const gaps = (pods || []).filter((ps) =>
+    ps.meanUtil !== undefined && ps.flatRho !== undefined &&
+    Math.abs((ps.meanUtil || 0) - (ps.flatRho || 0)) > 0.02);
+  if (!gaps.length) return '';
+  const fmt = (n) => `${Math.round((n || 0) * 100)}%`;
+  // The denominator is the PERIOD's track-weeks: a schedule that overruns
+  // carries weeks the server never attributed idle over, so dividing by the
+  // whole span understates every cause.
+  const trackWeeks = (ps) => Math.max(1, (ps.tracks || 1) * (horizonWeeks || (ps.weeks || []).length));
+  const line = (ps) => {
+    const idle = ps.idle || {};
+    const parts = [];
+    if (idle.calendar) parts.push(`${fmt(idle.calendar / trackWeeks(ps))} calendar`);
+    if (idle.upstream) parts.push(`${fmt(idle.upstream / trackWeeks(ps))} waiting upstream`);
+    if (idle.heldForRelease) parts.push(`${fmt(idle.heldForRelease / trackWeeks(ps))} held for a release slot`);
+    return `<li><b>${esc(ps.pod)}</b>: scheduled ${fmt(ps.meanUtil)} vs flat ρ ${fmt(ps.flatRho)}${parts.length ? ` — idle: ${parts.join(', ')}` : ''}</li>`;
+  };
+  return `<details class="ord-idle"><summary class="hint">${gaps.length} pod${gaps.length > 1 ? 's' : ''} where the schedule runs lighter than the flat ρ</summary>
+    <ul class="hint">${gaps.map(line).join('')}</ul>
+    <p class="hint">Attributions are what the schedule can see: calendar windows cut capacity, upstream
+      waits are dependencies, and the rest is what the release gates (WIP limit, change-absorption
+      cap, kit readiness) hold back.</p></details>`;
+}
+
 export function podHeatmapHTML(sched, horizonWeeks) {
   const pods = sched.podWeeks || [];
   if (!pods.length) return '<p class="hint">No pod load to show yet.</p>';
   const weeks = heatmapWeeks(sched, horizonWeeks);
   const drums = new Set(sched.drumPods || []);
 
-  const head = Array.from({ length: weeks }, (_, w) => `<th class="ord-wk">${w % 5 === 0 ? w : ''}</th>`).join('');
+  // The tick hover carries the calendar date (spec 004: dates on hover) —
+  // the week number alone asks the planner to do date arithmetic in their head.
+  const head = Array.from({ length: weeks }, (_, w) => {
+    const d = weekToDate(w, sched.periodStart);
+    return `<th class="ord-wk"${d ? ` title="week of ${esc(d)}"` : ''}>${w % 5 === 0 ? w : ''}</th>`;
+  }).join('');
   const rows = pods.map((ps) => {
     const cells = Array.from({ length: weeks }, (_, w) => {
       const wk = (ps.weeks || [])[w] || { busy: 0, tracks: ps.tracks, utilization: 0, initiatives: [] };
@@ -251,7 +351,8 @@ export function podHeatmapHTML(sched, horizonWeeks) {
     <tbody>${rows}</tbody></table>
     <p class="hint">Each cell is one week: the number is tracks in use, red is at or over capacity,
       amber from 0.85. Click a pod for its queue.</p>
-    ${overrunNote(sched, weeks)}`;
+    ${overrunNote(sched, weeks)}
+    ${idleNoteHTML(pods, weeks)}`;
 }
 
 const utf8 = new TextEncoder();
@@ -394,11 +495,163 @@ export function orderHeaderHTML(sched) {
   <div class="plan-summary">${comparisonBarsHTML(obj)}</div>`;
 }
 
+// initiativeEditDialogHTML is the in-app half of spec 001 §10 Q9 (spec 004:
+// close the gap). The uploaded sheet is one entry point for sequencing
+// attributes; this dialog is the other — every field the edit API accepts,
+// prefilled from the STORED initiative (not the scheduled row, which carries
+// only what the schedule reports), so a planner can fill what the sheet left
+// blank (the the reference plan matrix has no priority column at all) or correct what it got
+// wrong without re-uploading.
+export function initiativeEditDialogHTML(it) {
+  if (!it) return '';
+  const v = (x) => (x === null || x === undefined ? '' : String(x));
+  return `<div class="ord-sched" id="init-edit-dialog" role="dialog" aria-modal="true"
+    aria-label="Edit initiative sequencing attributes" hidden>
+    <div class="ord-sched-box">
+      <b>Edit “${esc(it.name)}”</b>
+      <p class="hint">Sequencing attributes — the same fields an uploaded sheet can carry. Dates are YYYY-MM-DD inside the period.</p>
+      <div class="sched-grid">
+        <label class="hint sched-f">priority (1 = highest, blank = unranked)
+          <span class="sched-row"><input id="ie-priority" type="number" min="1" step="1" value="${v(it.statedPriority)}"
+            placeholder="unranked"></span></label>
+        <label class="hint sched-f">target date
+          <span class="sched-row"><input id="ie-target" type="date" value="${esc(it.targetDate || '')}"></span></label>
+        <label class="hint sched-f">tier (1 contractual .. 4 aspirational)
+          <span class="sched-row"><input id="ie-tier" type="number" min="1" max="4" step="1" value="${v(it.tier)}"
+            placeholder="unscored"></span></label>
+        <label class="hint sched-f">cost of delay / week (1-10, ratios are what count)
+          <span class="sched-row"><input id="ie-cod" type="number" min="0" max="10" step="0.5" value="${v(it.costOfDelayPerWeek)}"
+            placeholder="1"></span></label>
+        <label class="hint sched-f">earliest start
+          <span class="sched-row"><input id="ie-earliest" type="date" value="${esc(it.earliestStart || '')}"></span></label>
+        <label class="hint sched-f">full-kit readiness % (blank = 100)
+          <span class="sched-row"><input id="ie-kit" type="number" min="0" max="100" step="1" value="${it.kitPct !== undefined && it.kitPct !== null ? Math.round(it.kitPct * 100) : ''}"
+            placeholder="100"></span></label>
+        <label class="hint sched-f">after initiatives (comma-separated, quotes for commas in names)
+          <span class="sched-row"><input id="ie-after" value="${esc((it.afterInitiatives || []).map(quoteName).join(', '))}"
+            placeholder="none"></span></label>
+        <label class="hint sched-f">progress % (already done)
+          <span class="sched-row"><input id="ie-progress" type="number" min="0" max="100" step="1" value="${it.progressPct ? Math.round(it.progressPct * 100) : ''}"
+            placeholder="0"></span></label>
+        <label class="hint sched-f">in flight (carryover already running)
+          <span class="sched-row"><input id="ie-inflight" type="checkbox" ${it.inFlight ? 'checked' : ''}></span></label>
+      </div>
+      <div class="sched-row" style="gap:14px; margin-top:6px">
+        <label class="hint"><input type="checkbox" id="ie-priority-locked" ${it.priorityLocked ? 'checked' : ''}> priority fixed (pin the stated rank)</label>
+        <label class="hint"><input type="checkbox" id="ie-date-locked" ${it.dateLocked ? 'checked' : ''}> date fixed (a commitment, not an aspiration)</label>
+      </div>
+      <span id="ie-error" class="login-err"></span>
+      <div class="sched-row" style="gap:8px; margin-top:8px">
+        <button type="button" class="primary" id="ie-save">Save</button>
+        <button type="button" id="ie-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// weekToDate turns a week number into YYYY-MM-DD from the period start —
+// the timeline tick hover and the editor's date fields read it. Local time,
+// not UTC, so the date is the day the period actually starts on.
+export function weekToDate(week, periodStart) {
+  if (!periodStart) return '';
+  const t = new Date(String(periodStart).trim() + 'T00:00:00');
+  if (Number.isNaN(t.getTime())) return '';
+  t.setDate(t.getDate() + week * 7);
+  return t.toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
+}
+
+// quoteName applies the sheet convention to a single name going INTO the field:
+// a name with a comma or a quote is wrapped in double quotes (internal quotes
+// doubled), or saving the dialog would split it into pieces on the way back.
+export function quoteName(n) {
+  if (!/["\n,]/.test(n)) return n;
+  return '"' + n.replace(/"/g, '""') + '"';
+}
+
+// splitInitiativeNames is the sheet convention (planning.go splitInitiativeList):
+// comma-separated, but a name may be double-quoted to hold a comma of its own.
+// The sheet parser and this dialog must agree, or a name edited here would not
+// match the one the upload produced.
+export function splitInitiativeNames(s) {
+  const t = s.trim();
+  if (!t || /^replace this with/i.test(t)) return [];
+  const out = [];
+  let cur = '';
+  let inQuotes = false;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (c === '"') {
+      if (inQuotes && t[i + 1] === '"') { cur += '"'; i++; continue; } // doubled quote
+      inQuotes = !inQuotes;
+      continue;
+    }
+    if (c === ',' && !inQuotes) {
+      const name = cur.trim();
+      if (name && !/^none$/i.test(name)) out.push(name);
+      cur = '';
+      continue;
+    }
+    cur += c;
+  }
+  const last = cur.trim();
+  if (last && !/^none$/i.test(last)) out.push(last);
+  return out;
+}
+
+// initiativeEditFromBody reads the dialog's live DOM back into an InitiativeEdit
+// body (the PATCH shape). Explicit-clear protocol: JSON null means "not
+// mentioned" to the server's pointers, so every field the dialog emptied sends
+// a real clear — priority 0, tier 0, kit/progress 0 (where one existed), an
+// empty after-list, and clearDate for a date that had one. Otherwise a planner
+// who empties a field sees it come back on the next open and learns the dialog
+// lies.
+export function initiativeEditFromBody(read, name, had = {}) {
+  const num = (id, max) => {
+    const raw = String(read(id) ?? '').trim();
+    if (raw === '') return null;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) return undefined; // invalid: caller shows the error
+    if (max !== undefined && n > max) return undefined;
+    return n;
+  };
+  const body = { name };
+  const priority = num('ie-priority');
+  if (priority === undefined) return { error: 'priority must be a number ≥ 1' };
+  if (priority !== null) body.statedPriority = Math.max(1, Math.round(priority));
+  else body.statedPriority = 0; // explicit clear: blank means unranked
+  const tier = num('ie-tier', 4);
+  if (tier === undefined) return { error: 'tier must be 1-4' };
+  if (tier !== null && tier >= 1) body.tier = Math.round(tier);
+  else body.tier = 0; // explicit clear: blank means unscored
+  const cod = num('ie-cod', 10);
+  if (cod === undefined) return { error: 'cost of delay must be 0-10' };
+  if (cod !== null) body.costOfDelayPerWeek = cod;
+  else if (had.costOfDelayPerWeek) body.costOfDelayPerWeek = 0; // cleared, if one existed
+  const kit = num('ie-kit', 100);
+  if (kit === undefined) return { error: 'kit readiness must be 0-100' };
+  if (kit !== null) body.kitPct = kit / 100;
+  else if (had.kitPct) body.kitPct = 0; // cleared, if one existed
+  const progress = num('ie-progress', 100);
+  if (progress === undefined) return { error: 'progress must be 0-100' };
+  if (progress !== null) body.progressPct = progress / 100;
+  else if (had.progressPct) body.progressPct = 0; // cleared, if one existed
+  const target = String(read('ie-target') ?? '').trim();
+  if (target) body.targetDate = target;
+  else if (had.targetDate) body.clearDate = true; // explicit clear of an existing date
+  body.earliestStart = String(read('ie-earliest') ?? '').trim() || null;
+  body.priorityLocked = !!read('ie-priority-locked');
+  body.dateLocked = !!read('ie-date-locked');
+  body.inFlight = !!read('ie-inflight');
+  body.afterInitiatives = splitInitiativeNames(String(read('ie-after') ?? ''));
+  return { body };
+}
+
 export function orderViewHTML(sched, opts = {}) {
   return `<div class="card ord-card">
     ${orderHeaderHTML(sched)}
     ${opts.scheduling === undefined ? '' : schedulingDialogHTML(opts.scheduling, sched.wipLimit, sched)}
-    ${orderTableHTML(sched)}
+    ${orderTableHTML(sched, opts)}
+    ${feverChartHTML(sched)}
     ${infeasibleNote(sched)}
     ${noticesHTML(sched)}
   </div>
@@ -416,9 +669,10 @@ export function orderViewHTML(sched, opts = {}) {
 // simulator all consume; these only affect the order, and putting them in the
 // header would imply that moving them changes the Network view's numbers.
 //
-// Only knobs that do something are offered. targetUtilization (the drum stagger),
-// leadCapacity and the transfer settings are all in §7 but nothing consumes them
-// yet, and a control that silently does nothing is worse than an absent one.
+// Only knobs that do something are offered. leadCapacity and the transfer
+// settings are in §7 but nothing consumes them yet, and a control that silently
+// does nothing is worse than an absent one. (targetUtilization joined the live
+// set when the drum stagger landed — spec 004 Story 5.)
 
 // The input and its suffix share a row inside the column layout, and the input is
 // wide enough for its placeholder: these placeholders say what leaving the field
@@ -524,6 +778,8 @@ export function schedulingFormHTML(sp = {}, wip, sched) {
     'initiatives at one pod at once')}
       ${intField('sched-quarter', 'starts per quarter', asInt(sp.maxStartsPerQuarter), 'uncapped',
     'how much change the org can absorb')}
+      ${pctField('sched-stagger', 'drum target utilization', asPct(sp.targetUtilization), 'off',
+    'hold releases so drum load stays under this; blank means no stagger')}
     </div>
     ${calendarWindowsHTML(sp.calendars || [])}
     <button type="button" id="sched-save" class="primary">Save assumptions</button>
@@ -628,6 +884,13 @@ export function schedulingFromForm(read) {
     if (raw(id) === '') continue;
     const f = pctToFraction(raw(id));
     if (f !== null) out[key] = f;
+  }
+
+  // The drum stagger's target (spec 004 Story 5): a fraction in (0,1); blank or
+  // 100 means off. Anything else is ignored rather than clamped silently.
+  {
+    const f = pctToFraction(raw('sched-stagger'));
+    if (f !== null && f > 0 && f < 1) out.targetUtilization = f;
   }
 
   // Calendar windows: read every numbered row, keep only the complete ones.

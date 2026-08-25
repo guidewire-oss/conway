@@ -49,6 +49,7 @@ const (
 	bindEarliestStart = "earliest-start"
 	bindPredecessor   = "predecessor"
 	bindFreeze        = "freeze" // a calendar window refused the start or finish (FR-018)
+	bindStagger       = "drum stagger" // release held to keep drum load under the target (Decision 5)
 )
 
 // Dispatch rules, run in this order. D6 keeps the best by objective; ties keep
@@ -237,6 +238,25 @@ type PodSchedule struct {
 	Tracks int         `json:"tracks"`
 	Weeks  []PodWeek   `json:"weeks"`
 	Slices []WorkSlice `json:"slices"`
+	// AC 4.2 (spec 004 Story 4): the flat-model comparison and the idle
+	// attribution. MeanUtil is the mean of the weekly utilization over the
+	// horizon; FlatRho is the residual demand over capacity the Network view
+	// reports; Idle* bucket the track-weeks the pod did not work, by the cause
+	// visible in the schedule.
+	MeanUtil float64   `json:"meanUtil,omitempty"`
+	FlatRho  float64   `json:"flatRho,omitempty"`
+	Idle     IdleWeeks `json:"idle,omitempty"`
+}
+
+// IdleWeeks are track-weeks, not calendar weeks: a 3-track pod idle all week
+// counts 3. HeldForRelease is the remainder after calendars and upstream
+// waits — the WIP limit, the change-absorption cap, the kit gate, or plain
+// starvation all land here, because the schedule cannot separate them without
+// re-running placement counterfactually.
+type IdleWeeks struct {
+	Calendar       float64 `json:"calendar"`
+	Upstream       float64 `json:"upstream"`
+	HeldForRelease float64 `json:"heldForRelease"`
 }
 
 // RankingTerms is the ranking formula's named terms for one initiative, so the
@@ -251,13 +271,21 @@ type RankingTerms struct {
 
 // ScheduledInitiative is one initiative's place in the order (§7).
 type ScheduledInitiative struct {
-	Name              string       `json:"name"`
-	ProposedRank      int          `json:"proposedRank"`
-	StatedRank        int          `json:"statedRank,omitempty"`
-	StartWeek         int          `json:"startWeek"`
-	RawFinishWeek     int          `json:"rawFinishWeek"`
-	CommitWeek        int          `json:"commitWeek"`
-	BufferWeeks       int          `json:"bufferWeeks"`
+	Name          string `json:"name"`
+	ProposedRank  int    `json:"proposedRank"`
+	StatedRank    int    `json:"statedRank,omitempty"`
+	StartWeek     int    `json:"startWeek"`
+	RawFinishWeek int    `json:"rawFinishWeek"`
+	CommitWeek    int    `json:"commitWeek"`
+	BufferWeeks   int    `json:"bufferWeeks"`
+	// FR-024 (spec 004 Story 2): plan-time fever point. TargetProgress is the
+	// chain fraction elapsed by the target week; TargetBurn is the buffer
+	// fraction consumed by then (0 when the date holds); BurnRatio zones it
+	// exactly as the Observe fever chart zones (Decision: same thresholds, both
+	// views must read alike). A zero buffer or no target leaves all three 0.
+	TargetProgress    float64      `json:"targetProgress"`
+	TargetBurn        float64      `json:"targetBurn"`
+	BurnRatio         float64      `json:"burnRatio"`
 	TargetWeek        *int         `json:"targetWeek,omitempty"`
 	Verdict           string       `json:"verdict"`
 	WeeksLate         int          `json:"weeksLate,omitempty"`
@@ -280,6 +308,9 @@ type RankDeviation struct {
 	StatedRank   int    `json:"statedRank"`
 	ProposedRank int    `json:"proposedRank"`
 	Reason       string `json:"reason"`
+	// Locked carries the initiative's pin state so the reconciliation view can
+	// offer pin/unpin per row (spec 004 AC 1.1/1.2) without a second lookup.
+	Locked bool `json:"priorityLocked"`
 }
 
 // WipLimit is the org WIP limit in force, and where it came from. Decision 22
@@ -341,6 +372,7 @@ type schedInput struct {
 	deps        map[string][]string
 	durations   map[string]int
 	drumWeeks   float64 // consumption of the drum pods
+	drumSet     map[string]bool // which of its pods are drums (the stagger gate reads this)
 	totalWeeks  float64
 	chainAlone  int // critical chain at unlimited capacity
 	weight      float64
@@ -474,6 +506,10 @@ func computeOne(teams []Team, inits []Initiative, params Params, sp SchedulingPa
 	// PodWeeks was built during the run, before the annotation: the pod view
 	// reads those copies, so the slack pair has to reach them too.
 	propagateSliceSlack(sched.Initiatives, sched.PodWeeks)
+	// AC 4.2 (spec 004 Story 4): the aggregate-consistency sentence. Mean weekly
+	// utilization beside the flat rho, and the idle track-weeks bucketed by the
+	// cause the schedule can actually see.
+	annotateIdle(sched, rules, byName, residualLoads(prepared, tracks, params), horizon)
 	sched.Assumptions, sched.Warnings = notices(prepared)
 	// From the winning run, not from a fresh walk of the plan: which edge closes a
 	// cycle depends on the traversal, so a sheet-order detector would name an edge
@@ -571,6 +607,7 @@ func (in *schedInput) setDrumWeeks(drumPods []string) {
 	for _, d := range drumPods {
 		isDrum[d] = true
 	}
+	in.drumSet = isDrum
 	in.drumWeeks = 0
 	for _, pod := range in.order {
 		if isDrum[pod] {
@@ -979,10 +1016,26 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 				break
 			}
 			gate, ok := releaseGates(in, sp, wip, start, finish, inFlight, leadBusy, quarterStarts)
-			if ok || release > maxWeek {
+			if !ok {
+				// A release gate refused: hold one week and name it.
+				release, reason = release+1, gate
+				continue
+			}
+			if release > maxWeek {
 				break
 			}
-			release, reason = release+1, gate
+			// Decision 5's stagger: with every other gate satisfied, hold the
+			// release so planned load at the drum pods stays at or below
+			// targetUtilization. Only initiatives that touch a drum are
+			// staggered; everything else releases as before. The check reads
+			// each drum slice's actual start week (the placement already found
+			// where the work would run), against the occupancy the earlier
+			// releases created there.
+			if stagger, why := drumStagger(in, sp, cal, placed); stagger {
+				release, reason = release+1, why
+				continue
+			}
+			break
 		}
 
 		for _, s := range placed {
@@ -1149,6 +1202,45 @@ func releaseFloor(in *schedInput, sp SchedulingParams, commitOf map[string]int, 
 		week, reason = horizon, bindKitGate
 	}
 	return week, reason
+}
+
+// drumStagger is Decision 5's release stagger (spec 004 Story 5): refuse a
+// release whose first week would push a drum pod this initiative works on to
+// or above the target utilization. The occupancy read is what is already
+// placed (the cal map mutates as initiatives are placed, so this sees exactly
+// the load the earlier releases created). 0 or absent targetUtilization means
+// no stagger — the inherited behaviour is unchanged.
+func drumStagger(in *schedInput, sp SchedulingParams, cal map[string]*podCalendar, placed []WorkSlice) (bool, string) {
+	if sp.TargetUtilization <= 0 || sp.TargetUtilization >= 1 || in.drumSet == nil {
+		return false, ""
+	}
+	for _, s := range placed {
+		if !in.drumSet[s.Pod] {
+			continue
+		}
+		c := cal[s.Pod]
+		if c == nil || c.tracks <= 0 {
+			continue
+		}
+		// The bound is on OCCUPANCY, not start rate: this slice adds a track in
+		// every week of its span, so refuse the release if any drum week would
+		// then sit above the target. That makes the schedule's actual drum load
+		// respect the target — a start-rate check cannot, because slices from
+		// different releases overlap.
+		// A target that admits less than one track would refuse every
+		// placement forever, and the retry bound would then commit a slice that
+		// violates it anyway — a silent violation is worse than no stagger, so
+		// such a target is ignored for this pod rather than "enforced".
+		if int(math.Ceil(sp.TargetUtilization*float64(c.tracks)-1e-9)) < 1 {
+			continue
+		}
+		for w := s.StartWeek; w < s.FinishWeek; w++ {
+			if float64(weekAt(c.busy, w)+1) > sp.TargetUtilization*float64(c.tracks)+1e-9 {
+				return true, bindStagger
+			}
+		}
+	}
+	return false, ""
 }
 
 // releaseGates checks the concurrency limits over an initiative's whole span,
@@ -1389,6 +1481,25 @@ func summarise(in *schedInput, rank, start, finish int, slices []WorkSlice, rele
 	}
 	si.BufferWeeks = bufferWeeksFor(finish-start, sp)
 	si.CommitWeek = finish + si.BufferWeeks
+	// FR-024 fever point, computed at the target week. No target or no buffer
+	// means nothing to burn against, so the point stays at the origin.
+	if si.BufferWeeks > 0 && in.targetWeek != nil {
+		chain := finish - start
+		if t := *in.targetWeek; chain > 0 {
+			si.TargetProgress = math.Max(0, math.Min(1, float64(t-start)/float64(chain)))
+			// The date consumes buffer whenever it lands before the buffered
+			// commit — including before the chain even starts, where progress is
+			// 0 and the miss is measured from the commit, not the finish.
+			if t < si.CommitWeek {
+				si.TargetBurn = float64(si.CommitWeek-t) / float64(si.BufferWeeks)
+				if si.TargetProgress > 0 {
+					si.BurnRatio = si.TargetBurn / si.TargetProgress
+				} else {
+					si.BurnRatio = si.TargetBurn // nothing started: the burn is the whole story
+				}
+			}
+		}
+	}
 
 	// pBar, not in.drumWeeks: FR-021 wants the terms that produced the position, and
 	// the ranking discounted slack against the portfolio mean.
@@ -1459,6 +1570,75 @@ func objectiveOf(sis []ScheduledInitiative, weights map[string]float64) float64 
 		total += w * float64(si.WeeksLate)
 	}
 	return round1(total)
+}
+
+// annotateIdle fills the AC 4.2 comparison (spec 004 Story 4) on each pod: the
+// mean weekly utilization the schedule produced, the flat rho the Network view
+// reports, and the idle track-weeks bucketed by cause. The buckets are honest
+// about what they can see: a calendar week is counted from the rules; an
+// upstream week is one where the pod's next slice is waiting on a predecessor
+// elsewhere; the remainder is everything the release gates hold. They are
+// attributions, not counterfactuals.
+func annotateIdle(sched *Schedule, rules *calendarRules, teams map[string]Team, loads []PodLoad, horizon int) {
+	rho := map[string]float64{}
+	for _, l := range loads {
+		rho[l.Team] = l.Rho
+	}
+	// readyAt[pod] = the latest week by which the pod's own work becomes READY:
+	// for every slice, the finish of the upstream slice it names (the
+	// predecessor's completion), not the dependent slice's own finish. Waiting
+	// attributed to a week the predecessor had already finished was never a
+	// dependency wait.
+	readyAt := map[string]int{}
+	for _, ps := range sched.PodWeeks {
+		for _, s := range ps.Slices {
+			for _, up := range s.DependsOn {
+				for _, ups := range sched.PodWeeks {
+					if ups.Pod != up {
+						continue
+					}
+					for _, us := range ups.Slices {
+						if us.Initiative == s.Initiative && us.FinishWeek > readyAt[s.Pod] {
+							readyAt[s.Pod] = us.FinishWeek
+						}
+					}
+				}
+			}
+		}
+	}
+	for i := range sched.PodWeeks {
+		ps := &sched.PodWeeks[i]
+		if len(ps.Weeks) == 0 {
+			continue
+		}
+		sum, n := 0.0, 0
+		for _, pw := range ps.Weeks[:min(horizon, len(ps.Weeks))] {
+			sum += pw.Utilization
+			n++
+			idle := float64(pw.Tracks - pw.Busy)
+			if idle <= 0 {
+				continue
+			}
+			w := pw.Week
+			site := siteOf(teams, ps.Pod)
+			if rules != nil && (rules.reducedTracks(ps.Pod, site, ps.Tracks, w) < ps.Tracks ||
+				rules.startBlocked(ps.Pod, site, w) || rules.finishBlocked(ps.Pod, site, w)) {
+				ps.Idle.Calendar += idle
+				continue
+			}
+			// Upstream: the pod's work is not ready yet at w because a
+			// predecessor slice has not finished.
+			if w < readyAt[ps.Pod] {
+				ps.Idle.Upstream += idle
+				continue
+			}
+			ps.Idle.HeldForRelease += idle
+		}
+		if n > 0 {
+			ps.MeanUtil = round1(sum/float64(n)*100) / 100
+		}
+		ps.FlatRho = round1(rho[ps.Pod]*100) / 100
+	}
 }
 
 // podSchedules turns the occupancy calendars into the per-pod weekly load and
@@ -1540,7 +1720,7 @@ func reconcile(sis []ScheduledInitiative, rule string) []RankDeviation {
 			reason = "promoted: better on " + basis + " than the initiatives it passed"
 		}
 		out = append(out, RankDeviation{Initiative: si.Name, StatedRank: si.StatedRank,
-			ProposedRank: si.ProposedRank, Reason: reason})
+			ProposedRank: si.ProposedRank, Reason: reason, Locked: si.PriorityLocked})
 	}
 	sort.SliceStable(out, func(a, b int) bool { return out[a].ProposedRank < out[b].ProposedRank })
 	return out
