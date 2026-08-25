@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   fmtWhen, activeBaseline, baselineChipHTML, baselineListHTML,
-  deltaCell, compareTableHTML, baselinePanelHTML, saveErrorMessage,
+  deltaCell, compareTableHTML, baselinePanelHTML, saveErrorMessage, latestOnly,
 } from '../app/js/baseline.js';
 
 const saved = [
@@ -231,9 +231,20 @@ test('the baseline list offers pairwise compare only with another baseline', () 
   const two = baselineListHTML([{ id: 'a', name: 'v1' }, { id: 'b', name: 'v2' }]);
   assert.equal((two.match(/bl-vs-sel/g) || []).length, 2, 'one select per row');
   assert.match(two, /data-from="a"/);
-  const selA = two.slice(two.indexOf('data-from="a"'), two.indexOf('data-from="b"'));
-  assert.match(selA, /value="b">v2</);
+  // Both rows, not just the first: the exclusion is per row, so checking only A
+  // would pass even if B offered itself. Slicing from each marker to the end and
+  // cutting at the closing tag keeps each select's own options in view.
+  const selectFor = (id) => {
+    const start = two.indexOf(`data-from="${id}"`);
+    return two.slice(start, two.indexOf('</select>', start));
+  };
+  const selA = selectFor('a');
+  assert.match(selA, /value="b">v2</, 'A offers B');
   assert.doesNotMatch(selA, /value="a"/, 'a baseline is never its own compare target');
+
+  const selB = selectFor('b');
+  assert.match(selB, /value="a">v1</, 'B offers A');
+  assert.doesNotMatch(selB, /value="b"/, 'and B is not its own target either');
 });
 
 test('a pairwise compare card names both baselines and the direction', () => {
@@ -242,9 +253,13 @@ test('a pairwise compare card names both baselines and the direction', () => {
     to: { name: 'v2 Aurora first' },
     comparison: { moved: 17, initiatives: [] },
   });
-  assert.match(html, /17 initiatives have moved from <b>v1 first cut<\/b> \/u2192 <b>v2 Aurora first<\/b>/.test('x')
-    ? /never/ : /17 initiatives have moved from <b>v1 first cut<\/b>/);
-  assert.match(html, /<b>v2 Aurora first<\/b>/);
+  // The whole phrase, arrow included, in one assertion. The previous version built
+  // a regex, tested it against the constant 'x' (always false) and so always took
+  // the fallback branch, leaving the direction unchecked -- and its arrow was
+  // written \/u2192 rather than \u2192, so it could not have matched regardless.
+  assert.match(html,
+    /17 initiatives have moved from <b>v1 first cut<\/b> \u2192 <b>v2 Aurora first<\/b>/,
+    'the card must name both baselines and which way the deltas run');
 
   const quiet = compareTableHTML({
     baseline: { name: 'v1' }, to: { name: 'v2' }, comparison: { moved: 0, initiatives: [] },
@@ -256,4 +271,33 @@ test('a pairwise compare card names both baselines and the direction', () => {
     baseline: { name: 'v1' }, comparison: { moved: 2, initiatives: [] },
   });
   assert.match(live, /2 initiatives have moved since <b>v1<\/b>/);
+});
+
+// Thread on planui.js:259 — picking a second baseline pair before the first
+// response lands let the slower one render last and overwrite the newer card. The
+// plan-id check could not catch it because the plan had not changed. The
+// sequencing lives here, as a pure helper, so it is testable at all: planui.js is
+// the fetch-and-DOM layer and has no harness.
+test('latestOnly lets only the most recent claim render', () => {
+  const gate = latestOnly();
+  const first = gate.claim();
+  const second = gate.claim();
+
+  assert.equal(gate.isCurrent(second), true, 'the newest request may render');
+  assert.equal(gate.isCurrent(first), false, 'the superseded one may not, however late it lands');
+});
+
+test('latestOnly still admits a lone request, and re-admits the newest repeatedly', () => {
+  const gate = latestOnly();
+  const only = gate.claim();
+  assert.equal(gate.isCurrent(only), true);
+  assert.equal(gate.isCurrent(only), true, 'checking twice does not consume the claim');
+});
+
+test('latestOnly keeps separate gates independent', () => {
+  const a = latestOnly();
+  const b = latestOnly();
+  const ta = a.claim();
+  b.claim();
+  assert.equal(a.isCurrent(ta), true, 'another view advancing must not invalidate this one');
 });
