@@ -326,8 +326,12 @@ func verdictRank(v string) int {
 		return 1
 	case verdictInfeasible:
 		return 2
+	case verdictBeyondHorizon:
+		// Worse than structurally-infeasible: that one at least has a place in the
+		// period, and this one does not start at all (Decision 28).
+		return 3
 	}
-	return 3
+	return 4
 }
 
 // bindingPodOf names the pod to add capacity at: the pod of the target's
@@ -471,7 +475,11 @@ func conflictingCommitments(sis []ScheduledInitiative) []Conflict {
 }
 
 func missesDate(v string) bool {
-	return v == verdictLate || v == verdictInfeasible
+	// beyond-horizon is a missed outcome too (Decision 28): the initiative could not
+	// begin inside the period, and the rescue options are the same ones. Leaving it
+	// out made remedies silently return nothing for the initiatives most in need of
+	// them, which is how the decision first showed up as a panic in the handler test.
+	return v == verdictLate || v == verdictInfeasible || v == verdictBeyondHorizon
 }
 
 func minInt(a, b int) int {
