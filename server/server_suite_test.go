@@ -77,3 +77,22 @@ var _ = Describe("admin user extend", func() {
 		Expect(s.store.Users["bob"].ExpiresAt).To(Equal(before))
 	})
 })
+
+// Explicit zero must not be a no-op trap: Extend(0) would pin a never-expires
+// account (admin) to "now", silently expiring it — caught live when the probe
+// below did exactly that to the real admin account.
+var _ = Describe("admin user extend guards", func() {
+	It("refuses an explicit zero rather than expiring a never-expires account", func() {
+		s := &server{store: newMemStore()}
+		s.store.CreateUser("Keeper", []string{"admin"}, 0) // never expires
+		before := s.store.Users["keeper"].ExpiresAt // 0
+
+		req := httptest.NewRequest("POST", "/api/admin/users/keeper/extend",
+			strings.NewReader(`{"hours":0}`))
+		rec := httptest.NewRecorder()
+		s.handleUserItem(rec, req, auth.Claims{Sub: "admin", Roles: []string{"admin"}})
+
+		Expect(rec.Code).To(Equal(400))
+		Expect(s.store.Users["keeper"].ExpiresAt).To(Equal(before), "never-expires untouched")
+	})
+})
