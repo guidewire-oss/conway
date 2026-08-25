@@ -736,7 +736,7 @@ critical paths at once.
 - objectiveScore, statedOrderObjectiveScore: number
 - reconciliation: list of rank deviations with reason and cost
 - conflicts: list of conflicting locked pairs
-- rejectedTransfers, assumptions, warnings
+- assumptions, warnings
 
 **ScheduleFit** _(derived; Decision 28)_
 - podWeeksDemanded: number — every initiative's in-path work, whether or not it
