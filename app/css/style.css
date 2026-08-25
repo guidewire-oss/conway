@@ -506,6 +506,11 @@ button.bl-chip:focus-visible { outline: 2px solid var(--accent); outline-offset:
    FR-035: every position is a percentage; the horizon always fits. */
 .tl-card { margin-top: 12px; }
 .tl-axis { position: relative; height: 20px; font-size: 11px; color: var(--muted); margin-left: 160px; }
+/* Period-end marker (spec 004 follow-up): where the selected period stops when
+   the view is drawn wider. Dashed, labelled, and never color-only. */
+.tl-period-end { position: absolute; top: 0; bottom: 0; border-left: 2px dashed var(--accent); z-index: 2; }
+.tl-period-end-label { position: absolute; top: -14px; left: 4px; font-size: 9.5px; color: var(--accent);
+  white-space: nowrap; background: var(--panel); padding: 0 3px; border-radius: 4px; }
 .tl-tick { position: absolute; transform: translateX(-50%); white-space: nowrap; }
 .tl-body { position: relative; }
 .tl-grid { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--border); opacity: .35; }

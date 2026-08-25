@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   axisScale, axisTicks, timelineRowHTML, portfolioTimelineHTML,
-  podLanesHTML, podLensHTML, podSheetHTML, todayLineHTML,
+  podLanesHTML, podLensHTML, podSheetHTML, todayLineHTML, periodEndHTML,
 } from '../app/js/timeline.js';
 import { esc } from '../app/js/order.js';
 
@@ -337,4 +337,14 @@ test('the pod lens and the pod sheet offer a PNG export', () => {
   const found = (sched.podWeeks || [])[0];
   const sheet = podSheetHTML(found, sched, { horizonWeeks: 26 });
   assert.match(sheet, /class="pod-export" data-export-sheet=/);
+});
+
+// Spec 004 follow-up: the period-end marker when the view spans past the horizon.
+test('periodEndHTML marks the horizon only when the span exceeds it', () => {
+  assert.equal(periodEndHTML(26, 26), '');
+  assert.equal(periodEndHTML(26, 20), '');
+  const wide = periodEndHTML(26, 52);
+  assert.match(wide, /tl-period-end/);
+  assert.match(wide, /period end · w26/);
+  assert.match(wide, /title="period end: week 26 of 52 shown"/);
 });
