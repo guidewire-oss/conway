@@ -107,7 +107,7 @@ function renderPlan() {
   const unknown = p.unknownTeams || [];
   root.innerHTML = `
     <div class="plan-head">
-      <nav class="plan-crumbs" aria-label="You are here"><a class="plan-back">Plans</a><span class="hint">›</span><b>${esc(p.name)}</b></nav>
+      <nav class="plan-crumbs" aria-label="You are here"><button type="button" class="plan-back">Plans</button><span class="hint">›</span><b>${esc(p.name)}</b></nav>
       <h2>${esc(p.name)}</h2>
       <label class="hint">horizon <input id="plan-horizon" type="number" min="1" max="104" value="${p.horizonWeeks}" style="width:56px">w</label>
       <label class="hint">capacity loss <input id="plan-loss" type="number" min="0" max="90" value="${Math.round((p.capacityLoss || 0) * 100)}" style="width:52px">%</label>
