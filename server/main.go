@@ -299,6 +299,24 @@ func retireLegacyStore(path string) {
 	log.Printf("retired legacy store to %s — it will not be imported again", retired)
 }
 
+// ensureStoreDir creates the directory holding the legacy file store, and reports
+// failure rather than ending the process.
+//
+// It used to be fatal, which took every pod on the dev cluster down: the image
+// bakes CONWAY_STORE=/data/store.json and the container runs with a read-only root
+// filesystem, so mkdir failed and the server exited over a directory it never
+// writes to. Nothing is written here while a database is configured, and one is
+// mandatory.
+func ensureStoreDir(storePath string) error {
+	dir := filepath.Dir(storePath)
+	if storePath == "" || dir == "" || dir == "." {
+		return nil
+	}
+	// 0o750, not 0o755: this held the credential store and game state, so there is
+	// no reason for it to be world-readable (gosec G301).
+	return os.MkdirAll(dir, 0o750)
+}
+
 func main() {
 	// Defaults assume the repo root as the working directory (the module root
 	// since go.mod moved there): the SPA is ./app, and everything written at
@@ -306,15 +324,14 @@ func main() {
 	addr := env("CONWAY_ADDR", ":8741")
 	appDir := env("CONWAY_APP_DIR", "./app")
 	storePath := env("CONWAY_STORE", "./var/store.json")
-	// The store and the game state beside it are plain files; their directory is
-	// no longer guaranteed to exist (it used to be the working directory), so
-	// create it rather than failing on the first write.
-	if dir := filepath.Dir(storePath); dir != "" && dir != "." {
-		// 0o750, not 0o755: this holds the credential store and game state, so
-		// there is no reason for it to be world-readable (gosec G301).
-		if err := os.MkdirAll(dir, 0o750); err != nil {
-			log.Fatalf("create store directory %s: %v", dir, err)
-		}
+	// The store directory is only ever read now, by the one-time legacy imports
+	// below: DATABASE_URL is required a few lines down and Postgres is the only
+	// backend, so accounts, the signing secret and the game snapshot are all in
+	// the database. Not being able to create it is therefore a note, not a reason
+	// to exit -- a read-only root filesystem is a perfectly good way to run this.
+	if err := ensureStoreDir(storePath); err != nil {
+		log.Printf("store directory unavailable (%v); continuing, since Postgres holds "+
+			"the accounts, the signing secret and the game state", err)
 	}
 
 	url := os.Getenv("DATABASE_URL")
