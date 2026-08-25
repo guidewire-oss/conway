@@ -327,11 +327,14 @@ func verdictRank(v string) int {
 	case verdictInfeasible:
 		return 2
 	case verdictBeyondHorizon:
-		// Worse than structurally-infeasible: that one at least has a place in the
-		// period, and this one does not start at all (Decision 28).
-		return 3
+		// The worst outcome there is: every other verdict describes an initiative
+		// with a place in the period, and this one has none (Decision 28). It must
+		// also outrank no-date, which falls through to 3 -- otherwise a remedy that
+		// pulls an undated initiative into the period, turning beyond-horizon into
+		// no-date, would score as a regression and never be offered.
+		return 4
 	}
-	return 4
+	return 3
 }
 
 // bindingPodOf names the pod to add capacity at: the pod of the target's
