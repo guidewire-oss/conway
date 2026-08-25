@@ -8,6 +8,9 @@
       "rawFinishWeek": 33,
       "commitWeek": 39,
       "bufferWeeks": 6,
+      "targetProgress": 0.6086956521739131,
+      "targetBurn": 2.5,
+      "burnRatio": 4.107142857142857,
       "targetWeek": 24,
       "verdict": "structurally-infeasible",
       "weeksLate": 15,
@@ -71,6 +74,9 @@
       "rawFinishWeek": 19,
       "commitWeek": 24,
       "bufferWeeks": 5,
+      "targetProgress": 1,
+      "targetBurn": 0,
+      "burnRatio": 0,
       "targetWeek": 24,
       "verdict": "on-time",
       "dateLocked": true,
@@ -118,6 +124,9 @@
       "rawFinishWeek": 42,
       "commitWeek": 46,
       "bufferWeeks": 4,
+      "targetProgress": 0,
+      "targetBurn": 0,
+      "burnRatio": 0,
       "verdict": "no-date",
       "bindingConstraint": "wip-limit",
       "rankingTerms": {
@@ -164,6 +173,9 @@
       "rawFinishWeek": 49,
       "commitWeek": 53,
       "bufferWeeks": 4,
+      "targetProgress": 0,
+      "targetBurn": 7.75,
+      "burnRatio": 7.75,
       "targetWeek": 22,
       "verdict": "late",
       "weeksLate": 31,
@@ -212,6 +224,9 @@
       "rawFinishWeek": 56,
       "commitWeek": 60,
       "bufferWeeks": 4,
+      "targetProgress": 0,
+      "targetBurn": 12,
+      "burnRatio": 12,
       "targetWeek": 12,
       "verdict": "structurally-infeasible",
       "weeksLate": 48,
@@ -260,6 +275,9 @@
       "rawFinishWeek": 10,
       "commitWeek": 13,
       "bufferWeeks": 3,
+      "targetProgress": 1,
+      "targetBurn": 0,
+      "burnRatio": 0,
       "targetWeek": 14,
       "verdict": "on-time",
       "rankingTerms": {
@@ -317,6 +335,9 @@
       "rawFinishWeek": 69,
       "commitWeek": 74,
       "bufferWeeks": 5,
+      "targetProgress": 0,
+      "targetBurn": 0,
+      "burnRatio": 0,
       "verdict": "no-date",
       "bindingConstraint": "wip-limit",
       "rankingTerms": {
@@ -363,6 +384,9 @@
       "rawFinishWeek": 75,
       "commitWeek": 80,
       "bufferWeeks": 5,
+      "targetProgress": 0,
+      "targetBurn": 10.8,
+      "burnRatio": 10.8,
       "targetWeek": 26,
       "verdict": "late",
       "weeksLate": 54,
@@ -411,6 +435,9 @@
       "rawFinishWeek": 90,
       "commitWeek": 96,
       "bufferWeeks": 6,
+      "targetProgress": 0,
+      "targetBurn": 12.333333333333334,
+      "burnRatio": 12.333333333333334,
       "targetWeek": 22,
       "verdict": "structurally-infeasible",
       "weeksLate": 74,
@@ -470,6 +497,9 @@
       "rawFinishWeek": 26,
       "commitWeek": 28,
       "bufferWeeks": 2,
+      "targetProgress": 0,
+      "targetBurn": 0,
+      "burnRatio": 0,
       "verdict": "no-date",
       "bindingConstraint": "wip-limit",
       "priorityLocked": true,
@@ -1121,7 +1151,14 @@
           "latestStartWeek": 22,
           "slackWeeks": 0
         }
-      ]
+      ],
+      "meanUtil": 0.045,
+      "flatRho": 0.057999999999999996,
+      "idle": {
+        "calendar": 0,
+        "upstream": 149,
+        "heldForRelease": 0
+      }
     },
     {
       "pod": "Beacon",
@@ -1718,7 +1755,14 @@
           "latestStartWeek": 49,
           "slackWeeks": 0
         }
-      ]
+      ],
+      "meanUtil": 0.011000000000000001,
+      "flatRho": 0.049,
+      "idle": {
+        "calendar": 0,
+        "upstream": 0,
+        "heldForRelease": 180
+      }
     },
     {
       "pod": "Cascade",
@@ -2325,7 +2369,13 @@
           "latestStartWeek": 69,
           "slackWeeks": 0
         }
-      ]
+      ],
+      "flatRho": 0.06,
+      "idle": {
+        "calendar": 0,
+        "upstream": 182,
+        "heldForRelease": 0
+      }
     },
     {
       "pod": "Delta",
@@ -3079,7 +3129,14 @@
           "latestStartWeek": 42,
           "slackWeeks": 0
         }
-      ]
+      ],
+      "meanUtil": 0.5,
+      "flatRho": 1.0959999999999999,
+      "idle": {
+        "calendar": 0,
+        "upstream": 0,
+        "heldForRelease": 26
+      }
     },
     {
       "pod": "Ember",
@@ -3800,7 +3857,14 @@
           "latestStartWeek": 75,
           "slackWeeks": 0
         }
-      ]
+      ],
+      "meanUtil": 0.135,
+      "flatRho": 0.9420000000000001,
+      "idle": {
+        "calendar": 0,
+        "upstream": 45,
+        "heldForRelease": 0
+      }
     },
     {
       "pod": "Fjord",
@@ -4375,7 +4439,13 @@
           "latestStartWeek": 38,
           "slackWeeks": 0
         }
-      ]
+      ],
+      "flatRho": 0.038,
+      "idle": {
+        "calendar": 0,
+        "upstream": 104,
+        "heldForRelease": 0
+      }
     },
     {
       "pod": "Granite",
@@ -5008,7 +5078,14 @@
           "latestStartWeek": 86,
           "slackWeeks": 17
         }
-      ]
+      ],
+      "meanUtil": 0.092,
+      "flatRho": 0.12300000000000001,
+      "idle": {
+        "calendar": 0,
+        "upstream": 90,
+        "heldForRelease": 28
+      }
     },
     {
       "pod": "Harbor",
@@ -5615,7 +5692,14 @@
           "latestStartWeek": 43,
           "slackWeeks": 0
         }
-      ]
+      ],
+      "meanUtil": 0.032,
+      "flatRho": 0.071,
+      "idle": {
+        "calendar": 0,
+        "upstream": 151,
+        "heldForRelease": 0
+      }
     },
     {
       "pod": "Ibis",
@@ -6216,7 +6300,14 @@
           "latestStartWeek": 51,
           "slackWeeks": 0
         }
-      ]
+      ],
+      "meanUtil": 0.031,
+      "flatRho": 0.069,
+      "idle": {
+        "calendar": 0,
+        "upstream": 126,
+        "heldForRelease": 0
+      }
     },
     {
       "pod": "Juniper",
@@ -6794,7 +6885,13 @@
           "latestStartWeek": 70,
           "slackWeeks": 0
         }
-      ]
+      ],
+      "flatRho": 0.048,
+      "idle": {
+        "calendar": 0,
+        "upstream": 104,
+        "heldForRelease": 0
+      }
     }
   ],
   "drumPods": [
@@ -6868,55 +6965,64 @@
       "initiative": "Telemetry GA",
       "statedRank": 2,
       "proposedRank": 1,
-      "reason": "promoted: better on how much of the drum it consumes than the initiatives it passed"
+      "reason": "promoted: better on how much of the drum it consumes than the initiatives it passed",
+      "priorityLocked": false
     },
     {
       "initiative": "Self-service app platform",
       "statedRank": 1,
       "proposedRank": 2,
-      "reason": "outranked on how much of the drum it consumes"
+      "reason": "outranked on how much of the drum it consumes",
+      "priorityLocked": false
     },
     {
       "initiative": "Autoscaling rollout",
       "statedRank": 10,
       "proposedRank": 4,
-      "reason": "promoted: better on how much of the drum it consumes than the initiatives it passed"
+      "reason": "promoted: better on how much of the drum it consumes than the initiatives it passed",
+      "priorityLocked": false
     },
     {
       "initiative": "Managed database MVP",
       "statedRank": 4,
       "proposedRank": 5,
-      "reason": "outranked on how much of the drum it consumes"
+      "reason": "outranked on how much of the drum it consumes",
+      "priorityLocked": false
     },
     {
       "initiative": "Disaster recovery for event streaming",
       "statedRank": 5,
       "proposedRank": 6,
-      "reason": "outranked on how much of the drum it consumes"
+      "reason": "outranked on how much of the drum it consumes",
+      "priorityLocked": false
     },
     {
       "initiative": "Bring-your-own-auth (early access)",
       "statedRank": 6,
       "proposedRank": 7,
-      "reason": "outranked on how much of the drum it consumes"
+      "reason": "outranked on how much of the drum it consumes",
+      "priorityLocked": false
     },
     {
       "initiative": "SCIM provisioning",
       "statedRank": 7,
       "proposedRank": 8,
-      "reason": "outranked on how much of the drum it consumes"
+      "reason": "outranked on how much of the drum it consumes",
+      "priorityLocked": false
     },
     {
       "initiative": "Secrets rotation",
       "statedRank": 8,
       "proposedRank": 9,
-      "reason": "outranked on how much of the drum it consumes"
+      "reason": "outranked on how much of the drum it consumes",
+      "priorityLocked": false
     },
     {
       "initiative": "Tenant isolation",
       "statedRank": 9,
       "proposedRank": 10,
-      "reason": "outranked on how much of the drum it consumes"
+      "reason": "outranked on how much of the drum it consumes",
+      "priorityLocked": false
     }
   ],
   "horizonWeeks": 26,

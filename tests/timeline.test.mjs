@@ -329,3 +329,12 @@ test('a freeze band is labelled so the mark is not just colour (FR-044)', () => 
 test('no windows render no bands', () => {
   assert.ok(!portfolioTimelineHTML(sched, { horizonWeeks: 26 }).includes('tl-band'));
 });
+
+// FR-043 (spec 004 Story 3): both pod views carry a PNG export affordance.
+test('the pod lens and the pod sheet offer a PNG export', () => {
+  const lens = podLensHTML(sched, { horizonWeeks: 26 });
+  assert.match(lens, /class="pod-export" data-export-pod=/);
+  const found = (sched.podWeeks || [])[0];
+  const sheet = podSheetHTML(found, sched, { horizonWeeks: 26 });
+  assert.match(sheet, /class="pod-export" data-export-sheet=/);
+});
