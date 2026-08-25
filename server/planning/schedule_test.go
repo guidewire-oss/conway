@@ -803,4 +803,114 @@ var _ = Describe("ComputeSchedule", func() {
 			Expect(si.CommitWeek).To(Equal(si.RawFinishWeek))
 		})
 	})
+
+	// Spec 004 Story 1: the deviation carries the pin state so the view can offer
+	// pin/unpin without a second lookup. The demo plan's own lock (Access-control,
+	// stated-3) never deviates under any winning rule, so exercise reconcile
+	// directly with a moved-and-locked row — the case the reason text describes.
+	It("carries the priority lock on each rank deviation", func() {
+		sis := []ScheduledInitiative{{
+			Name: "Pinned", StatedRank: 2, ProposedRank: 5, PriorityLocked: true,
+		}, {
+			Name: "Free", StatedRank: 5, ProposedRank: 2,
+		}}
+		devs := reconcile(sis, "constraint-first")
+		Expect(devs).To(HaveLen(2))
+		byName := map[string]RankDeviation{}
+		for _, d := range devs {
+			byName[d.Initiative] = d
+		}
+		Expect(byName["Pinned"].Locked).To(BeTrue())
+		Expect(byName["Pinned"].Reason).To(ContainSubstring("locked"))
+		Expect(byName["Free"].Locked).To(BeFalse())
+	})
+
+	// Spec 004 Story 2 (FR-024): the plan-time fever point, read at the target
+	// week. On-time dates burn nothing; a date before the commit consumes buffer
+	// in proportion to the miss; no date or no buffer leaves the origin.
+	It("computes the fever point against the buffered commit", func() {
+		teams, inits := Demo()
+		sched := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0.1},
+			DemoScheduling())
+		byName := map[string]ScheduledInitiative{}
+		for _, si := range sched.Initiatives {
+			byName[si.Name] = si
+		}
+		// Telemetry GA lands exactly on its buffered commit: nothing burns.
+		onTime := byName["Telemetry GA"]
+		Expect(onTime.Verdict).To(Equal("on-time"))
+		Expect(onTime.TargetBurn).To(BeNumerically("~", 0, 1e-9))
+		// Managed database MVP misses by whole buffers: burn is the miss over
+		// the buffer, and the chain has not even started at the target.
+		late := byName["Managed database MVP"]
+		Expect(late.Verdict).To(Equal("late"))
+		Expect(late.TargetBurn).To(BeNumerically(">", 1))
+		Expect(late.TargetProgress).To(Equal(0.0))
+		Expect(late.BurnRatio).To(BeNumerically("~", late.TargetBurn, 1e-9))
+		// Undated initiatives have no fever point at all.
+		undated := byName["SCIM provisioning"]
+		Expect(undated.TargetBurn).To(Equal(0.0))
+		Expect(undated.TargetProgress).To(Equal(0.0))
+	})
+
+	// Spec 004 Story 5 (AC 5.1/5.2): targetUtilization staggers releases at the
+	// drum; absent or 0 leaves the schedule untouched.
+	It("staggers drum releases under a target utilization", func() {
+		teams, inits := Demo()
+		base := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0.1}, DemoScheduling())
+		sp := DemoScheduling()
+		sp.TargetUtilization = 0.8
+		staggered := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0.1}, sp)
+		// Something must have been held, and at least one binding reason must
+		// name the stagger — or the knob silently does nothing, which is the
+		// failure mode spec 004 exists to close.
+		seen := false
+		for _, si := range staggered.Initiatives {
+			if si.BindingConstraint == "drum stagger" {
+				seen = true
+				break
+			}
+		}
+		Expect(seen).To(BeTrue(), "some release should be held with reason 'drum stagger'")
+		// The demo's drum (Delta) runs at or under the target in every week the
+		// stagger controls: its peak weekly load must not exceed 80% of tracks.
+		for _, ps := range staggered.PodWeeks {
+			if ps.Pod != "Delta" {
+				continue
+			}
+			for _, w := range ps.Weeks[:26] {
+				if w.Tracks > 0 {
+					Expect(float64(w.Busy)).To(BeNumerically("<=", 0.8*float64(w.Tracks)+1e-9),
+						"week %d: drum load %d/%d exceeds the 0.8 target", w.Week, w.Busy, w.Tracks)
+				}
+			}
+		}
+		// Sanity: the staggered schedule cannot finish earlier than the base one.
+		baseFin := 0
+		for _, si := range base.Initiatives {
+			if si.CommitWeek > baseFin {
+				baseFin = si.CommitWeek
+			}
+		}
+		stagFin := 0
+		for _, si := range staggered.Initiatives {
+			if si.CommitWeek > stagFin {
+				stagFin = si.CommitWeek
+			}
+		}
+		Expect(stagFin).To(BeNumerically(">=", baseFin))
+	})
+
+	It("leaves the schedule unchanged with no target utilization", func() {
+		teams, inits := Demo()
+		off := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0.1}, DemoScheduling())
+		zero := DemoScheduling()
+		zero.TargetUtilization = 0
+		zeroed := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0.1}, zero)
+		Expect(zeroed.ObjectiveScore).To(Equal(off.ObjectiveScore))
+		for _, si := range zeroed.Initiatives {
+			Expect(si.BindingConstraint).NotTo(Equal("drum stagger"))
+		}
+	})
+
 })

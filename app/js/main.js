@@ -138,7 +138,7 @@ async function mountSnapshotPicker(badge) {
     : `${s.name || s.id} -- ${new Date(s.createdAt * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} -- ${s.owner}`;
   const wrap = document.createElement('span');
   wrap.className = 'snapshot-pick';
-  wrap.innerHTML = '<label class="hint" for="snapshot-pick-sel">Viewing</label>';
+  wrap.innerHTML = '<label class="hint" for="snapshot-pick-sel">Viewing org snapshot</label>';
   const sel = document.createElement('select');
   sel.id = 'snapshot-pick-sel';
   sel.title = 'The org snapshot every Observe screen renders';
@@ -160,6 +160,10 @@ async function mountSnapshotPicker(badge) {
   wrap.appendChild(sel);
   badge.after(wrap);
   requestAnimationFrame(fitWidth);
+  // The picker mounts after async snapshot data, later than the initial
+  // syncSnapshotPicker() call — a player landing on the game view would see it
+  // mount visible over the game. Sync here, at the moment it exists.
+  syncSnapshotPicker();
 }
 
 // Role-based landing: a plain team player sees only the game (which embeds its
@@ -212,9 +216,27 @@ document.addEventListener('focusin', (ev) => {
 document.addEventListener('focusout', () => { tip.hidden = true; });
 document.addEventListener('scroll', () => { tip.hidden = true; }, true);
 
+// The "Viewing" picker is the org snapshot every OBSERVE screen renders. Plan
+// and Games carry their own data (a plan's roster and initiatives, a game's
+// scenario network) and never consult it — on those views the picker would
+// imply a connection that does not exist, so it hides.
+const SNAPSHOT_AGNOSTIC_VIEWS = new Set(['plan', 'game']);
+const syncSnapshotPicker = () => {
+  const pick = document.querySelector('.snapshot-pick');
+  if (!pick) return;
+  const active = document.querySelector('.view.active');
+  const hide = active && SNAPSHOT_AGNOSTIC_VIEWS.has(active.id.replace('view-', ''));
+  pick.toggleAttribute('hidden', !!hide);
+};
+// Initial sync: role gating may land the page on a snapshot-agnostic view
+// (players go straight to the game) before any tab is clicked — but the picker
+// itself mounts later, after its async listSnapshots, so the first real sync
+// happens on the first tab click; this one covers a picker that mounted fast.
+setTimeout(syncSnapshotPicker, 0);
 document.querySelectorAll('.tab[data-view]').forEach((b) => b.addEventListener('click', () => {
   document.querySelectorAll('.tab[data-view]').forEach((x) => x.classList.toggle('active', x === b));
   document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === `view-${b.dataset.view}`));
+  syncSnapshotPicker();
 }));
 
 // Explore ▾ dropdown: groups the analytics views under one menu so the top bar

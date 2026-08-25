@@ -255,3 +255,22 @@ var _ = Describe("PeriodBounds", func() {
 		Expect(end).To(Equal("2026-07-06"), "Params.WithDefaults uses 26 weeks")
 	})
 })
+
+// Review fix (PR #32): clearDate is the explicit clear for the target date —
+// JSON null means "not mentioned", so the dialog needs a real sentinel.
+var _ = Describe("initiative edit clears", func() {
+	It("clears a target date on clearDate and leaves it alone on omission", func() {
+		inits := []Initiative{{Name: "A", Work: map[string]TeamWork{"Delta": {Weeks: 2}}, TargetDate: "2026-10-01"}}
+		sp := SchedulingParams{PeriodStart: "2026-09-01"}
+
+		// omission: no edit fields at all → date survives
+		out, err := ApplyInitiativeEdits(inits, []InitiativeEdit{{Name: "A"}}, sp, 26)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out[0].TargetDate).To(Equal("2026-10-01"))
+
+		// explicit clear
+		out, err = ApplyInitiativeEdits(inits, []InitiativeEdit{{Name: "A", ClearDate: true}}, sp, 26)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out[0].TargetDate).To(Equal(""))
+	})
+})
