@@ -39,8 +39,8 @@ export function baselineChipHTML(baselines) {
     ? "The plan's inputs have changed since this baseline was saved, so it no longer describes this plan"
     : 'This baseline matches the plan as it stands';
   return `<button type="button" class="bl-chip" id="bl-chip" title="${esc(why)} — open the baselines panel">
-    baseline: <span class="bl-dot ${diverged ? 'bl-diverged' : 'bl-current'}">●</span>
-    ${esc(active.name)}${diverged ? ' <span class="tag">diverged</span>' : ''} <span class="hint">▾</span></button>`;
+    agreed: <span class="bl-dot ${diverged ? 'bl-diverged' : 'bl-current'}">●</span>
+    ${esc(active.name)}${diverged ? ' <span class="tag">inputs have moved</span>' : ' <span class="tag">matches</span>'} <span class="hint">▾</span></button>`;
 }
 
 // baselineListHTML is the history. Every baseline stays readable, not just the
