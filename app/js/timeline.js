@@ -13,7 +13,7 @@
 // labelled, the target is a diamond glyph, today is an arrow, zero slack is a
 // ⚠ beside the number.
 
-import { esc } from './order.js';
+import { esc, weekToDate } from './order.js';
 import { term } from './terms.js';
 
 // axisScale maps a week onto the row width as a percentage. The row is the
@@ -37,6 +37,15 @@ export function axisTicks(horizon) {
   const out = [];
   for (let w = 0; w <= h; w += step) out.push({ week: w, label: `w${w}` });
   return out;
+}
+
+// tickTitle is the hover date for a week label: the calendar day the week
+// begins, from the schedule's own period start. No period start (a plan
+// without dates yet) means no title — an invented anchor would date every
+// week wrongly, which is worse than no date at all.
+export function tickTitle(week, periodStart) {
+  const d = weekToDate(week, periodStart);
+  return d ? `week of ${d}` : '';
 }
 
 // todayLineHTML marks today (FR-038), positioned by week. Outside the period
@@ -177,8 +186,10 @@ function weekOfDate(periodStart, date) {
 export function portfolioTimelineHTML(sched, opts = {}) {
   const horizon = opts.horizonWeeks || sched.horizonWeeks || 26;
   const s = axisScale(horizon);
-  const ticks = axisTicks(horizon).map((t) =>
-    `<span class="tl-tick" style="${pct(s(t.week))}">${t.label}</span>`).join('');
+  const ticks = axisTicks(horizon).map((t) => {
+    const title = tickTitle(t.week, sched.periodStart || opts.periodStart);
+    return `<span class="tl-tick" style="${pct(s(t.week))}"${title ? ` title="${esc(title)}"` : ''}>${t.label}</span>`;
+  }).join('');
   const grid = axisTicks(horizon).map((t) =>
     `<div class="tl-grid" style="${pct(s(t.week))}"></div>`).join('');
   const rows = (sched.initiatives || [])
@@ -283,13 +294,20 @@ export function podLensHTML(sched, opts = {}) {
     const rho = podRho(ps, horizon);
     return `<div class="tl-pod" data-pod="${esc(ps.pod)}">
       <div class="ord-head"><b>${esc(ps.pod)}</b>
-        <span class="hint">ρ ${rho.toFixed(2)} · ${ps.tracks} track${ps.tracks > 1 ? 's' : ''} · ${(ps.slices || []).length} slice${(ps.slices || []).length === 1 ? '' : 's'}</span></div>
+        <span class="hint">ρ ${rho.toFixed(2)} · ${ps.tracks} track${ps.tracks > 1 ? 's' : ''} · ${(ps.slices || []).length} slice${(ps.slices || []).length === 1 ? '' : 's'}</span>
+        <button type="button" class="pod-export" data-export-pod="${esc(ps.pod)}" title="download this pod's timeline as a PNG">⬇ PNG</button></div>
       ${podLanesHTML(ps, opts)}
     </div>`;
+  }).join('');
+  const s = axisScale(horizon);
+  const ticks = axisTicks(horizon).map((t) => {
+    const title = tickTitle(t.week, sched.periodStart || opts.periodStart);
+    return `<span class="tl-tick" style="${pct(s(t.week))}"${title ? ` title="${esc(title)}"` : ''}>${t.label}</span>`;
   }).join('');
   return `<div class="card tl-card">
     <div class="ord-head"><b>Timeline — by pod</b>
       <span class="hint">one lane per track · idle lanes are slack, shown on purpose · hottest first</span></div>
+    <div class="tl-axis">${ticks}</div>
     ${blocks}
   </div>`;
 }
@@ -328,7 +346,8 @@ export function podSheetHTML(ps, sched, opts = {}) {
 
   return `<div class="card ord-card" data-pod-sheet="${esc(ps.pod)}">
     <div class="ord-head"><b>${esc(ps.pod)} — ${ps.tracks} track${ps.tracks > 1 ? 's' : ''}</b>
-      <span class="hint">${slices.length} slice${slices.length === 1 ? '' : 's'} in start order</span></div>
+      <span class="hint">${slices.length} slice${slices.length === 1 ? '' : 's'} in start order</span>
+      <button type="button" class="pod-export" data-export-sheet="${esc(ps.pod)}" title="download this sheet as a PNG">⬇ PNG</button></div>
     <table class="wip-table">
       <thead><tr><th>Initiative</th><th>Weeks</th><th>Start</th><th>Start by</th><th>Slack</th><th>Waiting on</th><th>Blocks</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="7" class="hint">No scheduled work at this pod.</td></tr>'}</tbody>

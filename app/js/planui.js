@@ -6,7 +6,8 @@ import {
   heatColor, layoutColumns, bezierEdgePath, appendArrowMarker,
   enablePanZoom, enableNodeDrag, makeSpotlight,
 } from './netgraph.js';
-import { esc, orderViewHTML, schedulingFromForm } from './order.js';
+import { esc, orderViewHTML, schedulingFromForm, initiativeEditDialogHTML, initiativeEditFromBody } from './order.js';
+import { exportBlockPNG } from './exportpng.js';
 import { baselineChipHTML, baselinePanelHTML, saveErrorMessage } from './baseline.js';
 import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
 import { portfolioTimelineHTML, podLensHTML, podSheetHTML } from './timeline.js';
@@ -510,6 +511,14 @@ async function renderTimeline() {
     // The pod lens's pod blocks open §13.5's sheet (AC 9.1 -> AC 9.5).
     main.querySelectorAll('.tl-pod[data-pod]').forEach((el) =>
       el.addEventListener('click', () => paintPodSheet(el.dataset.pod)));
+    // FR-043 (spec 004 Story 3): each pod block exports itself as a PNG. The
+    // click must not also open the sheet, so it stops here.
+    main.querySelectorAll('.pod-export[data-export-pod]').forEach((b) =>
+      b.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const pod = b.dataset.exportPod;
+        exportBlockPNG(b.closest('.tl-pod'), `conway-${pod.replace(/\W+/g, '-').toLowerCase()}-timeline.png`);
+      }));
   };
   const paintPodSheet = (pod) => {
     const holder = document.getElementById('tl-pod');
@@ -518,6 +527,10 @@ async function renderTimeline() {
     current.tlPod = pod;
     const ps = (sched.podWeeks || []).find((p) => p.pod === pod);
     holder.innerHTML = ps ? podSheetHTML(ps, sched, { horizonWeeks: horizon }) : '';
+    holder.querySelectorAll('.pod-export[data-export-sheet]').forEach((b) =>
+      b.addEventListener('click', () => {
+        exportBlockPNG(b.closest('[data-pod-sheet]'), `conway-${pod.replace(/\W+/g, '-').toLowerCase()}-sheet.png`);
+      }));
   };
   paint();
   // A pod sheet open from before a lens switch stays open: render it directly
@@ -580,6 +593,7 @@ async function renderOrder() {
     ? { ...schedOpts, calendars: current.calDraft }
     : schedOpts;
   host.innerHTML = orderViewHTML(current.schedule, {
+    noPin: current.isDraft, // nothing is saved to pin against on a draft
     horizonWeeks: current.horizonWeeks,
     pod: current.orderPod,
     scheduling: schedForForm,
@@ -642,6 +656,75 @@ async function renderOrder() {
     current.orderPod = current.orderPod === a.dataset.pod ? null : a.dataset.pod;
     renderOrder();
   }));
+  // Spec 004 AC 1.1/1.2: pin/unpin persists priorityLocked through the edit API
+  // and recomputes. A draft has nothing saved to pin against, so the control is
+  // rendered only on saved plans (orderRowHTML decides per row).
+  host.querySelectorAll('.ord-pin').forEach((b) => b.addEventListener('click', async () => {
+    const name = b.dataset.pin;
+    const lock = b.dataset.locked !== '1'; // toggle
+    b.disabled = true;
+    const r = await req('/api/plan/' + current.id + '/initiatives', {
+      method: 'PATCH',
+      body: JSON.stringify({ initiatives: [{ name, priorityLocked: lock }] }),
+    });
+    if (!r || !r.ok) {
+      b.disabled = false;
+      b.title = 'the pin did not save — try again';
+      return;
+    }
+    current.schedule = null; // the order must answer the new pin, not the old one
+    await renderOrder();
+  }));
+  // ✎ sequencing-attribute editor (spec 004): built from the STORED initiative,
+  // not the scheduled row — tier/CoD/kit/progress live only on the stored one.
+  // Like the assumptions dialog, the element is re-rendered with every
+  // renderOrder, so the wiring is per-render and never stacks.
+  host.querySelectorAll('.ord-edit').forEach((b) => b.addEventListener('click', () => {
+    closeInitEditor();
+    const it = (current.initiatives || []).find((i) => i.name === b.dataset.edit);
+    if (!it) return;
+    host.insertAdjacentHTML('beforeend', initiativeEditDialogHTML(it));
+    const dlg = document.getElementById('init-edit-dialog');
+    if (!dlg) return;
+    dlg.hidden = false;
+    document.getElementById('ie-priority')?.focus();
+    document.getElementById('ie-cancel')?.addEventListener('click', closeInitEditor);
+    document.getElementById('ie-save')?.addEventListener('click', async () => {
+      const errEl = document.getElementById('ie-error');
+      // Checkboxes read .checked; everything else .value.
+      const read = (id) => {
+        const el = document.getElementById(id);
+        if (!el) return '';
+        return el.type === 'checkbox' ? el.checked : el.value;
+      };
+      const parsed = initiativeEditFromBody(read, it.name);
+      if (parsed.error || !parsed.body) {
+        if (errEl) errEl.textContent = parsed.error || 'those values do not parse';
+        return;
+      }
+      const save = document.getElementById('ie-save');
+      if (save) { save.disabled = true; save.textContent = 'Saving…'; }
+      const r = await req('/api/plan/' + current.id + '/initiatives', {
+        method: 'PATCH', body: JSON.stringify({ initiatives: [parsed.body] }),
+      });
+      if (!r || !r.ok) {
+        if (save) { save.disabled = false; save.textContent = 'Save'; }
+        const why = r ? await r.text() : 'the request did not reach the server';
+        if (errEl) errEl.textContent = why.slice(0, 200);
+        return;
+      }
+      // The stored initiatives are the dialog's source of truth; refresh them
+      // before re-rendering or the next open shows the pre-edit values.
+      const refreshed = await req('/api/plan/' + current.id);
+      if (refreshed && refreshed.ok) {
+        const p = await refreshed.json();
+        current.initiatives = p.initiatives;
+      }
+      current.schedule = null;
+      await renderOrder();
+    });
+  }));
+  const closeInitEditor = () => document.getElementById('init-edit-dialog')?.remove();
   document.querySelector('.ord-queue')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   if (current.baselineFocus) {
     current.baselineFocus = false; // one-shot: clicking the chip, not every render

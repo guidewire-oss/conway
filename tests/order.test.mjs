@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   esc, zoneOf, weekLabel, verdictView, verdictBadgeHTML, statedCell, objectiveView, wipLimitNote, schedulingDialogHTML,
-  orderRows, orderTableHTML, infeasibleNote, heatmapWeeks, overrunNote,
+  orderRows, orderTableHTML, infeasibleNote, heatmapWeeks, overrunNote, feverChartHTML, feverZone, idleNoteHTML,
+  initiativeEditDialogHTML, initiativeEditFromBody,
   podHeatmapHTML, podQueueHTML, noticesHTML, orderViewHTML, rowTraceHTML,
   schedulingFormHTML, schedulingFromForm, pctToFraction,
   wipModelsTableHTML, WIP_MODELS,
@@ -761,4 +762,145 @@ test('order rows right-align the week columns', () => {
   const html = orderTableHTML(sched);
   assert.match(html, /<td class="num">w\d+/);
   assert.ok(html.includes('class="num"'), 'numeric cells are marked');
+});
+
+// Spec 004 Story 1: pin/unpin rides the Stated cell as a toggle; drafts get none.
+test('the order table offers a pin toggle per row, suppressed on drafts', () => {
+  const html = orderTableHTML(sched);
+  assert.match(html, /class="ord-pin"/);
+  assert.equal((html.match(/class="ord-pin"/g) || []).length, sched.initiatives.length,
+    'one toggle per initiative row');
+  const locked = sched.initiatives.find((si) => si.priorityLocked);
+  if (locked) {
+    assert.match(html, new RegExp(`data-pin="${locked.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}" data-locked="1"`));
+    assert.match(html, /title="release this priority back to the engine">unpin</);
+  }
+  const draft = orderTableHTML(sched, { noPin: true });
+  assert.doesNotMatch(draft, /ord-pin/);
+});
+
+// Spec 004 Story 2 (FR-024): the plan-time fever chart. Zones match the Observe
+// fever chart, undated plans render nothing, and meaning is never color-only.
+test('fever chart zones follow the Observe thresholds', () => {
+  assert.equal(feverZone(0), 'green');
+  assert.equal(feverZone(0.49), 'green');
+  assert.equal(feverZone(0.5), 'amber');
+  assert.equal(feverZone(0.99), 'amber');
+  assert.equal(feverZone(1), 'red');
+  assert.equal(feverZone(12), 'red');
+});
+
+test('fever chart renders one dot per dated initiative and none without dates', () => {
+  const html = feverChartHTML(sched);
+  const dated = sched.initiatives.filter((si) => si.targetWeek !== null && si.targetWeek !== undefined);
+  assert.equal((html.match(/<circle /g) || []).length, dated.length);
+  assert.match(html, /aria-label="buffer fever chart/);
+  assert.match(html, /fever-dot fever-/);
+  assert.ok(html.includes('Zones match the Observe fever chart'), 'caption names the zones');
+
+  const undated = { initiatives: [{ name: 'A', targetWeek: null }] };
+  assert.equal(feverChartHTML(undated), '');
+});
+
+test('a late initiative lands in the red zone, an on-time one at the origin', () => {
+  const late = sched.initiatives.find((si) => si.verdict === 'late');
+  const onTime = sched.initiatives.find((si) => si.verdict === 'on-time');
+  if (late && onTime) {
+    const html = feverChartHTML(sched);
+    // the late row's ratio exceeds 1: it must be zoned red wherever its dot sits
+    assert.ok(late.burnRatio >= 1 || late.targetBurn > 0, 'fixture late row burns buffer');
+    assert.ok(onTime.targetBurn === 0, 'fixture on-time row burns nothing');
+    assert.match(html, /fever-red/);
+  }
+});
+
+// Spec 004: the initiative editor dialog. Built from the STORED initiative,
+// every edit-API field prefilled; the body parser maps the DOM 1:1 and refuses
+// out-of-range numbers instead of sending them.
+test('the initiative edit dialog prefills from the stored initiative', () => {
+  const html = initiativeEditDialogHTML({
+    name: 'SPIRE', statedPriority: 2, targetDate: '2027-02-26', tier: 1,
+    costOfDelayPerWeek: 8, earliestStart: '2026-10-01', kitPct: 0.5,
+    afterInitiatives: ['Aurora', 'Payments'], progressPct: 0.25, inFlight: true,
+    priorityLocked: false, dateLocked: true,
+  });
+  assert.match(html, /id="ie-priority" type="number"[^>]*value="2"/);
+  assert.match(html, /id="ie-target" type="date" value="2027-02-26"/);
+  assert.match(html, /id="ie-tier"[^>]*value="1"/);
+  assert.match(html, /id="ie-cod"[^>]*value="8"/);
+  assert.match(html, /id="ie-kit"[^>]*value="50"/);
+  assert.match(html, /id="ie-after" value="Aurora, Payments"/);
+  assert.match(html, /id="ie-progress"[^>]*value="25"/);
+  assert.match(html, /id="ie-inflight" type="checkbox" checked/);
+  assert.match(html, /id="ie-date-locked"[^>]*checked/);
+  assert.match(html, /role="dialog" aria-modal="true"/);
+});
+
+test('initiativeEditFromBody maps the dialog fields to the PATCH shape', () => {
+  const vals = {
+    'ie-priority': '3', 'ie-target': '2027-01-15', 'ie-tier': '2', 'ie-cod': '5',
+    'ie-earliest': '2026-10-01', 'ie-kit': '40', 'ie-after': '"Payments, phase 2", Aurora',
+    'ie-progress': '10', 'ie-inflight': true, 'ie-priority-locked': true, 'ie-date-locked': false,
+  };
+  const read = (id) => vals[id] ?? '';
+  const { body } = initiativeEditFromBody(read, 'SPIRE');
+  assert.equal(body.name, 'SPIRE');
+  assert.equal(body.statedPriority, 3);
+  assert.equal(body.targetDate, '2027-01-15');
+  assert.equal(body.tier, 2);
+  assert.equal(body.costOfDelayPerWeek, 5);
+  assert.equal(body.kitPct, 0.4);
+  assert.deepEqual(body.afterInitiatives, ['Payments, phase 2', 'Aurora']);
+  assert.equal(body.progressPct, 0.1);
+  assert.equal(body.inFlight, true);
+  assert.equal(body.priorityLocked, true);
+  assert.equal(body.dateLocked, false);
+});
+
+test('initiativeEditFromBody refuses out-of-range numbers and blanks mean unset', () => {
+  const bad = { 'ie-tier': '9' };
+  const { error } = initiativeEditFromBody((id) => bad[id] ?? '', 'X');
+  assert.match(error, /tier/);
+  const blank = initiativeEditFromBody(() => '', 'X').body;
+  assert.equal(blank.statedPriority, undefined);
+  assert.equal(blank.kitPct, undefined);
+  assert.equal(blank.targetDate, null);
+  assert.deepEqual(blank.afterInitiatives, []);
+});
+
+// Spec 004 Story 4 (AC 4.1/4.2): the idle-attribution sentence appears only
+// where the scheduled mean diverges from flat rho by more than 2 points, and
+// states both numbers plus the idle causes.
+test('idleNoteHTML stays silent within 2 points and speaks beyond it', () => {
+  const quiet = [{ pod: 'A', meanUtil: 0.50, flatRho: 0.51, idle: {}, weeks: [] }];
+  assert.equal(idleNoteHTML(quiet), '');
+  const loud = [{ pod: 'A', meanUtil: 0.30, flatRho: 0.90, tracks: 2,
+    weeks: Array.from({ length: 10 }, () => ({})),
+    idle: { calendar: 4, upstream: 6, heldForRelease: 10 } }];
+  const html = idleNoteHTML(loud);
+  assert.match(html, /1 pod where the schedule runs lighter/);
+  assert.match(html, /scheduled 30% vs flat ρ 90%/);
+  assert.match(html, /calendar/);
+  assert.match(html, /waiting upstream/);
+  assert.match(html, /held for a release slot/);
+  // gaps list only pods actually diverging: same name would collide, so a
+  // second, differently-named diverging pod plus the quiet one
+  const second = { ...loud[0], pod: 'B' };
+  const mixed = [...quiet, ...loud, second];
+  const mixedHtml = idleNoteHTML(mixed);
+  assert.match(mixedHtml, /2 pods/);
+  assert.ok(!mixedHtml.includes('scheduled 50%'), 'the quiet pod is not listed');
+});
+
+// Spec 004 Story 5: the drum-stagger knob round-trips through the form.
+test('schedulingFromForm reads the drum target utilization', () => {
+  // The DOM reader returns undefined for absent ids; a stub returning a value
+  // for EVERY id (including calendar rows) sends the row loop to infinity.
+  const read = (id) => (id === 'sched-stagger' ? '80' : undefined);
+  const body = schedulingFromForm(read);
+  assert.equal(body.targetUtilization, 0.8);
+  for (const v of ['', '100', '0', '150']) {
+    const b = schedulingFromForm((id) => (id === 'sched-stagger' ? v : undefined));
+    assert.equal(b.targetUtilization, undefined, `value ${v} should mean off`);
+  }
 });
