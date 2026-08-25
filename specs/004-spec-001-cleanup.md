@@ -122,10 +122,11 @@ explained
 
 **AC 2.2: Verdict zones reuse the existing thresholds**
 
-> Given the app's red/amber/green utilization semantics
+> Given the Observe fever chart's zone semantics
 > When burn is displayed
-> Then <60% is green, 60–90% amber, >90% red at the commit week, consistent
-> with FR-044's non-color-only rule (position and label carry meaning too)
+> Then burn ratio <0.5 is green, <1 amber, ≥1 red, matching the Observe chart
+> and sim.js feverPoint exactly, consistent with FR-044's non-color-only rule
+> (position and label carry meaning too)
 
 ### Story 3: Export the pod view
 
@@ -181,7 +182,7 @@ explained
 | FR-005 | The schedule payload MUST report, per pod, mean weekly utilization, flat ρ, and idle weeks bucketed by cause (WIP gate, calendar window, dependency wait) | MUST |
 | FR-006 | The Order view MUST render the attribution sentence only where the gap exceeds 2 percentage points | MUST |
 | FR-007 | The release rule MUST consume `targetUtilization`: hold releases so planned load at each drum pod stays at or below the target, naming the stagger in the binding reason | MUST |
-| FR-008 | The assumptions form MUST offer the `targetUtilization` control only once FR-007 lands (no dead knobs — spec 001's own rule, order.js:419) | MUST |
+| FR-008 | The assumptions form MUST offer the `targetUtilization` control only once FR-007 lands (no dead knobs — spec 001's own rule in order.js's "only knobs that do something are offered" comment) | MUST |
 
 ---
 

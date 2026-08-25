@@ -35,15 +35,27 @@ export async function exportBlockPNG(block, filename) {
     // Buttons and interactive affordances are not part of the artefact.
     clone.querySelectorAll('button').forEach((b) => b.remove());
     const cs = getComputedStyle(block);
-    const w = Math.max(1, Math.ceil(block.getBoundingClientRect().width) || 600);
-    const h = Math.max(1, Math.ceil(block.getBoundingClientRect().height) || 200);
+    // The clone renders under <foreignObject>, not the page <body>, so the
+    // inherited color and typography it would have gotten from the cascade are
+    // absent — without this, dark-theme exports come out with the UA default
+    // black-on-white regardless of theme. Copy the block's own computed
+    // inheritance onto the wrapper.
+    const inherit = [
+      'color', 'font-family', 'font-size', 'line-height', 'font-weight',
+      'letter-spacing', 'text-transform',
+    ].map((k) => cs[k]).join(' ');
+    const pad = 12; // mirrored into the SVG's dimensions below, not just the style
+    const w = Math.max(1, Math.ceil(block.getBoundingClientRect().width) + pad * 2 || 600);
+    const h = Math.max(1, Math.ceil(block.getBoundingClientRect().height) + pad * 2 || 200);
     const bg = cs.getPropertyValue('--panel').trim() || '#ffffff';
 
     const style = document.createElementNS('http://www.w3.org/1999/xhtml', 'style');
     style.textContent = collectCss().replace(/<\/?style/gi, '');
 
     const inner = document.createElementNS('http://www.w3.org/1999/xhtml', 'div');
-    inner.setAttribute('style', `width:${w}px;background:${bg};padding:12px;`);
+    // padding counts against the declared width so nothing crops; the width is
+    // already block-width + 2*pad above.
+    inner.setAttribute('style', `width:${w}px;box-sizing:border-box;background:${bg};padding:${pad}px;${inherit}`);
     inner.appendChild(style);
     inner.appendChild(clone);
 

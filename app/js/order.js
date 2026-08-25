@@ -138,8 +138,12 @@ function orderRowHTML(row, opts = {}) {
     `<span class="hint" title="raw scheduled finish, before its buffer">${weekLabel(si.rawFinishWeek)} +${si.bufferWeeks || 0}w →</span> `;
   // Spec 004 AC 1.1/1.2: pin/unpin rides the stated-rank cell (the deviation
   // lives there), as a toggle. Locked rows offer unpin; moved rows offer pin.
-  // A draft has nothing saved to pin against, so no control is offered there.
-  const pin = opts.noPin ? '' : (si.priorityLocked
+  // An UNRANKED initiative has no stated rank to pin — a lock without a rank
+  // is a misleading "locked" tag that changes nothing — so it gets no control
+  // until the ✎ editor gives it one. A draft has nothing saved to pin against
+  // either, so no control is offered there.
+  const canPin = !opts.noPin && (si.statedRank > 0 || si.priorityLocked);
+  const pin = !canPin ? '' : (si.priorityLocked
     ? `<button type="button" class="ord-pin" data-pin="${esc(si.name)}" data-locked="1" title="release this priority back to the engine">unpin</button>`
     : `<button type="button" class="ord-pin" data-pin="${esc(si.name)}" data-locked="" title="lock this initiative to its stated rank">pin</button>`);
   // ✎ opens the sequencing-attribute editor (spec 004: the in-app half of the
@@ -292,18 +296,22 @@ export function overrunNote(sched, weeks) {
 // by more than 2 points, say both numbers AND what the idle time was spent on
 // (calendar windows, waiting upstream, or held for a release slot). Within 2
 // points the views agree and NFR-005 demands silence, not a per-pod essay.
-export function idleNoteHTML(pods) {
+export function idleNoteHTML(pods, horizonWeeks) {
   const gaps = (pods || []).filter((ps) =>
     ps.meanUtil !== undefined && ps.flatRho !== undefined &&
     Math.abs((ps.meanUtil || 0) - (ps.flatRho || 0)) > 0.02);
   if (!gaps.length) return '';
   const fmt = (n) => `${Math.round((n || 0) * 100)}%`;
+  // The denominator is the PERIOD's track-weeks: a schedule that overruns
+  // carries weeks the server never attributed idle over, so dividing by the
+  // whole span understates every cause.
+  const trackWeeks = (ps) => Math.max(1, (ps.tracks || 1) * (horizonWeeks || (ps.weeks || []).length));
   const line = (ps) => {
     const idle = ps.idle || {};
     const parts = [];
-    if (idle.calendar) parts.push(`${fmt(idle.calendar / Math.max(1, (ps.tracks || 1) * (ps.weeks || []).length))} calendar`);
-    if (idle.upstream) parts.push(`${fmt(idle.upstream / Math.max(1, (ps.tracks || 1) * (ps.weeks || []).length))} waiting upstream`);
-    if (idle.heldForRelease) parts.push(`${fmt(idle.heldForRelease / Math.max(1, (ps.tracks || 1) * (ps.weeks || []).length))} held for a release slot`);
+    if (idle.calendar) parts.push(`${fmt(idle.calendar / trackWeeks(ps))} calendar`);
+    if (idle.upstream) parts.push(`${fmt(idle.upstream / trackWeeks(ps))} waiting upstream`);
+    if (idle.heldForRelease) parts.push(`${fmt(idle.heldForRelease / trackWeeks(ps))} held for a release slot`);
     return `<li><b>${esc(ps.pod)}</b>: scheduled ${fmt(ps.meanUtil)} vs flat ρ ${fmt(ps.flatRho)}${parts.length ? ` — idle: ${parts.join(', ')}` : ''}</li>`;
   };
   return `<details class="ord-idle"><summary class="hint">${gaps.length} pod${gaps.length > 1 ? 's' : ''} where the schedule runs lighter than the flat ρ</summary>
@@ -344,7 +352,7 @@ export function podHeatmapHTML(sched, horizonWeeks) {
     <p class="hint">Each cell is one week: the number is tracks in use, red is at or over capacity,
       amber from 0.85. Click a pod for its queue.</p>
     ${overrunNote(sched, weeks)}
-    ${idleNoteHTML(pods)}`;
+    ${idleNoteHTML(pods, weeks)}`;
 }
 
 const utf8 = new TextEncoder();
@@ -520,7 +528,7 @@ export function initiativeEditDialogHTML(it) {
           <span class="sched-row"><input id="ie-kit" type="number" min="0" max="100" step="1" value="${it.kitPct !== undefined && it.kitPct !== null ? Math.round(it.kitPct * 100) : ''}"
             placeholder="100"></span></label>
         <label class="hint sched-f">after initiatives (comma-separated, quotes for commas in names)
-          <span class="sched-row"><input id="ie-after" value="${esc((it.afterInitiatives || []).join(', '))}"
+          <span class="sched-row"><input id="ie-after" value="${esc((it.afterInitiatives || []).map(quoteName).join(', '))}"
             placeholder="none"></span></label>
         <label class="hint sched-f">progress % (already done)
           <span class="sched-row"><input id="ie-progress" type="number" min="0" max="100" step="1" value="${it.progressPct ? Math.round(it.progressPct * 100) : ''}"
@@ -546,10 +554,18 @@ export function initiativeEditDialogHTML(it) {
 // not UTC, so the date is the day the period actually starts on.
 export function weekToDate(week, periodStart) {
   if (!periodStart) return '';
-  const t = new Date(periodStart + 'T00:00:00');
+  const t = new Date(String(periodStart).trim() + 'T00:00:00');
   if (Number.isNaN(t.getTime())) return '';
   t.setDate(t.getDate() + week * 7);
   return t.toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
+}
+
+// quoteName applies the sheet convention to a single name going INTO the field:
+// a name with a comma or a quote is wrapped in double quotes (internal quotes
+// doubled), or saving the dialog would split it into pieces on the way back.
+export function quoteName(n) {
+  if (!/["\n,]/.test(n)) return n;
+  return '"' + n.replace(/"/g, '""') + '"';
 }
 
 // splitInitiativeNames is the sheet convention (planning.go splitInitiativeList):
@@ -583,10 +599,13 @@ export function splitInitiativeNames(s) {
 }
 
 // initiativeEditFromBody reads the dialog's live DOM back into an InitiativeEdit
-// body (the PATCH shape). Only the edited initiative's name is required; every
-// other field maps 1:1, and the empty-string conventions match the server's
-// (blank priority = unranked, blank kit = 100, blank progress = 0).
-export function initiativeEditFromBody(read, name) {
+// body (the PATCH shape). Explicit-clear protocol: JSON null means "not
+// mentioned" to the server's pointers, so every field the dialog emptied sends
+// a real clear — priority 0, tier 0, kit/progress 0 (where one existed), an
+// empty after-list, and clearDate for a date that had one. Otherwise a planner
+// who empties a field sees it come back on the next open and learns the dialog
+// lies.
+export function initiativeEditFromBody(read, name, had = {}) {
   const num = (id, max) => {
     const raw = String(read(id) ?? '').trim();
     if (raw === '') return null;
@@ -599,19 +618,26 @@ export function initiativeEditFromBody(read, name) {
   const priority = num('ie-priority');
   if (priority === undefined) return { error: 'priority must be a number ≥ 1' };
   if (priority !== null) body.statedPriority = Math.max(1, Math.round(priority));
+  else body.statedPriority = 0; // explicit clear: blank means unranked
   const tier = num('ie-tier', 4);
   if (tier === undefined) return { error: 'tier must be 1-4' };
   if (tier !== null && tier >= 1) body.tier = Math.round(tier);
+  else body.tier = 0; // explicit clear: blank means unscored
   const cod = num('ie-cod', 10);
   if (cod === undefined) return { error: 'cost of delay must be 0-10' };
   if (cod !== null) body.costOfDelayPerWeek = cod;
+  else if (had.costOfDelayPerWeek) body.costOfDelayPerWeek = 0; // cleared, if one existed
   const kit = num('ie-kit', 100);
   if (kit === undefined) return { error: 'kit readiness must be 0-100' };
   if (kit !== null) body.kitPct = kit / 100;
+  else if (had.kitPct) body.kitPct = 0; // cleared, if one existed
   const progress = num('ie-progress', 100);
   if (progress === undefined) return { error: 'progress must be 0-100' };
   if (progress !== null) body.progressPct = progress / 100;
-  body.targetDate = String(read('ie-target') ?? '').trim() || null;
+  else if (had.progressPct) body.progressPct = 0; // cleared, if one existed
+  const target = String(read('ie-target') ?? '').trim();
+  if (target) body.targetDate = target;
+  else if (had.targetDate) body.clearDate = true; // explicit clear of an existing date
   body.earliestStart = String(read('ie-earliest') ?? '').trim() || null;
   body.priorityLocked = !!read('ie-priority-locked');
   body.dateLocked = !!read('ie-date-locked');
