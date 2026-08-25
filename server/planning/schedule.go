@@ -383,16 +383,39 @@ type schedInput struct {
 	assumptions []string
 }
 
-// ComputeSchedule builds the execution order for a plan. It is a pure function:
-// same inputs, identical output, field for field (AC 1.4).
+// ScheduleOptions turns on work that is not needed to answer "what is the order".
+type ScheduleOptions struct {
+	// CompareWipModels adds the per-model comparison (D22 as amended). It costs one
+	// extra full schedule per model, so it is opt-in: only the scheduling-assumptions
+	// form reads it, and that form is a panel the planner opens.
+	CompareWipModels bool
+}
+
+// ComputeSchedule builds the execution order for a plan, with the WIP-model
+// comparison included. It is a pure function: same inputs, identical output, field
+// for field (AC 1.4).
 //
-// It also reports what each WIP model would cost for this plan (D22 as amended),
-// which is why it computes four schedules: the answer, and one per model for the
-// comparison. The comparison is of the planner's own plan on purpose — static help
-// text can describe a model but cannot say what choosing it costs here.
+// The comparison stays on here because this is the signature every existing caller
+// already has, including BaselineInputs.Recompute — and AC 7.1 requires a baseline
+// to reproduce its stored schedule exactly, which a quietly narrower answer would
+// break. Callers that do not need it use ComputeScheduleWith.
 func ComputeSchedule(teams []Team, inits []Initiative, params Params, sp SchedulingParams) *Schedule {
+	return ComputeScheduleWith(teams, inits, params, sp, ScheduleOptions{CompareWipModels: true})
+}
+
+// ComputeScheduleWith is ComputeSchedule with the optional work made explicit.
+//
+// The comparison is of the planner's own plan on purpose — static help text can
+// describe a WIP model but cannot say what choosing it costs here. That is worth
+// three extra schedules when someone is looking at it, and worth none when nobody
+// is: on a plan loaded to its capacity, those three runs were three quarters of the
+// cost of every /schedule request.
+func ComputeScheduleWith(teams []Team, inits []Initiative, params Params, sp SchedulingParams,
+	opts ScheduleOptions) *Schedule {
 	sched := computeOne(teams, inits, params, sp)
-	sched.WipModels = compareWipModels(teams, inits, params, sp)
+	if opts.CompareWipModels {
+		sched.WipModels = compareWipModels(teams, inits, params, sp)
+	}
 	return sched
 }
 

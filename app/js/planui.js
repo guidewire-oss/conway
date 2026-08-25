@@ -6,13 +6,18 @@ import {
   heatColor, layoutColumns, bezierEdgePath, appendArrowMarker,
   enablePanZoom, enableNodeDrag, makeSpotlight,
 } from './netgraph.js';
-import { esc, orderViewHTML, schedulingFromForm, initiativeEditDialogHTML, initiativeEditFromBody } from './order.js';
+import { esc, orderViewHTML, schedulingFromForm, initiativeEditDialogHTML, initiativeEditFromBody, wipModelsTableHTML } from './order.js';
 import { exportBlockPNG } from './exportpng.js';
 import { baselineChipHTML, baselinePanelHTML, saveErrorMessage } from './baseline.js';
 import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
 import { portfolioTimelineHTML, podLensHTML, podSheetHTML } from './timeline.js';
 
 let root, current = null;
+// One comparison request at a time, keyed to what it is for. A bare boolean
+// stranded the table: if the plan or the order moved while a request was out, the
+// new dialog's request was skipped as "already pending" and the stale response was
+// then discarded, leaving the container empty with nothing left to fill it.
+let wipModelsPendingFor = null;
 
 export function initPlanUI() {
   // The assumptions dialog's ESC + focus management: ONE handler for the app's
@@ -182,6 +187,38 @@ function renderPlan() {
 }
 
 const view = () => ['order', 'timeline'].includes(current && current.view) ? current.view : 'network';
+
+// loadWipModels re-asks for the order with the per-model comparison attached, for
+// the assumptions dialog. A failure is quiet on purpose: the dialog's job is editing
+// the assumptions, and it stays usable without the comparison table.
+async function loadWipModels() {
+  const forPlan = current.id;
+  const atEpoch = orderEpoch;
+  const key = forPlan + '|' + atEpoch;
+  if (wipModelsPendingFor === key) return; // this exact request is already out
+  wipModelsPendingFor = key;
+  let payload = null;
+  try {
+    const r = await req('/api/plan/' + forPlan + '/schedule', {
+      method: 'POST', body: JSON.stringify({ ...orderRequestBody(), wipModels: true }),
+    });
+    if (!r || !r.ok) return;
+    try { payload = await r.json(); } catch { return; }
+  } finally {
+    // Only if it is still ours: a newer request for a different plan or epoch owns
+    // the gate now, and clearing it unconditionally would let a third request in.
+    if (wipModelsPendingFor === key) wipModelsPendingFor = null;
+  }
+  if (!current || current.id !== forPlan || orderEpoch !== atEpoch) return; // a stale answer
+  current.schedule = payload;
+  // Fill the table in place. Deliberately NOT renderOrder(): rebuilding the view
+  // around an open dialog threw away three things the planner owns -- assumptions
+  // they had typed but not saved, the view they had switched to, and the dialog
+  // they had closed. A request nobody is waiting on any more must not reach in and
+  // move the page.
+  const slot = document.getElementById('wip-models');
+  if (slot) slot.innerHTML = wipModelsTableHTML(payload);
+}
 
 // saveScheduling stores the plan-level assumptions and recomputes the order. This
 // is the only way to give a plan a period start, without which target dates cannot
@@ -625,9 +662,31 @@ async function renderOrder() {
   document.getElementById('sched-save')?.addEventListener('click', saveScheduling);
   // Assumptions live behind the ⚙ button (IA #2): set-once config out of the
   // reading path. The dialog itself auto-opens when something's outstanding.
-  document.getElementById('sched-open')?.addEventListener('click', () => {
+  // The dialog auto-opens when a decision is outstanding (no period start, or an
+  // unchosen WIP model). That is the case where the comparison matters most, and
+  // the click handler below never fires for it -- so the table would have sat empty
+  // under a heading inviting the planner to compare three models.
+  const dialog = document.getElementById('sched-dialog');
+  if (dialog && !dialog.hidden) {
+    // aria-modal with focus left outside is a dialog a screen reader announces and
+    // a keyboard user cannot reach. The click path focuses through the delegated
+    // handler; the auto-open path had nothing. Skipped when focus is already
+    // inside, so a re-render does not yank the caret out of a field being typed in.
+    if (!dialog.contains(document.activeElement)) {
+      dialog.querySelector('input, select')?.focus();
+    }
+    if (current.schedule && !current.schedule.wipModels) loadWipModels();
+  }
+  document.getElementById('sched-open')?.addEventListener('click', async () => {
     const d = document.getElementById('sched-dialog');
-    if (d) d.hidden = !d.hidden;
+    if (!d) return;
+    const opening = d.hidden;
+    d.hidden = !d.hidden;
+    // The WIP-model comparison inside this dialog costs one extra full schedule per
+    // model server-side (spec 001 §11 D22 as amended). It is fetched when the dialog
+    // is actually opened, rather than on every /schedule for the benefit of a table
+    // nobody has looked at.
+    if (opening && current.schedule && !current.schedule.wipModels) await loadWipModels();
   });
   // (ESC handling and focus live in the stable document-level handler wired
   // once in initPlanUI — renderOrder must not stack a listener per render.)

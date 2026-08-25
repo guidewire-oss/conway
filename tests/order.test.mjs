@@ -960,3 +960,17 @@ test('idleNoteHTML divides by the period track-weeks, not the overrun span', () 
   const html = idleNoteHTML([ps], 26);
   assert.match(html, /50% calendar/); // 26 / (2*26) — not 26 / (2*50) = 26%
 });
+
+// The comparison table is fetched lazily and dropped into place, so the dialog
+// must always carry a container to drop it into -- including on the auto-open
+// path, where the table is empty precisely because the fetch has not happened.
+test('the assumptions form always carries a slot for the comparison table', () => {
+  const without = schedulingFormHTML({ periodStart: '2026-08-31' }, undefined, { wipModels: [] });
+  assert.match(without, /id="wip-models"/, 'planui fills this in place');
+  const withRows = schedulingFormHTML({ periodStart: '2026-08-31' }, undefined, {
+    wipModels: [{ model: 'strict', limit: 5, datesMissed: 1, lastCommitWeek: 20, podsIdle: 0 }],
+    wipLimit: { model: 'strict' },
+  });
+  assert.match(withRows, /id="wip-models"/);
+  assert.match(withRows, /strict/);
+});
