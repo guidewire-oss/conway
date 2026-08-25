@@ -56,6 +56,19 @@ export function todayLineHTML(week, horizon) {
   return `<div class="tl-today" style="${pct(s(week))}" title="today (week ${week})">↑</div>`;
 }
 
+// periodEndHTML is the horizon marker (spec 004 follow-up): when the view spans
+// past the period, a labelled line at the horizon week says where the selected
+// period ends and the overrun begins. Without it, a 52-week view of a 26-week
+// period reads as one undifferentiated stretch and the planner cannot tell
+// promised work from overrun.
+export function periodEndHTML(horizon, span) {
+  if (span <= horizon) return '';
+  const s = axisScale(span);
+  const w = Math.min(horizon, span);
+  return `<div class="tl-period-end" style="${pct(s(w))}" title="period end: week ${w} of ${span} shown">
+    <span class="tl-period-end-label">period end · w${w}</span></div>`;
+}
+
 function barHTML({ left, width, cls = '', label, title }) {
   // tl-trunc on every bar (FR-039): the CSS clips overflow with ellipsis, and
   // the full text survives in the title.
@@ -185,29 +198,31 @@ function weekOfDate(periodStart, date) {
 // column, so their week percentages address the same width the bars do.
 export function portfolioTimelineHTML(sched, opts = {}) {
   const horizon = opts.horizonWeeks || sched.horizonWeeks || 26;
-  const s = axisScale(horizon);
-  const ticks = axisTicks(horizon).map((t) => {
+  const span = opts.span || horizon; // the drawn span can exceed the period
+  const s = axisScale(span);
+  const ticks = axisTicks(span).map((t) => {
     const title = tickTitle(t.week, sched.periodStart || opts.periodStart);
     return `<span class="tl-tick" style="${pct(s(t.week))}"${title ? ` title="${esc(title)}"` : ''}>${t.label}</span>`;
   }).join('');
-  const grid = axisTicks(horizon).map((t) =>
+  const grid = axisTicks(span).map((t) =>
     `<div class="tl-grid" style="${pct(s(t.week))}"></div>`).join('');
   const rows = (sched.initiatives || [])
     .slice()
     .sort((a, b) => a.proposedRank - b.proposedRank)
-    .map((si) => timelineRowHTML(si, { ...opts, horizonWeeks: horizon, expand: opts.expand === si.name }))
+    .map((si) => timelineRowHTML(si, { ...opts, horizonWeeks: span, expand: opts.expand === si.name }))
     .join('');
   const today = opts.todayWeek === undefined || opts.todayWeek === null
-    ? '' : todayLineHTML(opts.todayWeek, horizon);
+    ? '' : todayLineHTML(opts.todayWeek, span);
   const bands = (opts.calendars || [])
-    .map((win) => bandHTML(win, sched, horizon))
+    .map((win) => bandHTML(win, sched, span))
     .join('');
+  const periodEnd = periodEndHTML(horizon, span);
   return `<div class="card tl-card">
     <div class="ord-head"><b>Timeline</b>
       <span class="hint">one row per initiative · the lighter tail is the buffer${term('buffer')} · ◆ is the target${term('target')}</span></div>
     <div class="tl-axis">${ticks}</div>
-    <div class="tl-body">${rows}<div class="tl-overlay">${grid}${bands}${today}</div></div>
-    <div class="hint">█ scheduled · ░ buffer · ◆ target · → waits on another pod · ↑ today${bands ? ' · ░freeze░ change freeze · ▒ non-working' : ''}</div>
+    <div class="tl-body">${rows}<div class="tl-overlay">${grid}${bands}${today}${periodEnd}</div></div>
+    <div class="hint">█ scheduled · ░ buffer · ◆ target · → waits on another pod · ↑ today${bands ? ' · ░freeze░ change freeze · ▒ non-working' : ''}${periodEnd ? ' · │ period end' : ''}</div>
   </div>`;
 }
 
@@ -288,6 +303,7 @@ function podRho(ps, horizon) {
 // podLensHTML is §13.4: pods hottest-first, one block of track lanes each.
 export function podLensHTML(sched, opts = {}) {
   const horizon = opts.horizonWeeks || sched.horizonWeeks || 26;
+  const span = opts.span || horizon;
   const pods = (sched.podWeeks || []).slice()
     .sort((a, b) => podRho(b, horizon) - podRho(a, horizon));
   const blocks = pods.map((ps) => {
@@ -296,11 +312,11 @@ export function podLensHTML(sched, opts = {}) {
       <div class="ord-head"><b>${esc(ps.pod)}</b>
         <span class="hint">ρ ${rho.toFixed(2)} · ${ps.tracks} track${ps.tracks > 1 ? 's' : ''} · ${(ps.slices || []).length} slice${(ps.slices || []).length === 1 ? '' : 's'}</span>
         <button type="button" class="pod-export" data-export-pod="${esc(ps.pod)}" title="download this pod's timeline as a PNG">⬇ PNG</button></div>
-      ${podLanesHTML(ps, opts)}
+      ${podLanesHTML(ps, { ...opts, horizonWeeks: span })}
     </div>`;
   }).join('');
-  const s = axisScale(horizon);
-  const ticks = axisTicks(horizon).map((t) => {
+  const s = axisScale(span);
+  const ticks = axisTicks(span).map((t) => {
     const title = tickTitle(t.week, sched.periodStart || opts.periodStart);
     return `<span class="tl-tick" style="${pct(s(t.week))}"${title ? ` title="${esc(title)}"` : ''}>${t.label}</span>`;
   }).join('');
@@ -308,6 +324,7 @@ export function podLensHTML(sched, opts = {}) {
     <div class="ord-head"><b>Timeline — by pod</b>
       <span class="hint">one lane per track · idle lanes are slack, shown on purpose · hottest first</span></div>
     <div class="tl-axis">${ticks}</div>
+    ${periodEndHTML(horizon, span)}
     ${blocks}
   </div>`;
 }

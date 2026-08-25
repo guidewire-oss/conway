@@ -479,23 +479,39 @@ async function renderTimeline() {
   }
 
   const lens = current.tlLens || 'initiative';
+  // The view span: the period by default; wider spans exist because plans
+  // overrun and the horizon cut made everything past it invisible (the user
+  // could not scroll right). 'all' fits the widest commit week.
+  const widest = (sched.initiatives || []).reduce((m, si) => Math.max(m, si.commitWeek || 0), horizon);
+  const spans = [
+    { id: 'period', label: `${horizon}w period`, weeks: horizon },
+    { id: 'double', label: `${horizon * 2}w`, weeks: horizon * 2 },
+    { id: 'all', label: `all (${widest}w)`, weeks: widest },
+  ].filter((sp) => sp.weeks > horizon || sp.id === 'period');
+  const spanSel = current.tlSpan || 'period';
+  const spanWeeks = (spans.find((sp) => sp.id === spanSel) || spans[0]).weeks;
   const lensBtn = (id, on, label) =>
     `<button class="${on ? 'seg-on' : ''}" id="${id}">${label}</button>`;
   host.innerHTML = `
     <div class="plan-views"><span class="seg">
       ${lensBtn('tl-by-initiative', lens === 'initiative', '◉ by initiative')}
       ${lensBtn('tl-by-pod', lens === 'pod', '○ by pod')}
+    </span>
+    <span class="seg" title="how much of the schedule to draw — the period end is marked when the view is wider">
+      ${spans.map((sp) => `<button class="${sp.id === spanSel ? 'seg-on' : ''}" data-tlspan="${sp.id}">${sp.label}</button>`).join('')}
     </span></div>
     <div id="tl-main"></div>
     <div id="tl-pod"></div>`;
+  host.querySelectorAll('[data-tlspan]').forEach((b) =>
+    b.addEventListener('click', () => { current.tlSpan = b.dataset.tlspan; renderTimeline(); }));
 
   const paint = () => {
     const main = document.getElementById('tl-main');
     if (!main) return;
     main.innerHTML = lens === 'pod'
-      ? podLensHTML(sched, { horizonWeeks: horizon })
+      ? podLensHTML(sched, { horizonWeeks: horizon, span: spanWeeks })
       : portfolioTimelineHTML(sched, {
-        horizonWeeks: horizon, todayWeek, expand: current.tlExpand,
+        horizonWeeks: horizon, span: spanWeeks, todayWeek, expand: current.tlExpand,
         // AC 8.5: the bands come off the saved policy, not the schedule — the
         // schedule itself only carries the windows' effects, not their dates.
         calendars: (current.scheduling || {}).calendars || [],
