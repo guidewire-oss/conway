@@ -751,7 +751,8 @@ func (s *server) listBaselines(w http.ResponseWriter, p *db.PlanRow) {
 	writeJSON(w, map[string]any{"baselines": out})
 }
 
-// baselineItem routes /baseline/{bid} and /baseline/{bid}/compare.
+// baselineItem routes /baseline/{bid}, /baseline/{bid}/compare and
+// /baseline/{bid}/compare-to/{other}.
 func (s *server) baselineItem(w http.ResponseWriter, r *http.Request, p *db.PlanRow, rest string) {
 	bid, action, _ := strings.Cut(rest, "/")
 	if bid == "" {
@@ -765,9 +766,54 @@ func (s *server) baselineItem(w http.ResponseWriter, r *http.Request, p *db.Plan
 		s.patchBaseline(w, r, p, bid)
 	case action == "compare" && r.Method == http.MethodPost:
 		s.compareBaseline(w, r, p, bid)
+	case strings.HasPrefix(action, "compare-to/") && r.Method == http.MethodPost:
+		s.compareBaselines(w, r, p, bid, strings.TrimPrefix(action, "compare-to/"))
 	default:
 		methodNotAllowed(w, r)
 	}
+}
+
+// compareBaselines compares two STORED baselines (spec 005): the delta between
+// the agreed order and a later proposed one, without touching the live plan.
+// Both schedules come from the baseline rows; CompareToBaseline is the same
+// engine the live compare uses, so both flavours report identical shapes.
+func (s *server) compareBaselines(w http.ResponseWriter, _ *http.Request, p *db.PlanRow, bid, other string) {
+	if other == "" || other == bid {
+		http.Error(w, "compare-to needs a different baseline id", 400)
+		return
+	}
+	from, err := s.db.GetBaseline(p.ID, bid)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	to, err := s.db.GetBaseline(p.ID, other)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if from == nil || to == nil {
+		http.Error(w, "baseline not found", 404)
+		return
+	}
+	var was, now planning.Schedule
+	if len(from.Schedule) > 0 {
+		if err := json.Unmarshal(from.Schedule, &was); err != nil {
+			http.Error(w, "a stored schedule is unreadable: "+err.Error(), 500)
+			return
+		}
+	}
+	if len(to.Schedule) > 0 {
+		if err := json.Unmarshal(to.Schedule, &now); err != nil {
+			http.Error(w, "a stored schedule is unreadable: "+err.Error(), 500)
+			return
+		}
+	}
+	writeJSON(w, map[string]any{
+		"from":       map[string]any{"id": from.ID, "name": from.Name, "createdAt": from.CreatedAt},
+		"to":         map[string]any{"id": to.ID, "name": to.Name, "createdAt": to.CreatedAt},
+		"comparison": planning.CompareToBaseline(&was, &now),
+	})
 }
 
 func (s *server) getBaseline(w http.ResponseWriter, p *db.PlanRow, bid string) {
