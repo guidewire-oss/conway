@@ -565,7 +565,7 @@ func (s *server) schedulePlan(w http.ResponseWriter, r *http.Request, p *db.Plan
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	writeJSON(w, inputs.Recompute())
+	writeJSON(w, inputs.RecomputeWith(planning.ScheduleOptions{CompareWipModels: body.WipModels}))
 }
 
 // scheduleRequest is the body /schedule and the baseline endpoints share: the
@@ -575,6 +575,11 @@ type scheduleRequest struct {
 	Params      *planning.SchedulingParams `json:"params"`
 	Initiatives []planning.Initiative      `json:"initiatives"`
 	Levers      []planning.Lever           `json:"levers"`
+	// WipModels asks for the per-model comparison (D22 as amended). Off by default:
+	// it costs one extra full schedule per model and only the scheduling-assumptions
+	// form reads it, so every other request was paying for three schedules nobody
+	// looked at. The baseline endpoints ignore this and always store the comparison.
+	WipModels bool `json:"wipModels"`
 }
 
 // remediesPlan prices the rescue options for missed dates (§8, Story 5). It
