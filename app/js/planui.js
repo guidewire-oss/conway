@@ -183,6 +183,26 @@ function renderPlan() {
 
 const view = () => ['order', 'timeline'].includes(current && current.view) ? current.view : 'network';
 
+// loadWipModels re-asks for the order with the per-model comparison attached, for
+// the assumptions dialog. A failure is quiet on purpose: the dialog's job is editing
+// the assumptions, and it stays usable without the comparison table.
+async function loadWipModels() {
+  const forPlan = current.id;
+  const atEpoch = orderEpoch;
+  const r = await req('/api/plan/' + forPlan + '/schedule', {
+    method: 'POST', body: JSON.stringify({ ...orderRequestBody(), wipModels: true }),
+  });
+  if (!r || !r.ok) return;
+  let payload = null;
+  try { payload = await r.json(); } catch { return; }
+  if (!current || current.id !== forPlan || orderEpoch !== atEpoch) return; // a stale answer
+  current.schedule = payload;
+  await renderOrder(); // renders from the cache now that the comparison is in it
+  // renderOrder rebuilds the dialog hidden, so re-open the one the planner asked for.
+  document.getElementById('sched-dialog')?.removeAttribute('hidden');
+  document.getElementById('sched-dialog')?.querySelector('input, select')?.focus();
+}
+
 // saveScheduling stores the plan-level assumptions and recomputes the order. This
 // is the only way to give a plan a period start, without which target dates cannot
 // become weeks and every initiative reads as "no date".
@@ -625,9 +645,16 @@ async function renderOrder() {
   document.getElementById('sched-save')?.addEventListener('click', saveScheduling);
   // Assumptions live behind the ⚙ button (IA #2): set-once config out of the
   // reading path. The dialog itself auto-opens when something's outstanding.
-  document.getElementById('sched-open')?.addEventListener('click', () => {
+  document.getElementById('sched-open')?.addEventListener('click', async () => {
     const d = document.getElementById('sched-dialog');
-    if (d) d.hidden = !d.hidden;
+    if (!d) return;
+    const opening = d.hidden;
+    d.hidden = !d.hidden;
+    // The WIP-model comparison inside this dialog costs one extra full schedule per
+    // model server-side (spec 001 §11 D22 as amended). It is fetched when the dialog
+    // is actually opened, rather than on every /schedule for the benefit of a table
+    // nobody has looked at.
+    if (opening && current.schedule && !current.schedule.wipModels) await loadWipModels();
   });
   // (ESC handling and focus live in the stable document-level handler wired
   // once in initPlanUI — renderOrder must not stack a listener per render.)
