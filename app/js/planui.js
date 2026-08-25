@@ -107,7 +107,7 @@ function renderPlan() {
   const unknown = p.unknownTeams || [];
   root.innerHTML = `
     <div class="plan-head">
-      <a class="plan-back">← all plans</a>
+      <nav class="plan-crumbs" aria-label="You are here"><button type="button" class="plan-back">Plans</button><span class="hint">›</span><b>${esc(p.name)}</b></nav>
       <h2>${esc(p.name)}</h2>
       <label class="hint">horizon <input id="plan-horizon" type="number" min="1" max="104" value="${p.horizonWeeks}" style="width:56px">w</label>
       <label class="hint">capacity loss <input id="plan-loss" type="number" min="0" max="90" value="${Math.round((p.capacityLoss || 0) * 100)}" style="width:52px">%</label>
@@ -128,11 +128,29 @@ function renderPlan() {
     ${nTeams > 0 && nInit > 0 ? `<div class="plan-views"><span class="seg">
       <button class="${view() === 'network' ? 'seg-on' : ''}" id="view-network">Network</button><button class="${view() === 'order' ? 'seg-on' : ''}" id="view-order">Order</button><button class="${view() === 'timeline' ? 'seg-on' : ''}" id="view-timeline">▦ Timeline</button>
     </span>${baselineChipHTML(current.baselines)}</div>` : ''}
-    ${nTeams === 0 ? '<p class="hint">Step 1: pick a roster (team composition drifts over time — this pins it). Step 2: upload the initiatives matrix.</p>'
-      : nInit === 0 ? '<p class="hint">Roster loaded. Now upload the initiatives matrix.</p>'
-      : '<div id="plan-dash"></div>'}`;
+    ${nTeams === 0 ? `
+      <div class="card plan-start">
+        <h3>A plan is a roster + the initiatives you intend to run, sequenced by capacity.</h3>
+        <p class="hint">Four steps: attach a roster (team composition, pinned as of today) → upload the initiatives matrix →
+          review the proposed order and its verdicts → save the agreed order as a baseline. Nothing here writes to Jira.</p>
+        <div class="plan-start-row">
+          <button type="button" id="plan-start-demo" class="primary">Start from the demo plan</button>
+          <span class="hint">— or attach your own roster and upload your initiatives below, exactly as they are today.</span>
+        </div>
+      </div>` : ''
+      }
+    ${nTeams > 0 && nInit === 0 ? '<p class="hint">Roster loaded. Now upload the initiatives matrix.</p>' : ''}
+    ${nTeams > 0 && nInit > 0 ? '<div id="plan-dash"></div>' : ''}`;
 
   root.querySelector('.plan-back').addEventListener('click', renderList);
+  // The empty-state's demo button (IA #5): the fastest honest path to seeing
+  // what a plan does — same handler as the list's "Load demo plan". Wired here,
+  // not in renderOrder: the empty state never renders the Order view.
+  document.getElementById('plan-start-demo')?.addEventListener('click', async () => {
+    const r = await req('/api/plan/demo', { method: 'POST' });
+    if (!r || !r.ok) { alert('Could not create the demo plan'); return; }
+    openPlan((await r.json()).id);
+  });
   root.querySelector('#plan-save').addEventListener('click', savePlanParams);
   root.querySelectorAll('input[type=file]').forEach((inp) => inp.addEventListener('change', () => {
     if (!inp.files[0]) return;
