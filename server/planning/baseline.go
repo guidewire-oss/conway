@@ -100,7 +100,14 @@ func copyFloatPtr(p *float64) *float64 {
 // reproduce the stored schedule exactly, which is a property a spec asserts rather
 // than a claim this comment makes.
 func (in BaselineInputs) Recompute() *Schedule {
-	return ComputeSchedule(in.Teams, in.Initiatives, in.Params, in.Scheduling)
+	return in.RecomputeWith(ScheduleOptions{CompareWipModels: true})
+}
+
+// RecomputeWith is Recompute with the optional work made explicit, for callers
+// that are answering "what is the order" rather than storing a baseline. Recompute
+// keeps the comparison because AC 7.1 pins its output.
+func (in BaselineInputs) RecomputeWith(opts ScheduleOptions) *Schedule {
+	return ComputeScheduleWith(in.Teams, in.Initiatives, in.Params, in.Scheduling, opts)
 }
 
 // Fingerprint identifies this exact set of inputs, so a plan whose inputs have
