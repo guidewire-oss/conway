@@ -160,6 +160,10 @@ async function mountSnapshotPicker(badge) {
   wrap.appendChild(sel);
   badge.after(wrap);
   requestAnimationFrame(fitWidth);
+  // The picker mounts after async snapshot data, later than the initial
+  // syncSnapshotPicker() call — a player landing on the game view would see it
+  // mount visible over the game. Sync here, at the moment it exists.
+  syncSnapshotPicker();
 }
 
 // Role-based landing: a plain team player sees only the game (which embeds its

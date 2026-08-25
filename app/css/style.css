@@ -518,6 +518,9 @@ button.bl-chip:focus-visible { outline: 2px solid var(--accent); outline-offset:
    The overlay is the positioning context for them, so their percentages
    address the same width the bars do. */
 .tl-overlay { position: absolute; top: 0; bottom: 0; left: 160px; right: 0; pointer-events: none; }
+/* The pod lens's overlay carries only the period-end marker (no rows), so it
+   needs its own height or the absolutely positioned marker collapses to 0. */
+.tl-body:has(> .tl-overlay:only-child) { position: relative; min-height: 8px; }
 .tl-row { display: flex; align-items: center; min-height: 26px; }
 .tl-label { flex: 0 0 160px; font-size: 12px; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; padding-right: 10px; }

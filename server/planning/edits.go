@@ -26,6 +26,10 @@ type InitiativeEdit struct {
 	StatedPriority     *int      `json:"statedPriority,omitempty"`
 	PriorityLocked     *bool     `json:"priorityLocked,omitempty"`
 	TargetDate         *string   `json:"targetDate,omitempty"`
+	// ClearDate is the explicit clear for the target date: JSON null on
+	// targetDate means "not mentioned" (the pointer protocol), so clearing
+	// needs its own flag or a dialog that empties the field can never unset it.
+	ClearDate          bool      `json:"clearDate,omitempty"`
 	DateLocked         *bool     `json:"dateLocked,omitempty"`
 	Tier               *int      `json:"tier,omitempty"`
 	CostOfDelayPerWeek *float64  `json:"costOfDelayPerWeek,omitempty"`
@@ -135,6 +139,9 @@ func ApplyInitiativeEdits(inits []Initiative, edits []InitiativeEdit, sp Schedul
 		assign(&it.KitPct, e.KitPct)
 		assign(&it.InFlight, e.InFlight)
 		assign(&it.ProgressPct, e.ProgressPct)
+		if e.ClearDate {
+			it.TargetDate = ""
+		}
 		if r.targetDate != nil {
 			it.TargetDate = *r.targetDate
 		}
