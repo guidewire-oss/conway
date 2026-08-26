@@ -274,3 +274,67 @@ var _ = Describe("CompareToBaseline", func() {
 		}
 	})
 })
+
+// Spec 005: baseline-to-baseline comparison uses the same engine and shape as
+// the live compare, so both flavours report identical deltas.
+var _ = Describe("baseline-to-baseline comparison", func() {
+	It("reports the delta between two stored schedules", func() {
+		teams, inits := Demo()
+		base := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0.1},
+			DemoScheduling())
+
+		// Pin the stated-#1 and recompute: locking the top makes the
+		// stated-priority rule win outright (its schedule becomes best), so
+		// v2's order follows the stated ranks — the demo's reconciliation
+		// fixture shows exactly this flip.
+		var changed []Initiative
+		for _, it := range inits {
+			cp := it
+			if cp.StatedPriority == 1 {
+				cp.PriorityLocked = true
+			}
+			changed = append(changed, cp)
+		}
+		next := ComputeSchedule(teams, changed, Params{HorizonWeeks: 26, CapacityLoss: 0.1},
+			DemoScheduling())
+
+		cmp := CompareToBaseline(base, next)
+		Expect(cmp.Moved).To(BeNumerically(">", 0))
+		Expect(cmp.Initiatives).NotTo(BeEmpty())
+		// Same shape as the live compare: every initiative present, with the
+		// baseline side carrying its own rank.
+		byName := map[string]BaselineDelta{}
+		for _, d := range cmp.Initiatives {
+			byName[d.Name] = d
+		}
+		Expect(byName).To(HaveLen(len(next.Initiatives)))
+
+		// Each side's rank is that side's own rank, checked against both schedules
+		// rather than against remembered numbers. The previous version asserted
+		// Telemetry GA held rank 1 then 2, on the premise that pinning the top makes
+		// the stated-priority rule win; Decision 28 changed which rule wins for the
+		// demo (minimum-slack now) and moved that initiative to rank 6, so the
+		// assertion was really pinning the demo's tuning rather than the comparison.
+		baseRank := map[string]int{}
+		for _, si := range base.Initiatives {
+			baseRank[si.Name] = si.ProposedRank
+		}
+		nextRank := map[string]int{}
+		for _, si := range next.Initiatives {
+			nextRank[si.Name] = si.ProposedRank
+		}
+		for name, d := range byName {
+			Expect(d.BaselineRank).To(Equal(baseRank[name]), name+": baseline side must carry v1's rank")
+			Expect(d.ProposedRank).To(Equal(nextRank[name]), name+": proposed side must carry v2's rank")
+		}
+		// And the pin must actually have reordered something, or the fixture proves
+		// nothing about a comparison.
+		reordered := 0
+		for name := range byName {
+			if baseRank[name] != nextRank[name] {
+				reordered++
+			}
+		}
+		Expect(reordered).To(BeNumerically(">", 0), "pinning the stated #1 must change the order")
+	})
+})
