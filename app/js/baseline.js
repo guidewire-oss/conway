@@ -51,6 +51,16 @@ export function baselineListHTML(baselines) {
     return `<p class="hint">No baselines yet. Saving one freezes this order with the roster,
       initiatives and parameters that produced it, so it can be reproduced and compared against later.</p>`;
   }
+  // Pairwise compare (spec 005): offered only when there is another baseline
+  // to point at — a select with no options is a control that does nothing.
+  const vsSelect = (b) => {
+    const others = list.filter((o) => o.id !== b.id);
+    if (!others.length) return '';
+    return `<select class="bl-vs-sel" data-from="${esc(b.id)}" title="compare this baseline against another saved one">
+      <option value="">vs…</option>
+      ${others.map((o) => `<option value="${esc(o.id)}">${esc(o.name)}</option>`).join('')}
+    </select>`;
+  };
   const rows = list.map((b) => `<tr${b.active ? ' class="bl-active"' : ''}>
     <td>${esc(b.name)}${b.active ? ' <span class="tag">active</span>' : ''}</td>
     <td>${esc(fmtWhen(b.createdAt))}</td>
@@ -59,6 +69,7 @@ export function baselineListHTML(baselines) {
     <td>
       ${b.active ? '' : `<button type="button" class="bl-activate" data-id="${esc(b.id)}">make active</button>`}
       <button type="button" class="bl-compare" data-id="${esc(b.id)}">compare</button>
+      ${vsSelect(b)}
     </td>
   </tr>`).join('');
   return `<table class="wip-table bl-table"><thead><tr>
@@ -93,10 +104,17 @@ export function compareTableHTML(result) {
   </tr>`).join('');
 
   const name = result.baseline ? esc(result.baseline.name) : 'the baseline';
+  const toName = result.to ? esc(result.to.name) : '';
   const moved = cmp.moved || 0;
+  // Pairwise results carry both ends (spec 005 AC 1.3): the reader has to know
+  // which way the deltas read without reverse-engineering it from the rows.
   const summary = moved
-    ? `${moved} initiative${moved > 1 ? 's have' : ' has'} moved since <b>${name}</b>`
-    : `Nothing has moved since <b>${name}</b>`;
+    ? (toName
+      ? `${moved} initiative${moved > 1 ? 's have' : ' has'} moved from <b>${name}</b> → <b>${toName}</b>`
+      : `${moved} initiative${moved > 1 ? 's have' : ' has'} moved since <b>${name}</b>`)
+    : (toName
+      ? `Nothing moved between <b>${name}</b> and <b>${toName}</b>`
+      : `Nothing has moved since <b>${name}</b>`);
 
   const listed = (label, names) => (names || []).length
     ? `<p class="hint">${label}: ${names.map((n) => esc(n)).join(' · ')}</p>` : '';
@@ -162,4 +180,22 @@ export function saveErrorMessage(status, body, op) {
   if (status >= 500) return `The server could not ${verb}${detail ? ': ' + detail : ''}.`;
   // A 4xx body is written for a person — it is the useful part, so keep it.
   return detail ? `That was refused: ${detail}` : 'That was refused by the server.';
+}
+
+// latestOnly guards a view against a slower earlier request landing last.
+//
+// Each request claims a ticket before it goes out and checks it is still the
+// current one before rendering. The plan-id check that guards these calls cannot
+// do this job: choosing a second baseline pair while the first request is out
+// leaves the plan unchanged, so the stale response passes that check and
+// overwrites the newer card.
+//
+// This is the same idea as planui's orderEpoch, kept here as a pure factory
+// because that is what makes it testable — planui.js is the fetch-and-DOM layer.
+export function latestOnly() {
+  let issued = 0;
+  return {
+    claim: () => ++issued,
+    isCurrent: (ticket) => ticket === issued,
+  };
 }

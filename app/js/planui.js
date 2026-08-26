@@ -8,7 +8,7 @@ import {
 } from './netgraph.js';
 import { esc, orderViewHTML, schedulingFromForm, initiativeEditDialogHTML, initiativeEditFromBody, wipModelsTableHTML } from './order.js';
 import { exportBlockPNG } from './exportpng.js';
-import { baselineChipHTML, baselinePanelHTML, saveErrorMessage } from './baseline.js';
+import { baselineChipHTML, baselinePanelHTML, saveErrorMessage, latestOnly } from './baseline.js';
 import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
 import { portfolioTimelineHTML, podLensHTML, podSheetHTML } from './timeline.js';
 
@@ -285,7 +285,39 @@ function wireBaselineControls() {
       }
       compareBaseline(b.dataset.id);
     }));
+  // Pairwise baseline compare (spec 005): both schedules are stored, so this never
+  // touches the live plan and needs no orderEpoch guard. It does need the compare
+  // gate: choose a second pair while the first request is out and the slower reply
+  // would otherwise land last and overwrite the newer card.
+  document.querySelectorAll('.bl-vs-sel').forEach((sel) =>
+    sel.addEventListener('change', async () => {
+      const other = sel.value;
+      sel.value = ''; // a one-shot trigger, not a persistent selection
+      if (!other) return;
+      const forPlan = current.id;
+      const ticket = compareGate.claim();
+      const r = await req('/api/plan/' + forPlan + '/baseline/' + sel.dataset.from + '/compare-to/' + other, {
+        method: 'POST', body: '{}',
+      });
+      const mine = () => !!current && current.id === forPlan && compareGate.isCurrent(ticket);
+      if (!mine()) return;
+      if (!r || !r.ok) { await baselineError(r, 'compare', mine); return; }
+      const res = await r.json();
+      // Parsing suspended too, so the gate is checked again before the write:
+      // passing it above only proved this was current a moment ago.
+      if (!mine()) return;
+      // The card reads result.baseline for the "from" end; the pairwise
+      // endpoint returns `from`. Same object, the view's name for it.
+      if (res && res.from && !res.baseline) res.baseline = res.from;
+      current.baselineCompare = res;
+      renderOrder();
+    }));
 }
+
+// Both compare paths render into current.baselineCompare, so they share one gate:
+// whichever request was issued last is the only one allowed to paint. The plan-id
+// and orderEpoch checks cannot cover this — picking a second pair changes neither.
+const compareGate = latestOnly();
 
 // orderRequestBody is what /schedule was given, so a baseline or a comparison uses
 // the same inputs as the order on screen rather than re-deriving them differently.
@@ -300,8 +332,13 @@ function orderRequestBody() {
 // string so that translating a status into readable copy is not something a call
 // site can skip — echoing the body is how a 405 once reached the page as "method".
 // op names the operation so a compare failure does not wear the word "save".
-async function baselineError(r, op) {
-  baselineNote(saveErrorMessage(r ? r.status : 0, r ? await r.text() : '', op));
+async function baselineError(r, op, stillWanted) {
+  // Reading the body suspends, so a newer request can be issued in between. The
+  // predicate is checked after the read, immediately before painting: an error
+  // from a superseded request is as wrong to show as its result would be.
+  const msg = saveErrorMessage(r ? r.status : 0, r ? await r.text() : '', op);
+  if (stillWanted && !stillWanted()) return;
+  baselineNote(msg);
 }
 
 // baselineNote paints one message beside the save control, replacing any previous
@@ -357,12 +394,17 @@ async function activateBaseline(id) {
 async function compareBaseline(id) {
   const forPlan = current.id;
   const atEpoch = orderEpoch; // a lever or upload can land while this request is out
+  const ticket = compareGate.claim(); // and a newer compare can be asked for
   const r = await req('/api/plan/' + forPlan + '/baseline/' + id + '/compare', {
     method: 'POST', body: JSON.stringify(orderRequestBody()),
   });
-  if (!current || current.id !== forPlan || orderEpoch !== atEpoch) return; // answers the plan it left
-  if (!r || !r.ok) { await baselineError(r, 'compare'); return; }
-  current.baselineCompare = await r.json();
+  const mine = () => !!current && current.id === forPlan
+    && orderEpoch === atEpoch && compareGate.isCurrent(ticket);
+  if (!mine()) return; // answers the plan and the order it left, and is not superseded
+  if (!r || !r.ok) { await baselineError(r, 'compare', mine); return; }
+  const res = await r.json(); // parse first, then re-check: awaiting is a gap
+  if (!mine()) return;
+  current.baselineCompare = res;
   renderOrder();
 }
 
