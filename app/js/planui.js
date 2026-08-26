@@ -8,6 +8,7 @@ import {
 } from './netgraph.js';
 import { esc, orderViewHTML, schedulingFromForm, initiativeEditDialogHTML, initiativeEditFromBody, wipModelsTableHTML } from './order.js';
 import { exportBlockPNG } from './exportpng.js';
+import { attachDrag } from './drag.js';
 import { baselineChipHTML, baselinePanelHTML, saveErrorMessage, latestOnly } from './baseline.js';
 import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
 import { portfolioTimelineHTML, podLensHTML, podSheetHTML } from './timeline.js';
@@ -624,6 +625,31 @@ async function renderTimeline() {
         current.tlPod = el.dataset.pod;
         paintPodSheet(el.dataset.pod);
       }));
+    // Spec 008: drag-to-edit. A released drag pins the slice's start and the
+    // engine recomputes; the re-render repaints every view from one schedule.
+    main.dataset.horizon = String(spanWeeks);
+    attachDrag(main, {
+      readOnly: current.isDraft,
+      horizon: spanWeeks,
+      onPin: async (initiative, pod, week) => {
+        const forPlan = current.id;
+        const it = (current.initiatives || []).find((i) => i.name === initiative);
+        if (!it) return;
+        const pins = { ...(it.pinnedStarts || {}), [pod]: week };
+        const r = await req('/api/plan/' + forPlan + '/initiatives', {
+          method: 'PATCH',
+          body: JSON.stringify({ initiatives: [{ name: initiative, pinnedStarts: pins }] }),
+        });
+        if (!current || current.id !== forPlan) return;
+        if (!r || !r.ok) return;
+        try {
+          const d = await r.json();
+          if (Array.isArray(d.initiatives)) current.initiatives = d.initiatives;
+        } catch { /* cache stays; the server is authoritative */ }
+        current.schedule = null;
+        await renderTimeline();
+      },
+    });
     // FR-043 (spec 004 Story 3): each pod block exports itself as a PNG. The
     // click must not also open the sheet, so it stops here.
     main.querySelectorAll('.pod-export[data-export-pod]').forEach((b) =>
