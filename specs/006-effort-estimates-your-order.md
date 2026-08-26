@@ -167,7 +167,7 @@ system remembers which I chose
 | FR-005 | A single "Optimize order" action MUST run the multi-rule search and present both orders side by side with scores and deltas | MUST |
 | FR-006 | Accepting or rejecting a proposal MUST be explicit, persisted on the plan, and visible ("your order" / "engine's order (accepted 12 Jan)") | MUST |
 | FR-007 | With no stated priorities, sheet order MUST be treated as the stated order for ordering and baseline purposes | MUST |
-| FR-008 | Every lever, metric and column in the assumptions dialog, Order header and table MUST carry a glossary tooltip; new entries: lanes, effort estimate, objective, optimize, estimate model | MUST |
+| FR-008 | Every lever, metric and column in the assumptions dialog, Order header and table MUST carry a glossary tooltip; new entries: lanes, effort estimate, objective, optimize, estimate model, suggested rank | MUST |
 | FR-009 | The existing dispatch-rule search, WIP models, drum stagger and calendar rules continue to apply unchanged on top of either estimate model | MUST |
 
 ---

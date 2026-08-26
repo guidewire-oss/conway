@@ -226,6 +226,13 @@ async function loadWipModels() {
 async function saveScheduling() {
   const btn = document.getElementById('sched-save');
   const body = schedulingFromForm((id) => document.getElementById(id)?.value);
+  // The accepted-ordering marker is not a form field; carry it or every
+  // assumptions save silently returns the plan to the stated order (cubic:
+  // the marker must survive an unrelated save).
+  if (current.scheduling?.acceptedOrdering === 'engine') {
+    body.acceptedOrdering = 'engine';
+    body.acceptedOrderingAt = current.scheduling.acceptedOrderingAt;
+  }
   // Same guard as renderOrder, and it matters more here: this response is written
   // into current.scheduling, so a late answer would not just display the wrong
   // assumptions, it would be the ones the next save sends.
@@ -848,7 +855,11 @@ async function renderOrder() {
   if (optimizePanel) { /* re-render keeps it closed; opening is one click */ }
   const setAcceptedOrdering = async (ordering) => {
     const forPlan = current.id;
-    const atEpoch = orderEpoch;
+    // Accepting an order invalidates everything in flight about the old one:
+    // bump the epoch FIRST so a schedule or comparison that lands late is
+    // refused by the guards it already carries (cubic: the unchanged epoch
+    // let stale responses re-render the superseded order).
+    staleOrder();
     const body = { ...((current.scheduling || {})), acceptedOrdering: ordering };
     if (ordering === 'engine') body.acceptedOrderingAt = Math.floor(Date.now() / 1000);
     else { delete body.acceptedOrderingAt; body.acceptedOrdering = 'stated'; }
@@ -857,8 +868,9 @@ async function renderOrder() {
     });
     if (!current || current.id !== forPlan) return;
     if (!r || !r.ok) return; // the assumptions dialog shows save errors; this is a header action
+    // Write the cache only when this response is still the newest word: the
+    // reader may have saved assumptions (or accepted again) while it was away.
     current.scheduling = { ...(current.scheduling || {}), ...body };
-    if (orderEpoch !== atEpoch) return;
     current.schedule = null;
     await renderOrder();
     if (ordering === 'engine') {

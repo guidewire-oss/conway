@@ -972,7 +972,8 @@ var _ = Describe("estimate models", func() {
 		sp := SchedulingParams{EstimateModel: EstimateEffort}
 		sched := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0}, sp)
 		si := sched.Initiatives[0]
-		// 60 effort-weeks / 3 lanes = 20 weeks; +25% buffer on the chain.
+		// 60 effort-weeks / 3 lanes = 20 weeks of raw chain; the buffer sits
+		// on top and lands in CommitWeek, not RawFinishWeek.
 		Expect(si.RawFinishWeek).To(Equal(20))
 		Expect(si.Slices[0].LanesUsed).To(Equal(3))
 	})
@@ -1060,5 +1061,32 @@ var _ = Describe("your order first", func() {
 			SchedulingParams{PeriodStart: specPeriodStart, BufferPct: pctOf(0.25)})
 		Expect(scheduledFor(sched, "First").ProposedRank).To(Equal(1), "sheet order is the spine")
 		Expect(scheduledFor(sched, "Second").ProposedRank).To(Equal(2))
+	})
+})
+
+// Spec 006 review fix: multi-lane slices consume pod capacity — two 3-lane
+// effort slices on a 3-track pod cannot overlap, and the drum stagger counts
+// the lanes a release would occupy.
+var _ = Describe("multi-lane capacity coupling", func() {
+	It("serializes two full-pod effort slices", func() {
+		teams := []Team{{Name: "Delta", Tracks: 3}}
+		mk := func(n string) Initiative {
+			return Initiative{Name: n, Work: map[string]TeamWork{
+				"Delta": {Weeks: 30, Estimated: true, InPath: true}}}
+		}
+		sched := ComputeSchedule(teams, []Initiative{mk("Big1"), mk("Big2")},
+			Params{HorizonWeeks: 52, CapacityLoss: 0},
+			SchedulingParams{PeriodStart: specPeriodStart, EstimateModel: EstimateEffort, BufferPct: pctOf(0)})
+		s1 := scheduledFor(sched, "Big1").Slices[0]
+		s2 := scheduledFor(sched, "Big2").Slices[0]
+		Expect(s1.LanesUsed).To(Equal(3))
+		Expect(s2.LanesUsed).To(Equal(3))
+		// 30 effort-weeks / 3 lanes = 10 weeks each; the second must wait for
+		// the first — 3 lanes busy means no room for a second 3-lane slice.
+		expectNoOverlap := func(a, b WorkSlice) {
+			Expect(a.StartWeek >= b.FinishWeek || b.StartWeek >= a.FinishWeek).To(BeTrue(),
+				"overlapping spans: %+v / %+v", a, b)
+		}
+		expectNoOverlap(s1, s2)
 	})
 })
