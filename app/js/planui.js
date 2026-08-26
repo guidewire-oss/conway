@@ -496,7 +496,8 @@ function setView(v) {
 // snapshots them so an add/del re-render cannot drop a planner's edits —
 // including a cleared field, which is an edit, not a reversion.
 const ASSUMPTION_FIELDS = ['sched-period-start', 'sched-wip-model', 'sched-wip', 'sched-buffer',
-  'sched-kit', 'sched-pod-wip', 'sched-quarter'];
+  'sched-kit', 'sched-pod-wip', 'sched-quarter', 'sched-estimate-model', 'sched-split-tax',
+  'sched-chunking', 'sched-split-min', 'sched-stagger'];
 
 // Hoisted function declarations, not consts: renderOrder calls
 // applyLiveAssumptions mid-body, and a const there would still be in its
@@ -517,6 +518,11 @@ function applyLiveAssumptions() {
     const el = document.getElementById(id);
     if (el) el.value = v;
   }
+  // The chunk-size input's disabled state depends on the mode select, which
+  // the loop above may have just restored (cubic P2) — re-derive it.
+  const mode = document.getElementById('sched-chunking');
+  const num = document.getElementById('sched-split-min');
+  if (mode && num) num.disabled = mode.value !== 'chunk';
 }
 
 // renderTimeline paints Stories 8-9's views (§13.3-§13.5). It shares the order
@@ -727,6 +733,12 @@ async function renderOrder() {
     }
     if (current.schedule && !current.schedule.wipModels) loadWipModels();
   }
+  // Lane-chunking mode gates the chunk-size input (spec 007 amendment):
+  // a disabled number is the honest picture of "spread" — no cap in force.
+  document.getElementById('sched-chunking')?.addEventListener('change', () => {
+    const n = document.getElementById('sched-split-min');
+    if (n) n.disabled = document.getElementById('sched-chunking').value !== 'chunk';
+  });
   document.getElementById('sched-open')?.addEventListener('click', async () => {
     const d = document.getElementById('sched-dialog');
     if (!d) return;
