@@ -320,11 +320,20 @@ func parseSheetFraction(cell string) float64 {
 // parseSheetInt reads a whole number, returning 0 for blank or non-numeric — the
 // same "absent" both statedPriority and tier already use.
 func parseSheetInt(cell string) int {
-	n, err := strconv.Atoi(strings.TrimSpace(cell))
-	if err != nil {
-		return 0
+	s := strings.TrimSpace(cell)
+	n, err := strconv.Atoi(s)
+	if err == nil {
+		return n
 	}
-	return n
+	// Real sheets arrive with whole numbers as decimals ("1.0", "2.0") —
+	// Excel's doing. Parse the float and keep the integer when it is one, or
+	// every priority reads as unranked while its lock column still parses.
+	if f, ferr := strconv.ParseFloat(s, 64); ferr == nil {
+		if i := int(f); float64(i) == f {
+			return i
+		}
+	}
+	return 0
 }
 
 var numCleaner = strings.NewReplacer(",", "", " ", "", "w", "", "W", "", "wks", "", "wk", "")
