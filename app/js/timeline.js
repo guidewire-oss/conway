@@ -202,7 +202,7 @@ export function portfolioTimelineHTML(sched, opts = {}) {
   const s = axisScale(span);
   const ticks = axisTicks(span).map((t) => {
     const title = tickTitle(t.week, sched.periodStart || opts.periodStart);
-    return `<span class="tl-tick" style="${pct(s(t.week))}"${title ? ` title="${esc(title)}"` : ''}>${t.label}</span>`;
+    return `<span class="tl-tick" style="${pct(s(t.week))}"${title ? ` data-tip="${esc(title)}"` : ''}>${t.label}</span>`;
   }).join('');
   const grid = axisTicks(span).map((t) =>
     `<div class="tl-grid" style="${pct(s(t.week))}"></div>`).join('');
@@ -219,7 +219,7 @@ export function portfolioTimelineHTML(sched, opts = {}) {
   const periodEnd = periodEndHTML(horizon, span);
   return `<div class="card tl-card">
     <div class="ord-head"><b>Timeline</b>
-      <span class="hint">one row per initiative · the lighter tail is the buffer${term('buffer')} · ◆ is the target${term('target')}</span></div>
+      <span class="hint">one row per initiative · the lighter tail is the ${term('buffer', 'buffer')} · ◆ is the ${term('target', 'target')}</span></div>
     <div class="tl-axis">${ticks}</div>
     <div class="tl-body">${rows}<div class="tl-overlay">${grid}${bands}${today}${periodEnd}</div></div>
     <div class="hint">█ scheduled · ░ buffer · ◆ target · → waits on another pod · ↑ today${bands ? ' · ░freeze░ change freeze · ▒ non-working' : ''}${periodEnd ? ' · │ period end' : ''}</div>
@@ -360,7 +360,7 @@ export function podLensHTML(sched, opts = {}) {
   const s = axisScale(span);
   const ticks = axisTicks(span).map((t) => {
     const title = tickTitle(t.week, sched.periodStart || opts.periodStart);
-    return `<span class="tl-tick" style="${pct(s(t.week))}"${title ? ` title="${esc(title)}"` : ''}>${t.label}</span>`;
+    return `<span class="tl-tick" style="${pct(s(t.week))}"${title ? ` data-tip="${esc(title)}"` : ''}>${t.label}</span>`;
   }).join('');
   return `<div class="card tl-card">
     <div class="ord-head"><b>Timeline — by pod</b>
