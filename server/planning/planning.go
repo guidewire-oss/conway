@@ -72,6 +72,11 @@ type Initiative struct {
 	// the pin where the constraints allow and snaps to the nearest legal week
 	// with the reason named when they do not.
 	PinnedStarts       map[string]int `json:"pinnedStarts,omitempty"`
+	// PinnedLanes (spec 008 Decision 3): pod -> first lane (0-based, pod-
+	// relative) this initiative's slice occupies at that pod, from a vertical
+	// drag. The engine refuses the pin with a named overlap error when other
+	// work already holds those lanes in any overlapping week.
+	PinnedLanes        map[string]int `json:"pinnedLanes,omitempty"`
 	InFlight           bool     `json:"inFlight,omitempty"`           // carryover already running at period start
 	ProgressPct        float64  `json:"progressPct,omitempty"`        // how much of it is already done, 0..1
 }

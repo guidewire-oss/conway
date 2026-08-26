@@ -183,6 +183,27 @@ week with the reason named.
 The chart after a drag is engine-legal by construction — the planner can never
 draw a schedule the constraints refuse.
 
+### Decision 3: Lane pins are positional, overlap is refused loudly
+
+**Context:** Vertical dragging needs a target: "track 3 of this pod". Tracks are
+engine-derived, so a lane pin must pin the SLICE'S POSITION IN THE POD'S LANE
+STACK, not a globally-stable track id.
+
+**Decision:** `PinnedLanes` records the pod-relative lane offset (first lane the
+slice occupies). The engine attempts that offset; if another slice already
+holds those lanes in any overlapping week, the drop is REFUSED with a named
+overlap error — never silently re-lane-packed. Horizontal movement remains the
+start-week pin. Dragging is offered ONLY in the by-pod lens (Decision 2), and
+the lens gains a fullscreen mode (ESC to exit) because lane-accurate dragging
+needs the space.
+
+**Alternatives considered:**
+- Silently snapping to a free lane — rejected: the user's explicit ask is an
+  overlap error; quiet snapping is how "the chart ignored me" reads.
+
+**Consequences:** Lane pins make the pod's lane stack partly hand-shaped; the
+packing walk honours pinned offsets before packing the rest.
+
 ### Decision 2: Baselines capture the hand-shaped plan as-is
 
 **Context:** Spec 005 already compares two stored schedules; nothing about a
