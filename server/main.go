@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -497,7 +498,30 @@ func main() {
 	mux.HandleFunc("/api/game/stage", s.withAuth(s.handleStage, ""))
 	mux.HandleFunc("/api/game/unstage", s.withAuth(s.handleUnstage, ""))
 	mux.HandleFunc("/api/game/submit", s.withAuth(s.handleSubmit, ""))
-	mux.Handle("/", noCache(http.FileServer(http.Dir(filepath.Clean(appDir)))))
+	// The module graph is cached hard by browsers (no-cache only forces
+	// revalidation of the ENTRY; sub-imports can outlive it). Rewrite the
+	// index's script tag with a version query derived from the binary's build
+	// time, so every server restart changes it and the browser re-fetches the
+	// whole graph exactly once. Without this, users see yesterday's JS after a
+	// deploy until a hard refresh (recurring confusion, 2026-08-25/26).
+	indexVersion := strconv.FormatInt(time.Now().Unix(), 10)
+	assetDir := filepath.Clean(appDir)
+	mux.Handle("/", noCache(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
+			// #nosec G304 — assetDir is the server's own configured app directory
+			// (never request input) and the filename is a constant.
+			b, err := os.ReadFile(filepath.Join(assetDir, "index.html"))
+			if err == nil {
+				html := strings.Replace(string(b),
+					`<script type="module" src="js/main.js"></script>`,
+					`<script type="module" src="js/main.js?v=`+indexVersion+`"></script>`, 1)
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				_, _ = w.Write([]byte(html))
+				return
+			}
+		}
+		http.FileServer(http.Dir(assetDir)).ServeHTTP(w, r)
+	})))
 
 	log.Printf("Conway server on %s serving %s", addr, appDir)
 	// An explicit server rather than http.ListenAndServe, so a header-read

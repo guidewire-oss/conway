@@ -350,3 +350,14 @@ test('periodEndHTML marks the horizon only when the span exceeds it', () => {
   assert.match(wide, /period end · w26/);
   assert.match(wide, /title="period end: week 26 of 52 shown"/);
 });
+
+// Spec 007: the phase ladder rides the bar's tooltip.
+test('a split slice tooltip carries its lane ladder', () => {
+  const ps = { pod: 'P', tracks: 5, slices: [{
+    initiative: 'Big', pod: 'P', startWeek: 2, finishWeek: 10, lanesUsed: 2,
+    latestStartWeek: 4, slackWeeks: 2,
+    phases: [{ fromWeek: 2, toWeek: 6, lanes: 2 }, { fromWeek: 6, toWeek: 10, lanes: 5 }],
+  }] };
+  const html = podLanesHTML(ps, { horizonWeeks: 26 });
+  assert.match(html, /lanes 2→w6, 5→w10/);
+});

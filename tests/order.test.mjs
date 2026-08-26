@@ -492,8 +492,9 @@ test('the form controls are explicitly type=button', () => {
   const html = schedulingFormHTML({ periodStart: '2026-01-05' }, {});
   const buttons = html.match(/<button[^>]*>/g) || [];
   // save, cancel, the calendar windows' add button (FR-018), the
-  // work-in-progress model's ?, and the estimate model's ? (terms.js).
-  assert.equal(buttons.length, 5);
+  // work-in-progress model's ?, the estimate model's ?, and the
+  // splitting tax's ? (terms.js).
+  assert.equal(buttons.length, 6);
   for (const b of buttons) {
     assert.match(b, /type="button"/, `missing type: ${b}`);
   }
@@ -1065,4 +1066,28 @@ test('optimizeOfferHTML prices the better rule when one exists', () => {
   assert.equal(optimizeOfferHTML({ rule: 'stated-priority', objectiveScore: 10,
     rulesTried: [{ rule: 'stated-priority', objective: 10 }, { rule: 'tardiness-cost', objective: 40 }] }), '',
     'no offer when the working order is already best');
+});
+
+// Spec 007: the splitting-tax knob round-trips; 0/blank disables.
+test('schedulingFromForm reads the splitting tax only when positive', () => {
+  const read = (id) => (id === 'sched-split-tax' ? '2' : undefined);
+  assert.equal(schedulingFromForm(read).splitTaxWeeks, 2);
+  for (const v of ['', '0', '-1']) {
+    const b = schedulingFromForm((id) => (id === 'sched-split-tax' ? v : undefined));
+    assert.equal(b.splitTaxWeeks, undefined, `value ${v} must disable splitting`);
+  }
+});
+
+// Spec 007 amendment: the chunking MODE gates the threshold — only "chunk"
+// sends a cap; "spread" sends nothing and the server spreads evenly.
+test('schedulingFromForm reads the chunk cap only in chunk mode', () => {
+  const chunk = schedulingFromForm((id) => (id === 'sched-chunking' ? 'chunk' : (id === 'sched-split-min' ? '20' : undefined)));
+  assert.equal(chunk.splitMinWeeks, 20);
+  // spread mode: the number is ignored even if filled
+  const spread = schedulingFromForm((id) => (id === 'sched-chunking' ? 'spread' : (id === 'sched-split-min' ? '20' : undefined)));
+  assert.equal(spread.splitMinWeeks, undefined);
+  for (const v of ['', '0', '-5']) {
+    const b = schedulingFromForm((id) => (id === 'sched-chunking' ? 'chunk' : (id === 'sched-split-min' ? v : undefined)));
+    assert.equal(b.splitMinWeeks, undefined, `value ${v} means no cap`);
+  }
 });
