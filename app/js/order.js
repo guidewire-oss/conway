@@ -835,7 +835,7 @@ export function schedulingFormHTML(sp = {}, wip, sched) {
         </select></span>
         <span class="hint">how big work divides across a team's tracks: spread shares it evenly, chunk caps each track's load (45w chunks 20+20+5 at a 20-week cap)</span></label>
       <label class="hint sched-f">chunk size (weeks)
-        <span class="sched-row"><input id="sched-split-min" type="number" min="1" step="1" value="${asInt(sp.splitMinWeeks) || 20}"
+        <span class="sched-row"><input id="sched-split-min" type="number" min="1" step="1" value="${esc(String(asInt(sp.splitMinWeeks) || 20))}"
           ${sp.splitMinWeeks ? '' : 'disabled'}></span>
         <span class="hint">the per-track cap when chunking; work under this stays whole on one track</span></label>
       ${intField('sched-wip', 'org WIP limit', asInt(sp.maxConcurrentInitiatives), derived,

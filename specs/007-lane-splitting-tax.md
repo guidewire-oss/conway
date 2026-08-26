@@ -120,7 +120,7 @@ No new endpoints; the schedule payload gains `phases` per slice.
 ## 9. Out of Scope
 
 - Per-pod or per-initiative tax overrides
-- Splitting across pods (capacity transfer is spec 001 §10 Q1 territory)
+- Splitting across pods (capacity transfer is spec 001 §11 D7 / FR-017 territory)
 - Deciding WHICH initiative yields lanes — the engine never preempts; growth
   only absorbs lanes nothing else holds
 
