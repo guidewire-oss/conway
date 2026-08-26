@@ -1710,6 +1710,15 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 			lanes = need
 		}
 		begin := ready
+		// Spec 008: a hand-placed pin (timeline drag) holds the slice's start
+		// at the pinned week when the constraints allow — never earlier than
+		// its own dependencies are ready, because a pin cannot un-order work.
+		if pin, ok := in.init.PinnedStarts[pod]; ok && pin > begin {
+			begin = pin
+			if reason == "" {
+				reason = "pinned"
+			}
+		}
 		sliceFinish := begin + d
 		// Spec 007: when splitting is on (tax > 0, effort model), try the
 		// growth placement first — start on the free lanes, absorb the rest
