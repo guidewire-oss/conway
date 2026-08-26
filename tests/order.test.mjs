@@ -491,9 +491,9 @@ test('a hostile value cannot break out of the value attribute', () => {
 test('the form controls are explicitly type=button', () => {
   const html = schedulingFormHTML({ periodStart: '2026-01-05' }, {});
   const buttons = html.match(/<button[^>]*>/g) || [];
-  // save, cancel, the calendar windows' add button (FR-018), and the
-  // work-in-progress model's glossary ? (terms.js).
-  assert.equal(buttons.length, 4);
+  // save, cancel, the calendar windows' add button (FR-018), the
+  // work-in-progress model's ?, and the estimate model's ? (terms.js).
+  assert.equal(buttons.length, 5);
   for (const b of buttons) {
     assert.match(b, /type="button"/, `missing type: ${b}`);
   }

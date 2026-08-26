@@ -1413,11 +1413,11 @@ func drumStagger(in *schedInput, sp SchedulingParams, cal map[string]*podCalenda
 		if c == nil || c.tracks <= 0 {
 			continue
 		}
-		// The bound is on OCCUPANCY, not start rate: this slice adds a track in
-		// every week of its span, so refuse the release if any drum week would
-		// then sit above the target. That makes the schedule's actual drum load
-		// respect the target — a start-rate check cannot, because slices from
-		// different releases overlap.
+		// The bound is on OCCUPANCY, not start rate: this slice adds its
+		// lanes in every week of its span, so refuse the release if any drum
+		// week would then sit above the target. That makes the schedule's
+		// actual drum load respect the target — a start-rate check cannot,
+		// because slices from different releases overlap.
 		// A target that admits less than one track would refuse every
 		// placement forever, and the retry bound would then commit a slice that
 		// violates it anyway — a silent violation is worse than no stagger, so
@@ -1425,8 +1425,12 @@ func drumStagger(in *schedInput, sp SchedulingParams, cal map[string]*podCalenda
 		if int(math.Ceil(sp.TargetUtilization*float64(c.tracks)-1e-9)) < 1 {
 			continue
 		}
+		lanes := s.LanesUsed
+		if lanes < 1 {
+			lanes = 1
+		}
 		for w := s.StartWeek; w < s.FinishWeek; w++ {
-			if float64(weekAt(c.busy, w)+1) > sp.TargetUtilization*float64(c.tracks)+1e-9 {
+			if float64(weekAt(c.busy, w)+lanes) > sp.TargetUtilization*float64(c.tracks)+1e-9 {
 				return true, bindStagger
 			}
 		}
@@ -1493,6 +1497,20 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 		}
 		site := siteOf(teams, pod)
 		d := in.durations[pod]
+		// Lanes (spec 006 Decision 2): computed before placement — the
+		// capacity walk and the drum stagger both need to know how many
+		// tracks this slice occupies, not just its duration.
+		lanes := 1
+		if sp.estimateModel() == EstimateEffort {
+			need := int(math.Ceil(in.init.Work[pod].effortWeeks(in.init)))
+			if need > tracks[pod] && tracks[pod] > 0 {
+				need = tracks[pod]
+			}
+			if need < 1 {
+				need = 1
+			}
+			lanes = need
+		}
 		begin := ready
 		sliceFinish := begin + d
 		if rules != nil && d > 0 {
@@ -1512,7 +1530,7 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 				// block-start rule is re-applied to every candidate inside —
 				// capacity can otherwise push a start into a frozen week the
 				// pre-check never saw.
-				if s, f, why := firstFreeWeek(cal[pod], tracks[pod], begin, d, in.init.Name, perPodCap, rules, pod, site, in.init.InFlight); s > begin || f > sliceFinish {
+				if s, f, why := firstFreeWeek(cal[pod], tracks[pod], begin, d, lanes, in.init.Name, perPodCap, rules, pod, site, in.init.InFlight); s > begin || f > sliceFinish {
 					begin, sliceFinish = s, f
 					if why != "" {
 						reason = why
@@ -1530,19 +1548,6 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 			}
 		}
 		w := in.init.Work[pod]
-		lanes := 1
-		if sp.estimateModel() == EstimateEffort {
-			// ceil(effort weeks) lanes, capped by the pod's: a 60-week effort
-			// slice on a 3-lane pod uses all 3; a 2-week effort uses 1.
-			need := int(math.Ceil(w.effortWeeks(in.init)))
-			if need > tracks[pod] && tracks[pod] > 0 {
-				need = tracks[pod]
-			}
-			if need < 1 {
-				need = 1
-			}
-			lanes = need
-		}
 		slices = append(slices, WorkSlice{
 			Initiative: in.init.Name, Pod: pod, RemainingWeeks: float64(d), LanesUsed: lanes,
 			StartWeek: begin, FinishWeek: sliceFinish, WaitWeeks: float64(begin - ready),
@@ -1574,8 +1579,11 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 // Two separate limits apply, and they are reported separately because the
 // remedies differ: no free track is pod capacity, answered by tracks or descope;
 // too many initiatives at once is the pod's own WIP cap, answered by sequencing.
-func firstFreeWeek(c *podCalendar, tracks, from, d int, initiative string, perPodCap int,
+func firstFreeWeek(c *podCalendar, tracks, from, d, lanes int, initiative string, perPodCap int,
 	rules *calendarRules, pod, site string, inFlight bool) (start int, finish int, reason string) {
+	if lanes < 1 {
+		lanes = 1
+	}
 	// The limit that refused the slice's own ready week is the one worth naming;
 	// whatever refuses a later candidate week is a consequence of that first wait.
 	refused := ""
@@ -1614,7 +1622,9 @@ func firstFreeWeek(c *podCalendar, tracks, from, d int, initiative string, perPo
 				w++
 				continue
 			}
-			if c != nil && weekAt(c.busy, w) >= weekTracks {
+			// Multi-lane slices (spec 006) need `lanes` free tracks, not one:
+			// an effort slice that occupies 3 lanes must find 3 free or wait.
+			if c != nil && weekAt(c.busy, w)+lanes > weekTracks {
 				fits, why = false, bindPodCapacity
 				if weekTracks < tracks {
 					why = bindFreeze

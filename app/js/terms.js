@@ -99,13 +99,13 @@ export const TERMS = {
   },
   objective: {
     label: 'Objective (weighted lateness)',
-    tip: 'The plan\u2019s price tag: how many weeks each dated initiative misses, weighted by its cost of delay. Lower is better; zero means every date holds.',
+    tip: 'The plan\u2019s price tag: weeks missed by dated initiatives, weighted by cost of delay. Lower is better. Zero means every dated initiative holds \u2014 on a plan with no dates, zero carries no information.',
   },
   optimize: {
     label: 'Optimize order',
     tip: 'Runs every dispatch rule and offers the best-scoring order as a suggestion. Sequencing is a hard problem with no single right answer — your call is the decision, this is the analysis.',
   },
-  estimateModel: {
+  'estimate-model': {
     label: 'Estimate model',
     tip: 'How the sheet\u2019s estimate column is read: \u201ceffort\u201d divides it across the team\u2019s lanes; \u201cwall-clock\u201d treats it as one lane\u2019s duration. Existing plans stay on wall-clock until switched.',
   },
