@@ -433,6 +433,9 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .ord-enginetag { background: var(--panel2); color: var(--accent); }
 .ord-optimize-panel { margin: 8px 0; padding: 10px 12px; border: 1px solid var(--accent);
   border-radius: 8px; background: var(--panel2); display: flex; flex-direction: column; gap: 6px; }
+/* display:flex would override the UA's [hidden] display:none — the panel's
+   toggle depends on hidden working (cubic). */
+.ord-optimize-panel[hidden] { display: none; }
 .ord-optimize-panel ul { margin: 2px 0 2px 18px; padding: 0; }
 
 .ord-idle { margin-top: 6px; }
