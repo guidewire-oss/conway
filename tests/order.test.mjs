@@ -1078,12 +1078,16 @@ test('schedulingFromForm reads the splitting tax only when positive', () => {
   }
 });
 
-// Spec 007 amendment: the split-threshold knob round-trips.
-test('schedulingFromForm reads the split threshold only when positive', () => {
-  const read = (id) => (id === 'sched-split-min' ? '20' : undefined);
-  assert.equal(schedulingFromForm(read).splitMinWeeks, 20);
+// Spec 007 amendment: the chunking MODE gates the threshold — only "chunk"
+// sends a cap; "spread" sends nothing and the server spreads evenly.
+test('schedulingFromForm reads the chunk cap only in chunk mode', () => {
+  const chunk = schedulingFromForm((id) => (id === 'sched-chunking' ? 'chunk' : (id === 'sched-split-min' ? '20' : undefined)));
+  assert.equal(chunk.splitMinWeeks, 20);
+  // spread mode: the number is ignored even if filled
+  const spread = schedulingFromForm((id) => (id === 'sched-chunking' ? 'spread' : (id === 'sched-split-min' ? '20' : undefined)));
+  assert.equal(spread.splitMinWeeks, undefined);
   for (const v of ['', '0', '-5']) {
-    const b = schedulingFromForm((id) => (id === 'sched-split-min' ? v : undefined));
-    assert.equal(b.splitMinWeeks, undefined, `value ${v} means default`);
+    const b = schedulingFromForm((id) => (id === 'sched-chunking' ? 'chunk' : (id === 'sched-split-min' ? v : undefined)));
+    assert.equal(b.splitMinWeeks, undefined, `value ${v} means no cap`);
   }
 });

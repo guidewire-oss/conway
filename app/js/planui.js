@@ -496,7 +496,8 @@ function setView(v) {
 // snapshots them so an add/del re-render cannot drop a planner's edits —
 // including a cleared field, which is an edit, not a reversion.
 const ASSUMPTION_FIELDS = ['sched-period-start', 'sched-wip-model', 'sched-wip', 'sched-buffer',
-  'sched-kit', 'sched-pod-wip', 'sched-quarter'];
+  'sched-kit', 'sched-pod-wip', 'sched-quarter', 'sched-estimate-model', 'sched-split-tax',
+  'sched-chunking', 'sched-split-min', 'sched-stagger'];
 
 // Hoisted function declarations, not consts: renderOrder calls
 // applyLiveAssumptions mid-body, and a const there would still be in its
@@ -727,6 +728,12 @@ async function renderOrder() {
     }
     if (current.schedule && !current.schedule.wipModels) loadWipModels();
   }
+  // Lane-chunking mode gates the chunk-size input (spec 007 amendment):
+  // a disabled number is the honest picture of "spread" — no cap in force.
+  document.getElementById('sched-chunking')?.addEventListener('change', () => {
+    const n = document.getElementById('sched-split-min');
+    if (n) n.disabled = document.getElementById('sched-chunking').value !== 'chunk';
+  });
   document.getElementById('sched-open')?.addEventListener('click', async () => {
     const d = document.getElementById('sched-dialog');
     if (!d) return;

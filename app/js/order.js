@@ -828,10 +828,16 @@ export function schedulingFormHTML(sp = {}, wip, sched) {
         <span class="sched-row"><input id="sched-split-tax" type="number" min="0" step="1" value="${asInt(sp.splitTaxWeeks)}"
           placeholder="off"></span>
         <span class="hint">weeks of overhead per lane-split; blank disables splitting</span></label>
-      <label class="hint sched-f">split threshold (weeks)
-        <span class="sched-row"><input id="sched-split-min" type="number" min="1" step="1" value="${asInt(sp.splitMinWeeks)}"
-          placeholder="20"></span>
-        <span class="hint">only work over this many track-weeks splits, and no track carries more than this — 45w chunks 20+20+5</span></label>
+      <label class="hint sched-f">lane chunking
+        <span class="sched-row"><select id="sched-chunking">
+          <option value="spread"${!sp.splitMinWeeks ? ' selected' : ''}>spread evenly (all lanes take a share)</option>
+          <option value="chunk"${sp.splitMinWeeks ? ' selected' : ''}>chunk — no track carries more than…</option>
+        </select></span>
+        <span class="hint">how big work divides across a team's tracks: spread shares it evenly, chunk caps each track's load (45w chunks 20+20+5 at a 20-week cap)</span></label>
+      <label class="hint sched-f">chunk size (weeks)
+        <span class="sched-row"><input id="sched-split-min" type="number" min="1" step="1" value="${asInt(sp.splitMinWeeks) || 20}"
+          ${sp.splitMinWeeks ? '' : 'disabled'}></span>
+        <span class="hint">the per-track cap when chunking; work under this stays whole on one track</span></label>
       ${intField('sched-wip', 'org WIP limit', asInt(sp.maxConcurrentInitiatives), derived,
     'initiatives in flight at once; blank derives it from the drum pod')}
       ${pctField('sched-buffer', 'buffer', asPct(sp.bufferPct), '25', 'of each chain; blank means 25%, 0 commits on the raw finish')}
@@ -968,10 +974,10 @@ export function schedulingFromForm(read) {
     if (Number.isFinite(n) && n > 0) out.splitTaxWeeks = Math.round(n);
   }
 
-  // The split threshold (spec 007 amendment): minimum track-weeks worth
-  // dividing, and the per-track cap — 45 weeks over a 20 threshold chunks
-  // 20+20+5 rather than spreading 15×3.
-  {
+  // The split threshold (spec 007 amendment): the per-track cap when the
+  // lane-chunking mode is "chunk". "spread" sends nothing — the server
+  // spreads evenly, the default.
+  if (raw('sched-chunking') === 'chunk') {
     const n = Number(raw('sched-split-min'));
     if (Number.isFinite(n) && n > 0) out.splitMinWeeks = Math.round(n);
   }
