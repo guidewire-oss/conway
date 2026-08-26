@@ -205,7 +205,10 @@ const showTip = (h) => {
   tip.style.top = `${y}px`;
 };
 document.addEventListener('mouseover', (ev) => {
-  const h = ev.target.closest?.('.help');
+  // .help is the glossary chip; [data-tip] extends the same instant tooltip
+  // to any element (timeline week ticks use it — native title tooltips take
+  // a second to appear and read as broken).
+  const h = ev.target.closest?.('.help, [data-tip]');
   if (!h) { tip.hidden = true; return; }
   showTip(h);
 });
