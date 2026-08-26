@@ -512,9 +512,23 @@ func (s *server) editPlanInitiatives(w http.ResponseWriter, r *http.Request, p *
 			return
 		}
 	}
+	var teams []planning.Team
+	if len(p.Teams) > 0 {
+		if err := json.Unmarshal(p.Teams, &teams); err != nil {
+			http.Error(w, "the plan's stored teams are unreadable: "+err.Error(), 500)
+			return
+		}
+	}
 	edited, err := planning.ApplyInitiativeEdits(inits, body.Initiatives, planScheduling(p), p.HorizonWeeks)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
+		return
+	}
+	// Spec 008 Decision 3: lane pins are validated against the CURRENT
+	// schedule's lane stacks — a drop onto lanes another slice holds in any
+	// overlapping week is refused loudly, never silently re-packed.
+	if msg := planning.ValidateLanePins(edited, body.Initiatives, planScheduling(p), p.HorizonWeeks, teams); msg != "" {
+		http.Error(w, msg, http.StatusConflict) // the drop overlaps existing work
 		return
 	}
 	b, err := json.Marshal(edited)
