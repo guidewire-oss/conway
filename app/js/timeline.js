@@ -240,7 +240,10 @@ export function portfolioTimelineHTML(sched, opts = {}) {
 // lanes — never more. Slices are serialized by the scheduler to fit, so a
 // stack beyond `cap` would mean a rendering bug, not more capacity.
 function assignLanes(slices, cap = 0) {
-  const width = (sl) => Math.max(1, sl.lanesUsed || 1);
+  // Width for layout: the slice's PEAK lanes (a growing split slice spans
+  // its widest phase), so the track rows reflect the most it ever occupies.
+  const width = (sl) => Math.max(1, sl.lanesUsed || 1,
+    ...(sl.phases || []).map((p) => p.lanes || 0));
   const sorted = slices.slice().sort((a, b) => a.startWeek - b.startWeek);
   const laneEnds = [];
   const placement = [];
