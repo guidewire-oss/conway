@@ -518,6 +518,11 @@ function applyLiveAssumptions() {
     const el = document.getElementById(id);
     if (el) el.value = v;
   }
+  // The chunk-size input's disabled state depends on the mode select, which
+  // the loop above may have just restored (cubic P2) — re-derive it.
+  const mode = document.getElementById('sched-chunking');
+  const num = document.getElementById('sched-split-min');
+  if (mode && num) num.disabled = mode.value !== 'chunk';
 }
 
 // renderTimeline paints Stories 8-9's views (§13.3-§13.5). It shares the order

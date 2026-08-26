@@ -508,6 +508,8 @@ func main() {
 	assetDir := filepath.Clean(appDir)
 	mux.Handle("/", noCache(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
+			// #nosec G304 — assetDir is the server's own configured app directory
+			// (never request input) and the filename is a constant.
 			b, err := os.ReadFile(filepath.Join(assetDir, "index.html"))
 			if err == nil {
 				html := strings.Replace(string(b),
