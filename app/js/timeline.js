@@ -69,10 +69,12 @@ export function periodEndHTML(horizon, span) {
     <span class="tl-period-end-label">period end · w${w}</span></div>`;
 }
 
-function barHTML({ left, width, cls = '', label, title }) {
+function barHTML({ left, width, cls = '', label, title, initiative, pod, startWeek }) {
   // tl-trunc on every bar (FR-039): the CSS clips overflow with ellipsis, and
-  // the full text survives in the title.
-  return `<div class="tl-bar tl-trunc ${cls}" style="${pct(left)};width:${width.toFixed(2)}%" title="${esc(title)}">${esc(label)}</div>`;
+  // the full text survives in the title. data-initiative/pod/startWeek carry
+  // the drag contract (spec 008): a released drag pins that slice's start.
+  const drag = initiative ? ` data-initiative="${esc(initiative)}" data-pod="${esc(pod)}" data-start-week="${startWeek}"` : '';
+  return `<div class="tl-bar tl-trunc ${cls}" style="${pct(left)};width:${width.toFixed(2)}%" title="${esc(title)}"${drag}>${esc(label)}</div>`;
 }
 
 // barGeom clamps a week span to the chart: work that runs past the horizon
@@ -316,6 +318,7 @@ export function podLanesHTML(ps, opts = {}) {
         left, width,
         cls: lead === false ? 'tl-cont' : '',
         label: `${sl.initiative} ${sl.finishWeek - sl.startWeek}w${collapsed ? wTag : ''}`,
+        initiative: sl.initiative, pod: sl.pod, startWeek: sl.startWeek,
         title: `${sl.initiative}: w${sl.startWeek}–w${sl.finishWeek} · start by w${sl.latestStartWeek}` +
           (sl.slackWeeks === 0 ? ' · no slack' : ` · ${sl.slackWeeks}w slack`) +
           (overrun > 0 ? ` · ${overrun}w past the horizon` : '') +

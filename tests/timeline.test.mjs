@@ -361,3 +361,15 @@ test('a split slice tooltip carries its lane ladder', () => {
   const html = podLanesHTML(ps, { horizonWeeks: 26 });
   assert.match(html, /lanes 2→w6, 5→w10/);
 });
+
+// Spec 008: bars carry the drag contract.
+test('bars expose the drag data attributes', () => {
+  const ps = { pod: 'P', tracks: 2, slices: [{
+    initiative: 'Big', pod: 'P', startWeek: 3, finishWeek: 9, lanesUsed: 2,
+    latestStartWeek: 5, slackWeeks: 2,
+  }] };
+  const html = podLanesHTML(ps, { horizonWeeks: 26 });
+  assert.match(html, /data-initiative="Big"/);
+  assert.match(html, /data-pod="P"/);
+  assert.match(html, /data-start-week="3"/);
+});
