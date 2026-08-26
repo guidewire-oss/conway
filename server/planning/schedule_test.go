@@ -3,6 +3,7 @@ package planning
 import (
 	"bytes"
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -248,7 +249,10 @@ var _ = Describe("ComputeSchedule", func() {
 					}
 				}
 				params := Params{HorizonWeeks: 26, CapacityLoss: 0}
-				sp := SchedulingParams{PeriodStart: specPeriodStart, MaxConcurrentInitiatives: 2, BufferPct: pctOf(0.25)}
+				// Engine-first: these specs test the proposal overruling the
+				// stated order, which is opt-in under spec 006 Decision 1.
+				sp := SchedulingParams{PeriodStart: specPeriodStart, MaxConcurrentInitiatives: 2, BufferPct: pctOf(0.25),
+					AcceptedOrdering: "engine"}
 				free = ComputeSchedule(teams, build(false), params, sp)
 				locked = ComputeSchedule(teams, build(true), params, sp)
 			})
@@ -685,7 +689,10 @@ var _ = Describe("ComputeSchedule", func() {
 				AfterInitiatives: []string{"Chicken"}, Tier: 1, CostOfDelayPerWeek: 10},
 		}
 		sched := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0},
-			SchedulingParams{PeriodStart: specPeriodStart, MaxConcurrentInitiatives: 2, BufferPct: pctOf(0.25)})
+			// Engine-first: this spec is about the winning rule's traversal,
+			// which is a proposal under spec 006 Decision 1.
+			SchedulingParams{PeriodStart: specPeriodStart, MaxConcurrentInitiatives: 2, BufferPct: pctOf(0.25),
+				AcceptedOrdering: "engine"})
 
 		chicken := scheduledFor(sched, "Chicken")
 		egg := scheduledFor(sched, "Egg")
@@ -946,4 +953,112 @@ var _ = Describe("ComputeSchedule", func() {
 		}
 	})
 
+})
+
+// Spec 006 Story 1 (Decision 2): under the effort model the estimate is total
+// work divided across the pod's lanes, and the slice occupies the lanes it
+// needs. Wall-clock keeps today's arithmetic untouched.
+var _ = Describe("estimate models", func() {
+	team := func(name string, devs int, pairs bool) Team {
+		return Team{Name: name, Devs: devs, Pairs: pairs}
+	}
+	work := func(weeks float64) map[string]TeamWork {
+		return map[string]TeamWork{"A": {Weeks: weeks, Estimated: true, InPath: true}}
+	}
+
+	It("divides effort by lanes and rounds up", func() {
+		teams := []Team{team("A", 6, true)} // 3 pairs = 3 lanes
+		inits := []Initiative{{Name: "Solo", Work: work(60)}}
+		sp := SchedulingParams{EstimateModel: EstimateEffort}
+		sched := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0}, sp)
+		si := sched.Initiatives[0]
+		// 60 effort-weeks / 3 lanes = 20 weeks; +25% buffer on the chain.
+		Expect(si.RawFinishWeek).To(Equal(20))
+		Expect(si.Slices[0].LanesUsed).To(Equal(3))
+	})
+
+	It("applies capacity loss after the lane division", func() {
+		teams := []Team{team("A", 6, true)}
+		inits := []Initiative{{Name: "Solo", Work: work(60)}}
+		sp := SchedulingParams{EstimateModel: EstimateEffort}
+		sched := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0.1}, sp)
+		// 60 / 0.9 / 3 = 22.2 -> 23.
+		Expect(sched.Initiatives[0].RawFinishWeek).To(Equal(23))
+	})
+
+	It("caps lanes at the pod's tracks and never below one", func() {
+		teams := []Team{team("A", 2, true)} // 1 pair = 1 lane
+		inits := []Initiative{{Name: "Solo", Work: work(60)}}
+		sp := SchedulingParams{EstimateModel: EstimateEffort}
+		sched := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0}, sp)
+		Expect(sched.Initiatives[0].RawFinishWeek).To(Equal(60)) // no division by 1-lane pods
+		Expect(sched.Initiatives[0].Slices[0].LanesUsed).To(Equal(1))
+	})
+
+	It("keeps wall-clock arithmetic untouched when the model is absent", func() {
+		teams := []Team{team("A", 6, true)}
+		inits := []Initiative{{Name: "Solo", Work: work(60)}}
+		before := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0.1}, SchedulingParams{})
+		after := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0.1},
+			SchedulingParams{EstimateModel: EstimateWallClock})
+		Expect(after.Initiatives[0].RawFinishWeek).To(Equal(before.Initiatives[0].RawFinishWeek))
+		Expect(after.Initiatives[0].RawFinishWeek).To(Equal(67)) // 60/0.9, single lane
+		Expect(after.Initiatives[0].Slices[0].LanesUsed).To(Equal(1))
+	})
+})
+
+// Spec 006 Story 2 (Decision 1): the stated order is the working plan by
+// default; the engine's best run is a priced suggestion until accepted.
+var _ = Describe("your order first", func() {
+	team := func(name string, tracks int) Team { return Team{Name: name, Tracks: tracks} }
+
+	It("hands back the stated-priority schedule unless the engine order is accepted", func() {
+		// One lane: the two initiatives cannot run together, so order decides
+		// which one misses its date.
+		teams := []Team{team("Atlas", 1)}
+		// Both dated early: whichever runs second misses, and Light's cost of
+		// delay makes the engine prefer it first — against the stated order.
+		inits := []Initiative{
+			{Name: "Heavy", Work: map[string]TeamWork{"Atlas": {Weeks: 8, Estimated: true, InPath: true}},
+				StatedPriority: 1, CostOfDelayPerWeek: 1, TargetDate: weekDate(12)},
+			{Name: "Light", Work: map[string]TeamWork{"Atlas": {Weeks: 2, Estimated: true, InPath: true}},
+				StatedPriority: 2, CostOfDelayPerWeek: 10, TargetDate: weekDate(6)},
+		}
+		// The engine's rules would put Light first (better delay-per-drum-week);
+		// the planner said Heavy first. Default = the planner.
+		def := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0},
+			SchedulingParams{PeriodStart: specPeriodStart, BufferPct: pctOf(0.25)})
+		Expect(def.Rule).To(Equal(ruleStatedPriority))
+		Expect(scheduledFor(def, "Heavy").ProposedRank).To(Equal(1))
+
+		// The engine's proposal is still priced beside it.
+		Expect(def.StatedOrderObjectiveScore).To(Equal(def.ObjectiveScore),
+			"the working order IS the stated order, so its price is the objective")
+		engineScore := math.Inf(1)
+		for _, r := range def.RulesTried {
+			if r.Rule != ruleStatedPriority && r.Objective < engineScore {
+				engineScore = r.Objective
+			}
+		}
+		Expect(engineScore).To(BeNumerically("<", def.ObjectiveScore),
+			"the engine's best run is visible in RulesTried, and here it is cheaper")
+
+		acc := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0},
+			SchedulingParams{PeriodStart: specPeriodStart, BufferPct: pctOf(0.25),
+				AcceptedOrdering: "engine"})
+		Expect(scheduledFor(acc, "Light").ProposedRank).To(Equal(1),
+			"the accepted marker flips the working order to the engine's")
+	})
+
+	It("treats sheet order as the stated order when no priorities are given", func() {
+		teams := []Team{team("Atlas", 4)}
+		inits := []Initiative{
+			{Name: "First", Work: map[string]TeamWork{"Atlas": {Weeks: 2, Estimated: true, InPath: true}}},
+			{Name: "Second", Work: map[string]TeamWork{"Atlas": {Weeks: 2, Estimated: true, InPath: true}}},
+		}
+		sched := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0},
+			SchedulingParams{PeriodStart: specPeriodStart, BufferPct: pctOf(0.25)})
+		Expect(scheduledFor(sched, "First").ProposedRank).To(Equal(1), "sheet order is the spine")
+		Expect(scheduledFor(sched, "Second").ProposedRank).To(Equal(2))
+	})
 })

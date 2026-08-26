@@ -29,6 +29,19 @@ type TeamWork struct {
 	DependsOn []string `json:"dependsOn,omitempty"` // pods this team waits on (dep -> team)
 }
 
+// effortWeeks is the progress-adjusted effort an initiative still asks of this
+// pod, before lanes or loss divide it (spec 006: LanesUsed = ceil(effort)).
+func (w TeamWork) effortWeeks(it Initiative) float64 {
+	if !w.Estimated || w.Weeks <= 0 {
+		return 0
+	}
+	rem := w.Weeks
+	if it.InFlight {
+		rem *= 1 - clampFrac(it.ProgressPct)
+	}
+	return rem
+}
+
 // Initiative is one planned feature/project for the year.
 //
 // The sequencing attributes below are all optional, and a plan carrying none of
