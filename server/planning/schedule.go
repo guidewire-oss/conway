@@ -141,6 +141,10 @@ type SchedulingParams struct {
 	// Order view sorts by.
 	AcceptedOrdering   string `json:"acceptedOrdering,omitempty"`   // stated | engine
 	AcceptedOrderingAt int64  `json:"acceptedOrderingAt,omitempty"` // unix secs of the choice
+	// SplitTaxWeeks (spec 007): org-level weeks of overhead charged per lane
+	// split. Absent or 0 disables splitting — the slice takes all lanes or
+	// waits, exactly as before.
+	SplitTaxWeeks int `json:"splitTaxWeeks,omitempty"`
 }
 
 const (
@@ -234,6 +238,15 @@ func bufferWeeksFor(chainWeeks int, sp SchedulingParams) int {
 // constraint that goes with it, arrive as a change to this body.
 func handoffWeeks(_, _ Team) int { return 0 }
 
+// LanePhase is one span of constant lane occupancy inside a split slice
+// (spec 007). The phases tile the slice's span; their lane counts are what
+// the heatmap counts and the timeline animates.
+type LanePhase struct {
+	FromWeek int `json:"fromWeek"`
+	ToWeek   int `json:"toWeek"` // exclusive
+	Lanes    int `json:"lanes"`
+}
+
 // WorkSlice is one initiative's work at one pod, placed in time (§7).
 type WorkSlice struct {
 	Initiative        string  `json:"initiative"`
@@ -243,6 +256,9 @@ type WorkSlice struct {
 	// Decision 2): 1 under wall-clock; under effort, the lanes the work needs
 	// (capped at the pod's tracks) — a busy pod is honestly busy for everyone.
 	LanesUsed int `json:"lanesUsed,omitempty"`
+	// Phases (spec 007): the slice's lanes over time when splitting — it grows
+	// as lanes free. Empty when the slice ran at a constant LanesUsed.
+	Phases []LanePhase `json:"phases,omitempty"`
 	StartWeek         int     `json:"startWeek"`
 	FinishWeek        int     `json:"finishWeek"` // exclusive
 	WaitWeeks         float64 `json:"waitWeeks"`  // ready to started
@@ -593,7 +609,7 @@ func computeOne(teams []Team, inits []Initiative, params Params, sp SchedulingPa
 	statedObjective := 0.0
 	var tried []RuleScore
 	for _, rule := range dispatchRules {
-		run := generate(prepared, rankOrder(rule, prepared, sp, pBar), byName, tracks, sp, wip, horizon, pBar, rules)
+		run := generate(prepared, rankOrder(rule, prepared, sp, pBar), byName, tracks, sp, wip, horizon, pBar, rules, params.CapacityLoss)
 		tried = append(tried, RuleScore{Rule: rule, Objective: run.objective})
 		if rule == ruleStatedPriority {
 			statedObjective = run.objective
@@ -1109,7 +1125,7 @@ type podCalendar struct {
 // rule's order, gate each one's release (Decision 5), then place its slices as
 // early as capacity allows. Releases are what get held back; released work runs.
 func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tracks map[string]int,
-	sp SchedulingParams, wip WipLimit, horizon int, pBar float64, rules *calendarRules) *runResult {
+	sp SchedulingParams, wip WipLimit, horizon int, pBar float64, rules *calendarRules, capacityLoss float64) *runResult {
 
 	maxWeek := horizon
 	for _, in := range all {
@@ -1160,7 +1176,7 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 		var placed []WorkSlice
 		var start, finish int
 		for {
-			placed, start, finish = planSlices(in, release, cal, teams, tracks, sp.MaxInitiativesPerPod, rules, sp)
+			placed, start, finish = planSlices(in, release, cal, teams, tracks, sp.MaxInitiativesPerPod, rules, sp, capacityLoss)
 			// Carryover is already running, so no release gate can push it later — but
 			// it does occupy its slots, which the bookkeeping below records (AC X.4).
 			if in.init.InFlight {
@@ -1246,8 +1262,27 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 				}
 				workEnd++
 			}
+			// Split slices (spec 007) occupy their PHASE lanes each week; flat
+			// slices keep LanesUsed. workEnd is capped at RemainingWeeks of
+			// consumption for flat slices; for split slices the phases already
+			// encode exactly the consuming weeks (tax weeks included as ramp).
+			weekLanes := func(w int) int {
+				if len(s.Phases) == 0 {
+					return s.LanesUsed
+				}
+				for _, ph := range s.Phases {
+					if w >= ph.FromWeek && w < ph.ToWeek {
+						return ph.Lanes
+					}
+				}
+				return 0
+			}
+			sliceWorkEnd := workEnd
+			if len(s.Phases) > 0 {
+				sliceWorkEnd = s.FinishWeek // phases carry only consuming (and taxed ramp) weeks
+			}
 			for w := s.StartWeek; w < s.FinishWeek; w++ {
-				if w >= workEnd {
+				if w >= sliceWorkEnd {
 					continue // freeze/holiday waiting past the estimated work: not occupancy
 				}
 				// FR-018: a reduce-capacity week is not occupancy — a holiday
@@ -1255,7 +1290,7 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 				if rules != nil && rules.reducedTracks(s.Pod, siteOf(teams, s.Pod), c.tracks, w) <= 0 {
 					continue
 				}
-				bumpInt(&c.busy, w, s.LanesUsed)
+				bumpInt(&c.busy, w, weekLanes(w))
 				markWeek(&c.byWeek, w, in.init.Name)
 			}
 		}
@@ -1480,8 +1515,69 @@ func releaseGates(in *schedInput, sp SchedulingParams, wip WipLimit, start, fini
 // planSlices places one initiative's slices without committing them, so a
 // refused release can be retried a week later. Slices run as early as capacity
 // allows once released (Decision 5).
+// splitPlace is spec 007's lane-splitting placement: the slice starts on the
+// lanes free at its ready week (never zero), consumes effort at the lanes
+// actually available each week, and grows as lanes free. The tax is charged
+// as `tax` weeks of occupancy-with-no-consumption at the start of the run —
+// the ramp a team pays to divide the work — so the arithmetic is:
+// finish when Σ(lanes×weeks) over phases >= ceil(effort÷(1−loss)).
+// Growth only, never preemption (Decision 1): weeks already claimed by this
+// slice keep their lanes; the phase list is monotone non-decreasing.
+func splitPlace(c *podCalendar, tracks, ready int, effort float64, loss float64, tax int, rules *calendarRules, pod, site string, _ bool) ([]LanePhase, string) {
+	if c == nil || tracks <= 0 {
+		return nil, "" // unknown-capacity pods cannot split; the caller falls back
+	}
+	total := effort / (1 - loss) // loss-stretched effort, exact this time
+	phases := []LanePhase{}
+	w := ready
+	// The tax weeks run at the FIRST phase's lanes: the team is dividing the
+	// work during them, so they occupy lanes without consuming effort.
+		done := 0.0
+	taxLeft := tax
+	bound := ready + int(total) + tax + horizonBound // a pod cannot free lanes it never had
+	for w <= bound {
+		weekTracks := tracks
+		if rules != nil {
+			weekTracks = rules.reducedTracks(pod, site, tracks, w)
+		}
+		if weekTracks <= 0 {
+			w++
+			continue // non-working week: no consumption, no occupancy
+		}
+		free := weekTracks - weekAt(c.busy, w)
+		if free <= 0 {
+			w++
+			continue
+		}
+		if len(phases) == 0 || phases[len(phases)-1].Lanes != free || (taxLeft > 0 && len(phases) > 0) {
+			// close the previous phase at w
+			if len(phases) > 0 {
+				phases[len(phases)-1].ToWeek = w
+			}
+			phases = append(phases, LanePhase{FromWeek: w, ToWeek: w + 1, Lanes: free})
+		} else {
+			phases[len(phases)-1].ToWeek = w + 1
+		}
+		if taxLeft > 0 {
+			taxLeft--
+			w++
+			continue // occupying, ramping, not yet consuming
+		}
+		done += float64(free)
+		w++
+		if done >= total {
+			phases[len(phases)-1].ToWeek = w
+			return phases, ""
+		}
+	}
+	// Could not finish inside the bound — signal the caller to fall back to
+	// the all-or-nothing path rather than presenting a partial lie.
+	return nil, "pod-capacity"
+}
+
 func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
-	teams map[string]Team, tracks map[string]int, perPodCap int, rules *calendarRules, sp SchedulingParams) ([]WorkSlice, int, int) {
+	teams map[string]Team, tracks map[string]int, perPodCap int, rules *calendarRules, sp SchedulingParams,
+	capacityLoss float64) ([]WorkSlice, int, int) {
 
 	finishOf := map[string]int{}
 	slices := make([]WorkSlice, 0, len(in.order))
@@ -1513,6 +1609,33 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 		}
 		begin := ready
 		sliceFinish := begin + d
+		// Spec 007: when splitting is on (tax > 0, effort model), try the
+		// growth placement first — start on the free lanes, absorb the rest
+		// as they free, tax charged up front. Fall back to all-or-nothing
+		// when the pod has no capacity or the walk could not finish.
+		if sp.estimateModel() == EstimateEffort && sp.SplitTaxWeeks > 0 && d > 0 {
+			if effort := in.init.Work[pod].effortWeeks(in.init); effort > 0 {
+				if phases, _ := splitPlace(cal[pod], tracks[pod], begin, effort, capacityLoss, sp.SplitTaxWeeks, rules, pod, site, in.init.InFlight); phases != nil {
+					slices = append(slices, WorkSlice{
+						Initiative: in.init.Name, Pod: pod,
+						RemainingWeeks: float64(phases[len(phases)-1].ToWeek - phases[0].FromWeek),
+						LanesUsed:      phases[0].Lanes, Phases: phases,
+						StartWeek:      phases[0].FromWeek, FinishWeek: phases[len(phases)-1].ToWeek,
+						WaitWeeks:      float64(phases[0].FromWeek - ready),
+						BindingConstraint: reason, Estimated: in.init.Work[pod].Estimated && in.init.Work[pod].Weeks > 0,
+						DependsOn:       append([]string(nil), in.deps[pod]...),
+					})
+					if phases[len(phases)-1].ToWeek > finish {
+						finish = phases[len(phases)-1].ToWeek
+					}
+					if phases[0].FromWeek < start || i == 0 {
+						start = phases[0].FromWeek
+					}
+					finishOf[pod] = phases[len(phases)-1].ToWeek
+					continue
+				}
+			}
+		}
 		if rules != nil && d > 0 {
 			// FR-018: no slice may begin in a frozen week — unless it is
 			// carryover, which began before the period and cannot be
