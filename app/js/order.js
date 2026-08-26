@@ -44,6 +44,11 @@ export function verdictView(si) {
     'no-date': { symbol: '●', text: 'no date', zone: 'idle' },
     'structurally-infeasible': { symbol: '⚠', text: `cannot fit${late ? ` (${late}w over)` : ''}`, zone: 'red' },
     unschedulable: { symbol: '⚠', text: 'unschedulable', zone: 'red' },
+    // Decision 28: it could not begin inside the period at all, so it has no
+    // start, no commit and no lateness — "does not fit this period" is the whole
+    // of what is known, and inventing a week number a decade out was the old
+    // behaviour this replaced.
+    'beyond-horizon': { symbol: '⚠', text: 'does not fit this period', zone: 'red' },
   }[si.verdict] || { symbol: '●', text: si.verdict || 'unknown', zone: 'idle' };
   // AC 2.5: a verdict resting on unestimated work is marked provisional wherever
   // it is shown, rather than being presented as though it were firm.
@@ -652,6 +657,7 @@ export function orderViewHTML(sched, opts = {}) {
     ${opts.scheduling === undefined ? '' : schedulingDialogHTML(opts.scheduling, sched.wipLimit, sched)}
     ${orderTableHTML(sched, opts)}
     ${feverChartHTML(sched)}
+    ${fitNote(sched.fit, opts.horizonWeeks || sched.horizonWeeks)}
     ${infeasibleNote(sched)}
     ${noticesHTML(sched)}
   </div>
@@ -784,7 +790,10 @@ export function schedulingFormHTML(sp = {}, wip, sched) {
     ${calendarWindowsHTML(sp.calendars || [])}
     <button type="button" id="sched-save" class="primary">Save assumptions</button>
     <button type="button" id="sched-cancel">Cancel</button>
-    ${sched ? wipModelsTableHTML(sched) : ''}
+    <!-- Always present, even when empty: the comparison is fetched only when this
+         dialog opens (it costs three extra schedules server-side), and planui fills
+         this container in place rather than re-rendering the view around it. -->
+    <div id="wip-models">${sched ? wipModelsTableHTML(sched) : ''}</div>
   </div>`;
 }
 
@@ -908,4 +917,39 @@ export function schedulingFromForm(read) {
   }
   if (!out.calendars.length) delete out.calendars;
   return out;
+}
+
+// fitNote is Decision 28's aggregate: the sentence that explains why work did not
+// fit, in terms a planner can act on. A week number a decade out was the old
+// answer to "why doesn't this fit"; this one names the load, or the constraint
+// when capacity is not the reason.
+//
+// Silent when everything fits. A note that always shows is a note nobody reads.
+export function fitNote(fit, horizonWeeks) {
+  if (!fit || !fit.beyondHorizon) return '';
+  const horizon = Math.max(1, Math.ceil(horizonWeeks || 26));
+  const n = fit.beyondHorizon;
+  const many = n > 1;
+  // No tracks at all is its own answer, not a 0% load. The percentage branch below
+  // would report "0% of capacity is used" and blame the release rules, sending a
+  // planner to look at limits when the problem is that there is nobody to do the work.
+  if (!(fit.trackWeeksAvailable > 0)) {
+    return `<p class="plan-warn ord-fit">${n} initiative${many ? 's' : ''}
+      ${many ? 'do' : 'does'} not fit this ${horizon}-week period: these pods have
+      no capacity at all — every one is at zero tracks, so nothing can be scheduled.</p>`;
+  }
+  const load = Math.round((fit.podWeeksDemanded / fit.trackWeeksAvailable) * 100);
+  // Over capacity, the load is the story. Under it, the pods had room and
+  // something else refused the work — saying "125%" there would send the planner
+  // to hire people when the lever is a limit they chose.
+  const why = load >= 100
+    ? `this plan asks for <b>${load}%</b> of what these pods can absorb in ${horizon} weeks
+       (${Math.round(fit.podWeeksDemanded)} pod-weeks of work against
+       ${Math.round(fit.trackWeeksAvailable)} available)`
+    : (fit.heldBy || []).length
+      ? `the pods had room — ${load}% of capacity is used — but
+         <b>${esc(fit.heldBy[0].constraint)}</b> held ${fit.heldBy[0].count > 1 ? 'them' : 'it'} out`
+      : `${load}% of capacity is used, and the release rules held ${many ? 'them' : 'it'} out`;
+  return `<p class="plan-warn ord-fit">${n} initiative${many ? 's' : ''}
+    ${many ? 'do' : 'does'} not fit this ${horizon}-week period: ${why}.</p>`;
 }
