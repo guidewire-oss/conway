@@ -691,6 +691,7 @@ async function renderOrder() {
     : schedOpts;
   host.innerHTML = orderViewHTML(current.schedule, {
     noPin: current.isDraft, // nothing is saved to pin against on a draft
+    engineRanks: current.schedule.engineRanks, // spec 006: the suggestion column
     horizonWeeks: current.horizonWeeks,
     pod: current.orderPod,
     scheduling: schedForForm,
@@ -808,6 +809,72 @@ async function renderOrder() {
     current.schedule = null; // the order must answer the new pin, not the old one
     await renderOrder();
   }));
+  // Spec 006 Decision 1: accepting the engine's order (or returning to the
+  // planner's) flips the working schedule via the scheduling params, and an
+  // accept ends by OFFERING a baseline (Q1: explicit, asked, never assumed).
+  // AC 3.1: Optimize presents the proposal first — both scores, the winning
+  // rule, and the per-initiative moves — and accept/reject act on it. The
+  // panel is view state, not a request: EngineRanks and rulesTried already
+  // came with the schedule.
+  const optimizePanel = document.getElementById('ord-optimize-panel');
+  document.getElementById('ord-optimize')?.addEventListener('click', () => {
+    const p = document.getElementById('ord-optimize-panel');
+    if (p) { p.hidden = !p.hidden; return; }
+    const best = (current.schedule.rulesTried || [])
+      .filter((r) => r.rule !== current.schedule.rule)
+      .reduce((m, r) => (r.objective < (m?.objective ?? Infinity) ? r : m), null);
+    const moves = (current.schedule.initiatives || [])
+      .map((si) => {
+        const sug = (current.schedule.engineRanks || {})[si.name];
+        return sug !== undefined && sug !== si.proposedRank
+          ? `<li>#${si.proposedRank} <b>${esc(si.name)}</b> → #${sug}</li>` : '';
+      })
+      .filter(Boolean).join('');
+    host.querySelector('.ord-card')?.insertAdjacentHTML('afterbegin', `
+      <div class="ord-optimize-panel" id="ord-optimize-panel">
+        <b>⚡ The engine suggests: ${esc(best ? best.rule : '—')}</b>
+        <span class="hint">this order costs ${esc(String(best ? best.objective : '—'))} weighted lateness versus ${esc(String(current.schedule.objectiveScore))} for yours — an optimization, not a solution</span>
+        ${moves ? `<ul class="hint">${moves}</ul>` : '<p class="hint">no moves — your order already matches the best rule found</p>'}
+        <div class="sched-row" style="gap:8px">
+          <button type="button" class="primary" id="ord-accept">Accept the engine's order</button>
+          <button type="button" id="ord-reject">Keep my order</button>
+        </div>
+      </div>`);
+    document.getElementById('ord-accept')?.addEventListener('click', () => setAcceptedOrdering('engine'));
+    document.getElementById('ord-reject')?.addEventListener('click', () => {
+      document.getElementById('ord-optimize-panel')?.remove();
+    });
+  });
+  if (optimizePanel) { /* re-render keeps it closed; opening is one click */ }
+  const setAcceptedOrdering = async (ordering) => {
+    const forPlan = current.id;
+    const atEpoch = orderEpoch;
+    const body = { ...((current.scheduling || {})), acceptedOrdering: ordering };
+    if (ordering === 'engine') body.acceptedOrderingAt = Math.floor(Date.now() / 1000);
+    else { delete body.acceptedOrderingAt; body.acceptedOrdering = 'stated'; }
+    const r = await req('/api/plan/' + forPlan + '/scheduling', {
+      method: 'PATCH', body: JSON.stringify(body),
+    });
+    if (!current || current.id !== forPlan) return;
+    if (!r || !r.ok) return; // the assumptions dialog shows save errors; this is a header action
+    current.scheduling = { ...(current.scheduling || {}), ...body };
+    if (orderEpoch !== atEpoch) return;
+    current.schedule = null;
+    await renderOrder();
+    if (ordering === 'engine') {
+      // Q1: ask to baseline AFTER the re-render, or the fresh DOM drops the
+      // hint. One click, pre-filled, dismissible.
+      const bl = document.getElementById('bl-name');
+      if (bl) {
+        bl.value = bl.value || ('engine order ' + new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short' }));
+        document.querySelector('.bl-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        document.getElementById('bl-optimize-hint')?.remove();
+        bl.insertAdjacentHTML('afterend', '<span class="hint" id="bl-optimize-hint">save this accepted order as a baseline?</span>');
+      }
+    }
+  };
+  document.getElementById('ord-unoptimize')?.addEventListener('click', () => setAcceptedOrdering('stated'));
+
   // ✎ sequencing-attribute editor (spec 004): built from the STORED initiative,
   // not the scheduled row — tier/CoD/kit/progress live only on the stored one.
   // Like the assumptions dialog, the element is re-rendered with every
