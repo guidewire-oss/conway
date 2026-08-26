@@ -145,6 +145,11 @@ type SchedulingParams struct {
 	// split. Absent or 0 disables splitting — the slice takes all lanes or
 	// waits, exactly as before.
 	SplitTaxWeeks int `json:"splitTaxWeeks,omitempty"`
+	// SplitMinWeeks (spec 007 amendment): only work at least this many single-
+	// track-weeks is worth dividing — the coordination tax outweighs the gain
+	// on small slices. 40 weeks over 2 tracks splits 20+20; 45 over 3 splits
+	// 20+20+5; a 12-week slice under a 20-week threshold stays whole.
+	SplitMinWeeks int `json:"splitMinWeeks,omitempty"`
 }
 
 const (
@@ -1611,7 +1616,17 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 		// tracks this slice occupies, not just its duration.
 		lanes := 1
 		if sp.estimateModel() == EstimateEffort {
-			need := int(math.Ceil(in.init.Work[pod].effortWeeks(in.init)))
+			effort := in.init.Work[pod].effortWeeks(in.init)
+			need := int(math.Ceil(effort))
+			// SplitMinWeeks caps the per-track load: 45 weeks with a 20-week
+			// minimum chunks as 20+20+5 across 3 tracks, not 15×3.
+			if sp.SplitMinWeeks > 0 {
+				if effort < float64(sp.SplitMinWeeks) {
+					need = 1 // below the threshold, work stays whole on one track
+				} else {
+					need = int(math.Ceil(effort / float64(sp.SplitMinWeeks)))
+				}
+			}
 			if need > tracks[pod] && tracks[pod] > 0 {
 				need = tracks[pod]
 			}
@@ -1631,10 +1646,14 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 		// Splitting an unstarved slice buys nothing and costs the tax.
 		needsSplit := false
 		if sp.SplitTaxWeeks > 0 && d > 0 {
-			if c0 := cal[pod]; c0 != nil && tracks[pod] > 0 {
-				freeAtReady := tracks[pod] - weekAt(c0.busy, begin)
-				if lanes > freeAtReady {
-					needsSplit = true
+			effortForGate := in.init.Work[pod].effortWeeks(in.init)
+			minOK := sp.SplitMinWeeks <= 0 || effortForGate >= float64(sp.SplitMinWeeks)
+			if minOK {
+				if c0 := cal[pod]; c0 != nil && tracks[pod] > 0 {
+					freeAtReady := tracks[pod] - weekAt(c0.busy, begin)
+					if lanes > freeAtReady {
+						needsSplit = true
+					}
 				}
 			}
 		}

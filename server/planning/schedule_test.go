@@ -1157,3 +1157,32 @@ var _ = Describe("lane splitting", func() {
 		}
 	})
 })
+
+// Spec 007 amendment: the split threshold caps per-track load — 45 effort-
+// weeks over a 20-week threshold uses 3 tracks (20+20+5), not an even spread.
+var _ = Describe("split threshold", func() {
+	It("chunks big work at the threshold instead of spreading evenly", func() {
+		teams := []Team{{Name: "Pod", Tracks: 5}}
+		mk := func(n string, w float64) Initiative {
+			return Initiative{Name: n, Work: map[string]TeamWork{
+				"Pod": {Weeks: w, Estimated: true, InPath: true}}}
+		}
+		sp := SchedulingParams{PeriodStart: specPeriodStart, BufferPct: pctOf(0),
+			EstimateModel: EstimateEffort, SplitTaxWeeks: 2, SplitMinWeeks: 20}
+
+		// 45 effort-weeks: ceil(45/20) = 3 tracks; 45/3/0.9 -> 17 weeks.
+		s45 := ComputeSchedule(teams, []Initiative{mk("FortyFive", 45)},
+			Params{HorizonWeeks: 40, CapacityLoss: 0.1}, sp)
+		Expect(scheduledFor(s45, "FortyFive").Slices[0].LanesUsed).To(Equal(3))
+
+		// 40 effort-weeks: ceil(40/20) = 2 tracks, 20 each.
+		s40 := ComputeSchedule(teams, []Initiative{mk("Forty", 40)},
+			Params{HorizonWeeks: 40, CapacityLoss: 0.1}, sp)
+		Expect(scheduledFor(s40, "Forty").Slices[0].LanesUsed).To(Equal(2))
+
+		// 18 effort-weeks: below the threshold — one track, whole.
+		s18 := ComputeSchedule(teams, []Initiative{mk("Small", 18)},
+			Params{HorizonWeeks: 40, CapacityLoss: 0.1}, sp)
+		Expect(scheduledFor(s18, "Small").Slices[0].LanesUsed).To(Equal(1))
+	})
+})

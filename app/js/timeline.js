@@ -305,10 +305,14 @@ export function podLanesHTML(ps, opts = {}) {
     const bars = inLane.map(({ sl, lead, collapsed }) => {
       const { left, width, overrun } = barGeom(sl.startWeek, sl.finishWeek, horizon);
       const wTag = (sl.lanesUsed || 1) > 1 ? ` ×${sl.lanesUsed}` : '';
+      // Continuation rows carry the label too (dimmed): a track with an
+      // unlabelled bar reads as empty space, and the hover-only text was not
+      // evident enough (user feedback 2026-08-26). The lead row keeps the
+      // fuller styling; continuations show name + duration.
       return barHTML({
         left, width,
         cls: lead === false ? 'tl-cont' : '',
-        label: lead === false ? '' : `${sl.initiative} ${sl.finishWeek - sl.startWeek}w${collapsed ? wTag : ''}`,
+        label: `${sl.initiative} ${sl.finishWeek - sl.startWeek}w${collapsed ? wTag : ''}`,
         title: `${sl.initiative}: w${sl.startWeek}–w${sl.finishWeek} · start by w${sl.latestStartWeek}` +
           (sl.slackWeeks === 0 ? ' · no slack' : ` · ${sl.slackWeeks}w slack`) +
           (overrun > 0 ? ` · ${overrun}w past the horizon` : '') +
