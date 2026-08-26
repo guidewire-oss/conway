@@ -89,6 +89,30 @@ export const TERMS = {
     label: 'Streams',
     tip: 'Parallel work-lanes a team runs — pairs count as one. Real capacity, not headcount.',
   },
+  lanes: {
+    label: 'Lanes',
+    tip: 'How many things a team can work on at once: one per pair if they pair, one per developer if not. Work spread across lanes finishes proportionally faster.',
+  },
+  effort: {
+    label: 'Effort estimate',
+    tip: 'Total work for a team, in person/pair-weeks — not wall-clock time. 60 effort-weeks on a 3-lane team takes about 20 weeks.',
+  },
+  objective: {
+    label: 'Objective (weighted lateness)',
+    tip: 'The plan\u2019s price tag: weeks missed by dated initiatives, weighted by cost of delay. Lower is better. Zero means every dated initiative holds \u2014 on a plan with no dates, zero carries no information.',
+  },
+  optimize: {
+    label: 'Optimize order',
+    tip: 'Runs every dispatch rule and offers the best-scoring order as a suggestion. Sequencing is a hard problem with no single right answer — your call is the decision, this is the analysis.',
+  },
+  'estimate-model': {
+    label: 'Estimate model',
+    tip: 'How the sheet\u2019s estimate column is read: \u201ceffort\u201d divides it across the team\u2019s lanes; \u201cwall-clock\u201d treats it as one lane\u2019s duration. Existing plans stay on wall-clock until switched.',
+  },
+  suggested: {
+    label: 'Suggested rank',
+    tip: 'Where the engine\u2019s best order would place this initiative. It only ever suggests — your stated order is the plan until you accept.',
+  },
   kingman: {
     label: 'Wait multiplier',
     tip: 'How much time-in-queue multiplies as utilisation rises (Kingman\u2019s formula): near full it explodes — at 90% load, work waits ~9\u00d7 its touch time. The reason "just one more thing" is so expensive.',

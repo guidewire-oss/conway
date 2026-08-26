@@ -131,6 +131,39 @@ type SchedulingParams struct {
 	TransferRampWeeks        int              `json:"transferRampWeeks,omitempty"`        // reserved for capacity transfer
 	LookaheadK               float64          `json:"lookaheadK,omitempty"`               // tardiness-index slack discount
 	WipModel                 string           `json:"wipModel,omitempty"`                 // strict | drum-gated | off; absent = unchosen
+	// EstimateModel (spec 006 Decision 2): effort divides each pod estimate
+	// by the pod's lanes; wall-clock keeps the estimate as one lane's duration.
+	// Absent means wall-clock so every existing plan keeps its dates.
+	EstimateModel            string           `json:"estimateModel,omitempty"`            // effort | wall-clock; absent = wall-clock
+	// AcceptedOrdering (spec 006 Decision 1): which ordering the planner put
+	// in force — their own (stated/sheet) or the engine's accepted proposal.
+	// Absent = stated; nothing about the maths changes, only which column the
+	// Order view sorts by.
+	AcceptedOrdering   string `json:"acceptedOrdering,omitempty"`   // stated | engine
+	AcceptedOrderingAt int64  `json:"acceptedOrderingAt,omitempty"` // unix secs of the choice
+}
+
+const (
+	EstimateEffort     = "effort"
+	EstimateWallClock  = "wall-clock"
+)
+
+// estimateModel is the model in force; anything unrecognised falls back to
+// wall-clock, the semantics every pre-spec-006 plan was scheduled under.
+func (sp SchedulingParams) estimateModel() string {
+	if sp.EstimateModel == EstimateEffort {
+		return EstimateEffort
+	}
+	return EstimateWallClock
+}
+
+// acceptedOrdering reports which ordering the planner put in force (spec 006
+// Decision 1). Only the explicit marker flips to the engine's order.
+func (sp SchedulingParams) acceptedOrdering() string {
+	if sp.AcceptedOrdering == "engine" {
+		return "engine"
+	}
+	return "stated"
 }
 
 // wipModel is the model in force, treating anything unrecognised as unchosen: a
@@ -206,6 +239,10 @@ type WorkSlice struct {
 	Initiative        string  `json:"initiative"`
 	Pod               string  `json:"pod"`
 	RemainingWeeks    float64 `json:"remainingWeeks"` // after carryover
+	// LanesUsed is how many tracks this slice occupies per week (spec 006
+	// Decision 2): 1 under wall-clock; under effort, the lanes the work needs
+	// (capped at the pod's tracks) — a busy pod is honestly busy for everyone.
+	LanesUsed int `json:"lanesUsed,omitempty"`
 	StartWeek         int     `json:"startWeek"`
 	FinishWeek        int     `json:"finishWeek"` // exclusive
 	WaitWeeks         float64 `json:"waitWeeks"`  // ready to started
@@ -410,6 +447,10 @@ type Schedule struct {
 	StatedOrderObjectiveScore float64               `json:"statedOrderObjectiveScore"`
 	WipModels                 []WipModelOutcome     `json:"wipModels,omitempty"`
 	Reconciliation            []RankDeviation       `json:"reconciliation,omitempty"`
+	// EngineRanks is the best dispatch rule's per-initiative rank when the
+	// working order is the planner's (spec 006): the suggestion column. Empty
+	// when the engine's order is in force — it IS the spine then.
+	EngineRanks               map[string]int        `json:"engineRanks,omitempty"`
 	Conflicts                 []Conflict            `json:"conflicts,omitempty"`
 	Assumptions               []string              `json:"assumptions,omitempty"`
 	Warnings                  []string              `json:"warnings,omitempty"`
@@ -548,6 +589,7 @@ func computeOne(teams []Team, inits []Initiative, params Params, sp SchedulingPa
 
 	var best *runResult
 	var bestRule string
+	var statedRun *runResult
 	statedObjective := 0.0
 	var tried []RuleScore
 	for _, rule := range dispatchRules {
@@ -555,12 +597,28 @@ func computeOne(teams []Team, inits []Initiative, params Params, sp SchedulingPa
 		tried = append(tried, RuleScore{Rule: rule, Objective: run.objective})
 		if rule == ruleStatedPriority {
 			statedObjective = run.objective
+			statedRun = run
 		}
 		// Strictly better only, so a tie keeps the earlier rule and the winner
 		// never depends on map or float ordering.
 		if best == nil || run.objective < best.objective-1e-9 {
 			best, bestRule = run, rule
 		}
+	}
+	// Spec 006 Decision 1: the planner's order is the working plan unless they
+	// explicitly accepted an engine proposal. Every rule still runs — the
+	// scores and the proposal ride along in RulesTried — but the schedule
+	// handed back follows the stated order, priced like any other.
+	//
+	// The engine's best run keeps a per-initiative rank map, so the Order view
+	// can show "the engine suggests N" beside the planner's spine without a
+	// second schedule call.
+	engineRanks := map[string]int{}
+	if sp.acceptedOrdering() != "engine" && statedRun != nil {
+		for _, si := range best.initiatives {
+			engineRanks[si.Name] = si.ProposedRank
+		}
+		best, bestRule = statedRun, ruleStatedPriority
 	}
 
 	sched := &Schedule{
@@ -572,6 +630,7 @@ func computeOne(teams []Team, inits []Initiative, params Params, sp SchedulingPa
 		RulesTried:                tried,
 		ObjectiveScore:            best.objective,
 		StatedOrderObjectiveScore: statedObjective,
+		EngineRanks:               engineRanks,
 		HorizonWeeks:              horizon,
 		PeriodStart:               sp.PeriodStart,
 	}
@@ -656,9 +715,16 @@ func prepareInitiative(idx int, it Initiative, tracks map[string]int, params Par
 	}
 	in.order, in.deps, in.assumptions = podOrder(it.Work, inPath)
 
+	effort := sp.estimateModel() == EstimateEffort
 	for _, pod := range in.order {
 		w := it.Work[pod]
-		in.durations[pod] = sliceWeeks(w, it, params.CapacityLoss)
+		// Lanes only divide under the effort model (spec 006 Decision 2);
+		// wall-clock passes 1 so the arithmetic is untouched.
+		laneDiv := 1
+		if effort {
+			laneDiv = tracks[pod]
+		}
+		in.durations[pod] = sliceWeeks(w, it, params.CapacityLoss, laneDiv)
 		// Rank on the capacity still to be consumed, not the original estimate: an
 		// initiative that is 80% done occupies two more weeks of the drum, not ten,
 		// and ranking it as though it were whole starves work that has more left.
@@ -780,7 +846,7 @@ func podOrder(work map[string]TeamWork, inPath map[string]bool) ([]string, map[s
 // and attrition — the one inflation Decision 4 keeps inside the schedule.
 // Unestimated work contributes 0, so the initiative is scheduled on what it does
 // have rather than being held out of the order entirely (AC 2.5).
-func sliceWeeks(w TeamWork, it Initiative, loss float64) int {
+func sliceWeeks(w TeamWork, it Initiative, loss float64, lanes int) int {
 	if !w.Estimated || w.Weeks <= 0 {
 		return 0
 	}
@@ -793,6 +859,12 @@ func sliceWeeks(w TeamWork, it Initiative, loss float64) int {
 	}
 	if loss > 0 && loss < 1 {
 		rem /= 1 - loss
+	}
+	// Spec 006 Decision 2: under the effort model the estimate is total work,
+	// shared across the pod's lanes — 60 pair-weeks on 3 pairs is ~20 weeks,
+	// not 60. Wall-clock keeps the estimate as one lane's duration.
+	if lanes > 1 {
+		rem /= float64(lanes)
 	}
 	return int(math.Ceil(rem))
 }
@@ -1088,7 +1160,7 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 		var placed []WorkSlice
 		var start, finish int
 		for {
-			placed, start, finish = planSlices(in, release, cal, teams, tracks, sp.MaxInitiativesPerPod, rules)
+			placed, start, finish = planSlices(in, release, cal, teams, tracks, sp.MaxInitiativesPerPod, rules, sp)
 			// Carryover is already running, so no release gate can push it later — but
 			// it does occupy its slots, which the bookkeeping below records (AC X.4).
 			if in.init.InFlight {
@@ -1183,7 +1255,7 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 				if rules != nil && rules.reducedTracks(s.Pod, siteOf(teams, s.Pod), c.tracks, w) <= 0 {
 					continue
 				}
-				bumpInt(&c.busy, w, 1)
+				bumpInt(&c.busy, w, s.LanesUsed)
 				markWeek(&c.byWeek, w, in.init.Name)
 			}
 		}
@@ -1341,11 +1413,11 @@ func drumStagger(in *schedInput, sp SchedulingParams, cal map[string]*podCalenda
 		if c == nil || c.tracks <= 0 {
 			continue
 		}
-		// The bound is on OCCUPANCY, not start rate: this slice adds a track in
-		// every week of its span, so refuse the release if any drum week would
-		// then sit above the target. That makes the schedule's actual drum load
-		// respect the target — a start-rate check cannot, because slices from
-		// different releases overlap.
+		// The bound is on OCCUPANCY, not start rate: this slice adds its
+		// lanes in every week of its span, so refuse the release if any drum
+		// week would then sit above the target. That makes the schedule's
+		// actual drum load respect the target — a start-rate check cannot,
+		// because slices from different releases overlap.
 		// A target that admits less than one track would refuse every
 		// placement forever, and the retry bound would then commit a slice that
 		// violates it anyway — a silent violation is worse than no stagger, so
@@ -1353,8 +1425,12 @@ func drumStagger(in *schedInput, sp SchedulingParams, cal map[string]*podCalenda
 		if int(math.Ceil(sp.TargetUtilization*float64(c.tracks)-1e-9)) < 1 {
 			continue
 		}
+		lanes := s.LanesUsed
+		if lanes < 1 {
+			lanes = 1
+		}
 		for w := s.StartWeek; w < s.FinishWeek; w++ {
-			if float64(weekAt(c.busy, w)+1) > sp.TargetUtilization*float64(c.tracks)+1e-9 {
+			if float64(weekAt(c.busy, w)+lanes) > sp.TargetUtilization*float64(c.tracks)+1e-9 {
 				return true, bindStagger
 			}
 		}
@@ -1405,7 +1481,7 @@ func releaseGates(in *schedInput, sp SchedulingParams, wip WipLimit, start, fini
 // refused release can be retried a week later. Slices run as early as capacity
 // allows once released (Decision 5).
 func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
-	teams map[string]Team, tracks map[string]int, perPodCap int, rules *calendarRules) ([]WorkSlice, int, int) {
+	teams map[string]Team, tracks map[string]int, perPodCap int, rules *calendarRules, sp SchedulingParams) ([]WorkSlice, int, int) {
 
 	finishOf := map[string]int{}
 	slices := make([]WorkSlice, 0, len(in.order))
@@ -1421,6 +1497,20 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 		}
 		site := siteOf(teams, pod)
 		d := in.durations[pod]
+		// Lanes (spec 006 Decision 2): computed before placement — the
+		// capacity walk and the drum stagger both need to know how many
+		// tracks this slice occupies, not just its duration.
+		lanes := 1
+		if sp.estimateModel() == EstimateEffort {
+			need := int(math.Ceil(in.init.Work[pod].effortWeeks(in.init)))
+			if need > tracks[pod] && tracks[pod] > 0 {
+				need = tracks[pod]
+			}
+			if need < 1 {
+				need = 1
+			}
+			lanes = need
+		}
 		begin := ready
 		sliceFinish := begin + d
 		if rules != nil && d > 0 {
@@ -1440,7 +1530,7 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 				// block-start rule is re-applied to every candidate inside —
 				// capacity can otherwise push a start into a frozen week the
 				// pre-check never saw.
-				if s, f, why := firstFreeWeek(cal[pod], tracks[pod], begin, d, in.init.Name, perPodCap, rules, pod, site, in.init.InFlight); s > begin || f > sliceFinish {
+				if s, f, why := firstFreeWeek(cal[pod], tracks[pod], begin, d, lanes, in.init.Name, perPodCap, rules, pod, site, in.init.InFlight); s > begin || f > sliceFinish {
 					begin, sliceFinish = s, f
 					if why != "" {
 						reason = why
@@ -1459,7 +1549,7 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 		}
 		w := in.init.Work[pod]
 		slices = append(slices, WorkSlice{
-			Initiative: in.init.Name, Pod: pod, RemainingWeeks: float64(d),
+			Initiative: in.init.Name, Pod: pod, RemainingWeeks: float64(d), LanesUsed: lanes,
 			StartWeek: begin, FinishWeek: sliceFinish, WaitWeeks: float64(begin - ready),
 			BindingConstraint: reason, Estimated: w.Estimated && w.Weeks > 0,
 			DependsOn: append([]string(nil), in.deps[pod]...),
@@ -1489,8 +1579,11 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 // Two separate limits apply, and they are reported separately because the
 // remedies differ: no free track is pod capacity, answered by tracks or descope;
 // too many initiatives at once is the pod's own WIP cap, answered by sequencing.
-func firstFreeWeek(c *podCalendar, tracks, from, d int, initiative string, perPodCap int,
+func firstFreeWeek(c *podCalendar, tracks, from, d, lanes int, initiative string, perPodCap int,
 	rules *calendarRules, pod, site string, inFlight bool) (start int, finish int, reason string) {
+	if lanes < 1 {
+		lanes = 1
+	}
 	// The limit that refused the slice's own ready week is the one worth naming;
 	// whatever refuses a later candidate week is a consequence of that first wait.
 	refused := ""
@@ -1529,7 +1622,9 @@ func firstFreeWeek(c *podCalendar, tracks, from, d int, initiative string, perPo
 				w++
 				continue
 			}
-			if c != nil && weekAt(c.busy, w) >= weekTracks {
+			// Multi-lane slices (spec 006) need `lanes` free tracks, not one:
+			// an effort slice that occupies 3 lanes must find 3 free or wait.
+			if c != nil && weekAt(c.busy, w)+lanes > weekTracks {
 				fits, why = false, bindPodCapacity
 				if weekTracks < tracks {
 					why = bindFreeze

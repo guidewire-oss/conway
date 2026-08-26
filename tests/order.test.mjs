@@ -5,6 +5,7 @@ import {
   esc, zoneOf, weekLabel, verdictView, verdictBadgeHTML, statedCell, objectiveView, wipLimitNote, schedulingDialogHTML,
   orderRows, orderTableHTML, infeasibleNote, heatmapWeeks, overrunNote, feverChartHTML, feverZone, idleNoteHTML,
   initiativeEditDialogHTML, initiativeEditFromBody, quoteName, splitInitiativeNames,
+  suggestedCell, orderingBadge, optimizeOfferHTML,
   podHeatmapHTML, podQueueHTML, noticesHTML, orderViewHTML, rowTraceHTML,
   schedulingFormHTML, schedulingFromForm, pctToFraction,
   wipModelsTableHTML, WIP_MODELS, fitNote,
@@ -490,9 +491,9 @@ test('a hostile value cannot break out of the value attribute', () => {
 test('the form controls are explicitly type=button', () => {
   const html = schedulingFormHTML({ periodStart: '2026-01-05' }, {});
   const buttons = html.match(/<button[^>]*>/g) || [];
-  // save, cancel, the calendar windows' add button (FR-018), and the
-  // work-in-progress model's glossary ? (terms.js).
-  assert.equal(buttons.length, 4);
+  // save, cancel, the calendar windows' add button (FR-018), the
+  // work-in-progress model's ?, and the estimate model's ? (terms.js).
+  assert.equal(buttons.length, 5);
   for (const b of buttons) {
     assert.match(b, /type="button"/, `missing type: ${b}`);
   }
@@ -1027,4 +1028,41 @@ test('fitNote says there is no capacity rather than blaming the release rules', 
   assert.match(html, /no capacity|no tracks/i);
   assert.ok(!/release rules/.test(html), 'the rules are not why nothing fits');
   assert.ok(!/0%/.test(html), '0% of nothing is not a useful number');
+});
+
+// Spec 006: your order first + the estimate-model knob.
+test('suggestedCell shows the engine rank only when it differs', () => {
+  const ranks = { A: 3, B: 2 };
+  // rank 1 -> suggested 3 is a demotion (down); 3 -> 1 would be ord-up
+  const html = suggestedCell({ name: 'A', proposedRank: 1 }, ranks);
+  assert.match(html, /ord-down/);
+  assert.match(html, /↳3/);
+  const up = suggestedCell({ name: 'A', proposedRank: 4 }, { A: 1 });
+  assert.match(up, /ord-up/);
+  assert.equal(suggestedCell({ name: 'B', proposedRank: 2 }, ranks), '', 'matching rank renders nothing');
+  assert.equal(suggestedCell({ name: 'C', proposedRank: 1 }, ranks), '', 'unknown to the engine renders nothing');
+  assert.equal(suggestedCell({ name: 'A', proposedRank: 1 }, undefined), '', 'no engine ranks (engine in force) renders nothing');
+});
+
+test('the ordering badge labels whose order is in force', () => {
+  assert.match(orderingBadge({}), /your order/);
+  assert.match(orderingBadge({ acceptedOrdering: 'engine' }), /engine's order/);
+  assert.match(orderingBadge({ acceptedOrdering: 'engine', acceptedOrderingAt: 1787623830 }), /accepted/);
+});
+
+test('the estimate model knob round-trips: only explicit effort is sent', () => {
+  const read = (id) => (id === 'sched-estimate-model' ? 'effort' : undefined);
+  assert.equal(schedulingFromForm(read).estimateModel, 'effort');
+  const readWC = (id) => (id === 'sched-estimate-model' ? 'wall-clock' : undefined);
+  assert.equal(schedulingFromForm(readWC).estimateModel, undefined);
+});
+
+test('optimizeOfferHTML prices the better rule when one exists', () => {
+  const html = optimizeOfferHTML({ rule: 'stated-priority', objectiveScore: 60,
+    rulesTried: [{ rule: 'stated-priority', objective: 60 }, { rule: 'tardiness-cost', objective: 25 }] });
+  assert.match(html, /tardiness-cost/);
+  assert.match(html, /35 less/);
+  assert.equal(optimizeOfferHTML({ rule: 'stated-priority', objectiveScore: 10,
+    rulesTried: [{ rule: 'stated-priority', objective: 10 }, { rule: 'tardiness-cost', objective: 40 }] }), '',
+    'no offer when the working order is already best');
 });
