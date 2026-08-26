@@ -840,17 +840,50 @@ var _ = Describe("ComputeSchedule", func() {
 		onTime := byName["Telemetry GA"]
 		Expect(onTime.Verdict).To(Equal("on-time"))
 		Expect(onTime.TargetBurn).To(BeNumerically("~", 0, 1e-9))
-		// Managed database MVP misses by whole buffers: burn is the miss over
-		// the buffer, and the chain has not even started at the target.
-		late := byName["Managed database MVP"]
-		Expect(late.Verdict).To(Equal("late"))
-		Expect(late.TargetBurn).To(BeNumerically(">", 1))
-		Expect(late.TargetProgress).To(Equal(0.0))
-		Expect(late.BurnRatio).To(BeNumerically("~", late.TargetBurn, 1e-9))
 		// Undated initiatives have no fever point at all.
 		undated := byName["SCIM provisioning"]
 		Expect(undated.TargetBurn).To(Equal(0.0))
 		Expect(undated.TargetProgress).To(Equal(0.0))
+	})
+
+	// The late case has its own fixture rather than borrowing one from Demo.
+	// Decision 28 stopped the schedule at the horizon, and Demo is WIP-limited
+	// enough that six of its ten initiatives now report beyond-horizon and none
+	// report late — so the assertion that used to ride on "Managed database MVP"
+	// was testing Demo's tuning as much as the fever point. A two-initiative plan
+	// that misses a date while staying inside its period cannot drift that way.
+	It("computes the fever point for a date missed inside the period", func() {
+		teams := []Team{{Name: "Alpha", Tracks: 1}}
+		inits := []Initiative{
+			{Name: "ahead", Work: map[string]TeamWork{"Alpha": podWork(4)},
+				StatedPriority: 1, PriorityLocked: true},
+			// Queued behind "ahead", so it commits around week 10 against a week-5
+			// target: late by contention, not structurally impossible.
+			{Name: "missed", Work: map[string]TeamWork{"Alpha": podWork(4)},
+				TargetDate: weekDate(5), StatedPriority: 2, PriorityLocked: true},
+		}
+		sp := SchedulingParams{PeriodStart: specPeriodStart, WipModel: WipStrict, BufferPct: pctOf(0.25)}
+		sched := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26}, sp)
+
+		var late ScheduledInitiative
+		for _, si := range sched.Initiatives {
+			if si.Name == "missed" {
+				late = si
+			}
+		}
+		Expect(late.Verdict).To(Equal("late"), "it starts inside the period, so it has a date verdict")
+		Expect(late.CommitWeek).To(BeNumerically(">", 5))
+		Expect(late.TargetBurn).To(BeNumerically(">", 1), "missed by more than its buffer")
+		// Underway but not finished at the target week. It cannot be zero here and
+		// still be "late": a target early enough that the chain has not started is
+		// one no ordering could have met, which verdictFor reports as
+		// structurally-infeasible instead (Decision 12).
+		Expect(late.TargetProgress).To(BeNumerically(">", 0))
+		Expect(late.TargetProgress).To(BeNumerically("<", 1))
+		// The progress > 0 branch of the ratio, which the old Demo-based assertion
+		// never reached: burn per unit of progress, not the raw burn.
+		Expect(late.BurnRatio).To(BeNumerically("~", late.TargetBurn/late.TargetProgress, 1e-9))
+		Expect(late.BurnRatio).To(BeNumerically(">", late.TargetBurn))
 	})
 
 	// Spec 004 Story 5 (AC 5.1/5.2): targetUtilization staggers releases at the

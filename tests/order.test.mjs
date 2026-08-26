@@ -7,7 +7,7 @@ import {
   initiativeEditDialogHTML, initiativeEditFromBody, quoteName, splitInitiativeNames,
   podHeatmapHTML, podQueueHTML, noticesHTML, orderViewHTML, rowTraceHTML,
   schedulingFormHTML, schedulingFromForm, pctToFraction,
-  wipModelsTableHTML, WIP_MODELS,
+  wipModelsTableHTML, WIP_MODELS, fitNote,
 } from '../app/js/order.js';
 
 // The fixture is real output from the Go scheduler for the demo plan, not a
@@ -961,6 +961,49 @@ test('idleNoteHTML divides by the period track-weeks, not the overrun span', () 
   assert.match(html, /50% calendar/); // 26 / (2*26) — not 26 / (2*50) = 26%
 });
 
+// Decision 28: an initiative that could not begin inside the period. It falls
+// through verdictView's default without this, rendering the raw enum value
+// "beyond-horizon" at the reader.
+test('verdictView names an initiative that does not fit the period', () => {
+  const v = verdictView({ verdict: 'beyond-horizon' });
+  assert.match(v.text, /period/i, 'say what did not fit, not the enum name');
+  assert.ok(!v.text.includes('beyond-horizon'), 'the wire value is not reader copy');
+  assert.equal(v.zone, 'red', 'not fitting at all is not a neutral outcome');
+  assert.equal(v.symbol, '⚠');
+});
+
+test('a beyond-horizon verdict can still be provisional', () => {
+  const v = verdictView({ verdict: 'beyond-horizon', provisional: true });
+  assert.match(v.text, /provisional/);
+});
+
+// The aggregate that explains the shortfall. A week number a decade out was the
+// old answer; "you are asking for 125% of what these pods can absorb" is one a
+// planner can act on.
+test('fitNote states the shortfall in demand against capacity', () => {
+  const html = fitNote({ podWeeksDemanded: 2418, trackWeeksAvailable: 1934, beyondHorizon: 28 }, 26);
+  assert.match(html, /28/, 'how many did not fit');
+  assert.match(html, /125%/, 'the load as a percentage of what fits');
+  assert.match(html, /26/, 'against which period');
+});
+
+// At 14% load a WIP limit, not the pods, is what held the work out. Reporting
+// demand-vs-capacity alone would point the planner at the wrong lever.
+test('fitNote names the constraint when capacity is not the reason', () => {
+  const html = fitNote({
+    podWeeksDemanded: 158, trackWeeksAvailable: 1123, beyondHorizon: 6,
+    heldBy: [{ constraint: 'wip-limit', count: 6 }],
+  }, 26);
+  assert.match(html, /wip-limit|WIP limit/i);
+  assert.ok(!/1[0-9][0-9]%/.test(html), 'must not imply the pods are over capacity');
+});
+
+test('fitNote is silent when everything fits', () => {
+  assert.equal(fitNote({ podWeeksDemanded: 70, trackWeeksAvailable: 1123, beyondHorizon: 0 }, 26), '');
+  assert.equal(fitNote(null, 26), '');
+  assert.equal(fitNote(undefined, 26), '');
+});
+
 // The comparison table is fetched lazily and dropped into place, so the dialog
 // must always carry a container to drop it into -- including on the auto-open
 // path, where the table is empty precisely because the fetch has not happened.
@@ -973,4 +1016,15 @@ test('the assumptions form always carries a slot for the comparison table', () =
   });
   assert.match(withRows, /id="wip-models"/);
   assert.match(withRows, /strict/);
+});
+
+// A roster with no tracks at all: the load fraction is undefined, and the old
+// fallback quietly reported "0% of capacity is used" and blamed the release
+// rules — sending a planner to look at limits when the answer is that there is
+// nobody to do the work.
+test('fitNote says there is no capacity rather than blaming the release rules', () => {
+  const html = fitNote({ podWeeksDemanded: 40, trackWeeksAvailable: 0, beyondHorizon: 3 }, 26);
+  assert.match(html, /no capacity|no tracks/i);
+  assert.ok(!/release rules/.test(html), 'the rules are not why nothing fits');
+  assert.ok(!/0%/.test(html), '0% of nothing is not a useful number');
 });
