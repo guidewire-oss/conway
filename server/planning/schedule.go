@@ -33,6 +33,7 @@ const (
 	verdictNoDate        = "no-date"
 	verdictInfeasible    = "structurally-infeasible"
 	verdictUnschedulable = "unschedulable"
+	verdictBeyondHorizon = "beyond-horizon"
 )
 
 // bindingConstraint values, per §7. Exactly one of these explains why a slice or
@@ -343,9 +344,63 @@ type RuleScore struct {
 	Objective float64 `json:"objective"`
 }
 
+// ScheduleFit is the arithmetic behind Decision 28: how much work the plan asks
+// for against how much the pods can absorb inside the period, and how many
+// initiatives did not fit.
+//
+// It exists because a week number is the wrong answer to "why doesn't this fit".
+// The plan that prompted the decision reported every initiative as "no-date" and
+// committed one of 29 inside its horizon; what a planner needed to hear was that
+// they were asking for 125% of the available capacity.
+type ScheduleFit struct {
+	// PodWeeksDemanded is every initiative's in-path work, whether or not it fitted.
+	PodWeeksDemanded float64 `json:"podWeeksDemanded"`
+	// TrackWeeksAvailable is tracks x horizon, less the capacity loss: what the
+	// pods can actually absorb rather than their nameplate.
+	TrackWeeksAvailable float64 `json:"trackWeeksAvailable"`
+	// BeyondHorizon counts the initiatives that could not begin inside the period.
+	BeyondHorizon int `json:"beyondHorizon"`
+	// HeldBy counts which constraint refused each of them, most common first. The
+	// demand figures above explain a plan that is over capacity; they explain
+	// nothing about one held out by a WIP limit, and the lever differs.
+	HeldBy []ConstraintCount `json:"heldBy,omitempty"`
+}
+
+// ConstraintCount is one bindingConstraint and how many initiatives it held out.
+type ConstraintCount struct {
+	Constraint string `json:"constraint"`
+	Count      int    `json:"count"`
+}
+
+// appendCount tallies a constraint, keeping the list ordered by count so the
+// caller can read the dominant one off the front without sorting again.
+func appendCount(counts []ConstraintCount, name string) []ConstraintCount {
+	for i := range counts {
+		if counts[i].Constraint == name {
+			counts[i].Count++
+			for j := i; j > 0 && counts[j].Count > counts[j-1].Count; j-- {
+				counts[j], counts[j-1] = counts[j-1], counts[j]
+			}
+			return counts
+		}
+	}
+	return append(counts, ConstraintCount{Constraint: name, Count: 1})
+}
+
+// LoadPct is the demand as a percentage of what the period can absorb. Above 100
+// the plan cannot fit however it is ordered, which is a different conversation
+// from any individual date.
+func (f ScheduleFit) LoadPct() float64 {
+	if f.TrackWeeksAvailable <= 0 {
+		return 0
+	}
+	return f.PodWeeksDemanded / f.TrackWeeksAvailable * 100
+}
+
 // Schedule is the whole computed order (§7).
 type Schedule struct {
 	Initiatives               []ScheduledInitiative `json:"initiatives"`
+	Fit                       *ScheduleFit          `json:"fit"`
 	PodWeeks                  []PodSchedule         `json:"podWeeks"`
 	DrumPods                  []string              `json:"drumPods"`
 	WipLimit                  WipLimit              `json:"wipLimit"`
@@ -523,6 +578,7 @@ func computeOne(teams []Team, inits []Initiative, params Params, sp SchedulingPa
 	for i := range sched.Initiatives {
 		sched.Initiatives[i].RankingTerms.Rule = bestRule
 	}
+	sched.Fit = fitOf(inits, sched.Initiatives, tracks, params, horizon)
 	sched.Reconciliation = reconcile(sched.Initiatives, bestRule)
 	sched.Conflicts = conflictingCommitments(sched.Initiatives)
 	annotateSliceSlack(sched.Initiatives)
@@ -1044,7 +1100,11 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 				release, reason = release+1, gate
 				continue
 			}
-			if release > maxWeek {
+			// Decision 28: the release search stops at the period. maxWeek is the
+			// old bound -- horizon plus every initiative's chain -- which on an
+			// oversubscribed plan let releases walk out hundreds of weeks looking
+			// for room that does not exist inside the period.
+			if release >= horizon || release > maxWeek {
 				break
 			}
 			// Decision 5's stagger: with every other gate satisfied, hold the
@@ -1059,6 +1119,42 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 				continue
 			}
 			break
+		}
+
+		// Decision 28: nothing begins outside the period. Such an initiative occupies
+		// no calendar and carries no start or commit week -- an invented week number a
+		// decade out is worse than an honest absence -- so it skips the bookkeeping
+		// below entirely, and the capacity it would have consumed stays available to
+		// the initiatives that do fit.
+		if !in.init.InFlight && start >= horizon {
+			// When placement rather than a release gate pushed it out, the reason lives
+			// on the slices -- pod-capacity, or a freeze. Taking it before they are
+			// cleared is what lets ScheduleFit.HeldBy name those causes instead of
+			// reporting an empty constraint (FR-021).
+			held := reason
+			if held == "" {
+				for _, sl := range placed {
+					if sl.BindingConstraint != "" {
+						held = sl.BindingConstraint
+						break
+					}
+				}
+			}
+			si := summarise(in, rank, start, finish, nil, held, sp, pBar)
+			si.StartWeek, si.RawFinishWeek, si.CommitWeek, si.BufferWeeks = 0, 0, 0, 0
+			si.WeeksLate = 0
+			si.Verdict = verdictBeyondHorizon
+			// A successor cannot start before a predecessor that never starts. The
+			// bookkeeping below is skipped, so releaseFloor would find no commit
+			// recorded for this one and let dependents run inside the period ahead of
+			// work that was never scheduled. The horizon is the sentinel: any floor at
+			// or past it lands the dependent here too, and the block cascades.
+			commitOf[in.init.Name] = horizon
+			// bindingConstraint keeps whatever gate actually refused the release --
+			// "wip-limit" or "pod-capacity" says why it could not get in, which is
+			// more use than a generic "horizon" and needs no new enum value (FR-021).
+			results[in.init.Name] = &si
+			continue
 		}
 
 		for _, s := range placed {
@@ -1488,6 +1584,44 @@ func podWeekInitiatives(c *podCalendar, w int, exclude string) int {
 		}
 	}
 	return n
+}
+
+// fitOf is Decision 28's arithmetic: what the plan asks of the period against what
+// the period can absorb. Demand counts every initiative's in-path work, including
+// the ones that did not fit -- they are the demand, and leaving them out would
+// report a plan that fits.
+func fitOf(inits []Initiative, sis []ScheduledInitiative, tracks map[string]int,
+	params Params, horizon int) *ScheduleFit {
+	fit := &ScheduleFit{}
+	// Demand comes from the inputs, not the placed slices: an initiative held out
+	// of the period has no slices, and counting only what was placed would report a
+	// plan that fits. That is the whole question this field answers.
+	for _, it := range inits {
+		for _, w := range it.Work {
+			if w.InPath {
+				fit.PodWeeksDemanded += w.Weeks
+			}
+		}
+	}
+	for _, si := range sis {
+		if si.Verdict == verdictBeyondHorizon {
+			fit.BeyondHorizon++
+			// Why it could not get in. At 6% capacity load a WIP limit, not the
+			// pods, is what held it out, and reporting only demand-vs-capacity
+			// would point the planner at the wrong lever.
+			if si.BindingConstraint != "" {
+				fit.HeldBy = appendCount(fit.HeldBy, si.BindingConstraint)
+			}
+		}
+	}
+	total := 0
+	for _, tr := range tracks {
+		total += tr
+	}
+	// The loss is why this is capacity rather than nameplate: a pod at three tracks
+	// does not deliver three track-weeks a week (Params.CapacityLoss).
+	fit.TrackWeeksAvailable = float64(total) * float64(horizon) * (1 - params.WithDefaults().CapacityLoss)
+	return fit
 }
 
 // summarise turns a placed initiative into its reported row: the buffered commit
