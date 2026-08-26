@@ -274,7 +274,12 @@ export function podLanesHTML(ps, opts = {}) {
         label: `${sl.initiative} ${sl.finishWeek - sl.startWeek}w`,
         title: `${sl.initiative}: w${sl.startWeek}–w${sl.finishWeek} · start by w${sl.latestStartWeek}` +
           (sl.slackWeeks === 0 ? ' · no slack' : ` · ${sl.slackWeeks}w slack`) +
-          (overrun > 0 ? ` · ${overrun}w past the horizon` : ''),
+          (overrun > 0 ? ` · ${overrun}w past the horizon` : '') +
+          // Split slices (spec 007): the phase ladder is the honest shape of
+          // the work — "3 lanes to w12, then 5" is what the team actually ran.
+          ((sl.phases || []).length > 1
+            ? ` · lanes ${sl.phases.map((ph) => `${ph.lanes}→w${ph.toWeek}`).join(', ')}`
+            : ''),
       });
     }).join('');
     rows.push(`<div class="tl-lane"><span class="hint">track ${lane + 1}</span><div class="tl-track">${bars}</div></div>`);
