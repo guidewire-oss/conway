@@ -261,11 +261,23 @@ function assignLanes(slices, cap = 0) {
       placement.push({ sl, lane: lane + i, lead: i === 0 });
     }
   }
-  // never draw more lanes than the pod has tracks; overflow (a genuine
-  // over-capacity schedule) would be a server bug better visible as clipping
-  // than as phantom capacity.
+  // Never draw more lanes than the pod has tracks. When time-overlapping
+  // multi-lane slices cannot each get their own consecutive span (they were
+  // serialized server-side, so they can), the walk pushed some past the cap —
+  // dropping them would hide real work (Apollo vanished this way). Overflow
+  // slices collapse onto the first lane, one row tall, with their width badge
+  // still carrying lanesUsed.
   const lanes = cap > 0 ? Math.min(laneEnds.length, cap) : laneEnds.length;
-  return { placement: placement.filter((p) => p.lane < lanes), lanes };
+  const fixed = [];
+  for (const p of placement) {
+    if (p.lane < lanes) { fixed.push(p); continue; }
+    if (p.lead !== false) {
+      // re-place the whole slice on lane 0 row-wise (visual stacking); its
+      // continuations (lead === false) are skipped — one row represents it
+      fixed.push({ ...p, lane: 0, collapsed: true });
+    }
+  }
+  return { placement: fixed, lanes };
 }
 
 // podLanesHTML is one pod's track lanes (§13.4): every slice in start order,
@@ -290,12 +302,13 @@ export function podLanesHTML(ps, opts = {}) {
   const rows = [];
   for (let lane = 0; lane < Math.max(lanes, 1); lane++) {
     const inLane = placement.filter((p) => p.lane === lane);
-    const bars = inLane.map(({ sl, lead }) => {
+    const bars = inLane.map(({ sl, lead, collapsed }) => {
       const { left, width, overrun } = barGeom(sl.startWeek, sl.finishWeek, horizon);
+      const wTag = (sl.lanesUsed || 1) > 1 ? ` ×${sl.lanesUsed}` : '';
       return barHTML({
         left, width,
         cls: lead === false ? 'tl-cont' : '',
-        label: lead === false ? '' : `${sl.initiative} ${sl.finishWeek - sl.startWeek}w`,
+        label: lead === false ? '' : `${sl.initiative} ${sl.finishWeek - sl.startWeek}w${collapsed ? wTag : ''}`,
         title: `${sl.initiative}: w${sl.startWeek}–w${sl.finishWeek} · start by w${sl.latestStartWeek}` +
           (sl.slackWeeks === 0 ? ' · no slack' : ` · ${sl.slackWeeks}w slack`) +
           (overrun > 0 ? ` · ${overrun}w past the horizon` : '') +
