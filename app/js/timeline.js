@@ -230,19 +230,42 @@ export function portfolioTimelineHTML(sched, opts = {}) {
 // each onto the first lane free at its start. The count can never exceed the
 // pod's tracks when the schedule is feasible — which is the capacity
 // constraint made visual (FR-040).
-function assignLanes(slices) {
+// assignLanes packs slices into track lanes greedily: earliest start first,
+// each onto the first lane free at its start. A multi-lane slice (spec 006:
+// lanesUsed > 1) occupies that many CONSECUTIVE lanes — it is one piece of
+// work running across the pod, and drawing it on a single track made the
+// other tracks look idle while the server had them busy.
+// cap is the pod's track count from the roster (spec 006: pairing halves
+// devs, non-pairing one track per dev). The Gantt shows exactly that many
+// lanes — never more. Slices are serialized by the scheduler to fit, so a
+// stack beyond `cap` would mean a rendering bug, not more capacity.
+function assignLanes(slices, cap = 0) {
+  const width = (sl) => Math.max(1, sl.lanesUsed || 1);
   const sorted = slices.slice().sort((a, b) => a.startWeek - b.startWeek);
   const laneEnds = [];
-  const placement = sorted.map((sl) => {
-    let lane = laneEnds.findIndex((end) => end <= sl.startWeek);
-    if (lane === -1) {
-      lane = laneEnds.length;
-      laneEnds.push(0);
+  const placement = [];
+  for (const sl of sorted) {
+    const w = Math.min(width(sl), cap || width(sl));
+    let lane = 0;
+    for (;;) {
+      // find the first `w` consecutive lanes all free at sl.startWeek
+      let ok = true;
+      for (let i = 0; i < w; i++) {
+        if ((laneEnds[lane + i] || 0) > sl.startWeek) { ok = false; break; }
+      }
+      if (ok) break;
+      lane++;
     }
-    laneEnds[lane] = sl.finishWeek;
-    return { sl, lane };
-  });
-  return { placement, lanes: laneEnds.length };
+    for (let i = 0; i < w; i++) {
+      laneEnds[lane + i] = sl.finishWeek;
+      placement.push({ sl, lane: lane + i, lead: i === 0 });
+    }
+  }
+  // never draw more lanes than the pod has tracks; overflow (a genuine
+  // over-capacity schedule) would be a server bug better visible as clipping
+  // than as phantom capacity.
+  const lanes = cap > 0 ? Math.min(laneEnds.length, cap) : laneEnds.length;
+  return { placement: placement.filter((p) => p.lane < lanes), lanes };
 }
 
 // podLanesHTML is one pod's track lanes (§13.4): every slice in start order,
@@ -263,15 +286,16 @@ export function podLanesHTML(ps, opts = {}) {
     }).join('');
     return `<div class="tl-lane"><span class="hint">no capacity</span><div class="tl-track">${bars || '<span class="hint">—</span>'}</div></div>`;
   }
-  const { placement, lanes } = assignLanes(ps.slices || []);
+  const { placement, lanes } = assignLanes(ps.slices || [], ps.tracks || 0);
   const rows = [];
   for (let lane = 0; lane < Math.max(lanes, 1); lane++) {
     const inLane = placement.filter((p) => p.lane === lane);
-    const bars = inLane.map(({ sl }) => {
+    const bars = inLane.map(({ sl, lead }) => {
       const { left, width, overrun } = barGeom(sl.startWeek, sl.finishWeek, horizon);
       return barHTML({
         left, width,
-        label: `${sl.initiative} ${sl.finishWeek - sl.startWeek}w`,
+        cls: lead === false ? 'tl-cont' : '',
+        label: lead === false ? '' : `${sl.initiative} ${sl.finishWeek - sl.startWeek}w`,
         title: `${sl.initiative}: w${sl.startWeek}–w${sl.finishWeek} · start by w${sl.latestStartWeek}` +
           (sl.slackWeeks === 0 ? ' · no slack' : ` · ${sl.slackWeeks}w slack`) +
           (overrun > 0 ? ` · ${overrun}w past the horizon` : '') +
