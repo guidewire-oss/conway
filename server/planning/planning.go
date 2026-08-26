@@ -67,6 +67,11 @@ type Initiative struct {
 	EarliestStart      string   `json:"earliestStart,omitempty"`      // ISO date: not before, for funding/hiring/upstream events
 	AfterInitiatives   []string `json:"afterInitiatives,omitempty"`   // cross-initiative precedence, by name
 	KitPct             float64  `json:"kitPct,omitempty"`             // full-kit readiness at period start, 0..1
+	// PinnedStarts (spec 008): pod -> week this initiative's slice at that pod
+	// was hand-placed to begin at, from a timeline drag. The engine honours
+	// the pin where the constraints allow and snaps to the nearest legal week
+	// with the reason named when they do not.
+	PinnedStarts       map[string]int `json:"pinnedStarts,omitempty"`
 	InFlight           bool     `json:"inFlight,omitempty"`           // carryover already running at period start
 	ProgressPct        float64  `json:"progressPct,omitempty"`        // how much of it is already done, 0..1
 }

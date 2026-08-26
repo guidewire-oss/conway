@@ -36,6 +36,10 @@ type InitiativeEdit struct {
 	EarliestStart      *string   `json:"earliestStart,omitempty"`
 	AfterInitiatives   *[]string `json:"afterInitiatives,omitempty"`
 	KitPct             *float64  `json:"kitPct,omitempty"`
+	// PinnedStarts (spec 008): pod -> pinned start week from a timeline drag.
+	// A non-nil map REPLACES the pins for that initiative (an empty map
+	// clears them) — pointer semantics so "no pins" is expressible.
+	PinnedStarts       *map[string]int `json:"pinnedStarts,omitempty"`
 	InFlight           *bool     `json:"inFlight,omitempty"`
 	ProgressPct        *float64  `json:"progressPct,omitempty"`
 }
@@ -137,6 +141,9 @@ func ApplyInitiativeEdits(inits []Initiative, edits []InitiativeEdit, sp Schedul
 		assign(&it.Tier, e.Tier)
 		assign(&it.CostOfDelayPerWeek, e.CostOfDelayPerWeek)
 		assign(&it.KitPct, e.KitPct)
+		if e.PinnedStarts != nil {
+			it.PinnedStarts = *e.PinnedStarts
+		}
 		assign(&it.InFlight, e.InFlight)
 		assign(&it.ProgressPct, e.ProgressPct)
 		if e.ClearDate {

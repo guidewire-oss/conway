@@ -1186,3 +1186,48 @@ var _ = Describe("split threshold", func() {
 		Expect(scheduledFor(s18, "Small").Slices[0].LanesUsed).To(Equal(1))
 	})
 })
+
+// Spec 008 Story 1: a pinned start (timeline drag) holds the slice at the
+// pinned week; dependencies still win; the reason names the pin.
+var _ = Describe("pinned starts", func() {
+	teams := []Team{{Name: "Pod", Tracks: 2}}
+	mk := func(n string, w float64, pin int) Initiative {
+		it := Initiative{Name: n, Work: map[string]TeamWork{
+			"Pod": {Weeks: w, Estimated: true, InPath: true}}}
+		if pin >= 0 {
+			it.PinnedStarts = map[string]int{"Pod": pin}
+		}
+		return it
+	}
+	sp := SchedulingParams{PeriodStart: specPeriodStart, BufferPct: pctOf(0), EstimateModel: EstimateEffort}
+
+	It("holds a slice at its pinned start", func() {
+		sched := ComputeSchedule(teams, []Initiative{mk("Pinned", 10, 5)},
+			Params{HorizonWeeks: 30, CapacityLoss: 0}, sp)
+		Expect(scheduledFor(sched, "Pinned").Slices[0].StartWeek).To(Equal(5))
+		Expect(scheduledFor(sched, "Pinned").Slices[0].BindingConstraint).To(Equal("pinned"))
+	})
+
+	It("never lets a pin beat a dependency's readiness", func() {
+		inits := []Initiative{
+			mk("First", 6, -1),
+			{Name: "Second", Work: map[string]TeamWork{"Pod": {Weeks: 4, Estimated: true, InPath: true}},
+				AfterInitiatives: []string{"First"}, PinnedStarts: map[string]int{"Pod": 2}},
+		}
+		sched := ComputeSchedule(teams, inits, Params{HorizonWeeks: 30, CapacityLoss: 0}, sp)
+		// First: 6 effort / 2 lanes = 3 weeks, w0-3. The pin wanted w2; the
+		// dependency only frees at w3.
+		Expect(scheduledFor(sched, "Second").Slices[0].StartWeek).To(Equal(3),
+			"the pin wanted w2 but First finishes w3")
+	})
+
+	It("snaps back to the legal placement when the pod is busy at the pin", func() {
+		// Holder occupies the pod w0-5; the pinned slice wants w2 but must
+		// wait for room.
+		inits := []Initiative{mk("Holder", 12, -1), mk("Pinned", 6, 2)}
+		sched := ComputeSchedule(teams, inits, Params{HorizonWeeks: 30, CapacityLoss: 0}, sp)
+		// Holder: 12 effort / 2 lanes = 6 weeks, w0-6, both lanes.
+		p := scheduledFor(sched, "Pinned").Slices[0]
+		Expect(p.StartWeek).To(BeNumerically(">=", 6), "cannot start inside the holder")
+	})
+})
