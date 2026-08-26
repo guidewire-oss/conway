@@ -347,7 +347,7 @@ export function podHeatmapHTML(sched, horizonWeeks) {
   // the week number alone asks the planner to do date arithmetic in their head.
   const head = Array.from({ length: weeks }, (_, w) => {
     const d = weekToDate(w, sched.periodStart);
-    return `<th class="ord-wk"${d ? ` title="week of ${esc(d)}"` : ''}>${w % 5 === 0 ? w : ''}</th>`;
+    return `<th class="ord-wk"${d ? ` data-tip="week of ${esc(d)}"` : ''}>${w % 5 === 0 ? w : ''}</th>`;
   }).join('');
   const rows = pods.map((ps) => {
     const cells = Array.from({ length: weeks }, (_, w) => {
@@ -824,6 +824,20 @@ export function schedulingFormHTML(sp = {}, wip, sched) {
           <option value="effort"${sp.estimateModel === 'effort' ? ' selected' : ''}>effort (divided across lanes)</option>
         </select></span>
         <span class="hint">how the sheet's estimate column is read — existing plans stay on wall-clock</span></label>
+      <label class="hint sched-f">splitting tax${term('splitTax')}
+        <span class="sched-row"><input id="sched-split-tax" type="number" min="0" step="1" value="${asInt(sp.splitTaxWeeks)}"
+          placeholder="off"></span>
+        <span class="hint">weeks of overhead per lane-split; blank disables splitting</span></label>
+      <label class="hint sched-f">lane chunking
+        <span class="sched-row"><select id="sched-chunking">
+          <option value="spread"${!sp.splitMinWeeks ? ' selected' : ''}>spread evenly (all lanes take a share)</option>
+          <option value="chunk"${sp.splitMinWeeks ? ' selected' : ''}>chunk — no track carries more than…</option>
+        </select></span>
+        <span class="hint">how big work divides across a team's tracks: spread shares it evenly, chunk caps each track's load (45w chunks 20+20+5 at a 20-week cap)</span></label>
+      <label class="hint sched-f">chunk size (weeks)
+        <span class="sched-row"><input id="sched-split-min" type="number" min="1" step="1" value="${esc(String(asInt(sp.splitMinWeeks) || 20))}"
+          ${sp.splitMinWeeks ? '' : 'disabled'}></span>
+        <span class="hint">the per-track cap when chunking; work under this stays whole on one track</span></label>
       ${intField('sched-wip', 'org WIP limit', asInt(sp.maxConcurrentInitiatives), derived,
     'initiatives in flight at once; blank derives it from the drum pod')}
       ${pctField('sched-buffer', 'buffer', asPct(sp.bufferPct), '25', 'of each chain; blank means 25%, 0 commits on the raw finish')}
@@ -953,6 +967,20 @@ export function schedulingFromForm(read) {
   // The estimate model (spec 006 Decision 2): wall-clock is the migration-safe
   // default, so only an explicit effort is sent.
   if (raw('sched-estimate-model') === 'effort') out.estimateModel = 'effort';
+
+  // The splitting tax (spec 007): weeks per split; blank or 0 disables.
+  {
+    const n = Number(raw('sched-split-tax'));
+    if (Number.isFinite(n) && n > 0) out.splitTaxWeeks = Math.round(n);
+  }
+
+  // The split threshold (spec 007 amendment): the per-track cap when the
+  // lane-chunking mode is "chunk". "spread" sends nothing — the server
+  // spreads evenly, the default.
+  if (raw('sched-chunking') === 'chunk') {
+    const n = Number(raw('sched-split-min'));
+    if (Number.isFinite(n) && n > 0) out.splitMinWeeks = Math.round(n);
+  }
 
   // Calendar windows: read every numbered row, keep only the complete ones.
   // A half-filled row is a planner mid-edit, not a constraint.

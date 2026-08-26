@@ -109,6 +109,10 @@ export const TERMS = {
     label: 'Estimate model',
     tip: 'How the sheet\u2019s estimate column is read: \u201ceffort\u201d divides it across the team\u2019s lanes; \u201cwall-clock\u201d treats it as one lane\u2019s duration. Existing plans stay on wall-clock until switched.',
   },
+  splitTax: {
+    label: 'Splitting tax',
+    tip: 'The overhead of dividing one piece of work across a team\u2019s lanes \u2014 context, pairing up, hand-off. Charged in weeks each time work is split; blank turns splitting off.',
+  },
   suggested: {
     label: 'Suggested rank',
     tip: 'Where the engine\u2019s best order would place this initiative. It only ever suggests — your stated order is the plan until you accept.',

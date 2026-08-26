@@ -202,7 +202,7 @@ export function portfolioTimelineHTML(sched, opts = {}) {
   const s = axisScale(span);
   const ticks = axisTicks(span).map((t) => {
     const title = tickTitle(t.week, sched.periodStart || opts.periodStart);
-    return `<span class="tl-tick" style="${pct(s(t.week))}"${title ? ` title="${esc(title)}"` : ''}>${t.label}</span>`;
+    return `<span class="tl-tick" style="${pct(s(t.week))}"${title ? ` data-tip="${esc(title)}"` : ''}>${t.label}</span>`;
   }).join('');
   const grid = axisTicks(span).map((t) =>
     `<div class="tl-grid" style="${pct(s(t.week))}"></div>`).join('');
@@ -219,7 +219,7 @@ export function portfolioTimelineHTML(sched, opts = {}) {
   const periodEnd = periodEndHTML(horizon, span);
   return `<div class="card tl-card">
     <div class="ord-head"><b>Timeline</b>
-      <span class="hint">one row per initiative · the lighter tail is the buffer${term('buffer')} · ◆ is the target${term('target')}</span></div>
+      <span class="hint">one row per initiative · the lighter tail is the ${term('buffer', 'buffer')} · ◆ is the ${term('target', 'target')}</span></div>
     <div class="tl-axis">${ticks}</div>
     <div class="tl-body">${rows}<div class="tl-overlay">${grid}${bands}${today}${periodEnd}</div></div>
     <div class="hint">█ scheduled · ░ buffer · ◆ target · → waits on another pod · ↑ today${bands ? ' · ░freeze░ change freeze · ▒ non-working' : ''}${periodEnd ? ' · │ period end' : ''}</div>
@@ -230,19 +230,57 @@ export function portfolioTimelineHTML(sched, opts = {}) {
 // each onto the first lane free at its start. The count can never exceed the
 // pod's tracks when the schedule is feasible — which is the capacity
 // constraint made visual (FR-040).
-function assignLanes(slices) {
+// assignLanes packs slices into track lanes greedily: earliest start first,
+// each onto the first lane free at its start. A multi-lane slice (spec 006:
+// lanesUsed > 1) occupies that many CONSECUTIVE lanes — it is one piece of
+// work running across the pod, and drawing it on a single track made the
+// other tracks look idle while the server had them busy.
+// cap is the pod's track count from the roster (spec 006: pairing halves
+// devs, non-pairing one track per dev). The Gantt shows exactly that many
+// lanes — never more. Slices are serialized by the scheduler to fit, so a
+// stack beyond `cap` would mean a rendering bug, not more capacity.
+function assignLanes(slices, cap = 0) {
+  // Width for layout: the slice's PEAK lanes (a growing split slice spans
+  // its widest phase), so the track rows reflect the most it ever occupies.
+  const width = (sl) => Math.max(1, sl.lanesUsed || 1,
+    ...(sl.phases || []).map((p) => p.lanes || 0));
   const sorted = slices.slice().sort((a, b) => a.startWeek - b.startWeek);
   const laneEnds = [];
-  const placement = sorted.map((sl) => {
-    let lane = laneEnds.findIndex((end) => end <= sl.startWeek);
-    if (lane === -1) {
-      lane = laneEnds.length;
-      laneEnds.push(0);
+  const placement = [];
+  for (const sl of sorted) {
+    const w = Math.min(width(sl), cap || width(sl));
+    let lane = 0;
+    for (;;) {
+      // find the first `w` consecutive lanes all free at sl.startWeek
+      let ok = true;
+      for (let i = 0; i < w; i++) {
+        if ((laneEnds[lane + i] || 0) > sl.startWeek) { ok = false; break; }
+      }
+      if (ok) break;
+      lane++;
     }
-    laneEnds[lane] = sl.finishWeek;
-    return { sl, lane };
-  });
-  return { placement, lanes: laneEnds.length };
+    for (let i = 0; i < w; i++) {
+      laneEnds[lane + i] = sl.finishWeek;
+      placement.push({ sl, lane: lane + i, lead: i === 0 });
+    }
+  }
+  // Never draw more lanes than the pod has tracks. When time-overlapping
+  // multi-lane slices cannot each get their own consecutive span (they were
+  // serialized server-side, so they can), the walk pushed some past the cap —
+  // dropping them would hide real work (Apollo vanished this way). Overflow
+  // slices collapse onto the first lane, one row tall, with their width badge
+  // still carrying lanesUsed.
+  const lanes = cap > 0 ? Math.min(laneEnds.length, cap) : laneEnds.length;
+  const fixed = [];
+  for (const p of placement) {
+    if (p.lane < lanes) { fixed.push(p); continue; }
+    if (p.lead !== false) {
+      // re-place the whole slice on lane 0 row-wise (visual stacking); its
+      // continuations (lead === false) are skipped — one row represents it
+      fixed.push({ ...p, lane: 0, collapsed: true });
+    }
+  }
+  return { placement: fixed, lanes };
 }
 
 // podLanesHTML is one pod's track lanes (§13.4): every slice in start order,
@@ -263,18 +301,29 @@ export function podLanesHTML(ps, opts = {}) {
     }).join('');
     return `<div class="tl-lane"><span class="hint">no capacity</span><div class="tl-track">${bars || '<span class="hint">—</span>'}</div></div>`;
   }
-  const { placement, lanes } = assignLanes(ps.slices || []);
+  const { placement, lanes } = assignLanes(ps.slices || [], ps.tracks || 0);
   const rows = [];
   for (let lane = 0; lane < Math.max(lanes, 1); lane++) {
     const inLane = placement.filter((p) => p.lane === lane);
-    const bars = inLane.map(({ sl }) => {
+    const bars = inLane.map(({ sl, lead, collapsed }) => {
       const { left, width, overrun } = barGeom(sl.startWeek, sl.finishWeek, horizon);
+      const wTag = (sl.lanesUsed || 1) > 1 ? ` ×${sl.lanesUsed}` : '';
+      // Continuation rows carry the label too (dimmed): a track with an
+      // unlabelled bar reads as empty space, and the hover-only text was not
+      // evident enough (user feedback 2026-08-26). The lead row keeps the
+      // fuller styling; continuations show name + duration.
       return barHTML({
         left, width,
-        label: `${sl.initiative} ${sl.finishWeek - sl.startWeek}w`,
+        cls: lead === false ? 'tl-cont' : '',
+        label: `${sl.initiative} ${sl.finishWeek - sl.startWeek}w${collapsed ? wTag : ''}`,
         title: `${sl.initiative}: w${sl.startWeek}–w${sl.finishWeek} · start by w${sl.latestStartWeek}` +
           (sl.slackWeeks === 0 ? ' · no slack' : ` · ${sl.slackWeeks}w slack`) +
-          (overrun > 0 ? ` · ${overrun}w past the horizon` : ''),
+          (overrun > 0 ? ` · ${overrun}w past the horizon` : '') +
+          // Split slices (spec 007): the phase ladder is the honest shape of
+          // the work — "3 lanes to w12, then 5" is what the team actually ran.
+          ((sl.phases || []).length > 1
+            ? ` · lanes ${sl.phases.map((ph) => `${ph.lanes}→w${ph.toWeek}`).join(', ')}`
+            : ''),
       });
     }).join('');
     rows.push(`<div class="tl-lane"><span class="hint">track ${lane + 1}</span><div class="tl-track">${bars}</div></div>`);
@@ -318,7 +367,7 @@ export function podLensHTML(sched, opts = {}) {
   const s = axisScale(span);
   const ticks = axisTicks(span).map((t) => {
     const title = tickTitle(t.week, sched.periodStart || opts.periodStart);
-    return `<span class="tl-tick" style="${pct(s(t.week))}"${title ? ` title="${esc(title)}"` : ''}>${t.label}</span>`;
+    return `<span class="tl-tick" style="${pct(s(t.week))}"${title ? ` data-tip="${esc(title)}"` : ''}>${t.label}</span>`;
   }).join('');
   return `<div class="card tl-card">
     <div class="ord-head"><b>Timeline — by pod</b>
