@@ -684,3 +684,7 @@ button.plan-back { background: none; border: 0; padding: 0; font: inherit; }
   border-radius: 4px; overflow: hidden; min-width: 40px; }
 .home-bar-fill { display: block; height: 100%; background: var(--bs-primary); border-radius: 4px; }
 .home-bar-row .hint { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+
+/* Continuation lane of a multi-lane slice (spec 006/007): same work, drawn
+   dimmed without a label so the pod's other tracks read as busy, not idle. */
+.tl-bar.tl-cont { opacity: .45; }
