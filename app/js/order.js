@@ -63,6 +63,17 @@ export function verdictBadgeHTML(si) {
   return `<span class="vbadge v-${v.zone}">${v.symbol} ${esc(v.text)}</span>`;
 }
 
+// suggestedCell is the engine's rank for this initiative when the working
+// order is the planner's (spec 006 Q2: a column, not a second view). Shown
+// only when it differs from the spine — a column of identical numbers is noise.
+export function suggestedCell(si, engineRanks) {
+  if (!engineRanks) return '';
+  const sug = engineRanks[si.name];
+  if (sug === undefined || sug === si.proposedRank) return '';
+  const cls = sug < si.proposedRank ? 'ord-up' : 'ord-down';
+  return ` <span class="ord-move ${cls}" title="the engine suggests rank ${sug} — your order stands until you accept the proposal">↳${sug}</span>`;
+}
+
 // statedCell renders "2 →1" — what the planner said, and what the engine
 // proposes. Decision 3 makes this the centre of the table rather than a footnote:
 // a reordering nobody explains reads as being ignored.
@@ -155,7 +166,7 @@ function orderRowHTML(row, opts = {}) {
   // sheet upload). Next to the name, where the row's identity lives.
   const edit = opts.noPin ? '' : `<button type="button" class="ord-edit" data-edit="${esc(si.name)}" title="edit priority, dates, tier, dependencies…">✎ edit</button>`;
   const main = `<tr class="ord-row">
-    <td class="num">#${si.proposedRank}</td>
+    <td class="num">#${si.proposedRank}${suggestedCell(si, opts.engineRanks)}</td>
     <td>${esc(si.name)} ${edit}</td>
     <td>${statedCell(si)} ${pin}</td>
     <td class="num">${weekLabel(si.startWeek)}</td>
@@ -486,14 +497,45 @@ export function comparisonBarsHTML(obj) {
   </div>`;
 }
 
-export function orderHeaderHTML(sched) {
+// orderingBadge states which order is in force (spec 006 Decision 1). The
+// planner's own order is the default and needs no apology; an accepted engine
+// proposal is the planner's explicit choice and is labelled with the verb that
+// made it true.
+export function orderingBadge(sp = {}) {
+  if (sp.acceptedOrdering === 'engine') {
+    const when = sp.acceptedOrderingAt
+      ? new Date(sp.acceptedOrderingAt * 1000).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+      : '';
+    return `<span class="tag ord-enginetag" title="The engine's proposed order, accepted${when ? ` ${when}` : ''}. Your stated order still shows in the Stated column.">engine's order${when ? ` · accepted ${when}` : ''}</span>`;
+  }
+  return `<span class="tag ord-yourtag" title="Your stated order is the working plan. The engine's suggestion is one click away.">your order</span>`;
+}
+
+// optimizeDeltaHTML prices the engine's best run against the working order, so
+// the Optimize button can carry its offer on its face (spec 006 AC 3.1).
+export function optimizeOfferHTML(sched) {
+  const best = (sched.rulesTried || [])
+    .filter((r) => r.rule !== sched.rule)
+    .reduce((m, r) => (r.objective < m.objective ? r : m), { rule: '', objective: Infinity });
+  if (best.rule === '' || !Number.isFinite(best.objective)) return '';
+  const cur = sched.objectiveScore || 0;
+  const save = Math.round((cur - best.objective) * 10) / 10;
+  if (save <= 0) return '';
+  return `<span class="hint" title="The best dispatch rule scores ${best.objective} weighted lateness versus this order's ${cur}. A suggestion, not an answer — the sequencing problem has no single solution.">suggestion: ${esc(best.rule)} would cost ${save} less</span>`;
+}
+
+export function orderHeaderHTML(sched, opts = {}) {
   const obj = objectiveView(sched);
   const rules = (sched.rulesTried || []).length;
+  const yours = (opts.scheduling || {}).acceptedOrdering !== 'engine';
   return `${verdictBannerHTML(sched)}
   <div class="ord-head">
-    <b>Execution order</b>
-    <span class="hint">rule: ${esc(sched.rule || '—')}${rules ? ` (best of ${rules})` : ''}</span>
+    <b>Execution order</b> ${orderingBadge(opts.scheduling || {})}
+    <span class="hint">rule: ${esc(sched.rule || '—')}${rules ? ` (best of ${rules})` : ''}${term('objective')}</span>
     <span class="hint">${wipLimitNote(sched.wipLimit)}</span>
+    ${yours ? optimizeOfferHTML(sched) : ''}
+    ${yours ? `${term('optimize')}<button type="button" class="primary" id="ord-optimize" title="Run every dispatch rule and present the best ordering beside yours, priced. Accepting it is always your call — this is an optimization, not the solution.">⚡ Optimize order</button>`
+      : `<button type="button" id="ord-unoptimize" title="Return to your stated order. The engine's proposal stays available.">↩ back to your order</button>`}
     <button type="button" id="sched-open" title="period start, WIP model, buffers, freezes — set once">⚙ Assumptions</button>
     <button type="button" id="tl-open" title="open this order as a timeline (Story 8)">▦ Open timeline ▸</button>
   </div>
@@ -653,7 +695,7 @@ export function initiativeEditFromBody(read, name, had = {}) {
 
 export function orderViewHTML(sched, opts = {}) {
   return `<div class="card ord-card">
-    ${orderHeaderHTML(sched)}
+    ${orderHeaderHTML(sched, opts)}
     ${opts.scheduling === undefined ? '' : schedulingDialogHTML(opts.scheduling, sched.wipLimit, sched)}
     ${orderTableHTML(sched, opts)}
     ${feverChartHTML(sched)}
@@ -776,6 +818,12 @@ export function schedulingFormHTML(sp = {}, wip, sched) {
       <label class="hint sched-f">period starts
         <span class="sched-row"><input id="sched-period-start" type="date" value="${esc(sp.periodStart || '')}"></span>
         <span class="hint">week 0 — target dates are measured from here</span></label>
+      <label class="hint sched-f">estimate model${term('estimate-model')}
+        <span class="sched-row"><select id="sched-estimate-model">
+          <option value="wall-clock"${sp.estimateModel !== 'effort' ? ' selected' : ''}>wall-clock (one lane's duration)</option>
+          <option value="effort"${sp.estimateModel === 'effort' ? ' selected' : ''}>effort (divided across lanes)</option>
+        </select></span>
+        <span class="hint">how the sheet's estimate column is read — existing plans stay on wall-clock</span></label>
       ${intField('sched-wip', 'org WIP limit', asInt(sp.maxConcurrentInitiatives), derived,
     'initiatives in flight at once; blank derives it from the drum pod')}
       ${pctField('sched-buffer', 'buffer', asPct(sp.bufferPct), '25', 'of each chain; blank means 25%, 0 commits on the raw finish')}
@@ -901,6 +949,10 @@ export function schedulingFromForm(read) {
     const f = pctToFraction(raw('sched-stagger'));
     if (f !== null && f > 0 && f < 1) out.targetUtilization = f;
   }
+
+  // The estimate model (spec 006 Decision 2): wall-clock is the migration-safe
+  // default, so only an explicit effort is sent.
+  if (raw('sched-estimate-model') === 'effort') out.estimateModel = 'effort';
 
   // Calendar windows: read every numbered row, keep only the complete ones.
   // A half-filled row is a planner mid-edit, not a constraint.

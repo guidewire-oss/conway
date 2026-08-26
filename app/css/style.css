@@ -427,6 +427,14 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 /* The tick hover date is the discoverable bridge between week numbers and the
    calendar; give the cursor a hint that there is something to read. */
 .tl-tick[title], .ord-wk[title] { cursor: help; }
+/* Your-order-first (spec 006): the ordering badge, the Optimize offer and the
+   proposal panel. The panel is a decision, not a reading — visually distinct. */
+.ord-yourtag { background: var(--green); color: #fff; }
+.ord-enginetag { background: var(--panel2); color: var(--accent); }
+.ord-optimize-panel { margin: 8px 0; padding: 10px 12px; border: 1px solid var(--accent);
+  border-radius: 8px; background: var(--panel2); display: flex; flex-direction: column; gap: 6px; }
+.ord-optimize-panel ul { margin: 2px 0 2px 18px; padding: 0; }
+
 .ord-idle { margin-top: 6px; }
 .ord-idle ul { margin: 4px 0 4px 18px; padding: 0; }
 .ord-green { color: var(--green); } .ord-amber { color: var(--amber); }

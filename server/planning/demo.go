@@ -53,7 +53,11 @@ const DemoPeriodStart = "2026-01-05"
 // the tracks at the drum pod, and the demo exists partly to show that derivation
 // happening and being labelled.
 func DemoScheduling() SchedulingParams {
-	return SchedulingParams{PeriodStart: DemoPeriodStart, KitGate: 0, TargetUtilization: 0}
+	// The demo plan shows off the engine's proposal, so it carries the accepted-
+	// engine marker; a fresh planner plan defaults to the stated order instead
+	// (spec 006 Decision 1).
+	return SchedulingParams{PeriodStart: DemoPeriodStart, KitGate: 0, TargetUtilization: 0,
+		AcceptedOrdering: "engine"}
 }
 
 // withDemoSequencing gives the demo plan the sequencing attributes spec 001 adds,
