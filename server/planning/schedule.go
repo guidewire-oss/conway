@@ -1250,6 +1250,10 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 			if c.tracks <= 0 || s.FinishWeek <= s.StartWeek {
 				continue // unknown pods consume nothing; zero-length slices occupy nothing
 			}
+			if len(s.Phases) > 0 {
+				continue // split slices reserved their weeks in splitPlace; booking
+				// them again would double-count every phase lane
+			}
 			// The work end, distinct from the finish: a block-finish window
 			// moves the completion without adding work, and a reduce-capacity
 			// window stretches the span — both add waiting, not work. Count
@@ -1546,16 +1550,25 @@ func splitPlace(c *podCalendar, tracks, ready int, effort float64, loss float64,
 		}
 		free := weekTracks - weekAt(c.busy, w)
 		if free <= 0 {
-			w++
-			continue
-		}
-		if len(phases) == 0 || phases[len(phases)-1].Lanes != free || (taxLeft > 0 && len(phases) > 0) {
-			// close the previous phase at w
+			// Busy week: CLOSE any open phase here — the gap is not ours to
+			// claim, and leaving the phase open would swallow it (and later
+			// double-book the pod when occupancy is booked).
 			if len(phases) > 0 {
 				phases[len(phases)-1].ToWeek = w
 			}
+			w++
+			continue
+		}
+		prev := -1
+		contiguous := false
+		if n := len(phases); n > 0 {
+			prev = phases[n-1].Lanes
+			contiguous = phases[n-1].ToWeek == w
+		}
+		switch {
+		case len(phases) == 0 || prev != free || !contiguous:
 			phases = append(phases, LanePhase{FromWeek: w, ToWeek: w + 1, Lanes: free})
-		} else {
+		default:
 			phases[len(phases)-1].ToWeek = w + 1
 		}
 		if taxLeft > 0 {
@@ -1613,7 +1626,24 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 		// growth placement first — start on the free lanes, absorb the rest
 		// as they free, tax charged up front. Fall back to all-or-nothing
 		// when the pod has no capacity or the walk could not finish.
-		if sp.estimateModel() == EstimateEffort && sp.SplitTaxWeeks > 0 && d > 0 {
+		// Split only under contention: when the pod could satisfy all-or-nothing
+		// at ready, the flat path is strictly better (no tax, no phase noise).
+		// Splitting an unstarved slice buys nothing and costs the tax.
+		needsSplit := false
+		if sp.SplitTaxWeeks > 0 && d > 0 {
+			if c0 := cal[pod]; c0 != nil && tracks[pod] > 0 {
+				freeAtReady := tracks[pod] - weekAt(c0.busy, begin)
+				if lanes > freeAtReady {
+					needsSplit = true
+				}
+			}
+		}
+		if needsSplit {
+			// The effort to spread is the progress-adjusted estimate in BOTH
+			// models: under effort the sheet says total work; under wall-clock
+			// the estimate is one lane's worth, and spreading it across free
+			// lanes is exactly the split the planner asked for (225 single-lane
+			// weeks onto a free track halves the time, plus tax).
 			if effort := in.init.Work[pod].effortWeeks(in.init); effort > 0 {
 				if phases, _ := splitPlace(cal[pod], tracks[pod], begin, effort, capacityLoss, sp.SplitTaxWeeks, rules, pod, site, in.init.InFlight); phases != nil {
 					slices = append(slices, WorkSlice{
