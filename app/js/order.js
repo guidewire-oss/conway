@@ -824,6 +824,10 @@ export function schedulingFormHTML(sp = {}, wip, sched) {
           <option value="effort"${sp.estimateModel === 'effort' ? ' selected' : ''}>effort (divided across lanes)</option>
         </select></span>
         <span class="hint">how the sheet's estimate column is read — existing plans stay on wall-clock</span></label>
+      <label class="hint sched-f">splitting tax${term('splitTax')}
+        <span class="sched-row"><input id="sched-split-tax" type="number" min="0" step="1" value="${asInt(sp.splitTaxWeeks)}"
+          placeholder="off"></span>
+        <span class="hint">weeks of overhead per lane-split; blank disables splitting</span></label>
       ${intField('sched-wip', 'org WIP limit', asInt(sp.maxConcurrentInitiatives), derived,
     'initiatives in flight at once; blank derives it from the drum pod')}
       ${pctField('sched-buffer', 'buffer', asPct(sp.bufferPct), '25', 'of each chain; blank means 25%, 0 commits on the raw finish')}
@@ -953,6 +957,12 @@ export function schedulingFromForm(read) {
   // The estimate model (spec 006 Decision 2): wall-clock is the migration-safe
   // default, so only an explicit effort is sent.
   if (raw('sched-estimate-model') === 'effort') out.estimateModel = 'effort';
+
+  // The splitting tax (spec 007): weeks per split; blank or 0 disables.
+  {
+    const n = Number(raw('sched-split-tax'));
+    if (Number.isFinite(n) && n > 0) out.splitTaxWeeks = Math.round(n);
+  }
 
   // Calendar windows: read every numbered row, keep only the complete ones.
   // A half-filled row is a planner mid-edit, not a constraint.
