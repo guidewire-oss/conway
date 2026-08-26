@@ -315,3 +315,17 @@ var _ = Describe("the sample initiatives workbook", func() {
 		}
 	})
 })
+
+// Spec 006 testing round: sheets written by Excel carry whole-number priorities
+// as decimals ("1.0"). The int-only parse silently dropped every priority while
+// the lock column still parsed, locking unranked rows.
+var _ = Describe("parseSheetInt with decimal whole numbers", func() {
+	It("reads 1.0 as 1 and rejects true fractions", func() {
+		Expect(parseSheetInt("1.0")).To(Equal(1))
+		Expect(parseSheetInt("29.0")).To(Equal(29))
+		Expect(parseSheetInt("7")).To(Equal(7))
+		Expect(parseSheetInt("1.5")).To(BeZero(), "a fraction is not a rank")
+		Expect(parseSheetInt("TBD")).To(BeZero())
+		Expect(parseSheetInt("")).To(BeZero())
+	})
+})
