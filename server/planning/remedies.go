@@ -326,6 +326,13 @@ func verdictRank(v string) int {
 		return 1
 	case verdictInfeasible:
 		return 2
+	case verdictBeyondHorizon:
+		// The worst outcome there is: every other verdict describes an initiative
+		// with a place in the period, and this one has none (Decision 28). It must
+		// also outrank no-date, which falls through to 3 -- otherwise a remedy that
+		// pulls an undated initiative into the period, turning beyond-horizon into
+		// no-date, would score as a regression and never be offered.
+		return 4
 	}
 	return 3
 }
@@ -471,7 +478,11 @@ func conflictingCommitments(sis []ScheduledInitiative) []Conflict {
 }
 
 func missesDate(v string) bool {
-	return v == verdictLate || v == verdictInfeasible
+	// beyond-horizon is a missed outcome too (Decision 28): the initiative could not
+	// begin inside the period, and the rescue options are the same ones. Leaving it
+	// out made remedies silently return nothing for the initiatives most in need of
+	// them, which is how the decision first showed up as a panic in the handler test.
+	return v == verdictLate || v == verdictInfeasible || v == verdictBeyondHorizon
 }
 
 func minInt(a, b int) int {

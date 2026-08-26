@@ -716,8 +716,11 @@ critical paths at once.
 - startWeek, rawFinishWeek, commitWeek: integer
 - bufferWeeks, bufferConsumedPct: number
 - verdict: enum (on-time, at-risk, late, no-date, structurally-infeasible,
-  unschedulable). `no-date` is an initiative carrying no target date, which
-  §13.2 already renders as "no date"
+  unschedulable, beyond-horizon). `no-date` is an initiative carrying no target
+  date, which §13.2 already renders as "no date". `beyond-horizon` is one that
+  could not start inside the period at all (Decision 28); it is the only verdict
+  that is not relative to a target date, and it carries no startWeek or
+  commitWeek because none was computed
 - provisional: boolean — a date verdict resting on unestimated in-path work
   (AC 2.5). Split out of the verdict enum on 2026-08-19: it qualifies any of
   the other values rather than replacing one, so an initiative can be both
@@ -726,12 +729,25 @@ critical paths at once.
 
 **Schedule** _(derived; the whole result)_
 - initiatives: list of ScheduledInitiative
+- fit: ScheduleFit — the period's arithmetic (Decision 28). Always present: the
+  load is worth reading before a plan overflows, not only after
 - podWeeks: per pod, per week utilization and occupying slices
 - drumPods: the constraint pods the release rule staggers against
 - objectiveScore, statedOrderObjectiveScore: number
 - reconciliation: list of rank deviations with reason and cost
 - conflicts: list of conflicting locked pairs
-- rejectedTransfers, assumptions, warnings
+- assumptions, warnings
+
+**ScheduleFit** _(derived; Decision 28)_
+- podWeeksDemanded: number — every initiative's in-path work, whether or not it
+  fitted. Counting only placed work would report a plan that fits
+- trackWeeksAvailable: number — tracks x horizon, less `capacityLoss`: what the
+  pods can absorb rather than their nameplate. Zero is its own answer, not a 0%
+  load: it means no pod has a track, so nothing can be scheduled at all
+- beyondHorizon: integer — how many initiatives could not begin inside the period
+- heldBy: list of {constraint, count}, most common first — which bindingConstraint
+  refused each one. Demand against capacity explains a plan that is over capacity
+  and explains nothing about one held out by a WIP limit, and the lever differs
 
 **Remedy** _(derived, proposed only)_
 - kind: enum (raise-priority, descope, add-capacity, transfer-capacity, relax-date, defer-other, unlock)
@@ -1511,6 +1527,68 @@ new baseline sets `comparedTo` to the previously active one, which is what §7's
 "the baseline this one superseded" describes.
 
 ---
+
+### Decision 28: The schedule stops at the chosen horizon
+
+**Context:** Nothing bounded the calendar to the period. On a plan loaded to its
+capacity the scheduler kept pushing work outward until it fitted, and the result
+was a schedule that ran to week 606 on a 26-week horizon -- eleven years of
+calendar for a two-quarter plan. Observed 2026-08-25 on the dev cluster, plan
+`gCZ_G3LgQFWvHjV8`: 35 teams, 29 initiatives, `capacityLoss` 0.2, and demand of
+2,418 pod-weeks against 2,418 raw track-weeks (1,934 after the loss) -- 125% of
+what the pods can absorb. One of the 29 initiatives committed inside the horizon.
+
+Three costs followed. `POST /schedule` took 6-8s warm and 43s cold. `podWeeks`
+carried 28 pods x 537 week-cells, 1.03MB of a 1.07MB response, nearly all of it
+idle. And every one of the 29 verdicts read `no-date`, because every verdict in
+§7 is relative to a target date and none of these initiatives carried one -- so
+the tool reported an eleven-year plan without ever saying it did not fit.
+
+**Decision:** The scheduler places nothing outside the chosen horizon. An
+initiative that cannot start inside the period is reported with verdict
+`beyond-horizon` and no start or commit week, because none was computed -- an
+invented week number a decade out is worse than an honest absence.
+
+The schedule additionally reports the aggregate that explains the shortfall:
+pod-weeks demanded against effective track-weeks available, and the count that did
+not fit. "28 of 29 do not fit; you are asking for 125% of what these pods can
+absorb" is a sentence a planner can act on. "committed week 606" is not.
+
+**Alternatives considered:**
+
+- *Cap the calendar at a multiple of the horizon (2x was the candidate) and mark
+  what lands past the period.* Rejected: the multiple is arbitrary, it keeps
+  materialising calendar nobody asked for, and it still needs the
+  `beyond-horizon` state for whatever exceeds the cap -- so it pays most of the
+  cost of this decision while only halving the waste.
+- *Make the overrun allowance a scheduling parameter.* Rejected for now: the
+  assumptions form already carries several settings, and a per-plan knob means the
+  eleven-year schedule returns the moment someone raises it. If a plan genuinely
+  needs to see past its own period, the honest fix is a longer horizon, which is
+  already a field.
+- *Keep scheduling as-is and only truncate what is serialised.* Rejected: it cuts
+  the payload but not the compute, and it makes the API describe a schedule
+  different from the one the engine built.
+
+**Consequences:**
+
+- The timeline's view-span control (spec 004) loses its wider options on plans
+  like this one, because nothing is scheduled past the period any more. The
+  control already filters spans to those wider than the horizon, so it collapses
+  to "period" on its own rather than needing removal. The reason it existed --
+  "the horizon cut made everything past it invisible" -- is answered differently
+  here: what is past the horizon is now named and counted rather than drawn.
+- `overrunNote` in the Order view still applies, and it is worth being precise
+  about why: this decision bounds *starts*, not finishes. Work that began inside
+  the period may finish after it -- an initiative starting in week 24 of a 26-week
+  period is real work, occupying real pods, and hiding it would be the same
+  dishonesty in the other direction. So commits past the grid still exist and
+  `overrunNote` still reports them; what no longer exists is a *start* outside the
+  period. The new `fitNote` sits beside it, answering the different question of
+  what did not get in at all.
+- Remedies (Story 5) apply to `beyond-horizon` the same way they apply to `late`:
+  it is a missed outcome, and the rescue options are the same ones.
+
 
 ## 12. Success Metrics
 
