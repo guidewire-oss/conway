@@ -426,7 +426,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .ord-edit:hover { color: var(--text); border-color: var(--accent); }
 /* The tick hover date is the discoverable bridge between week numbers and the
    calendar; give the cursor a hint that there is something to read. */
-.tl-tick[title], .ord-wk[title] { cursor: help; }
+.tl-tick[data-tip], .tl-tick[title], .ord-wk[data-tip], .ord-wk[title] { cursor: help; }
 /* Your-order-first (spec 006): the ordering badge, the Optimize offer and the
    proposal panel. The panel is a decision, not a reading — visually distinct. */
 .ord-yourtag { background: var(--green); color: #fff; }
