@@ -308,9 +308,33 @@ var _ = Describe("baseline-to-baseline comparison", func() {
 			byName[d.Name] = d
 		}
 		Expect(byName).To(HaveLen(len(next.Initiatives)))
-		// The stated-#2 (Telemetry GA) held rank 1 in v1's constraint-first
-		// order but follows its stated rank under v2's stated-priority run.
-		Expect(byName["Telemetry GA"].BaselineRank).To(Equal(1))
-		Expect(byName["Telemetry GA"].ProposedRank).To(Equal(2))
+
+		// Each side's rank is that side's own rank, checked against both schedules
+		// rather than against remembered numbers. The previous version asserted
+		// Telemetry GA held rank 1 then 2, on the premise that pinning the top makes
+		// the stated-priority rule win; Decision 28 changed which rule wins for the
+		// demo (minimum-slack now) and moved that initiative to rank 6, so the
+		// assertion was really pinning the demo's tuning rather than the comparison.
+		baseRank := map[string]int{}
+		for _, si := range base.Initiatives {
+			baseRank[si.Name] = si.ProposedRank
+		}
+		nextRank := map[string]int{}
+		for _, si := range next.Initiatives {
+			nextRank[si.Name] = si.ProposedRank
+		}
+		for name, d := range byName {
+			Expect(d.BaselineRank).To(Equal(baseRank[name]), name+": baseline side must carry v1's rank")
+			Expect(d.ProposedRank).To(Equal(nextRank[name]), name+": proposed side must carry v2's rank")
+		}
+		// And the pin must actually have reordered something, or the fixture proves
+		// nothing about a comparison.
+		reordered := 0
+		for name := range byName {
+			if baseRank[name] != nextRank[name] {
+				reordered++
+			}
+		}
+		Expect(reordered).To(BeNumerically(">", 0), "pinning the stated #1 must change the order")
 	})
 })
