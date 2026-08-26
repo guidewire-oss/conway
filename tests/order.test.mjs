@@ -1077,3 +1077,13 @@ test('schedulingFromForm reads the splitting tax only when positive', () => {
     assert.equal(b.splitTaxWeeks, undefined, `value ${v} must disable splitting`);
   }
 });
+
+// Spec 007 amendment: the split-threshold knob round-trips.
+test('schedulingFromForm reads the split threshold only when positive', () => {
+  const read = (id) => (id === 'sched-split-min' ? '20' : undefined);
+  assert.equal(schedulingFromForm(read).splitMinWeeks, 20);
+  for (const v of ['', '0', '-5']) {
+    const b = schedulingFromForm((id) => (id === 'sched-split-min' ? v : undefined));
+    assert.equal(b.splitMinWeeks, undefined, `value ${v} means default`);
+  }
+});

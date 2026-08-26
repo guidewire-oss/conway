@@ -828,6 +828,10 @@ export function schedulingFormHTML(sp = {}, wip, sched) {
         <span class="sched-row"><input id="sched-split-tax" type="number" min="0" step="1" value="${asInt(sp.splitTaxWeeks)}"
           placeholder="off"></span>
         <span class="hint">weeks of overhead per lane-split; blank disables splitting</span></label>
+      <label class="hint sched-f">split threshold (weeks)
+        <span class="sched-row"><input id="sched-split-min" type="number" min="1" step="1" value="${asInt(sp.splitMinWeeks)}"
+          placeholder="20"></span>
+        <span class="hint">only work over this many track-weeks splits, and no track carries more than this — 45w chunks 20+20+5</span></label>
       ${intField('sched-wip', 'org WIP limit', asInt(sp.maxConcurrentInitiatives), derived,
     'initiatives in flight at once; blank derives it from the drum pod')}
       ${pctField('sched-buffer', 'buffer', asPct(sp.bufferPct), '25', 'of each chain; blank means 25%, 0 commits on the raw finish')}
@@ -962,6 +966,14 @@ export function schedulingFromForm(read) {
   {
     const n = Number(raw('sched-split-tax'));
     if (Number.isFinite(n) && n > 0) out.splitTaxWeeks = Math.round(n);
+  }
+
+  // The split threshold (spec 007 amendment): minimum track-weeks worth
+  // dividing, and the per-track cap — 45 weeks over a 20 threshold chunks
+  // 20+20+5 rather than spreading 15×3.
+  {
+    const n = Number(raw('sched-split-min'));
+    if (Number.isFinite(n) && n > 0) out.splitMinWeeks = Math.round(n);
   }
 
   // Calendar windows: read every numbered row, keep only the complete ones.
