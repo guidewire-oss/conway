@@ -45,7 +45,7 @@ export async function initHome(state) {
         <h1>Conway</h1>
         <p class="home-sub">${who}. ${roleBadges}</p>
       </div>
-      <div class="card" style="max-width:640px">
+      <div class="panel-card" style="max-width:640px">
         <h3>No org snapshot yet</h3>
         <p>Conway renders an <b>org network</b> — pods and the dependencies between them —
           captured as a dated <b>snapshot</b>. There isn't one yet.</p>
@@ -141,7 +141,7 @@ export async function initHome(state) {
     </div>
 
     <div class="home-cols">
-      <div class="card">
+      <div class="panel-card">
         <h3>Top constraints <span class="hint">— where flow chokes first</span></h3>
         ${list(constraints.map((c) => {
           const q = Math.min(1, c.queueFactor / 40); // 40x = full bar
@@ -150,7 +150,7 @@ export async function initHome(state) {
             <span class="hint">×${c.queueFactor.toFixed(1)} · ${c.dependents} deps</span></li>`;
         }), 'No constraints detected.')}
       </div>
-      <div class="card">
+      <div class="panel-card">
         <h3>Heaviest dependencies <span class="hint">— the costly seams</span></h3>
         ${list(topEdges.map((e) => {
           const w = topEdges[0].count ? Math.min(1, e.count / topEdges[0].count) : 0;
