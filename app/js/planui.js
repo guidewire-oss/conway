@@ -670,7 +670,8 @@ async function renderTimeline() {
     // engine recomputes; the re-render repaints every view from one schedule.
     main.dataset.horizon = String(spanWeeks);
     attachDrag(main, {
-      readOnly: current.isDraft,
+      readOnly: current.isDraft, // matchMedia('.pointer: coarse)') gate lives inside attachDrag
+
       horizon: spanWeeks,
       onPin: async (initiative, pod, { startWeek, laneDelta }) => {
         const forPlan = current.id;
@@ -688,6 +689,7 @@ async function renderTimeline() {
           const offset = Math.max(0, curLane + laneDelta);
           edit.pinnedLanes = { ...(it.pinnedLanes || {}), [pod]: offset };
         }
+        const atEpoch = orderEpoch; // captured before the PATCH (cubic P1)
         const r = await req('/api/plan/' + forPlan + '/initiatives', {
           method: 'PATCH',
           body: JSON.stringify({ initiatives: [edit] }),
@@ -697,16 +699,18 @@ async function renderTimeline() {
           // The overlap refusal (spec 008 Decision 3) surfaces as the
           // timeline's own note — the chart is the context for the error.
           const why = r ? await r.text() : 'the request did not reach the server';
-          dragNote(why.slice(0, 200));
+          if (current && current.id === forPlan) dragNote(why.slice(0, 200));
           return;
         }
+        if (orderEpoch !== atEpoch) return; // a recompute landed while the PATCH was away
         dragNote('');
         try {
           const d = await r.json();
           if (Array.isArray(d.initiatives)) current.initiatives = d.initiatives;
         } catch { /* cache stays; the server is authoritative */ }
         current.schedule = null;
-        await renderTimeline();
+        // Re-render the CURRENT view, not necessarily Timeline (cubic P2).
+        if (view() === 'order') await renderOrder(); else if (view() === 'timeline') await renderTimeline(); else await renderDash();
       },
     });
     // FR-043 (spec 004 Story 3): each pod block exports itself as a PNG. The

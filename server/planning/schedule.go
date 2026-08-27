@@ -1715,7 +1715,17 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 		// its own dependencies are ready, because a pin cannot un-order work.
 		if pin, ok := in.init.PinnedStarts[pod]; ok && pin > begin {
 			begin = pin
-			if reason == "" {
+			// The pin reason lands only if nothing else moved it: a frozen
+			// start is a freeze move, not a pin (cubic P2), and "pinned" is the
+			// honest label only when the pin itself is what held.
+			pinned := true
+			if !in.init.InFlight && rules != nil {
+				if f, moved := rules.firstStartFrom(pod, site, begin); moved {
+					begin = f
+					pinned = false
+				}
+			}
+			if pinned && reason == "" {
 				reason = "pinned"
 			}
 		}
