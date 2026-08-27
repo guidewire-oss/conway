@@ -9,6 +9,7 @@ import {
 import { esc, orderViewHTML, schedulingFromForm, initiativeEditDialogHTML, initiativeEditFromBody, wipModelsTableHTML } from './order.js';
 import { exportBlockPNG } from './exportpng.js';
 import { attachDrag } from './drag.js';
+import { fuzzyMatch } from './filter.js';
 import { baselineChipHTML, baselinePanelHTML, saveErrorMessage, latestOnly } from './baseline.js';
 import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
 import { portfolioTimelineHTML, podLensHTML, podSheetHTML } from './timeline.js';
@@ -106,6 +107,7 @@ async function openPlan(id) {
   const r = await req('/api/plan/' + id);
   if (!r || !r.ok) { root.innerHTML = '<p class="hint">Could not load plan.</p>'; return; }
   current = await r.json();
+  current.tlFilter = ''; current.tlHideEmpty = false; // lens filter state is per-plan (spec 010 FR-004)
   await loadBaselines(); // the header chip needs these before the first paint
   renderPlan();
 }
@@ -255,6 +257,7 @@ async function saveScheduling() {
   // The setup-card dismissal rides the same blob (spec 009): an unrelated
   // assumptions save must not resurrect the card.
   if (current.scheduling?.setupAcknowledged) body.setupAcknowledged = true;
+  if (current.scheduling?.estimateAck) body.estimateAck = true;
   // Same guard as renderOrder, and it matters more here: this response is written
   // into current.scheduling, so a late answer would not just display the wrong
   // assumptions, it would be the ones the next save sends.
@@ -627,6 +630,12 @@ async function renderTimeline() {
     </span>
     <span class="seg">
       <button id="tl-fullscreen" title="fullscreen the timeline for lane-accurate dragging (ESC to exit)">⛶ full screen</button>
+    </span>
+    <span class="tl-filter" id="tl-filter-box">
+      <input id="tl-filter" type="search" placeholder="${lens === 'pod' ? 'filter by initiative…' : 'filter by pod…'}"
+        value="${esc(current.tlFilter || '')}" aria-label="${lens === 'pod' ? 'filter initiatives' : 'filter pods'}">
+      <span class="hint" id="tl-filter-count"></span>
+      ${lens === 'pod' ? `<label class="hint" title="hide pods whose initiatives all fail the filter — the waterfall shows only the chain"><input type="checkbox" id="tl-hide-empty" ${current.tlHideEmpty ? 'checked' : ''}> hide empty pods</label>` : ''}
     </span></div>
     <p class="hint" id="tl-drag-note" hidden></p>
     <div id="tl-main"></div>
@@ -636,6 +645,33 @@ async function renderTimeline() {
   // Fullscreen (spec 008): lane-accurate dragging needs the real estate. ESC
   // exits — the stable document-level keydown lives in initPlanUI so the
   // re-render never stacks handlers.
+  // Lens filters (spec 010): view state, debounced re-render, live counts.
+  // The re-render replaces the input node, so focus and caret are restored
+  // after it — otherwise every keystroke kicks the planner out of the box.
+  {
+    const input = document.getElementById('tl-filter');
+    input?.addEventListener('input', () => {
+      clearTimeout(renderTimeline._filterT);
+      renderTimeline._filterT = setTimeout(() => {
+        // The timer can outlive its lens: a switch or plan change replaced
+        // this input. Only act if it is still the live filter (cubic P2).
+        if (!current || document.getElementById('tl-filter') !== input) return;
+        current.tlFilter = input.value;
+        const caret = input.selectionStart;
+        renderTimeline().then(() => {
+          const live = document.getElementById('tl-filter');
+          if (live && current) {
+            live.focus();
+            live.setSelectionRange(caret, caret);
+          }
+        });
+      }, 120);
+    });
+  }
+  document.getElementById('tl-hide-empty')?.addEventListener('change', (ev) => {
+    current.tlHideEmpty = ev.target.checked;
+    renderTimeline();
+  });
   document.getElementById('tl-fullscreen')?.addEventListener('click', () => {
     host.classList.toggle('tl-fullscreen');
     const btn = document.getElementById('tl-fullscreen');
@@ -666,8 +702,9 @@ async function renderTimeline() {
     const main = document.getElementById('tl-main');
     if (!main) return;
     main.innerHTML = lens === 'pod'
-      ? podLensHTML(sched, { horizonWeeks: horizon, span: spanWeeks, pinnedLanes: pinnedLanesByPod() })
+      ? podLensHTML(sched, { horizonWeeks: horizon, span: spanWeeks, pinnedLanes: pinnedLanesByPod(), initiativeQuery: current.tlFilter || '', hideEmptyPods: current.tlHideEmpty })
       : portfolioTimelineHTML(sched, {
+        podQuery: current.tlFilter || '',
         horizonWeeks: horizon, span: spanWeeks, todayWeek, expand: current.tlExpand,
         // AC 8.5: the bands come off the saved policy, not the schedule — the
         // schedule itself only carries the windows' effects, not their dates.
@@ -689,6 +726,20 @@ async function renderTimeline() {
         current.tlPod = el.dataset.pod;
         paintPodSheet(el.dataset.pod);
       }));
+    // Filter match count (spec 010 FR-005).
+    const countEl = document.getElementById('tl-filter-count');
+    if (countEl) {
+      const q = current.tlFilter || '';
+      if (!q) countEl.textContent = '';
+      else if (lens === 'pod') {
+        const n = new Set((sched.initiatives || []).filter((si) => fuzzyMatch(q, si.name)).map((si) => si.name)).size;
+        countEl.textContent = `${n} of ${(sched.initiatives || []).length} initiatives`;
+      } else {
+        const pods = new Set((sched.podWeeks || []).map((ps) => ps.pod));
+        const n = [...pods].filter((pd) => fuzzyMatch(q, pd)).length;
+        countEl.textContent = `${n} of ${pods.size} pods`;
+      }
+    }
     // Spec 008: drag-to-edit. A released drag pins the slice's start and the
     // engine recomputes; the re-render repaints every view from one schedule.
     main.dataset.horizon = String(spanWeeks);
@@ -764,8 +815,14 @@ async function renderTimeline() {
   // second click and clear it.
   if (current.tlPod) paintPodSheet(current.tlPod);
 
-  document.getElementById('tl-by-initiative')?.addEventListener('click', () => { current.tlLens = 'initiative'; renderTimeline(); });
-  document.getElementById('tl-by-pod')?.addEventListener('click', () => { current.tlLens = 'pod'; renderTimeline(); });
+  // Lens switches clear the filter (spec 010 AC 2.2 as amended): the query
+  // means a different thing in each lens, and carrying 'apollo' into the
+  // pod filter matches nothing — surprising beats persistent here.
+  // Lens switches clear ALL filter state (spec 010 AC 2.2): the query means a
+  // different thing per lens, and a carried-over hide-empty leaves pods
+  // missing with no visible cause (cubic P2).
+  document.getElementById('tl-by-initiative')?.addEventListener('click', () => { current.tlLens = 'initiative'; current.tlFilter = ''; current.tlHideEmpty = false; renderTimeline(); });
+  document.getElementById('tl-by-pod')?.addEventListener('click', () => { current.tlLens = 'pod'; current.tlFilter = ''; current.tlHideEmpty = false; renderTimeline(); });
 }
 
 // renderOrder computes the execution order and paints §13.2's table plus the
@@ -817,6 +874,7 @@ async function renderOrder() {
   host.innerHTML = orderViewHTML(current.schedule, {
     noPin: current.isDraft, // nothing is saved to pin against on a draft
     engineRanks: current.schedule.engineRanks, // spec 006: the suggestion column
+    storedInitiatives: current.initiatives, // spec 009: the sheet's own dates, pre-scheduler
     horizonWeeks: current.horizonWeeks,
     pod: current.orderPod,
     scheduling: schedForForm,
@@ -981,6 +1039,9 @@ async function renderOrder() {
       if (b.dataset.setup === 'wip') applySetup({ wipModel: 'strict' });
       if (b.dataset.setup === 'estimate') applySetup({ estimateModel: 'effort' });
     }));
+  // A deliberate wall-clock keep is recorded like an explicit choice (cubic
+  // P2): the card stops asking without forcing effort.
+  host.querySelector('.setup-keep')?.addEventListener('click', () => applySetup({ estimateAck: true }));
   host.querySelector('.setup-dismiss')?.addEventListener('click', () => {
     applySetup({ setupAcknowledged: true });
   });
@@ -1392,6 +1453,7 @@ async function reloadPlan() {
   const r = await req('/api/plan/' + current.id);
   if (!r || !r.ok) return;
   current = await r.json();
+  current.tlFilter = ''; current.tlHideEmpty = false; // lens filter state is per-plan (spec 010 FR-004)
   await loadBaselines(); // replaced wholesale above, so re-fetch rather than show none
   current.levers = levers;
   // Keep the reader where they were. Replacing `current` wholesale is what drops

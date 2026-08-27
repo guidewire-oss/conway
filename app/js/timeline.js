@@ -14,6 +14,7 @@
 // ⚠ beside the number.
 
 import { esc, weekToDate } from './order.js';
+import { fuzzyMatch } from './filter.js';
 import { term } from './terms.js';
 
 // axisScale maps a week onto the row width as a percentage. The row is the
@@ -141,6 +142,7 @@ export function timelineRowHTML(si, opts = {}) {
     subrows = (si.slices || []).map((sl) => {
       const waits = (sl.dependsOn || []).length
         ? `<span class="hint">← ${(sl.dependsOn).map(esc).join(', ')}</span>` : '';
+      if ((opts.podQuery || '') && !fuzzyMatch(opts.podQuery, sl.pod)) return '';
       return `<div class="tl-subrow" data-pod="${esc(sl.pod)}">
         <span class="hint">└ ${esc(sl.pod)} ${sl.finishWeek - sl.startWeek}w</span>
         ${waits}
@@ -199,6 +201,9 @@ function weekOfDate(periodStart, date) {
 // The grid and today line live in an overlay that starts after the label
 // column, so their week percentages address the same width the bars do.
 export function portfolioTimelineHTML(sched, opts = {}) {
+  // Pod filter (spec 010): slices not touching the typed pod dim; rows with
+  // no lit slice collapse to a slim dimmed row so the matches read in order.
+  const podQ = opts.podQuery || '';
   const horizon = opts.horizonWeeks || sched.horizonWeeks || 26;
   const span = opts.span || horizon; // the drawn span can exceed the period
   const s = axisScale(span);
@@ -211,6 +216,7 @@ export function portfolioTimelineHTML(sched, opts = {}) {
   const rows = (sched.initiatives || [])
     .slice()
     .sort((a, b) => a.proposedRank - b.proposedRank)
+    .filter((si) => !podQ || (si.slices || []).some((sl) => fuzzyMatch(podQ, sl.pod)))
     .map((si) => timelineRowHTML(si, { ...opts, horizonWeeks: span, expand: opts.expand === si.name }))
     .join('');
   const today = opts.todayWeek === undefined || opts.todayWeek === null
@@ -331,6 +337,7 @@ export function podLanesHTML(ps, opts = {}) {
     }).join('');
     return `<div class="tl-lane"><span class="hint">no capacity</span><div class="tl-track">${bars || '<span class="hint">—</span>'}</div></div>`;
   }
+  const q = opts.initiativeQuery || '';
   const { placement, lanes } = assignLanes(ps.slices || [], ps.tracks || 0, opts.pinnedLanes || null);
   const rows = [];
   for (let lane = 0; lane < Math.max(lanes, 1); lane++) {
@@ -366,6 +373,10 @@ export function podLanesHTML(ps, opts = {}) {
       // unlabelled bar reads as empty space. The lead row keeps the fuller
       // styling; continuations show name + duration.
       const dur = `${pEnd - pStart}w`;
+      // Hide non-matching bars entirely (spec 010 Decision 1, amended on the
+      // product owner's call): the isolated track across pods IS the picture
+      // — the dimmed crowd read as noise, not context.
+      if (q && !fuzzyMatch(q, sl.initiative)) return '';
       return barHTML({
         left, width,
         cls: lead === false ? 'tl-cont' : '',
@@ -408,8 +419,34 @@ function podRho(ps, horizon) {
 export function podLensHTML(sched, opts = {}) {
   const horizon = opts.horizonWeeks || sched.horizonWeeks || 26;
   const span = opts.span || horizon;
-  const pods = (sched.podWeeks || []).slice()
-    .sort((a, b) => podRho(b, horizon) - podRho(a, horizon));
+  // Waterfall ordering (spec 010 amendment): under a filter, pods sort by
+  // the earliest matching slice's start then finish — the initiative's chain
+  // reads top-to-bottom like a dependency waterfall, which is the point of
+  // tracing it. Unfiltered keeps the hottest-first capacity view.
+  const q = opts.initiativeQuery || '';
+  let pods = (sched.podWeeks || []).slice();
+  if (q) {
+    const key = (ps) => {
+      const sl = (ps.slices || []).filter((s) => fuzzyMatch(q, s.initiative));
+      if (!sl.length) return null;
+      const start = Math.min(...sl.map((s) => s.startWeek));
+      const finish = Math.min(...sl.filter((s) => s.startWeek === start).map((s) => s.finishWeek));
+      return [start, finish];
+    };
+    const keyed = pods.map((ps) => ({ ps, k: key(ps) }));
+    // matching pods waterfall first (start, then finish, then name for
+    // determinism); non-matching pods keep the rho order after them —
+    // hidden entirely when hideEmpty is set (the checkbox).
+    const match = keyed.filter((x) => x.k).sort((a, b) => a.k[0] - b.k[0] || a.k[1] - b.k[1] || a.ps.pod.localeCompare(b.ps.pod));
+    const rest = keyed.filter((x) => !x.k).sort((a, b) => podRho(b.ps, horizon) - podRho(a.ps, horizon));
+    if (opts.hideEmptyPods) {
+      pods = match.map((x) => x.ps);
+    } else {
+      pods = [...match, ...rest].map((x) => x.ps);
+    }
+  } else {
+    pods.sort((a, b) => podRho(b, horizon) - podRho(a, horizon));
+  }
   const blocks = pods.map((ps) => {
     const rho = podRho(ps, horizon);
     return `<div class="tl-pod" data-pod="${esc(ps.pod)}">
@@ -426,7 +463,7 @@ export function podLensHTML(sched, opts = {}) {
   }).join('');
   return `<div class="card tl-card">
     <div class="ord-head"><b>Timeline — by pod</b>
-      <span class="hint">one lane per track · idle lanes are slack, shown on purpose · hottest first</span></div>
+      <span class="hint">one lane per track · idle lanes are slack, shown on purpose · ${q ? 'waterfall: earliest matching start first' : 'hottest first'}</span></div>
     <div class="tl-axis">${ticks}</div>
     <div class="tl-body"><div class="tl-overlay">${periodEndHTML(horizon, span)}</div></div>
     ${blocks}

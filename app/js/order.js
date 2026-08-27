@@ -439,13 +439,18 @@ export function noticesHTML(sched) {
 // VP needs before any machinery — how many dated initiatives miss under the
 // best order found, and the worst case by name. The objective line beneath it
 // remains for the planner who wants the arithmetic.
-export function verdictBannerHTML(sched) {
+export function verdictBannerHTML(sched, opts = {}) {
   const inits = sched.initiatives || [];
   const dated = inits.filter((si) => si.targetWeek !== null && si.targetWeek !== undefined);
   if (!dated.length) {
     // Spec 009 AC 3.1: the empty verdict must teach the fix, not read as an
-    // error — a date is what verdicts measure, and ✎ is where it goes.
-    // (Ranked or not, the instruction is the same.)
+    // error. The fix differs by CAUSE: dates on the sheet with no period
+    // start read as none (the scheduler cannot week-ify them) — tell the
+    // planner to set the period start, not to add more dates (cubic P2).
+    if (opts.sheetHasDates) {
+      return `<div class="verdict-banner verdict-none">The sheet carries target dates, but the plan has no period start —
+        dates cannot become weeks without one. Set it in ⚙ Assumptions and every verdict on this page comes alive.</div>`;
+    }
     return `<div class="verdict-banner verdict-none">No target dates yet — dates are what the verdicts measure.
       Add one via ✎ on any row below (or upload a sheet with a Target Date column) and every date on this page comes alive.</div>`;
   }
@@ -528,7 +533,8 @@ export function orderHeaderHTML(sched, opts = {}) {
   const obj = objectiveView(sched);
   const rules = (sched.rulesTried || []).length;
   const yours = (opts.scheduling || {}).acceptedOrdering !== 'engine';
-  return `${verdictBannerHTML(sched)}
+  const sheetHasDates = (opts.storedInitiatives || []).some((i) => i && i.targetDate);
+  return `${verdictBannerHTML(sched, { sheetHasDates })}
   <div class="ord-head">
     <b>Execution order</b> ${orderingBadge(opts.scheduling || {})}
     <span class="hint">rule: ${esc(sched.rule || '—')}${rules ? ` (best of ${rules})` : ''}${term('objective')}</span>
@@ -539,8 +545,8 @@ export function orderHeaderHTML(sched, opts = {}) {
     <button type="button" id="sched-open" title="period start, WIP model, buffers, freezes — set once">⚙ Assumptions</button>
     <button type="button" id="tl-open" title="open this order as a timeline (Story 8)">▦ Open timeline ▸</button>
     <span class="ord-bl-head">
-      <input id="bl-name-head" type="text" placeholder="name this order…" maxlength="80">
-      <button type="button" id="bl-save-head" class="primary" title="freeze this order with the inputs that produced it">✓ Save baseline</button>
+      <input id="bl-name-head" type="text" placeholder="name this order…" maxlength="80"${opts.noPin ? ' disabled title="save the uploaded initiatives first — a baseline freezes what is stored"' : ''}>
+      <button type="button" id="bl-save-head" class="primary" title="freeze this order with the inputs that produced it"${opts.noPin ? ' disabled' : ''}>✓ Save baseline</button>
     </span>
   </div>
   <div class="plan-summary">${comparisonBarsHTML(obj)}</div>`;
@@ -708,9 +714,12 @@ export function setupCardHTML(sp = {}, dated = 0) {
     items.push({ field: 'Work-in-progress model', why: 'which initiatives count against the org limit',
       rec: 'strict — protect the constraint absolutely, accept idle elsewhere (you can compare the three anytime)' });
   }
-  if (sp.estimateModel !== 'effort') {
+  // Wall-clock is the persisted default, so "never chose" and "deliberately
+  // wall-clock" are the same wire value — estimateAck records the deliberate
+  // keep so the card stops asking without forcing effort (cubic P2).
+  if (sp.estimateModel !== 'effort' && !sp.estimateAck) {
     items.push({ field: 'Estimate model', why: 'how the sheet\u2019s estimate column is read',
-      rec: 'effort — total work divided across each team\u2019s lanes' });
+      rec: 'effort — total work divided across each team\u2019s lanes', key: 'estimate' });
   }
   if (!items.length) return '';
   return `<div class="card ord-setup-card" id="setup-card">
@@ -720,6 +729,7 @@ export function setupCardHTML(sp = {}, dated = 0) {
       <div><b>${esc(it.field)}</b> <span class="hint">— ${esc(it.why)}</span></div>
       <div class="hint">recommended: ${esc(it.rec)}</div>
       <button type="button" class="primary setup-apply" data-setup="${i === 0 && !wipChosen ? 'wip' : 'estimate'}">use recommended</button>
+      ${it.key === 'estimate' ? '<button type="button" class="setup-keep hint">keep wall-clock</button>' : ''}
     </div>`).join('')}
     <button type="button" class="setup-dismiss hint">dismiss — keep the defaults silently</button>
   </div>`;

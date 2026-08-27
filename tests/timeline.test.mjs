@@ -373,3 +373,66 @@ test('bars expose the drag data attributes', () => {
   assert.match(html, /data-pod="P"/);
   assert.match(html, /data-start-week="3"/);
 });
+
+// Spec 010: lens filters. Fuzzy match is substring OR subsequence; the by-pod
+// lens dims non-matching initiative bars; the by-initiative lens dims rows
+// and slice sub-rows not touching the typed pod.
+test('fuzzyMatch: substring, subsequence, case-insensitive, empty', async () => {
+  const { fuzzyMatch } = await import('../app/js/filter.js');
+  assert.equal(fuzzyMatch('', 'anything'), true);
+  assert.equal(fuzzyMatch('apollo', 'Apollo/App Platform'), true);
+  assert.equal(fuzzyMatch('APOLLO', 'Apollo/App Platform'), true);
+  assert.equal(fuzzyMatch('aplat', 'Apollo/App Platform'), true, 'subsequence');
+  assert.equal(fuzzyMatch('app platform ea', 'Apollo/App Platform'), true, 'substring of the full name');
+  assert.equal(fuzzyMatch('xyz', 'Apollo/App Platform'), false);
+  assert.equal(fuzzyMatch('atlas', ''), false, 'empty target never matches a query');
+});
+
+test('the by-pod lens hides non-matching initiative bars', () => {
+  const ps = [
+    { pod: 'Atlas', tracks: 2, slices: [
+      { initiative: 'Apollo/Mobile', pod: 'Atlas', startWeek: 0, finishWeek: 4, lanesUsed: 2, latestStartWeek: 2, slackWeeks: 1 },
+      { initiative: 'BYOK', pod: 'Atlas', startWeek: 4, finishWeek: 6, lanesUsed: 1, latestStartWeek: 5, slackWeeks: 1 },
+    ]},
+  ];
+  const html = podLensHTML({ podWeeks: ps, initiatives: [], horizonWeeks: 26 }, { horizonWeeks: 26, span: 26, initiativeQuery: 'apollo' });
+  assert.match(html, /title="Apollo/, 'Apollo renders');
+  assert.ok(!html.includes('BYOK'), 'BYOK does not render at all');
+  const clear = podLensHTML({ podWeeks: ps, initiatives: [], horizonWeeks: 26 }, { horizonWeeks: 26, span: 26 });
+  assert.ok(clear.includes('BYOK'), 'empty query shows everything');
+});
+
+test('the by-initiative lens hides rows not touching the typed pod', () => {
+  const sched = { initiatives: [
+    { name: 'A', proposedRank: 1, startWeek: 0, rawFinishWeek: 3, commitWeek: 4,
+      slices: [{ pod: 'Atlas', startWeek: 0, finishWeek: 3, latestStartWeek: 1, slackWeeks: 1 }] },
+    { name: 'B', proposedRank: 2, startWeek: 0, rawFinishWeek: 2, commitWeek: 3,
+      slices: [{ pod: 'Beacon', startWeek: 0, finishWeek: 2, latestStartWeek: 1, slackWeeks: 1 }] },
+  ], horizonWeeks: 26 };
+  const html = portfolioTimelineHTML(sched, { horizonWeeks: 26, span: 26, podQuery: 'atlas' });
+  assert.ok(html.includes('data-init="A"'), 'A touches Atlas, renders');
+  assert.ok(!html.includes('data-init="B"'), 'B does not touch Atlas, does not render');
+});
+
+// Spec 010 amendments: waterfall ordering + hide-empty-pods under a filter.
+test('the by-pod lens waterfalls matching pods by earliest start', () => {
+  const ps = [
+    { pod: 'LatePod', tracks: 2, slices: [
+      { initiative: 'Dev', pod: 'LatePod', startWeek: 10, finishWeek: 14, lanesUsed: 2, latestStartWeek: 12, slackWeeks: 1 }] },
+    { pod: 'FirstPod', tracks: 2, slices: [
+      { initiative: 'Dev', pod: 'FirstPod', startWeek: 0, finishWeek: 5, lanesUsed: 2, latestStartWeek: 1, slackWeeks: 1 }] },
+    { pod: 'Unrelated', tracks: 1, slices: [
+      { initiative: 'BYOK', pod: 'Unrelated', startWeek: 0, finishWeek: 2, lanesUsed: 1, latestStartWeek: 1, slackWeeks: 1 }] },
+  ];
+  const html = podLensHTML({ podWeeks: ps, initiatives: [], horizonWeeks: 26 },
+    { horizonWeeks: 26, span: 26, initiativeQuery: 'dev' });
+  const first = html.indexOf('FirstPod'), late = html.indexOf('LatePod'), unrel = html.indexOf('Unrelated');
+  assert.ok(first > -1 && late > -1, 'both matching pods render');
+  assert.ok(first < late, 'earliest start sorts first — the waterfall');
+  assert.ok(unrel > late, 'non-matching pods trail the waterfall');
+  // hideEmptyPods removes it entirely
+  const hidden = podLensHTML({ podWeeks: ps, initiatives: [], horizonWeeks: 26 },
+    { horizonWeeks: 26, span: 26, initiativeQuery: 'dev', hideEmptyPods: true });
+  assert.ok(!hidden.includes('Unrelated'), 'hide-empty drops non-matching pods');
+  assert.ok(hidden.includes('FirstPod') && hidden.includes('LatePod'));
+});
