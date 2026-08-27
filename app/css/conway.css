@@ -185,6 +185,10 @@
   --bs-danger-text-emphasis: #b01f2d;
   --bs-danger-bg-subtle: rgba(220, 47, 62, .10);
   --bs-danger-border-subtle: rgba(220, 47, 62, .4);
+  --bs-form-control-bg: var(--bs-secondary-bg);
+  --bs-form-control-disabled-bg: var(--bs-body-bg);
+  --bs-form-valid-border-color: #0e9f6e;
+  --bs-form-invalid-border-color: #dc2f3e;
 
   --bs-info: #3b6cff;
   --bs-info-rgb: 59, 108, 255;
