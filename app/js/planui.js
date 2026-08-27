@@ -818,8 +818,11 @@ async function renderTimeline() {
   // Lens switches clear the filter (spec 010 AC 2.2 as amended): the query
   // means a different thing in each lens, and carrying 'apollo' into the
   // pod filter matches nothing — surprising beats persistent here.
-  document.getElementById('tl-by-initiative')?.addEventListener('click', () => { current.tlLens = 'initiative'; current.tlFilter = ''; renderTimeline(); });
-  document.getElementById('tl-by-pod')?.addEventListener('click', () => { current.tlLens = 'pod'; current.tlFilter = ''; renderTimeline(); });
+  // Lens switches clear ALL filter state (spec 010 AC 2.2): the query means a
+  // different thing per lens, and a carried-over hide-empty leaves pods
+  // missing with no visible cause (cubic P2).
+  document.getElementById('tl-by-initiative')?.addEventListener('click', () => { current.tlLens = 'initiative'; current.tlFilter = ''; current.tlHideEmpty = false; renderTimeline(); });
+  document.getElementById('tl-by-pod')?.addEventListener('click', () => { current.tlLens = 'pod'; current.tlFilter = ''; current.tlHideEmpty = false; renderTimeline(); });
 }
 
 // renderOrder computes the execution order and paints §13.2's table plus the

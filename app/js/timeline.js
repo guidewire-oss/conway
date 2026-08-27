@@ -463,7 +463,7 @@ export function podLensHTML(sched, opts = {}) {
   }).join('');
   return `<div class="card tl-card">
     <div class="ord-head"><b>Timeline — by pod</b>
-      <span class="hint">one lane per track · idle lanes are slack, shown on purpose · hottest first</span></div>
+      <span class="hint">one lane per track · idle lanes are slack, shown on purpose · ${q ? 'waterfall: earliest matching start first' : 'hottest first'}</span></div>
     <div class="tl-axis">${ticks}</div>
     <div class="tl-body"><div class="tl-overlay">${periodEndHTML(horizon, span)}</div></div>
     ${blocks}
