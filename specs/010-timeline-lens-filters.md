@@ -63,11 +63,14 @@ row. Both are one fuzzy query's worth of work.
 > Then rows whose slices touch Atlas stay with those slices lit; other rows
 > render dimmed or collapsed; the row count of full-opacity rows is visible
 
-**AC 2.2: Both filters persist across lens switches within the session**
+**AC 2.2: Lens switches clear the filter**
 
 > Given a filter set in one lens
-> When switching lenses and back
-> Then the filter input keeps its value (view state, not URL state)
+> When switching lenses
+> Then the filter clears — the query means a different thing per lens, and a
+> carried-over initiative query in the pod filter (or vice versa) matches
+> nothing, which reads as broken. (Amended after live testing: persistence
+> was the original intent, but the cross-lens carryover surprised.)
 
 ---
 
@@ -78,7 +81,7 @@ row. Both are one fuzzy query's worth of work.
 | FR-001 | The by-pod lens MUST offer a fuzzy initiative filter; non-matching bars dim, matching bars stay full-opacity in every pod | MUST |
 | FR-002 | The by-initiative lens MUST offer a fuzzy pod filter; rows without matching slices collapse/dim | MUST |
 | FR-003 | Matching MUST be case-insensitive substring or subsequence ("aplat" matches "Apollo/Mobile") | MUST |
-| FR-004 | Filters are view state (survive lens switches, clear on plan switch), never persisted | MUST |
+| FR-004 | Filters are view state (clear on lens switch and plan switch), never persisted | MUST |
 | FR-005 | Each filter input MUST show its live match count ("3 of 29 initiatives") | MUST |
 
 ---
