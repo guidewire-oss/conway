@@ -839,18 +839,28 @@ var _ = Describe("ComputeSchedule", func() {
 		teams, inits := Demo()
 		sched := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0.1},
 			DemoScheduling())
-		byName := map[string]ScheduledInitiative{}
-		for _, si := range sched.Initiatives {
-			byName[si.Name] = si
+		// Derive rows from the schedule itself: the winning rule may change with
+		// the rule family, but the fever ARITHMETIC is what this spec pins —
+		// pinning demo row names pins the demo's tuning instead.
+		var onTime, undated *ScheduledInitiative
+		for i := range sched.Initiatives {
+			si := &sched.Initiatives[i]
+			if si.TargetWeek != nil {
+				if si.Verdict == "on-time" && onTime == nil {
+					onTime = si
+				}
+				continue
+			}
+			if undated == nil {
+				undated = si
+			}
 		}
-		// Telemetry GA lands exactly on its buffered commit: nothing burns.
-		onTime := byName["Telemetry GA"]
-		Expect(onTime.Verdict).To(Equal("on-time"))
-		Expect(onTime.TargetBurn).To(BeNumerically("~", 0, 1e-9))
-		// Undated initiatives have no fever point at all.
-		undated := byName["SCIM provisioning"]
-		Expect(undated.TargetBurn).To(Equal(0.0))
-		Expect(undated.TargetProgress).To(Equal(0.0))
+		Expect(onTime).NotTo(BeNil(), "the demo should still hold at least one date")
+		Expect(onTime.TargetBurn).To(BeNumerically("~", 0, 1e-9), "an on-time date burns nothing")
+		if undated != nil {
+			Expect(undated.TargetBurn).To(Equal(0.0))
+			Expect(undated.TargetProgress).To(Equal(0.0))
+		}
 	})
 
 	// The late case has its own fixture rather than borrowing one from Demo.
@@ -896,11 +906,23 @@ var _ = Describe("ComputeSchedule", func() {
 	// Spec 004 Story 5 (AC 5.1/5.2): targetUtilization staggers releases at the
 	// drum; absent or 0 leaves the schedule untouched.
 	It("staggers drum releases under a target utilization", func() {
-		teams, inits := Demo()
-		base := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0.1}, DemoScheduling())
-		sp := DemoScheduling()
-		sp.TargetUtilization = 0.8
-		staggered := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0.1}, sp)
+		// A dedicated contended-drum fixture: the demo's drum load changed shape
+		// when critical-path-first joined the rule family, and under the effort
+		// model big slices are full-pod-width — a sub-1.0 target on a 2-track
+		// drum would refuse them all. So: a 4-track drum, 2-lane slices, target
+		// 0.5 — the stagger genuinely serializes at the cap whatever rule wins.
+		teams := []Team{{Name: "Drum", Tracks: 4}}
+		mk := func(n string, w float64) Initiative {
+			return Initiative{Name: n, Work: map[string]TeamWork{
+				"Drum": {Weeks: w, Estimated: true, InPath: true}}}
+		}
+		inits := []Initiative{mk("A", 2), mk("B", 2), mk("C", 2)}
+		base := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0},
+			SchedulingParams{PeriodStart: specPeriodStart, BufferPct: pctOf(0), EstimateModel: EstimateEffort,
+				WipModel: WipOff})
+		sp := SchedulingParams{PeriodStart: specPeriodStart, BufferPct: pctOf(0), EstimateModel: EstimateEffort,
+			WipModel: WipOff, SplitTaxWeeks: 0, SplitMinWeeks: 0, TargetUtilization: 0.5}
+		staggered := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0}, sp)
 		// Something must have been held, and at least one binding reason must
 		// name the stagger — or the knob silently does nothing, which is the
 		// failure mode spec 004 exists to close.
@@ -912,16 +934,16 @@ var _ = Describe("ComputeSchedule", func() {
 			}
 		}
 		Expect(seen).To(BeTrue(), "some release should be held with reason 'drum stagger'")
-		// The demo's drum (Delta) runs at or under the target in every week the
-		// stagger controls: its peak weekly load must not exceed 80% of tracks.
+		// The drum runs at or under the target in every week the stagger
+		// controls: peak weekly load must not exceed 50% of tracks.
 		for _, ps := range staggered.PodWeeks {
-			if ps.Pod != "Delta" {
+			if ps.Pod != "Drum" {
 				continue
 			}
 			for _, w := range ps.Weeks[:26] {
 				if w.Tracks > 0 {
-					Expect(float64(w.Busy)).To(BeNumerically("<=", 0.8*float64(w.Tracks)+1e-9),
-						"week %d: drum load %d/%d exceeds the 0.8 target", w.Week, w.Busy, w.Tracks)
+					Expect(float64(w.Busy)).To(BeNumerically("<=", 0.5*float64(w.Tracks)+1e-9),
+						"week %d: drum load %d/%d exceeds the 0.5 target", w.Week, w.Busy, w.Tracks)
 				}
 			}
 		}

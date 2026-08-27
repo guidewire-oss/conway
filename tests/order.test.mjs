@@ -226,11 +226,21 @@ test('podHeatmapHTML never draws more tracks busy than a pod has', () => {
 test('podHeatmapHTML marks the drum and puts the count in the cell (FR-044)', () => {
   const html = podHeatmapHTML(sched, 26);
   assert.match(html, /class="tag">drum/);
-  assert.match(html, /class="ord-cell ord-red"[^>]*>[1-9]/, 'a red cell still shows its number');
+  // The regenerated demo fixture has no over-capacity week (critical-path-first
+  // spreads work), so prove the red-cell rendering on a synthetic over-capacity
+  // week rather than depending on the demo's tuning.
+  const hot = { ...sched, podWeeks: sched.podWeeks.map((ps) => ps.pod === sched.drumPods[0]
+    ? { ...ps, weeks: ps.weeks.map((w, i) => (i === 0 ? { ...w, busy: w.tracks, utilization: 1 } : w)) }
+    : ps) };
+  const hotHtml = podHeatmapHTML(hot, 26);
+  assert.match(hotHtml, /class="ord-cell ord-red"[^>]*>[1-9]/, 'a red cell still shows its number');
 });
 
 test('podQueueHTML lists a pod queue in start order with its waits (AC 4.3)', () => {
-  const drum = sched.wipLimit.fromPod;
+  // The regenerated demo spreads work so the drum holds one slice — use a
+  // multi-slice pod for the queue test instead of pinning the drum's load.
+  const multi = sched.podWeeks.find((p) => (p.slices || []).length > 1);
+  const drum = multi.pod;
   const html = podQueueHTML(sched, drum);
   const ps = sched.podWeeks.find((p) => p.pod === drum);
   assert.ok(ps.slices.length > 1, 'the drum should have a queue worth showing');

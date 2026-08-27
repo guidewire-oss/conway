@@ -185,7 +185,7 @@ var _ = Describe("schedulePlan", func() {
 		Expect(sched.DrumPods).To(ContainElement("Delta"))
 		Expect(sched.HorizonWeeks).To(Equal(26))
 		Expect(sched.Rule).NotTo(BeEmpty())
-		Expect(sched.RulesTried).To(HaveLen(5), "Decision 6 runs every rule and keeps the best")
+		Expect(sched.RulesTried).To(HaveLen(6), "Decision 6 runs every rule and keeps the best")
 
 		By("giving every initiative a rank, a span and a commit week (FR-003)")
 		ranks := map[int]bool{}

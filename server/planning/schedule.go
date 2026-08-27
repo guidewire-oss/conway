@@ -60,6 +60,7 @@ var dispatchRules = []string{
 	"minimum-slack",
 	"value-per-constraint-week",
 	"constraint-first",
+	"critical-path-first",
 	ruleStatedPriority,
 }
 
@@ -1028,6 +1029,12 @@ func rankOrder(rule string, ins []*schedInput, sp SchedulingParams, pBar float64
 			return in.weight / p
 		case "constraint-first":
 			return in.drumWeeks
+		case "critical-path-first":
+			// Longest remaining chain first: the makespan is bounded below by
+			// the longest chain, so starting it early shortens the plan, while
+			// short work packs into the lanes it leaves free (spec 011 follow-up
+			// to the user's idle-gap review).
+			return float64(in.chainAlone)
 		case ruleStatedPriority:
 			if in.init.StatedPriority <= 0 {
 				return -math.MaxFloat32 // unranked initiatives go last, in sheet order
@@ -2277,6 +2284,8 @@ func ruleBasis(rule string) string {
 		return "value per week of drum time"
 	case "constraint-first":
 		return "how much of the drum it consumes"
+	case "critical-path-first":
+		return "the length of its critical chain"
 	case ruleStatedPriority:
 		return "the stated priority order"
 	}
