@@ -142,7 +142,7 @@ material)
 | FR-003 | The no-dates banner MUST name the fix (✎ editor / Target Date column) in one sentence | MUST |
 | FR-004 | The missing-pod warning MUST offer "switch roster" inline, opening the roster picker | MUST |
 | FR-005 | An unchosen-models checklist card MUST render above the order table until every model is chosen, with one-click "use recommended" | MUST |
-| FR-006 | The plans list MUST show per-plan health chips: dated-count, estimate model, baseline count | SHOULD |
+| FR-006 | The plans list SHOULD show per-plan health chips: dated-count, estimate model, baseline count | SHOULD |
 
 ---
 
