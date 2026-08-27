@@ -8,6 +8,7 @@ import {
 } from './netgraph.js';
 import { esc, orderViewHTML, schedulingFromForm, initiativeEditDialogHTML, initiativeEditFromBody, wipModelsTableHTML } from './order.js';
 import { exportBlockPNG } from './exportpng.js';
+import { attachDrag } from './drag.js';
 import { baselineChipHTML, baselinePanelHTML, saveErrorMessage, latestOnly } from './baseline.js';
 import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
 import { portfolioTimelineHTML, podLensHTML, podSheetHTML } from './timeline.js';
@@ -27,6 +28,15 @@ export function initPlanUI() {
   // shared modals.
   document.addEventListener('keydown', (ev) => {
     if (ev.key !== 'Escape') return;
+    // Fullscreen timeline exits first (spec 008): it is a view state, and
+    // ESC is its advertised exit.
+    const fs = document.getElementById('plan-dash');
+    if (fs?.classList.contains('tl-fullscreen')) {
+      fs.classList.remove('tl-fullscreen');
+      const btn = document.getElementById('tl-fullscreen');
+      if (btn) btn.textContent = '⛶ full screen';
+      return;
+    }
     const d = document.getElementById('sched-dialog');
     if (d && !d.hidden) { d.hidden = true; document.getElementById('sched-open')?.focus(); }
   });
@@ -591,17 +601,49 @@ async function renderTimeline() {
     </span>
     <span class="seg" title="how much of the schedule to draw — the period end is marked when the view is wider">
       ${spans.map((sp) => `<button class="${sp.id === spanSel ? 'seg-on' : ''}" data-tlspan="${sp.id}">${sp.label}</button>`).join('')}
+    </span>
+    <span class="seg">
+      <button id="tl-fullscreen" title="fullscreen the timeline for lane-accurate dragging (ESC to exit)">⛶ full screen</button>
     </span></div>
+    <p class="hint" id="tl-drag-note" hidden></p>
     <div id="tl-main"></div>
     <div id="tl-pod"></div>`;
   host.querySelectorAll('[data-tlspan]').forEach((b) =>
     b.addEventListener('click', () => { current.tlSpan = b.dataset.tlspan; renderTimeline(); }));
+  // Fullscreen (spec 008): lane-accurate dragging needs the real estate. ESC
+  // exits — the stable document-level keydown lives in initPlanUI so the
+  // re-render never stacks handlers.
+  document.getElementById('tl-fullscreen')?.addEventListener('click', () => {
+    host.classList.toggle('tl-fullscreen');
+    const btn = document.getElementById('tl-fullscreen');
+    if (btn) btn.textContent = host.classList.contains('tl-fullscreen') ? '⛶ exit full screen (esc)' : '⛶ full screen';
+  });
 
+  // pinnedLanesByPod inverts the stored per-initiative PinnedLanes into the
+  // per-pod map assignLanes consumes.
+  const pinnedLanesByPod = () => {
+    const out = {};
+    for (const it of (current.initiatives || [])) {
+      for (const [pod, off] of Object.entries(it.pinnedLanes || {})) {
+        (out[pod] ||= {})[it.name] = off;
+      }
+    }
+    return out;
+  };
+  // dragNote paints the drag outcome line above the timeline (success is
+  // silence; an overlap refusal names the conflict).
+  function dragNote(msg) {
+    const el = document.getElementById('tl-drag-note');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.hidden = !msg;
+    el.classList.toggle('plan-warn', !!msg);
+  }
   const paint = () => {
     const main = document.getElementById('tl-main');
     if (!main) return;
     main.innerHTML = lens === 'pod'
-      ? podLensHTML(sched, { horizonWeeks: horizon, span: spanWeeks })
+      ? podLensHTML(sched, { horizonWeeks: horizon, span: spanWeeks, pinnedLanes: pinnedLanesByPod() })
       : portfolioTimelineHTML(sched, {
         horizonWeeks: horizon, span: spanWeeks, todayWeek, expand: current.tlExpand,
         // AC 8.5: the bands come off the saved policy, not the schedule — the
@@ -624,6 +666,53 @@ async function renderTimeline() {
         current.tlPod = el.dataset.pod;
         paintPodSheet(el.dataset.pod);
       }));
+    // Spec 008: drag-to-edit. A released drag pins the slice's start and the
+    // engine recomputes; the re-render repaints every view from one schedule.
+    main.dataset.horizon = String(spanWeeks);
+    attachDrag(main, {
+      readOnly: current.isDraft, // matchMedia('.pointer: coarse)') gate lives inside attachDrag
+
+      horizon: spanWeeks,
+      onPin: async (initiative, pod, { startWeek, laneDelta }) => {
+        const forPlan = current.id;
+        const it = (current.initiatives || []).find((i) => i.name === initiative);
+        if (!it) return;
+        const edit = { name: initiative };
+        if (startWeek !== null && startWeek !== undefined) {
+          edit.pinnedStarts = { ...(it.pinnedStarts || {}), [pod]: startWeek };
+        }
+        if (laneDelta) {
+          // The new pod-relative offset: current packed lane + delta, floored
+          // at 0. The server refuses drops that overlap other work (409).
+          const bar = [...document.querySelectorAll(`.tl-bar[data-initiative="${CSS.escape(initiative)}"][data-pod="${CSS.escape(pod)}"]`)][0];
+          const curLane = Number(bar?.dataset.lane || 0);
+          const offset = Math.max(0, curLane + laneDelta);
+          edit.pinnedLanes = { ...(it.pinnedLanes || {}), [pod]: offset };
+        }
+        const atEpoch = orderEpoch; // captured before the PATCH (cubic P1)
+        const r = await req('/api/plan/' + forPlan + '/initiatives', {
+          method: 'PATCH',
+          body: JSON.stringify({ initiatives: [edit] }),
+        });
+        if (!current || current.id !== forPlan) return;
+        if (!r || !r.ok) {
+          // The overlap refusal (spec 008 Decision 3) surfaces as the
+          // timeline's own note — the chart is the context for the error.
+          const why = r ? await r.text() : 'the request did not reach the server';
+          if (current && current.id === forPlan) dragNote(why.slice(0, 200));
+          return;
+        }
+        if (orderEpoch !== atEpoch) return; // a recompute landed while the PATCH was away
+        dragNote('');
+        try {
+          const d = await r.json();
+          if (Array.isArray(d.initiatives)) current.initiatives = d.initiatives;
+        } catch { /* cache stays; the server is authoritative */ }
+        current.schedule = null;
+        // Re-render the CURRENT view, not necessarily Timeline (cubic P2).
+        if (view() === 'order') await renderOrder(); else if (view() === 'timeline') await renderTimeline(); else await renderDash();
+      },
+    });
     // FR-043 (spec 004 Story 3): each pod block exports itself as a PNG. The
     // click must not also open the sheet, so it stops here.
     main.querySelectorAll('.pod-export[data-export-pod]').forEach((b) =>
