@@ -419,10 +419,34 @@ function podRho(ps, horizon) {
 export function podLensHTML(sched, opts = {}) {
   const horizon = opts.horizonWeeks || sched.horizonWeeks || 26;
   const span = opts.span || horizon;
-  // Initiative filter (spec 010): matching bars stay lit in every pod; the
-  // rest dim so the capacity picture survives while the answer pops.
-  const pods = (sched.podWeeks || []).slice()
-    .sort((a, b) => podRho(b, horizon) - podRho(a, horizon));
+  // Waterfall ordering (spec 010 amendment): under a filter, pods sort by
+  // the earliest matching slice's start then finish — the initiative's chain
+  // reads top-to-bottom like a dependency waterfall, which is the point of
+  // tracing it. Unfiltered keeps the hottest-first capacity view.
+  const q = opts.initiativeQuery || '';
+  let pods = (sched.podWeeks || []).slice();
+  if (q) {
+    const key = (ps) => {
+      const sl = (ps.slices || []).filter((s) => fuzzyMatch(q, s.initiative));
+      if (!sl.length) return null;
+      const start = Math.min(...sl.map((s) => s.startWeek));
+      const finish = Math.min(...sl.filter((s) => s.startWeek === start).map((s) => s.finishWeek));
+      return [start, finish];
+    };
+    const keyed = pods.map((ps) => ({ ps, k: key(ps) }));
+    // matching pods waterfall first (start, then finish, then name for
+    // determinism); non-matching pods keep the rho order after them —
+    // hidden entirely when hideEmpty is set (the checkbox).
+    const match = keyed.filter((x) => x.k).sort((a, b) => a.k[0] - b.k[0] || a.k[1] - b.k[1] || a.ps.pod.localeCompare(b.ps.pod));
+    const rest = keyed.filter((x) => !x.k).sort((a, b) => podRho(b.ps, horizon) - podRho(a.ps, horizon));
+    if (opts.hideEmptyPods) {
+      pods = match.map((x) => x.ps);
+    } else {
+      pods = [...match, ...rest].map((x) => x.ps);
+    }
+  } else {
+    pods.sort((a, b) => podRho(b, horizon) - podRho(a, horizon));
+  }
   const blocks = pods.map((ps) => {
     const rho = podRho(ps, horizon);
     return `<div class="tl-pod" data-pod="${esc(ps.pod)}">
