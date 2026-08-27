@@ -1117,3 +1117,28 @@ test('the no-dates banner teaches the fix', () => {
   assert.match(html, /✎/);
   assert.match(html, /Target Date column/);
 });
+
+// Spec 009 review fix: a deliberate wall-clock keep is recorded, so the card
+// stops asking without forcing effort.
+test('estimateAck suppresses the estimate item like an explicit effort choice', () => {
+  assert.match(setupCardHTML({}, 0), /Estimate model/, 'fresh plans see it');
+  assert.doesNotMatch(setupCardHTML({ estimateAck: true }, 0), /Estimate model/,
+    'a deliberate wall-clock keep stops the asking');
+  assert.match(setupCardHTML({ estimateAck: true }, 0), /Work-in-progress model/,
+    'other items unaffected');
+  // the keep-wall-clock link rides the estimate item only
+  assert.match(setupCardHTML({}, 0), /keep wall-clock/);
+  assert.doesNotMatch(setupCardHTML({ estimateModel: 'effort' }, 0), /keep wall-clock/,
+    'no link when only the WIP item shows');
+});
+
+// Spec 009 review fix: dates-on-sheet-but-no-period-start gets its own fix.
+test('the banner names the period start when the sheet has dates', () => {
+  const html = verdictBannerHTML({ initiatives: [{ verdict: 'no-date' }] }, { sheetHasDates: true });
+  assert.match(html, /no period start/);
+  assert.match(html, /⚙ Assumptions/);
+  assert.doesNotMatch(html, /✎/);
+  // and the plain no-dates copy is unchanged
+  const plain = verdictBannerHTML({ initiatives: [{ verdict: 'no-date' }] });
+  assert.match(plain, /✎/);
+});

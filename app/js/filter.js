@@ -1,7 +1,8 @@
 // Fuzzy matching for the timeline lens filters (spec 010). Case-insensitive,
 // substring OR subsequence: "aplat" matches "Apollo/Mobile" because the
-// letters appear in order; "app platform ea" matches as a substring after squashing.
-// Pure functions — no DOM — so the shape is unit-tested.
+// letters appear in order; "app platform" matches "Apollo/App Platform" as a
+// substring after squashing. Pure functions — no DOM — so the shape is
+// unit-tested.
 
 // fuzzyMatch reports whether query matches target. Empty query matches all.
 export function fuzzyMatch(query, target) {

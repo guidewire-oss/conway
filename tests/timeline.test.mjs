@@ -383,7 +383,7 @@ test('fuzzyMatch: substring, subsequence, case-insensitive, empty', async () => 
   assert.equal(fuzzyMatch('apollo', 'Apollo/App Platform'), true);
   assert.equal(fuzzyMatch('APOLLO', 'Apollo/App Platform'), true);
   assert.equal(fuzzyMatch('aplat', 'Apollo/App Platform'), true, 'subsequence');
-  assert.equal(fuzzyMatch('app platform ea', 'Apollo/App Platform'), true, 'substring after squash');
+  assert.equal(fuzzyMatch('app platform ea', 'Apollo/App Platform'), true, 'substring of the full name');
   assert.equal(fuzzyMatch('xyz', 'Apollo/App Platform'), false);
   assert.equal(fuzzyMatch('atlas', ''), false, 'empty target never matches a query');
 });

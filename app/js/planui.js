@@ -257,6 +257,7 @@ async function saveScheduling() {
   // The setup-card dismissal rides the same blob (spec 009): an unrelated
   // assumptions save must not resurrect the card.
   if (current.scheduling?.setupAcknowledged) body.setupAcknowledged = true;
+  if (current.scheduling?.estimateAck) body.estimateAck = true;
   // Same guard as renderOrder, and it matters more here: this response is written
   // into current.scheduling, so a late answer would not just display the wrong
   // assumptions, it would be the ones the next save sends.
@@ -652,11 +653,14 @@ async function renderTimeline() {
     input?.addEventListener('input', () => {
       clearTimeout(renderTimeline._filterT);
       renderTimeline._filterT = setTimeout(() => {
+        // The timer can outlive its lens: a switch or plan change replaced
+        // this input. Only act if it is still the live filter (cubic P2).
+        if (!current || document.getElementById('tl-filter') !== input) return;
         current.tlFilter = input.value;
         const caret = input.selectionStart;
         renderTimeline().then(() => {
           const live = document.getElementById('tl-filter');
-          if (live) {
+          if (live && current) {
             live.focus();
             live.setSelectionRange(caret, caret);
           }
@@ -867,6 +871,7 @@ async function renderOrder() {
   host.innerHTML = orderViewHTML(current.schedule, {
     noPin: current.isDraft, // nothing is saved to pin against on a draft
     engineRanks: current.schedule.engineRanks, // spec 006: the suggestion column
+    storedInitiatives: current.initiatives, // spec 009: the sheet's own dates, pre-scheduler
     horizonWeeks: current.horizonWeeks,
     pod: current.orderPod,
     scheduling: schedForForm,
@@ -1031,6 +1036,9 @@ async function renderOrder() {
       if (b.dataset.setup === 'wip') applySetup({ wipModel: 'strict' });
       if (b.dataset.setup === 'estimate') applySetup({ estimateModel: 'effort' });
     }));
+  // A deliberate wall-clock keep is recorded like an explicit choice (cubic
+  // P2): the card stops asking without forcing effort.
+  host.querySelector('.setup-keep')?.addEventListener('click', () => applySetup({ estimateAck: true }));
   host.querySelector('.setup-dismiss')?.addEventListener('click', () => {
     applySetup({ setupAcknowledged: true });
   });
