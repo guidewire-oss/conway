@@ -129,14 +129,17 @@ function renderPlan() {
       <label class="hint">capacity loss <input id="plan-loss" type="number" min="0" max="90" value="${Math.round((p.capacityLoss || 0) * 100)}" style="width:52px">%</label>
       <button id="plan-save">Save</button>
     </div>
-    <div class="plan-uploads">
-      <div class="plan-up" id="plan-roster-pick"></div>
-      ${uploadField('initiatives', '⤓ Initiatives (XLSX/CSV)', nInit)}
-      <label class="hint plan-up" title="Drop any dependency cell that doesn't match a roster pod name (case/whitespace-insensitive) — free text like &quot;Requirements unknown&quot; won't become a fake node in the network.">
-        <input type="checkbox" id="plan-strict-deps" ${current.strictDeps ? 'checked' : ''}> strict: match dependencies to roster
-      </label>
-    </div>
-    <p class="hint">Need samples? <a href="/api/sample/teams.csv" download>teams.csv</a> · <a href="/api/sample/initiatives.xlsx" download>initiatives.xlsx</a></p>
+    <details class="plan-setup"${(nTeams === 0 || nInit === 0) ? ' open' : ''}>
+      <summary>Plan setup <span class="hint">${nTeams} pods · ${nInit} initiatives · ${(Math.round((p.capacityLoss || 0) * 100))}% capacity loss</span></summary>
+      <div class="plan-uploads">
+        <div class="plan-up" id="plan-roster-pick"></div>
+        ${uploadField('initiatives', '⤓ Initiatives (XLSX/CSV)', nInit)}
+        <label class="hint plan-up" title="Drop any dependency cell that doesn't match a roster pod name (case/whitespace-insensitive) — free text like &quot;Requirements unknown&quot; won't become a fake node in the network.">
+          <input type="checkbox" id="plan-strict-deps" ${current.strictDeps ? 'checked' : ''}> strict: match dependencies to roster
+        </label>
+      </div>
+      <p class="hint">Need samples? <a href="/api/sample/teams.csv" download>teams.csv</a> · <a href="/api/sample/initiatives.xlsx" download>initiatives.xlsx</a></p>
+    </details>
     ${current.isDraft ? `<p class="plan-warn">✎ Previewing an unsaved initiatives upload — nothing is saved yet.
       <button id="plan-draft-save" class="primary">Save initiatives</button>
       <button id="plan-draft-discard">Discard</button></p>` : ''}
@@ -168,6 +171,12 @@ function renderPlan() {
     openPlan((await r.json()).id);
   });
   root.querySelector('#plan-save').addEventListener('click', savePlanParams);
+  // The missing-pod warning's fix (spec 009 AC 3.2): open setup at the roster.
+  document.getElementById('unknown-fix')?.addEventListener('click', () => {
+    const d = document.querySelector('.plan-setup');
+    if (d) d.open = true;
+    document.getElementById('plan-roster-pick')?.querySelector('select, button')?.focus();
+  });
   root.querySelectorAll('input[type=file]').forEach((inp) => inp.addEventListener('change', () => {
     if (!inp.files[0]) return;
     if (inp.dataset.kind === 'initiatives') previewInitiativesFile(inp.files[0]);
@@ -288,7 +297,8 @@ async function loadBaselines() {
 }
 
 function wireBaselineControls() {
-  document.getElementById('bl-save')?.addEventListener('click', saveBaseline);
+  document.getElementById('bl-save')?.addEventListener('click', () => saveBaseline('bl-name'));
+  document.getElementById('bl-save-head')?.addEventListener('click', () => saveBaseline('bl-name-head'));
   document.querySelectorAll('.bl-activate').forEach((b) =>
     b.addEventListener('click', () => activateBaseline(b.dataset.id)));
   document.querySelectorAll('.bl-compare').forEach((b) =>
@@ -370,15 +380,17 @@ function baselineNote(msg) {
 // saveBaseline freezes the order currently on screen, under a name. The body
 // carries the same draft initiatives and levers the order was computed from, so a
 // baseline records what the planner was actually looking at.
-async function saveBaseline() {
-  const input = document.getElementById('bl-name');
+async function saveBaseline(from = 'bl-name') {
+  // from is the input id that triggered the save (spec 009 FR-002: the Order
+  // header carries its own entry; both land in the same handler and state).
+  const input = document.getElementById(from);
   const name = (input?.value || '').trim();
   if (!name) {
     input?.focus();
     baselineNote('Give the baseline a name \u2014 it is how this period\u2019s agreed order is referred to later.');
     return;
   }
-  const btn = document.getElementById('bl-save');
+  const btn = document.getElementById(from === 'bl-name' ? 'bl-save' : 'bl-save-head');
   if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
   const forPlan = current.id;
   const r = await req('/api/plan/' + forPlan + '/baseline', {
@@ -387,8 +399,9 @@ async function saveBaseline() {
   if (!current || current.id !== forPlan) return;
   if (!r || !r.ok) {
     await baselineError(r);
-    const live = document.getElementById('bl-save');
-    if (live) { live.disabled = false; live.textContent = 'Save as baseline'; }
+    // Restore whichever button was pressed (header or panel entry).
+    const live = document.getElementById(btn?.id || 'bl-save');
+    if (live) { live.disabled = false; live.textContent = live.id === 'bl-save-head' ? '✓ Save baseline' : 'Save as baseline'; }
     return;
   }
   await loadBaselines();
@@ -917,6 +930,28 @@ async function renderOrder() {
     current.schedule = null; // the order must answer the new pin, not the old one
     await renderOrder();
   }));
+  // Spec 009 FR-005: the setup card's one-click recommendations.
+  const applySetup = async (patch) => {
+    const forPlan = current.id;
+    const body = { ...((current.scheduling || {})), ...patch };
+    const r = await req('/api/plan/' + forPlan + '/scheduling', {
+      method: 'PATCH', body: JSON.stringify(body),
+    });
+    if (!current || current.id !== forPlan) return;
+    if (!r || !r.ok) return;
+    current.scheduling = { ...(current.scheduling || {}), ...patch };
+    current.schedule = null;
+    await renderOrder();
+  };
+  host.querySelectorAll('.setup-apply').forEach((b) =>
+    b.addEventListener('click', () => {
+      if (b.dataset.setup === 'wip') applySetup({ wipModel: 'strict' });
+      if (b.dataset.setup === 'estimate') applySetup({ estimateModel: 'effort' });
+    }));
+  host.querySelector('.setup-dismiss')?.addEventListener('click', () => {
+    applySetup({ setupAcknowledged: true });
+  });
+
   // Spec 006 Decision 1: accepting the engine's order (or returning to the
   // planner's) flips the working schedule via the scheduling params, and an
   // accept ends by OFFERING a baseline (Q1: explicit, asked, never assumed).

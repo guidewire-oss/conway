@@ -150,6 +150,9 @@ type SchedulingParams struct {
 	// on small slices. 40 weeks over 2 tracks splits 20+20; 45 over 3 splits
 	// 20+20+5; a 12-week slice under a 20-week threshold stays whole.
 	SplitMinWeeks int `json:"splitMinWeeks,omitempty"`
+	// SetupAcknowledged (spec 009): the planner has seen and dismissed the
+	// "set up this plan" card; the card stays gone per plan.
+	SetupAcknowledged bool `json:"setupAcknowledged,omitempty"`
 }
 
 const (
