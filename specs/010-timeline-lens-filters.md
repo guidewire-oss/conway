@@ -1,0 +1,144 @@
+# Timeline Lens Filters: fuzzy search by initiative and by pod
+
+**Status:** In Progress
+**Author(s):** opencode (implementer), Anoop (product owner)
+**Date:** 2026-08-26
+**Story/Ticket:** user request, post spec-009
+**Sprint/Cycle:** n/a
+
+---
+
+## 1. Overview
+
+Two filter inputs on the timeline: in the **by-pod** lens, a fuzzy search by
+initiative that dims every non-matching bar across all pods — the planner sees
+how one initiative lines up across teams. In the **by-initiative** lens, the
+mirror: a fuzzy search by pod that dims slices not touching the typed pod and
+collapses rows with no visible work.
+
+---
+
+## 2. Problem
+
+Answering "where does DevSpace run across the org?" means scanning 35 pods'
+lanes by eye. Answering "what lands on Okocim?" means reading every initiative
+row. Both are one fuzzy query's worth of work.
+
+---
+
+## 3. User Stories
+
+### Story 1: Trace an initiative across pods
+
+**As a** planning manager
+**I want** to type (part of) an initiative name in the by-pod lens
+**So that** its bars stay lit across every pod while everything else dims
+
+### Story 2: Find what lands on a pod
+
+**As a** planning manager
+**I want** to type (part of) a pod name in the by-initiative lens
+**So that** only the initiatives touching that pod stay readable
+
+---
+
+## 4. Acceptance Criteria
+
+**AC 1.1: Fuzzy match, case-insensitive, substring-or-subsequence**
+
+> Given the query "devspace"
+> When the by-pod lens renders
+> Then "DevSpace/VAMOS EA & GA" matches; non-matching bars dim to ~25% and
+> matching bars keep full opacity in every pod they touch
+
+**AC 1.2: Empty query is no filter**
+
+> Given an empty query
+> Then every bar renders normally
+
+**AC 2.1: Pod filter collapses empty rows**
+
+> Given the pod query "okocim"
+> When the by-initiative lens renders
+> Then rows whose slices touch Okocim stay with those slices lit; other rows
+> render dimmed or collapsed; the row count of full-opacity rows is visible
+
+**AC 2.2: Both filters persist across lens switches within the session**
+
+> Given a filter set in one lens
+> When switching lenses and back
+> Then the filter input keeps its value (view state, not URL state)
+
+---
+
+## 5. Functional Requirements
+
+| ID | Requirement | Priority |
+|----|------------|----------|
+| FR-001 | The by-pod lens MUST offer a fuzzy initiative filter; non-matching bars dim, matching bars stay full-opacity in every pod | MUST |
+| FR-002 | The by-initiative lens MUST offer a fuzzy pod filter; rows without matching slices collapse/dim | MUST |
+| FR-003 | Matching MUST be case-insensitive substring or subsequence ("dvspace" matches "DevSpace/VAMOS") | MUST |
+| FR-004 | Filters are view state (survive lens switches, clear on plan switch), never persisted | MUST |
+| FR-005 | Each filter input MUST show its live match count ("3 of 29 initiatives") | MUST |
+
+---
+
+## 6. Non-Functional Requirements
+
+| ID | Requirement | Threshold | How to Verify |
+|----|------------|-----------|---------------|
+| NFR-001 | No regression | suites green | `node --test`, `go test ./...` |
+| NFR-002 | Filter re-render on 35-pod plan | < 100ms per keystroke | in-browser |
+
+---
+
+## 7. Data Model
+
+None — view state only (`current.tlFilter`).
+
+---
+
+## 8. API Contract
+
+None.
+
+---
+
+## 9. Out of Scope
+
+- Filtering the Order table (different view, different pass)
+- Saved/named filters
+
+---
+
+## 10. Open Questions
+
+None.
+
+---
+
+## 11. Decision Record
+
+### Decision 1: Dim, never hide, in the by-pod lens
+
+**Context:** Hiding non-matching bars would rewrite every pod's lane stack and
+lose the capacity context the filter exists to illuminate.
+
+**Decision:** Matching bars keep full opacity; everything else dims to 25%. The
+capacity picture stays, the answer pops.
+
+### Decision 2: The pod filter mirrors into the by-initiative lens (the user's own suggestion)
+
+**Context:** Symmetric questions deserve symmetric tools: "where does this
+initiative run?" and "what runs on this pod?" are the same query from two
+sides.
+
+**Decision:** Both lenses get a filter input, each scoped to the other axis.
+
+---
+
+## 12. Success Metrics
+
+| Metric | Current | Target | How to Measure |
+|--------|---------|--------|----------------|
+| Gestures to trace an initiative across pods | visual scan of 35 pods | one query | in-browser |
