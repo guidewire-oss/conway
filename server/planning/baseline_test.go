@@ -283,14 +283,13 @@ var _ = Describe("baseline-to-baseline comparison", func() {
 		base := ComputeSchedule(teams, inits, Params{HorizonWeeks: 26, CapacityLoss: 0.1},
 			DemoScheduling())
 
-		// Pin the stated-#1 and recompute: locking the top makes the
-		// stated-priority rule win outright (its schedule becomes best), so
-		// v2's order follows the stated ranks — the demo's reconciliation
-		// fixture shows exactly this flip.
+		// Pin EVERY stated priority: all-locked forces the stated-priority run
+		// to be the returned schedule (AC 6.3), guaranteeing v2 differs from
+		// v1's engine-chosen order however the rule family evolves.
 		var changed []Initiative
 		for _, it := range inits {
 			cp := it
-			if cp.StatedPriority == 1 {
+			if cp.StatedPriority > 0 {
 				cp.PriorityLocked = true
 			}
 			changed = append(changed, cp)
@@ -299,7 +298,7 @@ var _ = Describe("baseline-to-baseline comparison", func() {
 			DemoScheduling())
 
 		cmp := CompareToBaseline(base, next)
-		Expect(cmp.Moved).To(BeNumerically(">", 0))
+		Expect(cmp.Moved).To(BeNumerically(">", 0), "pinning every priority must change the order")
 		Expect(cmp.Initiatives).NotTo(BeEmpty())
 		// Same shape as the live compare: every initiative present, with the
 		// baseline side carrying its own rank.

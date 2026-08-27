@@ -987,10 +987,12 @@ make a particular schedule worse, and no single dispatch rule wins on every
 instance.
 
 **Decision:** Run the schedule generator under several rules — the tardiness
-index, minimum slack, value per constraint week, constraint-first, and the
-planner's stated priority order — and keep the best by the objective, reporting
-which rule won. The stated-order run is always computed, since it is what
-Story 6 compares against.
+index, minimum slack, value per constraint week, constraint-first,
+critical-path-first (longest chain releases first; added when the GWCP plan
+showed idle-lane gaps the lateness rules ignored), and the planner's stated
+priority order — and keep the best by the objective, reporting which rule won.
+The stated-order run is always computed, since it is what Story 6 compares
+against.
 
 **Alternatives considered:**
 - One rule — rejected: cheaper but leaves obvious wins on the table and makes anomalies more visible.

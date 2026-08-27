@@ -60,6 +60,7 @@ var dispatchRules = []string{
 	"minimum-slack",
 	"value-per-constraint-week",
 	"constraint-first",
+	"critical-path-first",
 	ruleStatedPriority,
 }
 
@@ -621,7 +622,7 @@ func computeOne(teams []Team, inits []Initiative, params Params, sp SchedulingPa
 	statedObjective := 0.0
 	var tried []RuleScore
 	for _, rule := range dispatchRules {
-		run := generate(prepared, rankOrder(rule, prepared, sp, pBar), byName, tracks, sp, wip, horizon, pBar, rules, params.CapacityLoss)
+		run := generate(prepared, rankOrder(rule, prepared, sp, pBar), byName, tracks, sp, wip, horizon, pBar, rules, params.CapacityLoss, rule)
 		tried = append(tried, RuleScore{Rule: rule, Objective: run.objective})
 		if rule == ruleStatedPriority {
 			statedObjective = run.objective
@@ -1028,6 +1029,12 @@ func rankOrder(rule string, ins []*schedInput, sp SchedulingParams, pBar float64
 			return in.weight / p
 		case "constraint-first":
 			return in.drumWeeks
+		case "critical-path-first":
+			// Longest remaining chain first: the makespan is bounded below by
+			// the longest chain, so starting it early shortens the plan, while
+			// short work packs into the lanes it leaves free (spec 011 follow-up
+			// to the user's idle-gap review).
+			return float64(in.chainAlone)
 		case ruleStatedPriority:
 			if in.init.StatedPriority <= 0 {
 				return -math.MaxFloat32 // unranked initiatives go last, in sheet order
@@ -1150,7 +1157,7 @@ type podCalendar struct {
 // rule's order, gate each one's release (Decision 5), then place its slices as
 // early as capacity allows. Releases are what get held back; released work runs.
 func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tracks map[string]int,
-	sp SchedulingParams, wip WipLimit, horizon int, pBar float64, rules *calendarRules, capacityLoss float64) *runResult {
+	sp SchedulingParams, wip WipLimit, horizon int, pBar float64, rules *calendarRules, capacityLoss float64, rule string) *runResult {
 
 	maxWeek := horizon
 	for _, in := range all {
@@ -1253,7 +1260,7 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 					}
 				}
 			}
-			si := summarise(in, rank, start, finish, nil, held, sp, pBar)
+			si := summarise(in, rank, start, finish, nil, held, sp, pBar, rule)
 			si.StartWeek, si.RawFinishWeek, si.CommitWeek, si.BufferWeeks = 0, 0, 0, 0
 			si.WeeksLate = 0
 			si.Verdict = verdictBeyondHorizon
@@ -1337,7 +1344,7 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 		}
 		quarterStarts[start/weeksPerQuarter]++
 
-		si := summarise(in, rank, start, finish, placed, reason, sp, pBar)
+		si := summarise(in, rank, start, finish, placed, reason, sp, pBar, rule)
 		commitOf[in.init.Name] = si.CommitWeek
 		results[in.init.Name] = &si
 	}
@@ -2009,7 +2016,7 @@ func fitOf(inits []Initiative, sis []ScheduledInitiative, tracks map[string]int,
 // summarise turns a placed initiative into its reported row: the buffered commit
 // week (Decision 9), the verdict, and the constraint that set its start.
 func summarise(in *schedInput, rank, start, finish int, slices []WorkSlice, releaseReason string,
-	sp SchedulingParams, pBar float64) ScheduledInitiative {
+	sp SchedulingParams, pBar float64, rule string) ScheduledInitiative {
 	si := ScheduledInitiative{
 		Name: in.init.Name, ProposedRank: rank, StatedRank: in.init.StatedPriority,
 		StartWeek: start, RawFinishWeek: finish,
@@ -2043,6 +2050,12 @@ func summarise(in *schedInput, rank, start, finish int, slices []WorkSlice, rele
 	// pBar, not in.drumWeeks: FR-021 wants the terms that produced the position, and
 	// the ranking discounted slack against the portfolio mean.
 	idx, slack := atcIndex(in, pBar, sp.lookahead())
+	// Rule-specific explanation (FR-021): under critical-path-first the position
+	// comes from the chain length, so an ATC index here would be a confidently
+	// wrong reason. Report the chain itself in the index slot.
+	if rule == "critical-path-first" {
+		idx = float64(in.chainAlone)
+	}
 	si.RankingTerms = RankingTerms{Weight: round1(in.weight), ConstraintWeeks: in.drumWeeks,
 		SlackWeeks: slack, Index: round1(idx)}
 
@@ -2277,6 +2290,8 @@ func ruleBasis(rule string) string {
 		return "value per week of drum time"
 	case "constraint-first":
 		return "how much of the drum it consumes"
+	case "critical-path-first":
+		return "the length of its critical chain"
 	case ruleStatedPriority:
 		return "the stated priority order"
 	}

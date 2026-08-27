@@ -338,6 +338,7 @@ export function podLanesHTML(ps, opts = {}) {
     return `<div class="tl-lane"><span class="hint">no capacity</span><div class="tl-track">${bars || '<span class="hint">—</span>'}</div></div>`;
   }
   const q = opts.initiativeQuery || '';
+  const ghost = !!opts.ghostOthers;
   const { placement, lanes } = assignLanes(ps.slices || [], ps.tracks || 0, opts.pinnedLanes || null);
   const rows = [];
   for (let lane = 0; lane < Math.max(lanes, 1); lane++) {
@@ -373,10 +374,18 @@ export function podLanesHTML(ps, opts = {}) {
       // unlabelled bar reads as empty space. The lead row keeps the fuller
       // styling; continuations show name + duration.
       const dur = `${pEnd - pStart}w`;
-      // Hide non-matching bars entirely (spec 010 Decision 1, amended on the
-      // product owner's call): the isolated track across pods IS the picture
-      // — the dimmed crowd read as noise, not context.
-      if (q && !fuzzyMatch(q, sl.initiative)) return '';
+      // Filter behavior (spec 010 Decision 1 as amended + ghost toggle from
+      // the product owner's review): non-matching bars are hidden by default —
+      // the isolated track across pods IS the picture. With "show other work"
+      // on, they render as label-less ghosts at low opacity so the hidden
+      // context (what else held the lanes during the gaps) is visible without
+      // stealing focus. Ghosts are context, not editable plan — no drag
+      // contract attached.
+      const matched = !q || fuzzyMatch(q, sl.initiative);
+      if (!matched && !ghost) return '';
+      if (!matched) {
+        return `<div class="tl-bar tl-trunc tl-ghost" style="${pct(left)};width:${width.toFixed(2)}%" title="${esc(`${sl.initiative} (other work): w${sl.startWeek}–w${sl.finishWeek}`)}"></div>`;
+      }
       return barHTML({
         left, width,
         cls: lead === false ? 'tl-cont' : '',
@@ -424,6 +433,7 @@ export function podLensHTML(sched, opts = {}) {
   // reads top-to-bottom like a dependency waterfall, which is the point of
   // tracing it. Unfiltered keeps the hottest-first capacity view.
   const q = opts.initiativeQuery || '';
+  const ghost = !!opts.ghostOthers;
   let pods = (sched.podWeeks || []).slice();
   if (q) {
     const key = (ps) => {
