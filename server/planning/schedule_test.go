@@ -1231,3 +1231,21 @@ var _ = Describe("pinned starts", func() {
 		Expect(p.StartWeek).To(BeNumerically(">=", 6), "cannot start inside the holder")
 	})
 })
+
+// Spec 008 review fix: a pin landing in a block-start freeze snaps past it and
+// names FREEZE as the binding constraint — "pinned" would hide the mover.
+var _ = Describe("pin inside a freeze", func() {
+	It("reports the freeze, not the pin, when the freeze moved the start", func() {
+		teams := []Team{{Name: "Pod", Tracks: 2}}
+		inits := []Initiative{{Name: "Pinned", Work: map[string]TeamWork{
+			"Pod": {Weeks: 4, Estimated: true, InPath: true}},
+			PinnedStarts: map[string]int{"Pod": 2}}}
+		sp := SchedulingParams{PeriodStart: specPeriodStart, BufferPct: pctOf(0), EstimateModel: EstimateEffort,
+			Calendars: []CalendarWindow{{Kind: "change-freeze", Scope: "org",
+				From: weekDate(2), To: weekDate(4), Effect: "block-start"}}}
+		sched := ComputeSchedule(teams, inits, Params{HorizonWeeks: 30, CapacityLoss: 0}, sp)
+		sl := scheduledFor(sched, "Pinned").Slices[0]
+		Expect(sl.StartWeek).To(Equal(5), "snapped past the w2-w4 freeze")
+		Expect(sl.BindingConstraint).To(Equal(bindFreeze), "the freeze is the mover")
+	})
+})
