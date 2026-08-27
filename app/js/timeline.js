@@ -142,8 +142,8 @@ export function timelineRowHTML(si, opts = {}) {
     subrows = (si.slices || []).map((sl) => {
       const waits = (sl.dependsOn || []).length
         ? `<span class="hint">← ${(sl.dependsOn).map(esc).join(', ')}</span>` : '';
-      const subDim = (opts.podQuery || '') && !fuzzyMatch(opts.podQuery, sl.pod);
-      return `<div class="tl-subrow${subDim ? ' tl-dim' : ''}" data-pod="${esc(sl.pod)}">
+      if ((opts.podQuery || '') && !fuzzyMatch(opts.podQuery, sl.pod)) return '';
+      return `<div class="tl-subrow" data-pod="${esc(sl.pod)}">
         <span class="hint">└ ${esc(sl.pod)} ${sl.finishWeek - sl.startWeek}w</span>
         ${waits}
         ${sliceBar(sl, horizon)}
@@ -216,11 +216,8 @@ export function portfolioTimelineHTML(sched, opts = {}) {
   const rows = (sched.initiatives || [])
     .slice()
     .sort((a, b) => a.proposedRank - b.proposedRank)
-    .map((si) => {
-      const touched = !podQ || (si.slices || []).some((sl) => fuzzyMatch(podQ, sl.pod));
-      return timelineRowHTML(si, { ...opts, horizonWeeks: span, expand: opts.expand === si.name })
-        .replace('class="tl-row"', `class="tl-row${touched ? '' : ' tl-dim'}"`);
-    })
+    .filter((si) => !podQ || (si.slices || []).some((sl) => fuzzyMatch(podQ, sl.pod)))
+    .map((si) => timelineRowHTML(si, { ...opts, horizonWeeks: span, expand: opts.expand === si.name }))
     .join('');
   const today = opts.todayWeek === undefined || opts.todayWeek === null
     ? '' : todayLineHTML(opts.todayWeek, span);
@@ -376,10 +373,13 @@ export function podLanesHTML(ps, opts = {}) {
       // unlabelled bar reads as empty space. The lead row keeps the fuller
       // styling; continuations show name + duration.
       const dur = `${pEnd - pStart}w`;
-      const dim = q && !fuzzyMatch(q, sl.initiative);
+      // Hide non-matching bars entirely (spec 010 Decision 1, amended on the
+      // product owner's call): the isolated track across pods IS the picture
+      // — the dimmed crowd read as noise, not context.
+      if (q && !fuzzyMatch(q, sl.initiative)) return '';
       return barHTML({
         left, width,
-        cls: (lead === false ? 'tl-cont ' : '') + (dim ? 'tl-dim' : ''),
+        cls: lead === false ? 'tl-cont' : '',
         label: `${sl.initiative} ${dur}${collapsed ? wTag : ''}`,
         initiative: sl.initiative, pod: sl.pod, startWeek: sl.startWeek, lane,
         title: `${sl.initiative}: w${sl.startWeek}–w${sl.finishWeek} · start by w${sl.latestStartWeek}` +

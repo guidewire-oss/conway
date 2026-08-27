@@ -48,8 +48,8 @@ row. Both are one fuzzy query's worth of work.
 
 > Given the query "apollo"
 > When the by-pod lens renders
-> Then "Apollo/App Platform" matches; non-matching bars dim to ~25% and
-> matching bars keep full opacity in every pod they touch
+> Then "Apollo/App Platform" matches; its bars render in every pod it
+> touches and non-matching bars do not render at all
 
 **AC 1.2: Empty query is no filter**
 
@@ -78,8 +78,8 @@ row. Both are one fuzzy query's worth of work.
 
 | ID | Requirement | Priority |
 |----|------------|----------|
-| FR-001 | The by-pod lens MUST offer a fuzzy initiative filter; non-matching bars dim, matching bars stay full-opacity in every pod | MUST |
-| FR-002 | The by-initiative lens MUST offer a fuzzy pod filter; rows without matching slices collapse/dim | MUST |
+| FR-001 | The by-pod lens MUST offer a fuzzy initiative filter; non-matching bars do not render, matching bars render in every pod they touch | MUST |
+| FR-002 | The by-initiative lens MUST offer a fuzzy pod filter; rows without matching slices do not render | MUST |
 | FR-003 | Matching MUST be case-insensitive substring or subsequence ("aplat" matches "Apollo/Mobile") | MUST |
 | FR-004 | Filters are view state (clear on lens switch and plan switch), never persisted | MUST |
 | FR-005 | Each filter input MUST show its live match count ("3 of 29 initiatives") | MUST |
@@ -122,13 +122,19 @@ None.
 
 ## 11. Decision Record
 
-### Decision 1: Dim, never hide, in the by-pod lens
+### Decision 1: Hide, do not dim (amended 2026-08-26 on the product owner's call)
 
-**Context:** Hiding non-matching bars would rewrite every pod's lane stack and
-lose the capacity context the filter exists to illuminate.
+**Context:** The first implementation dimmed non-matching bars to 25% to keep
+the capacity context. Live use said otherwise: the dimmed crowd read as noise,
+and the isolated track across pods — with its lanes and dependencies — IS the
+picture the filter exists to draw.
 
-**Decision:** Matching bars keep full opacity; everything else dims to 25%. The
-capacity picture stays, the answer pops.
+**Decision:** Non-matching bars do not render at all, in both lenses. The
+empty track rows stay (the pod's lane count is still legible); the match
+count keeps the denominator honest ("1 of 29").
+
+**Alternatives considered:**
+- Dim at 25% — rejected in review with the product owner: noise, not context.
 
 ### Decision 2: The pod filter mirrors into the by-initiative lens (the user's own suggestion)
 

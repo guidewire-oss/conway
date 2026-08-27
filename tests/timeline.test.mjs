@@ -388,7 +388,7 @@ test('fuzzyMatch: substring, subsequence, case-insensitive, empty', async () => 
   assert.equal(fuzzyMatch('atlas', ''), false, 'empty target never matches a query');
 });
 
-test('the by-pod lens dims non-matching initiative bars', () => {
+test('the by-pod lens hides non-matching initiative bars', () => {
   const ps = [
     { pod: 'Atlas', tracks: 2, slices: [
       { initiative: 'Apollo/Mobile', pod: 'Atlas', startWeek: 0, finishWeek: 4, lanesUsed: 2, latestStartWeek: 2, slackWeeks: 1 },
@@ -396,14 +396,13 @@ test('the by-pod lens dims non-matching initiative bars', () => {
     ]},
   ];
   const html = podLensHTML({ podWeeks: ps, initiatives: [], horizonWeeks: 26 }, { horizonWeeks: 26, span: 26, initiativeQuery: 'apollo' });
-  // the dim class sits on the BAR whose title names the initiative
-  assert.ok(!/tl-dim"[^>]*title="Apollo/.test(html), 'Apollo stays lit');
-  assert.match(html, /tl-dim"[^>]*title="BYOK/, 'BYOK dims');
+  assert.match(html, /title="Apollo/, 'Apollo renders');
+  assert.ok(!html.includes('BYOK'), 'BYOK does not render at all');
   const clear = podLensHTML({ podWeeks: ps, initiatives: [], horizonWeeks: 26 }, { horizonWeeks: 26, span: 26 });
-  assert.ok(!clear.includes('tl-dim'), 'empty query dims nothing');
+  assert.ok(clear.includes('BYOK'), 'empty query shows everything');
 });
 
-test('the by-initiative lens dims rows not touching the typed pod', () => {
+test('the by-initiative lens hides rows not touching the typed pod', () => {
   const sched = { initiatives: [
     { name: 'A', proposedRank: 1, startWeek: 0, rawFinishWeek: 3, commitWeek: 4,
       slices: [{ pod: 'Atlas', startWeek: 0, finishWeek: 3, latestStartWeek: 1, slackWeeks: 1 }] },
@@ -411,9 +410,6 @@ test('the by-initiative lens dims rows not touching the typed pod', () => {
       slices: [{ pod: 'Beacon', startWeek: 0, finishWeek: 2, latestStartWeek: 1, slackWeeks: 1 }] },
   ], horizonWeeks: 26 };
   const html = portfolioTimelineHTML(sched, { horizonWeeks: 26, span: 26, podQuery: 'atlas' });
-  // row A stays lit, row B dims — assert via the data-init attributes
-  const rowA = html.slice(html.indexOf('data-init="A"') - 200, html.indexOf('data-init="A"') + 10);
-  assert.ok(!/tl-dim/.test(rowA), 'A touches Atlas, stays lit');
-  const rowB = html.slice(html.indexOf('data-init="B"') - 200, html.indexOf('data-init="B"') + 10);
-  assert.ok(/tl-dim/.test(rowB), 'B does not touch Atlas, dims');
+  assert.ok(html.includes('data-init="A"'), 'A touches Atlas, renders');
+  assert.ok(!html.includes('data-init="B"'), 'B does not touch Atlas, does not render');
 });
