@@ -298,7 +298,7 @@ var _ = Describe("baseline-to-baseline comparison", func() {
 			DemoScheduling())
 
 		cmp := CompareToBaseline(base, next)
-		Expect(cmp.Moved).To(BeNumerically(">", 0))
+		Expect(cmp.Moved).To(BeNumerically(">", 0), "pinning every priority must change the order")
 		Expect(cmp.Initiatives).NotTo(BeEmpty())
 		// Same shape as the live compare: every initiative present, with the
 		// baseline side carrying its own rank.

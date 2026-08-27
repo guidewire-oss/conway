@@ -721,5 +721,5 @@ button.plan-back { background: none; border: 0; padding: 0; font: inherit; }
 .tl-bar.tl-dim, .tl-row.tl-dim, .tl-subrow.tl-dim { opacity: .25; }
 .tl-row.tl-dim { min-height: 14px; }
 .tl-filter { display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; }
-.tl-filter input { background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+.tl-filter input[type="search"] { background: var(--panel2); color: var(--text); border: 1px solid var(--border);
   border-radius: 6px; padding: 3px 8px; font-size: 12px; width: 170px; }
