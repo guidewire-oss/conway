@@ -9,6 +9,7 @@ import {
 import { esc, orderViewHTML, schedulingFromForm, initiativeEditDialogHTML, initiativeEditFromBody, wipModelsTableHTML } from './order.js';
 import { exportBlockPNG } from './exportpng.js';
 import { attachDrag } from './drag.js';
+import { fuzzyMatch } from './filter.js';
 import { baselineChipHTML, baselinePanelHTML, saveErrorMessage, latestOnly } from './baseline.js';
 import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
 import { portfolioTimelineHTML, podLensHTML, podSheetHTML } from './timeline.js';
@@ -106,6 +107,7 @@ async function openPlan(id) {
   const r = await req('/api/plan/' + id);
   if (!r || !r.ok) { root.innerHTML = '<p class="hint">Could not load plan.</p>'; return; }
   current = await r.json();
+  current.tlFilter = ''; // lens filters are per-plan view state (spec 010 FR-004)
   await loadBaselines(); // the header chip needs these before the first paint
   renderPlan();
 }
@@ -627,6 +629,11 @@ async function renderTimeline() {
     </span>
     <span class="seg">
       <button id="tl-fullscreen" title="fullscreen the timeline for lane-accurate dragging (ESC to exit)">⛶ full screen</button>
+    </span>
+    <span class="tl-filter" id="tl-filter-box">
+      <input id="tl-filter" type="search" placeholder="${lens === 'pod' ? 'filter by initiative…' : 'filter by pod…'}"
+        value="${esc(current.tlFilter || '')}" aria-label="${lens === 'pod' ? 'filter initiatives' : 'filter pods'}">
+      <span class="hint" id="tl-filter-count"></span>
     </span></div>
     <p class="hint" id="tl-drag-note" hidden></p>
     <div id="tl-main"></div>
@@ -636,6 +643,17 @@ async function renderTimeline() {
   // Fullscreen (spec 008): lane-accurate dragging needs the real estate. ESC
   // exits — the stable document-level keydown lives in initPlanUI so the
   // re-render never stacks handlers.
+  // Lens filters (spec 010): view state, debounced re-render, live counts.
+  {
+    const input = document.getElementById('tl-filter');
+    input?.addEventListener('input', () => {
+      clearTimeout(renderTimeline._filterT);
+      renderTimeline._filterT = setTimeout(() => {
+        current.tlFilter = input.value;
+        renderTimeline();
+      }, 120);
+    });
+  }
   document.getElementById('tl-fullscreen')?.addEventListener('click', () => {
     host.classList.toggle('tl-fullscreen');
     const btn = document.getElementById('tl-fullscreen');
@@ -666,8 +684,9 @@ async function renderTimeline() {
     const main = document.getElementById('tl-main');
     if (!main) return;
     main.innerHTML = lens === 'pod'
-      ? podLensHTML(sched, { horizonWeeks: horizon, span: spanWeeks, pinnedLanes: pinnedLanesByPod() })
+      ? podLensHTML(sched, { horizonWeeks: horizon, span: spanWeeks, pinnedLanes: pinnedLanesByPod(), initiativeQuery: current.tlFilter || '' })
       : portfolioTimelineHTML(sched, {
+        podQuery: current.tlFilter || '',
         horizonWeeks: horizon, span: spanWeeks, todayWeek, expand: current.tlExpand,
         // AC 8.5: the bands come off the saved policy, not the schedule — the
         // schedule itself only carries the windows' effects, not their dates.
@@ -689,6 +708,20 @@ async function renderTimeline() {
         current.tlPod = el.dataset.pod;
         paintPodSheet(el.dataset.pod);
       }));
+    // Filter match count (spec 010 FR-005).
+    const countEl = document.getElementById('tl-filter-count');
+    if (countEl) {
+      const q = current.tlFilter || '';
+      if (!q) countEl.textContent = '';
+      else if (lens === 'pod') {
+        const n = new Set((sched.initiatives || []).filter((si) => fuzzyMatch(q, si.name)).map((si) => si.name)).size;
+        countEl.textContent = `${n} of ${(sched.initiatives || []).length} initiatives`;
+      } else {
+        const pods = new Set((sched.podWeeks || []).map((ps) => ps.pod));
+        const n = [...pods].filter((pd) => fuzzyMatch(q, pd)).length;
+        countEl.textContent = `${n} of ${pods.size} pods`;
+      }
+    }
     // Spec 008: drag-to-edit. A released drag pins the slice's start and the
     // engine recomputes; the re-render repaints every view from one schedule.
     main.dataset.horizon = String(spanWeeks);
@@ -764,8 +797,11 @@ async function renderTimeline() {
   // second click and clear it.
   if (current.tlPod) paintPodSheet(current.tlPod);
 
-  document.getElementById('tl-by-initiative')?.addEventListener('click', () => { current.tlLens = 'initiative'; renderTimeline(); });
-  document.getElementById('tl-by-pod')?.addEventListener('click', () => { current.tlLens = 'pod'; renderTimeline(); });
+  // Lens switches clear the filter (spec 010 AC 2.2 as amended): the query
+  // means a different thing in each lens, and carrying 'devspace' into the
+  // pod filter matches nothing — surprising beats persistent here.
+  document.getElementById('tl-by-initiative')?.addEventListener('click', () => { current.tlLens = 'initiative'; current.tlFilter = ''; renderTimeline(); });
+  document.getElementById('tl-by-pod')?.addEventListener('click', () => { current.tlLens = 'pod'; current.tlFilter = ''; renderTimeline(); });
 }
 
 // renderOrder computes the execution order and paints §13.2's table plus the
@@ -1392,6 +1428,7 @@ async function reloadPlan() {
   const r = await req('/api/plan/' + current.id);
   if (!r || !r.ok) return;
   current = await r.json();
+  current.tlFilter = ''; // lens filters are per-plan view state (spec 010 FR-004)
   await loadBaselines(); // replaced wholesale above, so re-fetch rather than show none
   current.levers = levers;
   // Keep the reader where they were. Replacing `current` wholesale is what drops

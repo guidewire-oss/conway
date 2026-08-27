@@ -14,6 +14,7 @@
 // ⚠ beside the number.
 
 import { esc, weekToDate } from './order.js';
+import { fuzzyMatch } from './filter.js';
 import { term } from './terms.js';
 
 // axisScale maps a week onto the row width as a percentage. The row is the
@@ -141,7 +142,8 @@ export function timelineRowHTML(si, opts = {}) {
     subrows = (si.slices || []).map((sl) => {
       const waits = (sl.dependsOn || []).length
         ? `<span class="hint">← ${(sl.dependsOn).map(esc).join(', ')}</span>` : '';
-      return `<div class="tl-subrow" data-pod="${esc(sl.pod)}">
+      const subDim = (opts.podQuery || '') && !fuzzyMatch(opts.podQuery, sl.pod);
+      return `<div class="tl-subrow${subDim ? ' tl-dim' : ''}" data-pod="${esc(sl.pod)}">
         <span class="hint">└ ${esc(sl.pod)} ${sl.finishWeek - sl.startWeek}w</span>
         ${waits}
         ${sliceBar(sl, horizon)}
@@ -199,6 +201,9 @@ function weekOfDate(periodStart, date) {
 // The grid and today line live in an overlay that starts after the label
 // column, so their week percentages address the same width the bars do.
 export function portfolioTimelineHTML(sched, opts = {}) {
+  // Pod filter (spec 010): slices not touching the typed pod dim; rows with
+  // no lit slice collapse to a slim dimmed row so the matches read in order.
+  const podQ = opts.podQuery || '';
   const horizon = opts.horizonWeeks || sched.horizonWeeks || 26;
   const span = opts.span || horizon; // the drawn span can exceed the period
   const s = axisScale(span);
@@ -211,7 +216,11 @@ export function portfolioTimelineHTML(sched, opts = {}) {
   const rows = (sched.initiatives || [])
     .slice()
     .sort((a, b) => a.proposedRank - b.proposedRank)
-    .map((si) => timelineRowHTML(si, { ...opts, horizonWeeks: span, expand: opts.expand === si.name }))
+    .map((si) => {
+      const touched = !podQ || (si.slices || []).some((sl) => fuzzyMatch(podQ, sl.pod));
+      return timelineRowHTML(si, { ...opts, horizonWeeks: span, expand: opts.expand === si.name })
+        .replace('class="tl-row"', `class="tl-row${touched ? '' : ' tl-dim'}"`);
+    })
     .join('');
   const today = opts.todayWeek === undefined || opts.todayWeek === null
     ? '' : todayLineHTML(opts.todayWeek, span);
@@ -331,6 +340,7 @@ export function podLanesHTML(ps, opts = {}) {
     }).join('');
     return `<div class="tl-lane"><span class="hint">no capacity</span><div class="tl-track">${bars || '<span class="hint">—</span>'}</div></div>`;
   }
+  const q = opts.initiativeQuery || '';
   const { placement, lanes } = assignLanes(ps.slices || [], ps.tracks || 0, opts.pinnedLanes || null);
   const rows = [];
   for (let lane = 0; lane < Math.max(lanes, 1); lane++) {
@@ -366,9 +376,10 @@ export function podLanesHTML(ps, opts = {}) {
       // unlabelled bar reads as empty space. The lead row keeps the fuller
       // styling; continuations show name + duration.
       const dur = `${pEnd - pStart}w`;
+      const dim = q && !fuzzyMatch(q, sl.initiative);
       return barHTML({
         left, width,
-        cls: lead === false ? 'tl-cont' : '',
+        cls: (lead === false ? 'tl-cont ' : '') + (dim ? 'tl-dim' : ''),
         label: `${sl.initiative} ${dur}${collapsed ? wTag : ''}`,
         initiative: sl.initiative, pod: sl.pod, startWeek: sl.startWeek, lane,
         title: `${sl.initiative}: w${sl.startWeek}–w${sl.finishWeek} · start by w${sl.latestStartWeek}` +
@@ -408,6 +419,8 @@ function podRho(ps, horizon) {
 export function podLensHTML(sched, opts = {}) {
   const horizon = opts.horizonWeeks || sched.horizonWeeks || 26;
   const span = opts.span || horizon;
+  // Initiative filter (spec 010): matching bars stay lit in every pod; the
+  // rest dim so the capacity picture survives while the answer pops.
   const pods = (sched.podWeeks || []).slice()
     .sort((a, b) => podRho(b, horizon) - podRho(a, horizon));
   const blocks = pods.map((ps) => {

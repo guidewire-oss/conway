@@ -373,3 +373,47 @@ test('bars expose the drag data attributes', () => {
   assert.match(html, /data-pod="P"/);
   assert.match(html, /data-start-week="3"/);
 });
+
+// Spec 010: lens filters. Fuzzy match is substring OR subsequence; the by-pod
+// lens dims non-matching initiative bars; the by-initiative lens dims rows
+// and slice sub-rows not touching the typed pod.
+test('fuzzyMatch: substring, subsequence, case-insensitive, empty', async () => {
+  const { fuzzyMatch } = await import('../app/js/filter.js');
+  assert.equal(fuzzyMatch('', 'anything'), true);
+  assert.equal(fuzzyMatch('devspace', 'DevSpace/VAMOS EA & GA'), true);
+  assert.equal(fuzzyMatch('DVSPACE', 'DevSpace/VAMOS EA & GA'), true);
+  assert.equal(fuzzyMatch('dvspace', 'DevSpace/VAMOS EA & GA'), true, 'subsequence');
+  assert.equal(fuzzyMatch('vamos ea', 'DevSpace/VAMOS EA & GA'), true, 'substring after squash');
+  assert.equal(fuzzyMatch('xyz', 'DevSpace/VAMOS EA & GA'), false);
+  assert.equal(fuzzyMatch('okocim', ''), false, 'empty target never matches a query');
+});
+
+test('the by-pod lens dims non-matching initiative bars', () => {
+  const ps = [
+    { pod: 'Okocim', tracks: 2, slices: [
+      { initiative: 'DevSpace/VAMOS', pod: 'Okocim', startWeek: 0, finishWeek: 4, lanesUsed: 2, latestStartWeek: 2, slackWeeks: 1 },
+      { initiative: 'BYOK', pod: 'Okocim', startWeek: 4, finishWeek: 6, lanesUsed: 1, latestStartWeek: 5, slackWeeks: 1 },
+    ]},
+  ];
+  const html = podLensHTML({ podWeeks: ps, initiatives: [], horizonWeeks: 26 }, { horizonWeeks: 26, span: 26, initiativeQuery: 'devspace' });
+  // the dim class sits on the BAR whose title names the initiative
+  assert.ok(!/tl-dim"[^>]*title="DevSpace/.test(html), 'DevSpace stays lit');
+  assert.match(html, /tl-dim"[^>]*title="BYOK/, 'BYOK dims');
+  const clear = podLensHTML({ podWeeks: ps, initiatives: [], horizonWeeks: 26 }, { horizonWeeks: 26, span: 26 });
+  assert.ok(!clear.includes('tl-dim'), 'empty query dims nothing');
+});
+
+test('the by-initiative lens dims rows not touching the typed pod', () => {
+  const sched = { initiatives: [
+    { name: 'A', proposedRank: 1, startWeek: 0, rawFinishWeek: 3, commitWeek: 4,
+      slices: [{ pod: 'Okocim', startWeek: 0, finishWeek: 3, latestStartWeek: 1, slackWeeks: 1 }] },
+    { name: 'B', proposedRank: 2, startWeek: 0, rawFinishWeek: 2, commitWeek: 3,
+      slices: [{ pod: 'Wola', startWeek: 0, finishWeek: 2, latestStartWeek: 1, slackWeeks: 1 }] },
+  ], horizonWeeks: 26 };
+  const html = portfolioTimelineHTML(sched, { horizonWeeks: 26, span: 26, podQuery: 'okocim' });
+  // row A stays lit, row B dims — assert via the data-init attributes
+  const rowA = html.slice(html.indexOf('data-init="A"') - 200, html.indexOf('data-init="A"') + 10);
+  assert.ok(!/tl-dim/.test(rowA), 'A touches Okocim, stays lit');
+  const rowB = html.slice(html.indexOf('data-init="B"') - 200, html.indexOf('data-init="B"') + 10);
+  assert.ok(/tl-dim/.test(rowB), 'B does not touch Okocim, dims');
+});
