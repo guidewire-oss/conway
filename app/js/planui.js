@@ -947,23 +947,34 @@ async function renderOrder() {
     // flight belongs to the pre-setup plan, and a late answer must not paint
     // it back over the recomputed order (cubic P2).
     staleOrder();
+    // Capture AFTER the bump (cubic P2): if a newer operation owns the view
+    // when this settles, its re-render wins and this one stays silent.
+    const atEpoch = orderEpoch;
     const body = { ...((current.scheduling || {})), ...patch };
     const r = await req('/api/plan/' + forPlan + '/scheduling', {
       method: 'PATCH', body: JSON.stringify(body),
     });
     if (!current || current.id !== forPlan) return;
+    if (orderEpoch !== atEpoch) return; // superseded by a newer operation
+    const rerender = () => {
+      // The CURRENT view, not always Order (cubic P2): rendering Order into
+      // an active Network or Timeline destroys that view.
+      if (view() === 'order') return renderOrder();
+      if (view() === 'timeline') return renderTimeline();
+      return renderDash();
+    };
     if (!r || !r.ok) {
       // The epoch bump already invalidated the cached schedule's guards, so
       // leaving it silently stale is a dead cache under a live table (cubic
       // P2, second round). Re-render from the server's truth: the un-applied
       // setup stays, the schedule is recomputed fresh.
       current.schedule = null;
-      await renderOrder();
+      await rerender();
       return;
     }
     current.scheduling = { ...(current.scheduling || {}), ...patch };
     current.schedule = null;
-    await renderOrder();
+    await rerender();
   };
   host.querySelectorAll('.setup-apply').forEach((b) =>
     b.addEventListener('click', () => {
