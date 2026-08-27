@@ -691,7 +691,7 @@ button.plan-back { background: none; border: 0; padding: 0; font: inherit; }
 
 /* Drag-to-edit (spec 008): pointer capture needs touch-action off, and the
    bars advertise grabbability. */
-.tl-bar[data-initiative] { touch-action: none; }
+.tl-bar[data-draggable="1"] { touch-action: none; }
 .tl-bar[data-initiative]:active { cursor: grabbing !important; }
 
 /* Fullscreen timeline (spec 008): the by-pod lens pinned over everything,

@@ -27,7 +27,7 @@ func ValidateLanePins(edited []Initiative, edits []InitiativeEdit, sp Scheduling
 		cp.PinnedStarts = nil
 		pre = append(pre, cp)
 	}
-	sched := ComputeSchedule(teams, pre, Params{HorizonWeeks: horizonWeeks, CapacityLoss: 0.1}, sp)
+	sched := ComputeScheduleWith(teams, pre, Params{HorizonWeeks: horizonWeeks, CapacityLoss: 0.1}, sp, ScheduleOptions{CompareWipModels: false})
 	for name, pins := range pinning {
 		var mine *ScheduledInitiative
 		for i := range sched.Initiatives {
