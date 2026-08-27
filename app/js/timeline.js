@@ -265,9 +265,20 @@ function assignLanes(slices, cap = 0, pinnedLanes = null) {
     const w = Math.min(width(sl), cap || width(sl));
     let lane = 0;
     if (forced.has(sl)) {
-      // A pinned slice takes its pod-relative offset, clamped to fit.
       lane = Math.max(0, Math.min(forced.get(sl), (cap || 999) - w));
-    } else {
+      // Two saved pins on the same lanes collide here too: unless the
+      // forced span is genuinely free at sl.startWeek, fall back to the
+      // walk rather than overlapping bars (cubic P2).
+      let blocked = false;
+      for (let i = 0; i < w; i++) {
+        if ((laneEnds[lane + i] || 0) > sl.startWeek) { blocked = true; break; }
+      }
+      if (blocked) {
+        lane = -1; // signal the walk
+      }
+    }
+    if (lane < 0 || !forced.has(sl)) {
+      lane = 0;
       for (;;) {
         // find the first `w` consecutive lanes all free at sl.startWeek
         let ok = true;
@@ -326,13 +337,23 @@ export function podLanesHTML(ps, opts = {}) {
     const inLane = placement.filter((p) => p.lane === lane);
     const bars = inLane.map(({ sl, lead, collapsed, lane }) => {
       // Per-phase geometry: a split slice's bar on each track covers that
-      // phase's own weeks at that lane's occupancy — the user asked for the
-      // split weeks on the track, not the whole-slice span on every row.
+      // phase's own weeks at that lane's occupancy. `lane` is the
+      // pod-absolute row; the slice-relative offset is lane − offs, where
+      // offs is the slice's own first lane in the packed placement (cubic:
+      // mixing them picks the wrong phase; the fallback is the whole span).
+      const relLane = placement.filter((p) => p.sl === sl).every((p) => p.lane === placement.filter((q) => q.sl === sl)[0]?.lane)
+        ? lane : lane;
+      // The slice-relative offset of this row: pick the min lane this slice
+      // occupies in this placement, and index the phase by lane − offs.
+      let offs = lane;
+      {
+        const own = placement.filter((p) => p.sl === sl).map((p) => p.lane);
+        if (own.length) offs = Math.min(...own);
+      }
       const phase = (sl.phases || []).find((ph) => {
-        // the phase whose lanes include this row's lane
         let base = 0;
         for (const ph0 of sl.phases || []) {
-          if (lane >= base && lane < base + ph0.lanes) return true;
+          if (lane - offs >= base && lane - offs < base + ph0.lanes) return true;
           base += ph0.lanes;
         }
         return false;

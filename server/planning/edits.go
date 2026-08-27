@@ -145,10 +145,16 @@ func ApplyInitiativeEdits(inits []Initiative, edits []InitiativeEdit, sp Schedul
 		assign(&it.CostOfDelayPerWeek, e.CostOfDelayPerWeek)
 		assign(&it.KitPct, e.KitPct)
 		if e.PinnedStarts != nil {
-			it.PinnedStarts = *e.PinnedStarts
+			it.PinnedStarts = map[string]int{}
+			for pod, w := range *e.PinnedStarts {
+				it.PinnedStarts[pod] = w
+			}
 		}
 		if e.PinnedLanes != nil {
-			it.PinnedLanes = *e.PinnedLanes
+			it.PinnedLanes = map[string]int{}
+			for pod, l := range *e.PinnedLanes {
+				it.PinnedLanes[pod] = l
+			}
 		}
 		assign(&it.InFlight, e.InFlight)
 		assign(&it.ProgressPct, e.ProgressPct)
