@@ -857,10 +857,9 @@ var _ = Describe("ComputeSchedule", func() {
 		}
 		Expect(onTime).NotTo(BeNil(), "the demo should still hold at least one date")
 		Expect(onTime.TargetBurn).To(BeNumerically("~", 0, 1e-9), "an on-time date burns nothing")
-		if undated != nil {
-			Expect(undated.TargetBurn).To(Equal(0.0))
-			Expect(undated.TargetProgress).To(Equal(0.0))
-		}
+		Expect(undated).NotTo(BeNil(), "the demo should still carry an undated row for the zero-burn case")
+		Expect(undated.TargetBurn).To(Equal(0.0))
+		Expect(undated.TargetProgress).To(Equal(0.0))
 	})
 
 	// The late case has its own fixture rather than borrowing one from Demo.
