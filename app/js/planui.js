@@ -952,7 +952,15 @@ async function renderOrder() {
       method: 'PATCH', body: JSON.stringify(body),
     });
     if (!current || current.id !== forPlan) return;
-    if (!r || !r.ok) return;
+    if (!r || !r.ok) {
+      // The epoch bump already invalidated the cached schedule's guards, so
+      // leaving it silently stale is a dead cache under a live table (cubic
+      // P2, second round). Re-render from the server's truth: the un-applied
+      // setup stays, the schedule is recomputed fresh.
+      current.schedule = null;
+      await renderOrder();
+      return;
+    }
     current.scheduling = { ...(current.scheduling || {}), ...patch };
     current.schedule = null;
     await renderOrder();
