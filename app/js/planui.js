@@ -143,7 +143,7 @@ function renderPlan() {
     ${current.isDraft ? `<p class="plan-warn">✎ Previewing an unsaved initiatives upload — nothing is saved yet.
       <button id="plan-draft-save" class="primary">Save initiatives</button>
       <button id="plan-draft-discard">Discard</button></p>` : ''}
-    ${unknown.length ? `<p class="plan-warn">⚠ ${unknown.length} pod(s) referenced by initiatives but missing from the roster: ${unknown.map(esc).join(', ')} — fix the sheet or add them to the roster.</p>` : ''}
+    ${unknown.length ? `<p class="plan-warn">⚠ ${unknown.length} pod(s) referenced by initiatives but missing from the roster: ${unknown.map(esc).join(', ')} — <button type="button" id="unknown-fix" class="warn-act">switch roster</button> or fix the sheet.</p>` : ''}
     ${nTeams > 0 && nInit > 0 ? `<div class="plan-views"><span class="seg">
       <button class="${view() === 'network' ? 'seg-on' : ''}" id="view-network">Network</button><button class="${view() === 'order' ? 'seg-on' : ''}" id="view-order">Order</button><button class="${view() === 'timeline' ? 'seg-on' : ''}" id="view-timeline">▦ Timeline</button>
     </span>${baselineChipHTML(current.baselines)}</div>` : ''}
@@ -252,6 +252,9 @@ async function saveScheduling() {
     body.acceptedOrdering = 'engine';
     body.acceptedOrderingAt = current.scheduling.acceptedOrderingAt;
   }
+  // The setup-card dismissal rides the same blob (spec 009): an unrelated
+  // assumptions save must not resurrect the card.
+  if (current.scheduling?.setupAcknowledged) body.setupAcknowledged = true;
   // Same guard as renderOrder, and it matters more here: this response is written
   // into current.scheduling, so a late answer would not just display the wrong
   // assumptions, it would be the ones the next save sends.
@@ -381,6 +384,13 @@ function baselineNote(msg) {
 // carries the same draft initiatives and levers the order was computed from, so a
 // baseline records what the planner was actually looking at.
 async function saveBaseline(from = 'bl-name') {
+  // A draft previews an unsaved sheet; a baseline freezes what is STORED —
+  // saving one from a draft would freeze the stale copy (cubic P1). Both
+  // entries (header and panel) land here, so the gate covers both.
+  if (current.isDraft) {
+    baselineNote('Save the uploaded initiatives first — a baseline freezes what is stored, not the preview.');
+    return;
+  }
   // from is the input id that triggered the save (spec 009 FR-002: the Order
   // header carries its own entry; both land in the same handler and state).
   const input = document.getElementById(from);
@@ -933,6 +943,10 @@ async function renderOrder() {
   // Spec 009 FR-005: the setup card's one-click recommendations.
   const applySetup = async (patch) => {
     const forPlan = current.id;
+    // Bump the epoch FIRST: a loadWipModels() or schedule request already in
+    // flight belongs to the pre-setup plan, and a late answer must not paint
+    // it back over the recomputed order (cubic P2).
+    staleOrder();
     const body = { ...((current.scheduling || {})), ...patch };
     const r = await req('/api/plan/' + forPlan + '/scheduling', {
       method: 'PATCH', body: JSON.stringify(body),
