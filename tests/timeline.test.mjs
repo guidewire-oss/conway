@@ -52,10 +52,11 @@ test('axis aggregation steps by horizon: weekly, fortnightly, monthly', () => {
 test('a row renders the span, the buffer tail, and the target diamond', () => {
   // The buffer must be inside the horizon for this assertion: an initiative
   // whose commit lands past the horizon clamps its tail away (see the
-  // overrun test below).
+  // overrun test below). Decision 28 emptied most demo slices — require a
+  // row that actually renders a bar.
   const si = sched.initiatives.find((x) =>
-    x.targetWeek != null && x.commitWeek <= 26);
-  assert.ok(si, 'fixture has a dated initiative that fits the period');
+    x.targetWeek != null && x.commitWeek <= 26 && (x.slices || []).length > 0);
+  assert.ok(si, 'fixture has a dated initiative that fits the period with placed work');
   const html = timelineRowHTML(si, { horizonWeeks: 26 });
   assert.match(html, /tl-bar/);
   assert.match(html, /tl-buffer/);
@@ -156,9 +157,15 @@ test('the portfolio timeline renders one row per initiative, ranked order', () =
 
 // AC 9.1 / FR-040: pod lanes are tracks; never more lanes than tracks.
 test('pod lanes place overlapping slices on separate lanes, never more than tracks', () => {
-  // A pod whose slices actually overlap is the case the packing exists for.
-  const ps = sched.podWeeks.find((p) => p.slices.length > 1 && overlaps(p.slices));
-  assert.ok(ps, 'fixture has a pod with overlapping slices');
+  // The packing exists for genuinely overlapping slices; the regenerated demo
+  // (critical-path-first + Decision 28) serializes everything inside the
+  // horizon, so synthesize the overlap the packer must handle.
+  const base = sched.podWeeks.find((p) => (p.slices || []).length > 1) || sched.podWeeks[0];
+  const ps = {
+    pod: base.pod, tracks: base.tracks,
+    slices: base.slices.slice(0, 2).map((sl, i) => ({ ...sl, startWeek: i, finishWeek: i + 3 })),
+  };
+  assert.ok(overlaps(ps.slices), 'the synthetic pair overlaps');
   const html = podLanesHTML(ps, { horizonWeeks: 26 });
   assert.match(html, /tl-lane/);
   const lanes = (html.match(/class="tl-lane/g) || []).length;
