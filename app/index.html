@@ -70,12 +70,12 @@
   </section>
   <section id="view-flow" class="view">
     <div class="flow-grid">
-      <div class="card">
+      <div class="panel-card">
         <h2>1 · The constraint <span class="hint">(identify → exploit → subordinate → elevate)</span>
         <span class="help" data-tip="Score = Kingman queue factor ρ/(1−ρ) × downstream reach. The Goal: improve the bottleneck and the whole system improves; improve anywhere else and you've improved nothing. Act top-to-bottom: cap WIP (free) before adding people (expensive).">?</span></h2>
         <div id="constraint-cards"></div>
       </div>
-      <div class="card">
+      <div class="panel-card">
         <h2>2 · Bad multitasking — freeze candidates <span class="hint">(Little's law projection)</span>
         <span class="help" data-tip="Flow time = WIP ÷ throughput. Red = excess WIP above the per-dev cap. Click a bar to see the actual Jira issues with freeze verdicts. Rules of Flow: freeze means out of sight — parked work that stays on the board stays warm and keeps stealing attention.">?</span></h2>
         <label class="hint">healthy WIP cap: <b id="cap-v">1.5</b>× per work-stream <span class="hint">(a pair counts as one stream; pairing comes from the roster)</span>
@@ -83,7 +83,7 @@
         <div id="freeze-bars"></div>
         <p id="freeze-summary" class="hint"></p>
       </div>
-      <div class="card fever-card">
+      <div class="panel-card fever-card">
         <h2>3 · Buffer fever chart <span class="hint">(in-flight epics: progress vs buffer burned)</span>
         <span class="help" data-tip="Critical-chain buffer management: buffer = P85 − P50 of the Monte Carlo forecast. A dot climbing faster than it moves right is consuming safety faster than it makes progress. Yellow = plan a response; red = act now. Manage by buffer burn, not by % complete.">?</span></h2>
         <label class="hint">newest in-flight epics:
@@ -109,7 +109,7 @@
 
   <section id="view-simulator" class="view">
     <div class="sim-grid">
-      <div class="card" id="feature-editor">
+      <div class="panel-card" id="feature-editor">
         <h2>Feature definition</h2>
         <div class="epic-import">
           <input id="epic-key" placeholder="ABC-12345" size="12">
@@ -130,7 +130,7 @@
         <div id="whatif" class="whatif"></div>
         <p class="hint">Sizes: S=½×, M=1×, L=2×, XL=4× of the pod's typical issue lead time (mined from Jira). Cross-pod handoffs add delay based on the two sites' working-hour overlap.</p>
       </div>
-      <div class="card" id="sim-results">
+      <div class="panel-card" id="sim-results">
         <h2>Forecast
         <span class="help" data-tip="10,000 Monte Carlo trials over the task graph using each pod's mined cycle-time distribution, queue state, and cross-site handoff penalties. Commit the P85, not the P50 — a 50% date is a coin flip. The tornado chart shows where help actually shortens the calendar.">?</span></h2>
         <div id="stat-cards" class="stat-cards"></div>
@@ -146,7 +146,7 @@
   </section>
 
   <section id="view-scoreboard" class="view">
-    <div class="card">
+    <div class="panel-card">
       <h2>Pod flow scoreboard <span class="hint">(mined from Jira, last 180 days)</span>
       <span class="help" data-tip="Sort by Dependents = who is everyone waiting on. Sort by Load ρ = who is drowning. Both at once ('hub under load') is the most dangerous cell on this screen. Kingman × shows the wait multiplier at current load (∞ when a pod is over 100% — its queue can't self-clear).">?</span></h2>
       <div id="wip-summary" class="wip-summary"></div>
@@ -155,7 +155,7 @@
   </section>
 
   <section id="view-hygiene" class="view">
-    <div class="card">
+    <div class="panel-card">
       <h2>Jira data hygiene <span class="hint">(what's starving the model — fix these to sharpen every forecast)</span>
       <span class="help" data-tip="Each gap degrades a specific output: unsized tasks → epic forecasts fall back to the pod's median item; stale In-Progress items → WIP and queue heat are overstated, polluting the freeze list; unassigned in-progress → zombie work; low link density → the dependency graph and suggestions under-represent real coupling. Click a pod row to drill into categories, then a category to see the individual Jiras.">?</span></h2>
       <div id="hygiene-cards" class="stat-cards"></div>
@@ -165,7 +165,7 @@
 
   <section id="view-game" class="view">
     <div id="game-notice" hidden></div>
-    <div id="game-setup" class="card">
+    <div id="game-setup" class="panel-card">
       <div id="game-setup-msg"></div>
       <div class="row-actions">
         <button id="game-new" class="primary" hidden>Begin the game ▶</button>
@@ -174,10 +174,10 @@
     <div id="game-board" hidden>
       <div class="game-top">
         <div id="game-status"></div>
-        <div id="game-score" class="card"></div>
+        <div id="game-score" class="panel-card"></div>
       </div>
       <div id="game-report"></div>
-      <div class="card">
+      <div class="panel-card">
         <div class="pods-toggle">
           <span class="pods-toggle-lbl">Pods</span>
           <span class="seg">
@@ -194,7 +194,7 @@
           <div class="legend" id="gamenet-legend"></div>
         </div>
       </div>
-      <div id="game-levers" class="card"></div>
+      <div id="game-levers" class="panel-card"></div>
       <div id="game-history"></div>
     </div>
   </section>
