@@ -40,9 +40,10 @@ note, optimize hint, four buttons and comparison bars.
 error, not an instruction. The missing-pod warning names Moose Factory and
 stops. The plans list shows names only — no dates/model/baseline health.
 
-**Three unchosen models.** WIP model, estimate model, splitting/chunking —
-each defaults silently, each with a "?" tooltip, none framed as "decide
-these three things once."
+**Unchosen models.** WIP model and estimate model each default silently,
+each with a "?" tooltip, none framed as "decide these things once."
+(Splitting/chunking is deliberately NOT card material: its default — off —
+is safe and its knobs are fine-tuning, not a model choice.)
 
 ---
 
@@ -69,7 +70,7 @@ these three things once."
 ### Story 4: The plan's setup as a checklist
 
 **As a** first-time planner on a plan
-**I want** one "set up this plan" card with the three model choices and
+**I want** one "set up this plan" card with the unchosen model choices and
 recommended defaults
 **So that** finishing setup is visible progress, not three "?" discoveries
 
@@ -115,7 +116,9 @@ recommended defaults
 
 **AC 4.1: Setup checklist card**
 
-> Given a plan whose WIP model or estimate model is unchosen
+> Given a plan whose WIP model or estimate model is unchosen (the two model
+choices; splitting/chunking is fine-tuning with a safe off default, not card
+material)
 > When the Order view first renders
 > Then a compact "Set up this plan" card lists the unchosen models with
 > recommended defaults and one-click apply; once all are chosen the card
@@ -213,4 +216,4 @@ render from `current.baselines`.
 |--------|---------|--------|----------------|
 | Order summary first paint | below setup row + ~3000px | above the fold | in-browser y-coord |
 | Baseline save reachable at | y≈4000 | y≈200 (header) | in-browser |
-| Unchosen models on a fresh plan | 3 silent defaults | one checklist card | in-browser |
+| Unchosen models on a fresh plan | 2 silent defaults | one checklist card | in-browser |
