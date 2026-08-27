@@ -114,6 +114,10 @@
   --bs-border-radius-sm: .375rem;   /*  6px inputs/chips */
   --bs-border-radius-lg: .75rem;    /* 12px modals       */
   --bs-border-radius-xl: 1rem;
+  --bs-form-control-bg: var(--bs-secondary-bg);   /* inputs          (was --panel2) */
+  --bs-form-control-disabled-bg: var(--bs-body-bg);
+  --bs-form-valid-border-color: #3ecf8e;
+  --bs-form-invalid-border-color: #f4655f;
 
   /* focus */
   --bs-focus-ring-color: rgba(76, 194, 255, .35);
@@ -138,6 +142,8 @@
  * same tokens, so nothing else changes. Status colors shift to their
  * dark-on-light equivalents to keep AA contrast. */
 [data-bs-theme=light] {
+  --bs-form-control-bg: var(--bs-secondary-bg);
+  --bs-form-control-disabled-bg: var(--bs-body-bg);
   color-scheme: light;
   --bs-body-bg: #f4f5f7;
   --bs-card-bg: #ffffff;
@@ -179,6 +185,10 @@
   --bs-danger-text-emphasis: #b01f2d;
   --bs-danger-bg-subtle: rgba(220, 47, 62, .10);
   --bs-danger-border-subtle: rgba(220, 47, 62, .4);
+  --bs-form-control-bg: var(--bs-secondary-bg);
+  --bs-form-control-disabled-bg: var(--bs-body-bg);
+  --bs-form-valid-border-color: #0e9f6e;
+  --bs-form-invalid-border-color: #dc2f3e;
 
   --bs-info: #3b6cff;
   --bs-info-rgb: 59, 108, 255;

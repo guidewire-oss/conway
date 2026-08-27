@@ -241,7 +241,7 @@ function render() {
   if (!serverGame) {
     setup.hidden = true; board.hidden = true;
     notice.hidden = false;
-    notice.innerHTML = '<div class="card"><h2>The Flow Game needs a working world</h2>'
+    notice.innerHTML = '<div class="panel-card"><h2>The Flow Game needs a working world</h2>'
       + '<p class="hint">The server is up, but no org data is loaded yet — check that Postgres is reachable and '
       + 'CONWAY_SEED_BASELINE has seeded the demo org, or import your own from Jira.</p></div>';
     return;
@@ -292,7 +292,7 @@ function render() {
 // Between rounds: the team has submitted and waits for the admin to open the next.
 function renderWaiting() {
   document.getElementById('game-levers').innerHTML = `
-    <div class="card">
+    <div class="panel-card">
       <h3>Round ${view.round - 1} locked in ✓</h3>
       <p class="hint">Your moves are submitted and can't be changed. The facilitator will review the
         leaderboard and discuss strategies, then open <b>Round ${view.round}</b> — this screen will switch
@@ -304,7 +304,7 @@ function renderWaiting() {
 // clear, non-actionable banner (the loud modal fired on the transition).
 function renderClosed() {
   document.getElementById('game-levers').innerHTML = `
-    <div class="card halt-card">
+    <div class="panel-card halt-card">
       <h3>⛔ The facilitator has closed this game</h3>
       <p class="hint">Play is paused — no further moves can be submitted. If the facilitator
         re-opens the game, this screen switches back automatically. No need to refresh.</p>
@@ -558,7 +558,7 @@ function renderReport() {
   const watch = (r.watch || []).length
     ? `<div class="watch"><b>What to watch next round</b><ul>${r.watch.map((w) => `<li>${w}</li>`).join('')}</ul></div>` : '';
   el.innerHTML = `
-    <div class="card report">
+    <div class="panel-card report">
       <div class="report-head"><h3>Quarter ${r.round} — ${r.headline}</h3>
         <span class="report-delta" style="color:${dCol}">score ${r.scoreDelta > 0 ? '+' : ''}${r.scoreDelta}</span></div>
       <p class="hint">Event: <b>${r.event}</b> · value delivered ${r.valueDelivered} · cost function ${r.costFn} · commitments hit ${r.commitmentsHit}</p>
@@ -582,7 +582,7 @@ function renderHistory(history) {
       <td class="dl-score" style="color:${dCol}">${r.scoreDelta > 0 ? '+' : ''}${r.scoreDelta}<br><span class="hint">→ ${r.score.total.toFixed(0)}</span></td>
     </tr>`;
   }).join('');
-  el.innerHTML = `<div class="card"><h3>Decision log <span class="hint">— how each quarter played out</span></h3>
+  el.innerHTML = `<div class="panel-card"><h3>Decision log <span class="hint">— how each quarter played out</span></h3>
     <table class="dl-table"><thead><tr><th>Qtr</th><th>What resulted</th><th>Score</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
@@ -590,7 +590,7 @@ function renderEpilogue(final) {
   if (!final) return;
   const e = final.epilogue;
   document.getElementById('game-levers').innerHTML = `
-    <div class="card"><h3>Epilogue — year 2 on autopilot</h3>
+    <div class="panel-card"><h3>Epilogue — year 2 on autopilot</h3>
       ${e.narrative ? `<p class="epilogue-letter">${e.narrative}</p>` : ''}
       <p>With no further actions, the org you built ran another year.</p>
       <p>Run-rate value <b>${e.runRateValue}</b> · KTLO share of capacity

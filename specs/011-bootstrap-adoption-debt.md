@@ -1,6 +1,6 @@
 # Bootstrap Adoption Debt
 
-**Status:** Draft
+**Status:** In Progress
 **Author(s):** opencode (implementer), Anoop (product owner)
 **Date:** 2026-08-26
 **Story/Ticket:** audit follow-up, post spec-010
@@ -78,10 +78,10 @@ no shadowing
 
 | ID | Requirement | Priority |
 |----|------------|----------|
-| FR-001 | Migrate all form controls to BS form classes, delete the 47-override CSS block | SHOULD |
-| FR-002 | Migrate tooltips to BS Tooltip (delegated init); remove the custom tip element | SHOULD |
-| FR-003 | Migrate `.seg` groups to BS button groups | SHOULD |
-| FR-004 | Resolve the `.card` shadow (rename ours or adopt BS's) | SHOULD |
+| FR-001 | Migrate all form controls to BS form classes, delete the scattered input CSS overrides | DONE — forms.js injector (2026-08-26) |
+| FR-002 | Migrate tooltips to BS Tooltip (delegated init); remove the custom tip element | REMAINING — riskiest (hundreds of affordances), next slice |
+| FR-003 | Migrate `.seg` groups to BS button groups | REMAINING — 12 call sites, ARIA wiring needed |
+| FR-004 | Resolve the `.card` shadow — ours renamed to `.panel-card` (32 class usages: 11 in index.html, 21 across the view modules, plus the CSS rule) | DONE (2026-08-26) |
 | FR-005 | No visual regressions beyond BS-native focus/validation states | MUST |
 
 ---

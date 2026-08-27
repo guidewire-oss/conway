@@ -150,7 +150,7 @@ function renderPlan() {
       <button class="${view() === 'network' ? 'seg-on' : ''}" id="view-network">Network</button><button class="${view() === 'order' ? 'seg-on' : ''}" id="view-order">Order</button><button class="${view() === 'timeline' ? 'seg-on' : ''}" id="view-timeline">▦ Timeline</button>
     </span>${baselineChipHTML(current.baselines)}</div>` : ''}
     ${nTeams === 0 ? `
-      <div class="card plan-start">
+      <div class="panel-card plan-start">
         <h3>A plan is a roster + the initiatives you intend to run, sequenced by capacity.</h3>
         <p class="hint">Four steps: attach a roster (team composition, pinned as of today) → upload the initiatives matrix →
           review the proposed order and its verdicts → save the agreed order as a baseline. Nothing here writes to Jira.</p>
@@ -1374,7 +1374,7 @@ function paintDash() {
     Median lead ${leadDelta(sim.before.medianLeadWeeks, sim.after.medianLeadWeeks)}`;
 
   document.getElementById('plan-dash').innerHTML = `
-    <div class="plan-net card">
+    <div class="plan-net panel-card">
       <div class="plan-net-head"><b>Dependency network</b>
         <span>
           <button class="seg ${mode === 'before' ? 'seg-on' : ''}" id="net-before">baseline</button><button class="seg ${mode === 'after' ? 'seg-on' : ''}" id="net-after">with levers</button>
@@ -1385,13 +1385,13 @@ function paintDash() {
       </div>
       <p class="hint">flow runs left→right · node size = demand · ring = ρ (heat) · showing <b>${mode === 'after' ? 'with levers' : 'baseline'}</b></p>
     </div>
-    <div class="plan-constraints card" style="margin-top:12px">
+    <div class="plan-constraints panel-card" style="margin-top:12px">
       <b>Constraints <span class="hint">(hottest first)</span></b>
       <table class="wip-table"><thead><tr><th>Pod</th><th>ρ now</th><th>ρ after</th><th>demand/cap</th><th>tracks</th></tr></thead>
         <tbody>${constraintRows}</tbody></table>
       <p class="hint">ρ: red ≥1 · amber ≥.85 · green &lt;.85 — utilization is the signal; lead time is directional.</p>
     </div>
-    <div class="plan-levers card">
+    <div class="plan-levers panel-card">
       <b>Levers — what-if</b>
       <div class="plan-summary">${summary}</div>
       <div class="lever-chips">${(current.levers || []).map((lv, i) => `<span class="chip">${esc(leverLabel(lv))} <a class="chip-x" data-lev="${i}">✕</a></span>`).join('') || '<span class="hint">no levers yet</span>'}</div>
@@ -1409,7 +1409,7 @@ function paintDash() {
         <button id="lev-add" class="primary">Add lever</button>
       </div>
     </div>
-    <div class="card" style="margin-top:12px">
+    <div class="panel-card" style="margin-top:12px">
       <b>Initiatives</b>
       <table class="wip-table"><thead><tr><th>Initiative</th><th>Pods in path</th><th>Lead time (directional)</th><th>Bottleneck</th></tr></thead>
         <tbody>${initRows}</tbody></table>
