@@ -383,7 +383,7 @@ test('fuzzyMatch: substring, subsequence, case-insensitive, empty', async () => 
   assert.equal(fuzzyMatch('devspace', 'DevSpace/VAMOS EA & GA'), true);
   assert.equal(fuzzyMatch('DVSPACE', 'DevSpace/VAMOS EA & GA'), true);
   assert.equal(fuzzyMatch('dvspace', 'DevSpace/VAMOS EA & GA'), true, 'subsequence');
-  assert.equal(fuzzyMatch('vamos ea', 'DevSpace/VAMOS EA & GA'), true, 'substring after squash');
+  assert.equal(fuzzyMatch('vamos ea', 'DevSpace/VAMOS EA & GA'), true, 'substring of the full name');
   assert.equal(fuzzyMatch('xyz', 'DevSpace/VAMOS EA & GA'), false);
   assert.equal(fuzzyMatch('okocim', ''), false, 'empty target never matches a query');
 });

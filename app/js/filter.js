@@ -1,7 +1,8 @@
 // Fuzzy matching for the timeline lens filters (spec 010). Case-insensitive,
 // substring OR subsequence: "dvspace" matches "DevSpace/VAMOS" because the
-// letters appear in order; "vamos ea" matches as a substring after squashing.
-// Pure functions — no DOM — so the shape is unit-tested.
+// letters appear in order; "vamos" matches "DevSpace/VAMOS EA & GA" as a
+// substring after squashing. Pure functions — no DOM — so the shape is
+// unit-tested.
 
 // fuzzyMatch reports whether query matches target. Empty query matches all.
 export function fuzzyMatch(query, target) {

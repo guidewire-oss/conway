@@ -153,6 +153,10 @@ type SchedulingParams struct {
 	// SetupAcknowledged (spec 009): the planner has seen and dismissed the
 	// "set up this plan" card; the card stays gone per plan.
 	SetupAcknowledged bool `json:"setupAcknowledged,omitempty"`
+	// EstimateAck (spec 009 review round): the planner deliberately keeps
+	// wall-clock (the persisted default) — the setup card stops asking, the
+	// way it does for an explicit effort choice.
+	EstimateAck bool `json:"estimateAck,omitempty"`
 }
 
 const (
