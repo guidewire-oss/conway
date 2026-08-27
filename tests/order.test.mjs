@@ -5,7 +5,7 @@ import {
   esc, zoneOf, weekLabel, verdictView, verdictBadgeHTML, statedCell, objectiveView, wipLimitNote, schedulingDialogHTML,
   orderRows, orderTableHTML, infeasibleNote, heatmapWeeks, overrunNote, feverChartHTML, feverZone, idleNoteHTML,
   initiativeEditDialogHTML, initiativeEditFromBody, quoteName, splitInitiativeNames,
-  suggestedCell, orderingBadge, optimizeOfferHTML,
+  suggestedCell, orderingBadge, optimizeOfferHTML, setupCardHTML, verdictBannerHTML,
   podHeatmapHTML, podQueueHTML, noticesHTML, orderViewHTML, rowTraceHTML,
   schedulingFormHTML, schedulingFromForm, pctToFraction,
   wipModelsTableHTML, WIP_MODELS, fitNote,
@@ -1090,4 +1090,30 @@ test('schedulingFromForm reads the chunk cap only in chunk mode', () => {
     const b = schedulingFromForm((id) => (id === 'sched-chunking' ? 'chunk' : (id === 'sched-split-min' ? v : undefined)));
     assert.equal(b.splitMinWeeks, undefined, `value ${v} means no cap`);
   }
+});
+
+// Spec 009: the setup card lists only unchosen models; acknowledgment hides it.
+test('setupCardHTML lists unchosen models and respects acknowledgment', () => {
+  const html = setupCardHTML({}, 0);
+  assert.match(html, /Work-in-progress model/);
+  assert.match(html, /Estimate model/);
+  assert.match(html, /use recommended/);
+
+  const one = setupCardHTML({ wipModel: 'strict' }, 0);
+  assert.doesNotMatch(one, /Work-in-progress model/, 'chosen model drops off');
+  assert.match(one, /Estimate model/);
+
+  const done = setupCardHTML({ wipModel: 'strict', estimateModel: 'effort' }, 0);
+  assert.equal(done, '', 'nothing left to choose');
+
+  const dismissed = setupCardHTML({ setupAcknowledged: true }, 0);
+  assert.equal(dismissed, '', 'acknowledged plans never see the card');
+});
+
+// Spec 009 AC 3.1: the empty verdict names the fix.
+test('the no-dates banner teaches the fix', () => {
+  const html = verdictBannerHTML({ initiatives: [{ verdict: 'no-date' }] });
+  assert.match(html, /No target dates yet/);
+  assert.match(html, /✎/);
+  assert.match(html, /Target Date column/);
 });
