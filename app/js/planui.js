@@ -107,7 +107,7 @@ async function openPlan(id) {
   const r = await req('/api/plan/' + id);
   if (!r || !r.ok) { root.innerHTML = '<p class="hint">Could not load plan.</p>'; return; }
   current = await r.json();
-  current.tlFilter = ''; // lens filters are per-plan view state (spec 010 FR-004)
+  current.tlFilter = ''; current.tlHideEmpty = false; // lens filter state is per-plan (spec 010 FR-004)
   await loadBaselines(); // the header chip needs these before the first paint
   renderPlan();
 }
@@ -634,6 +634,7 @@ async function renderTimeline() {
       <input id="tl-filter" type="search" placeholder="${lens === 'pod' ? 'filter by initiative…' : 'filter by pod…'}"
         value="${esc(current.tlFilter || '')}" aria-label="${lens === 'pod' ? 'filter initiatives' : 'filter pods'}">
       <span class="hint" id="tl-filter-count"></span>
+      ${lens === 'pod' ? `<label class="hint" title="hide pods whose initiatives all fail the filter — the waterfall shows only the chain"><input type="checkbox" id="tl-hide-empty" ${current.tlHideEmpty ? 'checked' : ''}> hide empty pods</label>` : ''}
     </span></div>
     <p class="hint" id="tl-drag-note" hidden></p>
     <div id="tl-main"></div>
@@ -644,16 +645,29 @@ async function renderTimeline() {
   // exits — the stable document-level keydown lives in initPlanUI so the
   // re-render never stacks handlers.
   // Lens filters (spec 010): view state, debounced re-render, live counts.
+  // The re-render replaces the input node, so focus and caret are restored
+  // after it — otherwise every keystroke kicks the planner out of the box.
   {
     const input = document.getElementById('tl-filter');
     input?.addEventListener('input', () => {
       clearTimeout(renderTimeline._filterT);
       renderTimeline._filterT = setTimeout(() => {
         current.tlFilter = input.value;
-        renderTimeline();
+        const caret = input.selectionStart;
+        renderTimeline().then(() => {
+          const live = document.getElementById('tl-filter');
+          if (live) {
+            live.focus();
+            live.setSelectionRange(caret, caret);
+          }
+        });
       }, 120);
     });
   }
+  document.getElementById('tl-hide-empty')?.addEventListener('change', (ev) => {
+    current.tlHideEmpty = ev.target.checked;
+    renderTimeline();
+  });
   document.getElementById('tl-fullscreen')?.addEventListener('click', () => {
     host.classList.toggle('tl-fullscreen');
     const btn = document.getElementById('tl-fullscreen');
@@ -684,7 +698,7 @@ async function renderTimeline() {
     const main = document.getElementById('tl-main');
     if (!main) return;
     main.innerHTML = lens === 'pod'
-      ? podLensHTML(sched, { horizonWeeks: horizon, span: spanWeeks, pinnedLanes: pinnedLanesByPod(), initiativeQuery: current.tlFilter || '' })
+      ? podLensHTML(sched, { horizonWeeks: horizon, span: spanWeeks, pinnedLanes: pinnedLanesByPod(), initiativeQuery: current.tlFilter || '', hideEmptyPods: current.tlHideEmpty })
       : portfolioTimelineHTML(sched, {
         podQuery: current.tlFilter || '',
         horizonWeeks: horizon, span: spanWeeks, todayWeek, expand: current.tlExpand,
@@ -1428,7 +1442,7 @@ async function reloadPlan() {
   const r = await req('/api/plan/' + current.id);
   if (!r || !r.ok) return;
   current = await r.json();
-  current.tlFilter = ''; // lens filters are per-plan view state (spec 010 FR-004)
+  current.tlFilter = ''; current.tlHideEmpty = false; // lens filter state is per-plan (spec 010 FR-004)
   await loadBaselines(); // replaced wholesale above, so re-fetch rather than show none
   current.levers = levers;
   // Keep the reader where they were. Replacing `current` wholesale is what drops

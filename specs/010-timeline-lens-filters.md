@@ -63,6 +63,14 @@ row. Both are one fuzzy query's worth of work.
 > Then rows whose slices touch Okocim stay with those slices lit; other rows
 > render dimmed or collapsed; the row count of full-opacity rows is visible
 
+**AC 2.3: The waterfall reads as a chain**
+
+> Given an initiative query in the by-pod lens
+> When the pods render
+> Then matching pods order by earliest matching start, then finish — the
+> chain's earliest team on top, its dependents below; with "hide empty pods"
+> checked, only the chain shows
+
 **AC 2.2: Lens switches clear the filter**
 
 > Given a filter set in one lens
@@ -83,6 +91,9 @@ row. Both are one fuzzy query's worth of work.
 | FR-003 | Matching MUST be case-insensitive substring or subsequence ("dvspace" matches "DevSpace/VAMOS") | MUST |
 | FR-004 | Filters are view state (clear on lens switch and plan switch), never persisted | MUST |
 | FR-005 | Each filter input MUST show its live match count ("3 of 29 initiatives") | MUST |
+| FR-006 | The by-pod lens MUST order matching pods as a waterfall: earliest matching start first, then earliest finish — the initiative's chain reads top-to-bottom | MUST |
+| FR-007 | The by-pod lens MUST offer a "hide empty pods" checkbox that removes pods with no matching initiatives entirely | MUST |
+| FR-008 | The filter input MUST keep focus and caret position across the re-renders its own keystrokes trigger | MUST |
 
 ---
 
@@ -129,9 +140,11 @@ the capacity context. Live use said otherwise: the dimmed crowd read as noise,
 and the isolated track across pods — with its lanes and dependencies — IS the
 picture the filter exists to draw.
 
-**Decision:** Non-matching bars do not render at all, in both lenses. The
-empty track rows stay (the pod's lane count is still legible); the match
-count keeps the denominator honest ("1 of 29").
+**Decision:** Non-matching bars do not render at all, in both lenses. Under a
+filter the matching pods WATERFALL — earliest matching start first — so the
+initiative's chain reads top-to-bottom, and a "hide empty pods" checkbox
+removes the pods it doesn't touch. The match count keeps the denominator
+honest ("1 of 29").
 
 **Alternatives considered:**
 - Dim at 25% — rejected in review with the product owner: noise, not context.

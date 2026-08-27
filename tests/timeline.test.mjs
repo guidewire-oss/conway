@@ -413,3 +413,26 @@ test('the by-initiative lens hides rows not touching the typed pod', () => {
   assert.ok(html.includes('data-init="A"'), 'A touches Okocim, renders');
   assert.ok(!html.includes('data-init="B"'), 'B does not touch Okocim, does not render');
 });
+
+// Spec 010 amendments: waterfall ordering + hide-empty-pods under a filter.
+test('the by-pod lens waterfalls matching pods by earliest start', () => {
+  const ps = [
+    { pod: 'LatePod', tracks: 2, slices: [
+      { initiative: 'Dev', pod: 'LatePod', startWeek: 10, finishWeek: 14, lanesUsed: 2, latestStartWeek: 12, slackWeeks: 1 }] },
+    { pod: 'FirstPod', tracks: 2, slices: [
+      { initiative: 'Dev', pod: 'FirstPod', startWeek: 0, finishWeek: 5, lanesUsed: 2, latestStartWeek: 1, slackWeeks: 1 }] },
+    { pod: 'Unrelated', tracks: 1, slices: [
+      { initiative: 'BYOK', pod: 'Unrelated', startWeek: 0, finishWeek: 2, lanesUsed: 1, latestStartWeek: 1, slackWeeks: 1 }] },
+  ];
+  const html = podLensHTML({ podWeeks: ps, initiatives: [], horizonWeeks: 26 },
+    { horizonWeeks: 26, span: 26, initiativeQuery: 'dev' });
+  const first = html.indexOf('FirstPod'), late = html.indexOf('LatePod'), unrel = html.indexOf('Unrelated');
+  assert.ok(first > -1 && late > -1, 'both matching pods render');
+  assert.ok(first < late, 'earliest start sorts first — the waterfall');
+  assert.ok(unrel > late, 'non-matching pods trail the waterfall');
+  // hideEmptyPods removes it entirely
+  const hidden = podLensHTML({ podWeeks: ps, initiatives: [], horizonWeeks: 26 },
+    { horizonWeeks: 26, span: 26, initiativeQuery: 'dev', hideEmptyPods: true });
+  assert.ok(!hidden.includes('Unrelated'), 'hide-empty drops non-matching pods');
+  assert.ok(hidden.includes('FirstPod') && hidden.includes('LatePod'));
+});
