@@ -69,10 +69,12 @@ export function periodEndHTML(horizon, span) {
     <span class="tl-period-end-label">period end · w${w}</span></div>`;
 }
 
-function barHTML({ left, width, cls = '', label, title }) {
+function barHTML({ left, width, cls = '', label, title, initiative, pod, startWeek, lane }) {
   // tl-trunc on every bar (FR-039): the CSS clips overflow with ellipsis, and
-  // the full text survives in the title.
-  return `<div class="tl-bar tl-trunc ${cls}" style="${pct(left)};width:${width.toFixed(2)}%" title="${esc(title)}">${esc(label)}</div>`;
+  // the full text survives in the title. data-initiative/pod/startWeek carry
+  // the drag contract (spec 008): a released drag pins that slice's start.
+  const drag = initiative ? ` data-initiative="${esc(initiative)}" data-pod="${esc(pod)}" data-start-week="${startWeek}"${lane !== undefined ? ` data-lane="${lane}"` : ''}` : '';
+  return `<div class="tl-bar tl-trunc ${cls}" style="${pct(left)};width:${width.toFixed(2)}%" title="${esc(title)}"${drag}>${esc(label)}</div>`;
 }
 
 // barGeom clamps a week span to the chart: work that runs past the horizon
@@ -239,25 +241,53 @@ export function portfolioTimelineHTML(sched, opts = {}) {
 // devs, non-pairing one track per dev). The Gantt shows exactly that many
 // lanes — never more. Slices are serialized by the scheduler to fit, so a
 // stack beyond `cap` would mean a rendering bug, not more capacity.
-function assignLanes(slices, cap = 0) {
+function assignLanes(slices, cap = 0, pinnedLanes = null) {
   // Width for layout: the slice's PEAK lanes (a growing split slice spans
   // its widest phase), so the track rows reflect the most it ever occupies.
   const width = (sl) => Math.max(1, sl.lanesUsed || 1,
     ...(sl.phases || []).map((p) => p.lanes || 0));
-  const sorted = slices.slice().sort((a, b) => a.startWeek - b.startWeek);
+  // Pinned slices (spec 008 vertical drag) take their pod-relative lane
+  // offset FIRST; the rest pack around them.
+  const forced = new Map();
+  const rest = [];
+  for (const sl of slices) {
+    const off = pinnedLanes?.[sl.initiative];
+    if (off !== undefined && Number.isInteger(off)) {
+      forced.set(sl, off);
+    } else {
+      rest.push(sl);
+    }
+  }
+  const sorted = [...forced.keys(), ...rest.sort((a, b) => a.startWeek - b.startWeek)];
   const laneEnds = [];
   const placement = [];
   for (const sl of sorted) {
     const w = Math.min(width(sl), cap || width(sl));
     let lane = 0;
-    for (;;) {
-      // find the first `w` consecutive lanes all free at sl.startWeek
-      let ok = true;
+    if (forced.has(sl)) {
+      lane = Math.max(0, Math.min(forced.get(sl), (cap || 999) - w));
+      // Two saved pins on the same lanes collide here too: unless the
+      // forced span is genuinely free at sl.startWeek, fall back to the
+      // walk rather than overlapping bars (cubic P2).
+      let blocked = false;
       for (let i = 0; i < w; i++) {
-        if ((laneEnds[lane + i] || 0) > sl.startWeek) { ok = false; break; }
+        if ((laneEnds[lane + i] || 0) > sl.startWeek) { blocked = true; break; }
       }
-      if (ok) break;
-      lane++;
+      if (blocked) {
+        lane = -1; // signal the walk
+      }
+    }
+    if (lane < 0 || !forced.has(sl)) {
+      lane = 0;
+      for (;;) {
+        // find the first `w` consecutive lanes all free at sl.startWeek
+        let ok = true;
+        for (let i = 0; i < w; i++) {
+          if ((laneEnds[lane + i] || 0) > sl.startWeek) { ok = false; break; }
+        }
+        if (ok) break;
+        lane++;
+      }
     }
     for (let i = 0; i < w; i++) {
       laneEnds[lane + i] = sl.finishWeek;
@@ -301,21 +331,46 @@ export function podLanesHTML(ps, opts = {}) {
     }).join('');
     return `<div class="tl-lane"><span class="hint">no capacity</span><div class="tl-track">${bars || '<span class="hint">—</span>'}</div></div>`;
   }
-  const { placement, lanes } = assignLanes(ps.slices || [], ps.tracks || 0);
+  const { placement, lanes } = assignLanes(ps.slices || [], ps.tracks || 0, opts.pinnedLanes || null);
   const rows = [];
   for (let lane = 0; lane < Math.max(lanes, 1); lane++) {
     const inLane = placement.filter((p) => p.lane === lane);
-    const bars = inLane.map(({ sl, lead, collapsed }) => {
-      const { left, width, overrun } = barGeom(sl.startWeek, sl.finishWeek, horizon);
+    const bars = inLane.map(({ sl, lead, collapsed, lane }) => {
+      // Per-phase geometry: a split slice's bar on each track covers that
+      // phase's own weeks at that lane's occupancy. `lane` is the
+      // pod-absolute row; the slice-relative offset is lane − offs, where
+      // offs is the slice's own first lane in the packed placement (cubic:
+      // mixing them picks the wrong phase; the fallback is the whole span).
+      const relLane = placement.filter((p) => p.sl === sl).every((p) => p.lane === placement.filter((q) => q.sl === sl)[0]?.lane)
+        ? lane : lane;
+      // The slice-relative offset of this row: pick the min lane this slice
+      // occupies in this placement, and index the phase by lane − offs.
+      let offs = lane;
+      {
+        const own = placement.filter((p) => p.sl === sl).map((p) => p.lane);
+        if (own.length) offs = Math.min(...own);
+      }
+      const phase = (sl.phases || []).find((ph) => {
+        let base = 0;
+        for (const ph0 of sl.phases || []) {
+          if (lane - offs >= base && lane - offs < base + ph0.lanes) return true;
+          base += ph0.lanes;
+        }
+        return false;
+      });
+      const pStart = phase ? phase.fromWeek : sl.startWeek;
+      const pEnd = phase ? phase.toWeek : sl.finishWeek;
+      const { left, width, overrun } = barGeom(pStart, pEnd, horizon);
       const wTag = (sl.lanesUsed || 1) > 1 ? ` ×${sl.lanesUsed}` : '';
       // Continuation rows carry the label too (dimmed): a track with an
-      // unlabelled bar reads as empty space, and the hover-only text was not
-      // evident enough (user feedback 2026-08-26). The lead row keeps the
-      // fuller styling; continuations show name + duration.
+      // unlabelled bar reads as empty space. The lead row keeps the fuller
+      // styling; continuations show name + duration.
+      const dur = `${pEnd - pStart}w`;
       return barHTML({
         left, width,
         cls: lead === false ? 'tl-cont' : '',
-        label: `${sl.initiative} ${sl.finishWeek - sl.startWeek}w${collapsed ? wTag : ''}`,
+        label: `${sl.initiative} ${dur}${collapsed ? wTag : ''}`,
+        initiative: sl.initiative, pod: sl.pod, startWeek: sl.startWeek, lane,
         title: `${sl.initiative}: w${sl.startWeek}–w${sl.finishWeek} · start by w${sl.latestStartWeek}` +
           (sl.slackWeeks === 0 ? ' · no slack' : ` · ${sl.slackWeeks}w slack`) +
           (overrun > 0 ? ` · ${overrun}w past the horizon` : '') +
@@ -361,7 +416,7 @@ export function podLensHTML(sched, opts = {}) {
       <div class="ord-head"><b>${esc(ps.pod)}</b>
         <span class="hint">ρ ${rho.toFixed(2)} · ${ps.tracks} track${ps.tracks > 1 ? 's' : ''} · ${(ps.slices || []).length} slice${(ps.slices || []).length === 1 ? '' : 's'}</span>
         <button type="button" class="pod-export" data-export-pod="${esc(ps.pod)}" title="download this pod's timeline as a PNG">⬇ PNG</button></div>
-      ${podLanesHTML(ps, { ...opts, horizonWeeks: span })}
+      ${podLanesHTML(ps, { ...opts, horizonWeeks: span, pinnedLanes: (opts.pinnedLanes || {})[ps.pod] || null })}
     </div>`;
   }).join('');
   const s = axisScale(span);

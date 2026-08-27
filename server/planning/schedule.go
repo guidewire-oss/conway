@@ -1710,6 +1710,29 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 			lanes = need
 		}
 		begin := ready
+		// Spec 008: a hand-placed pin (timeline drag) holds the slice's start
+		// at the pinned week when the constraints allow — never earlier than
+		// its own dependencies are ready, because a pin cannot un-order work.
+		if pin, ok := in.init.PinnedStarts[pod]; ok && pin > begin {
+			begin = pin
+			// The pin reason lands only if nothing else moved it: a frozen
+			// start is a freeze move, not a pin (cubic P2), and "pinned" is the
+			// honest label only when the pin itself is what held.
+			pinned := true
+			if !in.init.InFlight && rules != nil {
+				if f, moved := rules.firstStartFrom(pod, site, begin); moved {
+					begin = f
+					pinned = false
+					// The freeze moved an otherwise-legal pin: the freeze is
+					// the binding constraint and must say so (cubic P2) —
+					// "pinned" would hide the constraint that did the work.
+					reason = bindFreeze
+				}
+			}
+			if pinned && reason == "" {
+				reason = "pinned"
+			}
+		}
 		sliceFinish := begin + d
 		// Spec 007: when splitting is on (tax > 0, effort model), try the
 		// growth placement first — start on the free lanes, absorb the rest
