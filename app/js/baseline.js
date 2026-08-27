@@ -119,7 +119,7 @@ export function compareTableHTML(result) {
   const listed = (label, names) => (names || []).length
     ? `<p class="hint">${label}: ${names.map((n) => esc(n)).join(' · ')}</p>` : '';
 
-  return `<div class="card bl-compare-card">
+  return `<div class="panel-card bl-compare-card">
     <div class="plan-summary">${summary}${result.diverged
     ? ' <span class="tag">inputs moved</span>' : ''}</div>
     ${rows ? `<table class="wip-table"><thead><tr>
@@ -136,7 +136,7 @@ export function compareTableHTML(result) {
 // stored inputs (FR-029), and the next list-read would otherwise call the freshly
 // saved baseline diverged — a false alarm on the chip the reader just set.
 export function baselinePanelHTML(baselines, compare, draft) {
-  return `<div class="card ord-card bl-panel">
+  return `<div class="panel-card ord-card bl-panel">
     <div class="ord-head">
       <b>Baselines${term('baseline')}</b>
       <span class="hint">the agreed order for this period, frozen with the inputs that produced it</span>

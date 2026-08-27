@@ -271,4 +271,8 @@ document.getElementById('net-plan')?.addEventListener('click', () => document.ge
 })();
 
 // gate the app behind login when the server is present (dev/static: passes through)
+// Bootstrap form adoption (spec 011 FR-001): class-inject before the first
+// render so native focus/validation semantics load with the app.
+import { initForms } from './forms.js';
+initForms();
 initAuth().then(load);

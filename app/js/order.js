@@ -414,7 +414,7 @@ export function podQueueHTML(sched, pod) {
     <td>${s.waitWeeks ? `${s.waitWeeks}w` : '<span class="hint">none</span>'}</td>
     <td>${esc(s.bindingConstraint) || '<span class="hint">—</span>'}</td>
   </tr>`).join('');
-  return `<div class="card ord-queue">
+  return `<div class="panel-card ord-queue">
     <b>${esc(pod)} — its queue, in scheduled order</b>
     <table class="wip-table"><thead><tr>
       <th>Initiative</th><th>Start</th><th>Finish</th><th>Weeks</th><th>Waited</th><th>Waiting on</th>
@@ -722,7 +722,7 @@ export function setupCardHTML(sp = {}, dated = 0) {
       rec: 'effort — total work divided across each team\u2019s lanes', key: 'estimate' });
   }
   if (!items.length) return '';
-  return `<div class="card ord-setup-card" id="setup-card">
+  return `<div class="panel-card ord-setup-card" id="setup-card">
     <b>Set up this plan</b>
     <p class="hint">Two choices shape every number here. Recommended defaults below — one click each, change later in ⚙ Assumptions.</p>
     ${items.map((it, i) => `<div class="setup-item">
@@ -738,7 +738,7 @@ export function setupCardHTML(sp = {}, dated = 0) {
 export function orderViewHTML(sched, opts = {}) {
   const dated = (sched.initiatives || []).filter((si) => si.targetWeek !== null && si.targetWeek !== undefined).length;
   return `${setupCardHTML(opts.scheduling || {}, dated)}
-  <div class="card ord-card">
+  <div class="panel-card ord-card">
     ${orderHeaderHTML(sched, opts)}
     ${opts.scheduling === undefined ? '' : schedulingDialogHTML(opts.scheduling, sched.wipLimit, sched)}
     ${orderTableHTML(sched, opts)}
@@ -747,7 +747,7 @@ export function orderViewHTML(sched, opts = {}) {
     ${infeasibleNote(sched)}
     ${noticesHTML(sched)}
   </div>
-  <div class="card ord-card" style="margin-top:12px">
+  <div class="panel-card ord-card" style="margin-top:12px">
     <b>Pod load, week by week</b>${term('rho')}
     <div class="ord-heatwrap">${podHeatmapHTML(sched, opts.horizonWeeks)}</div>
   </div>

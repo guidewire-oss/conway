@@ -54,7 +54,7 @@ nav { display: flex; gap: 6px; }
 .plan-summary { margin: 8px 0; font-size: 14px; }
 .lever-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .lever-add { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
-.lever-add select, .lever-add input { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; }
+.lever-add select, .lever-add input { padding: 5px 8px; }
 /* login: sign-in vs join-a-game tabs */
 .login-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
 .login-tabs .tab { flex: 1; }
@@ -62,13 +62,13 @@ nav { display: flex; gap: 6px; }
 #games-overlay { --bs-modal-width: min(1120px, 100%); }
 #games-modal { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; max-width: 1120px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 22px 28px; font-size: 15px; }
 .games-create { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 10px 0; }
-.games-create input, .games-create select { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 14px; }
+.games-create input, .games-create select { padding: 8px 10px; font-size: 14px; }
 .btn-row { display: flex; flex-wrap: wrap; gap: 6px; }
 #games-list { margin-top: 8px; }
 main { padding: 16px 20px; }
 .view { display: none; }
 .view.active { display: block; }
-.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.panel-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
 .hint { color: var(--muted); font-size: 12px; }
 
 /* Inputs: bare input/select/textarea match .form-control's spec through the
@@ -117,7 +117,7 @@ tbody tr:hover td { background: var(--panel2); }
 /* gap adds to (not replaces) the hint <p>'s Bootstrap 1rem bottom margin —
    zero it so hint->input matches the 10px input rhythm. */
 #login-box form .hint { margin-bottom: 0; }
-#login-box input { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 9px 11px; font-size: 14px; }
+#login-box input { padding: 9px 11px; font-size: 14px; }
 .login-err { color: var(--red); font-size: 12px; min-height: 14px; }
 .sso-btn { width: 100%; }
 .sso-divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; margin: 2px 0; }
@@ -128,7 +128,7 @@ tbody tr:hover td { background: var(--panel2); }
 #admin-overlay { --bs-modal-width: min(1120px, 100%); }
 #admin-modal { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; max-width: 1120px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 22px 28px; font-size: 15px; }
 .admin-create { display: flex; gap: 12px; align-items: center; margin: 12px 0; flex-wrap: wrap; }
-.admin-create input { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 14px; }
+.admin-create input { padding: 8px 10px; font-size: 14px; }
 .admin-new { font-size: 12px; }
 .admin-new code { background: var(--panel2); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
 
@@ -328,7 +328,7 @@ button.seg.seg-on { background: var(--panel2); color: var(--text); }
 #task-table .del { width: auto; background: none; border: none; color: var(--muted); cursor: pointer; }
 .row-actions { display: flex; gap: 8px; margin: 12px 0; }
 .epic-import { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
-.epic-import input { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 5px; padding: 6px 8px; }
+.epic-import input { padding: 6px 8px; }
 .suggestion { background: rgba(var(--c-warning), .08); border: 1px solid rgba(var(--c-warning), .35); border-radius: 7px; padding: 8px 10px; margin: 6px 0; font-size: 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .suggestion button { padding: 3px 9px; font-size: 12px; }
 #fullkit { margin: 4px 0 10px; }
@@ -721,5 +721,4 @@ button.plan-back { background: none; border: 0; padding: 0; font: inherit; }
 .tl-bar.tl-dim, .tl-row.tl-dim, .tl-subrow.tl-dim { opacity: .25; }
 .tl-row.tl-dim { min-height: 14px; }
 .tl-filter { display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; }
-.tl-filter input[type="search"] { background: var(--panel2); color: var(--text); border: 1px solid var(--border);
-  border-radius: 6px; padding: 3px 8px; font-size: 12px; width: 170px; }
+.tl-filter input[type="search"] { padding: 3px 8px; font-size: 12px; width: 170px; }

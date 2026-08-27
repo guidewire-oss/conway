@@ -79,7 +79,7 @@ function unassocPanel() {
     <td>${jiraLink(e.key)}</td>
     <td>${(e.name || '').replace(/[&<>]/g, '')}</td>
     <td class="hint">${e.pod ? `pod “${e.pod}” not in roster` : 'no pod field'}</td></tr>`).join('');
-  el.innerHTML = `<div class="card" style="margin-top:14px">
+  el.innerHTML = `<div class="panel-card" style="margin-top:14px">
     <h3>Epics with no team <span class="hint">— ${unassocEpics.length} couldn’t be matched (Jira-import cleanup)</span></h3>
     <p class="hint">Either the Jira <b>pod field</b> is empty, or it names a team not in this snapshot’s roster. Fix the field in Jira, or add the team in Observe ▸ 👥 Rosters and re-associate the snapshot in Observe ▸ 🗂 Snapshots.</p>
     <table class="wip-table sortable"><thead><tr><th>Epic</th><th>Title</th><th>Why</th></tr></thead><tbody>${rows}</tbody></table>
