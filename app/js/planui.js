@@ -150,7 +150,7 @@ function renderPlan() {
       <button class="${view() === 'network' ? 'seg-on' : ''}" id="view-network">Network</button><button class="${view() === 'order' ? 'seg-on' : ''}" id="view-order">Order</button><button class="${view() === 'timeline' ? 'seg-on' : ''}" id="view-timeline">▦ Timeline</button>
     </span>${baselineChipHTML(current.baselines)}</div>` : ''}
     ${nTeams === 0 ? `
-      <div class="card plan-start">
+      <div class="panel-card plan-start">
         <h3>A plan is a roster + the initiatives you intend to run, sequenced by capacity.</h3>
         <p class="hint">Four steps: attach a roster (team composition, pinned as of today) → upload the initiatives matrix →
           review the proposed order and its verdicts → save the agreed order as a baseline. Nothing here writes to Jira.</p>
@@ -1409,7 +1409,7 @@ function paintDash() {
         <button id="lev-add" class="primary">Add lever</button>
       </div>
     </div>
-    <div class="card" style="margin-top:12px">
+    <div class="panel-card" style="margin-top:12px">
       <b>Initiatives</b>
       <table class="wip-table"><thead><tr><th>Initiative</th><th>Pods in path</th><th>Lead time (directional)</th><th>Bottleneck</th></tr></thead>
         <tbody>${initRows}</tbody></table>

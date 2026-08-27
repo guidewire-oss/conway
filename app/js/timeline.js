@@ -225,7 +225,7 @@ export function portfolioTimelineHTML(sched, opts = {}) {
     .map((win) => bandHTML(win, sched, span))
     .join('');
   const periodEnd = periodEndHTML(horizon, span);
-  return `<div class="card tl-card">
+  return `<div class="panel-card tl-card">
     <div class="ord-head"><b>Timeline</b>
       <span class="hint">one row per initiative · the lighter tail is the ${term('buffer', 'buffer')} · ◆ is the ${term('target', 'target')}</span></div>
     <div class="tl-axis">${ticks}</div>
@@ -471,7 +471,7 @@ export function podLensHTML(sched, opts = {}) {
     const title = tickTitle(t.week, sched.periodStart || opts.periodStart);
     return `<span class="tl-tick" style="${pct(s(t.week))}"${title ? ` data-tip="${esc(title)}"` : ''}>${t.label}</span>`;
   }).join('');
-  return `<div class="card tl-card">
+  return `<div class="panel-card tl-card">
     <div class="ord-head"><b>Timeline — by pod</b>
       <span class="hint">one lane per track · idle lanes are slack, shown on purpose · ${q ? 'waterfall: earliest matching start first' : 'hottest first'}</span></div>
     <div class="tl-axis">${ticks}</div>
@@ -512,7 +512,7 @@ export function podSheetHTML(ps, sched, opts = {}) {
     </tr>`;
   }).join('');
 
-  return `<div class="card ord-card" data-pod-sheet="${esc(ps.pod)}">
+  return `<div class="panel-card ord-card" data-pod-sheet="${esc(ps.pod)}">
     <div class="ord-head"><b>${esc(ps.pod)} — ${ps.tracks} track${ps.tracks > 1 ? 's' : ''}</b>
       <span class="hint">${slices.length} slice${slices.length === 1 ? '' : 's'} in start order</span>
       <button type="button" class="pod-export" data-export-sheet="${esc(ps.pod)}" title="download this sheet as a PNG">⬇ PNG</button></div>
