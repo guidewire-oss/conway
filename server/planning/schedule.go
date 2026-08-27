@@ -1723,6 +1723,10 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 				if f, moved := rules.firstStartFrom(pod, site, begin); moved {
 					begin = f
 					pinned = false
+					// The freeze moved an otherwise-legal pin: the freeze is
+					// the binding constraint and must say so (cubic P2) —
+					// "pinned" would hide the constraint that did the work.
+					reason = bindFreeze
 				}
 			}
 			if pinned && reason == "" {
