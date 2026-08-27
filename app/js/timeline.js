@@ -325,16 +325,30 @@ export function podLanesHTML(ps, opts = {}) {
   for (let lane = 0; lane < Math.max(lanes, 1); lane++) {
     const inLane = placement.filter((p) => p.lane === lane);
     const bars = inLane.map(({ sl, lead, collapsed, lane }) => {
-      const { left, width, overrun } = barGeom(sl.startWeek, sl.finishWeek, horizon);
+      // Per-phase geometry: a split slice's bar on each track covers that
+      // phase's own weeks at that lane's occupancy — the user asked for the
+      // split weeks on the track, not the whole-slice span on every row.
+      const phase = (sl.phases || []).find((ph) => {
+        // the phase whose lanes include this row's lane
+        let base = 0;
+        for (const ph0 of sl.phases || []) {
+          if (lane >= base && lane < base + ph0.lanes) return true;
+          base += ph0.lanes;
+        }
+        return false;
+      });
+      const pStart = phase ? phase.fromWeek : sl.startWeek;
+      const pEnd = phase ? phase.toWeek : sl.finishWeek;
+      const { left, width, overrun } = barGeom(pStart, pEnd, horizon);
       const wTag = (sl.lanesUsed || 1) > 1 ? ` ×${sl.lanesUsed}` : '';
       // Continuation rows carry the label too (dimmed): a track with an
-      // unlabelled bar reads as empty space, and the hover-only text was not
-      // evident enough (user feedback 2026-08-26). The lead row keeps the
-      // fuller styling; continuations show name + duration.
+      // unlabelled bar reads as empty space. The lead row keeps the fuller
+      // styling; continuations show name + duration.
+      const dur = `${pEnd - pStart}w`;
       return barHTML({
         left, width,
         cls: lead === false ? 'tl-cont' : '',
-        label: `${sl.initiative} ${sl.finishWeek - sl.startWeek}w${collapsed ? wTag : ''}`,
+        label: `${sl.initiative} ${dur}${collapsed ? wTag : ''}`,
         initiative: sl.initiative, pod: sl.pod, startWeek: sl.startWeek, lane,
         title: `${sl.initiative}: w${sl.startWeek}–w${sl.finishWeek} · start by w${sl.latestStartWeek}` +
           (sl.slackWeeks === 0 ? ' · no slack' : ` · ${sl.slackWeeks}w slack`) +
