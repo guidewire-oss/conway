@@ -11,10 +11,11 @@
 ## 1. Overview
 
 Two filter inputs on the timeline: in the **by-pod** lens, a fuzzy search by
-initiative that dims every non-matching bar across all pods — the planner sees
-how one initiative lines up across teams. In the **by-initiative** lens, the
-mirror: a fuzzy search by pod that dims slices not touching the typed pod and
-collapses rows with no visible work.
+initiative that hides every non-matching bar across all pods (waterfall-
+ordered, with an optional hide-empty-pods) — the planner sees how one
+initiative lines up across teams. In the **by-initiative** lens, the mirror:
+a fuzzy search by pod that renders only the rows whose slices touch the typed
+pod.
 
 ---
 
@@ -32,7 +33,8 @@ row. Both are one fuzzy query's worth of work.
 
 **As a** planning manager
 **I want** to type (part of) an initiative name in the by-pod lens
-**So that** its bars stay lit across every pod while everything else dims
+**So that** its bars render across every pod it touches, waterfall-ordered,
+with everything else hidden
 
 ### Story 2: Find what lands on a pod
 
@@ -60,8 +62,8 @@ row. Both are one fuzzy query's worth of work.
 
 > Given the pod query "okocim"
 > When the by-initiative lens renders
-> Then rows whose slices touch Okocim stay with those slices lit; other rows
-> render dimmed or collapsed; the row count of full-opacity rows is visible
+> Then rows whose slices touch Okocim render; other rows do not render at
+> all; the match count keeps the denominator visible ("7 of 28 pods")
 
 **AC 2.3: The waterfall reads as a chain**
 
