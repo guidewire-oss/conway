@@ -31,7 +31,7 @@
   "references": {
     "spec": {
       "path": "specs",
-      "description": "The Conway spec source \u2014 immutable docs. Source of truth for all decisions."
+      "description": "The Conway spec source — immutable docs. Source of truth for all decisions."
     }
   },
   "agent": {
@@ -60,7 +60,7 @@
       }
     },
     "wiki-maintainer": {
-      "description": "Reads your spec source and writes wiki/ pages. Supervised \u2014 every edit is a PR and requires human review.",
+      "description": "Reads your spec source and writes wiki/ pages. Supervised — every edit is a PR and requires human review.",
       "mode": "subagent",
       "permission": {
         "edit": "ask",
@@ -76,7 +76,7 @@
       }
     },
     "vision": {
-      "description": "Visual verification of the app \u2014 screenshots, Gantt rendering, UI states. Multimodal GLM 5.3 Flash (cheap, fast, sees images). Switch here for screenshot work.",
+      "description": "Visual verification of the app — screenshots, Gantt rendering, UI states. Multimodal GLM 5.3 Flash (cheap, fast, sees images). Switch here for screenshot work.",
       "mode": "all",
       "permission": {
         "edit": "ask",

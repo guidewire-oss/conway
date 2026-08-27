@@ -1,7 +1,6 @@
 ---
 description: Visual verification of the app — screenshots, Gantt rendering, UI states. Multimodal GLM 5.3 Flash (cheap, fast, sees images). Switch here for screenshot work.
 mode: all
-model: openrouter/z-ai/glm-5.3-flash
 permission:
   edit: ask
   bash: ask
