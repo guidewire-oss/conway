@@ -442,12 +442,12 @@ export function noticesHTML(sched) {
 export function verdictBannerHTML(sched) {
   const inits = sched.initiatives || [];
   const dated = inits.filter((si) => si.targetWeek !== null && si.targetWeek !== undefined);
-  if (!dated.length && !inits.some((si) => si.statedRank > 0)) {
-    return `<div class="verdict-banner verdict-none">No dates set yet — the order below is by capacity and priority, not against promises.
-      Add target dates to see verdicts.</div>`;
-  }
   if (!dated.length) {
-    return `<div class="verdict-banner verdict-none">No dated initiatives — nothing to miss.</div>`;
+    // Spec 009 AC 3.1: the empty verdict must teach the fix, not read as an
+    // error — a date is what verdicts measure, and ✎ is where it goes.
+    // (Ranked or not, the instruction is the same.)
+    return `<div class="verdict-banner verdict-none">No target dates yet — dates are what the verdicts measure.
+      Add one via ✎ on any row below (or upload a sheet with a Target Date column) and every date on this page comes alive.</div>`;
   }
   // Every non-on-time verdict counts — unschedulable rows have weeksLate 0
   // (the verdict carries the information), so filtering on verdict alone is
@@ -538,6 +538,10 @@ export function orderHeaderHTML(sched, opts = {}) {
       : `<button type="button" id="ord-unoptimize" title="Return to your stated order. The engine's proposal stays available.">↩ back to your order</button>`}
     <button type="button" id="sched-open" title="period start, WIP model, buffers, freezes — set once">⚙ Assumptions</button>
     <button type="button" id="tl-open" title="open this order as a timeline (Story 8)">▦ Open timeline ▸</button>
+    <span class="ord-bl-head">
+      <input id="bl-name-head" type="text" placeholder="name this order…" maxlength="80">
+      <button type="button" id="bl-save-head" class="primary" title="freeze this order with the inputs that produced it">✓ Save baseline</button>
+    </span>
   </div>
   <div class="plan-summary">${comparisonBarsHTML(obj)}</div>`;
 }
@@ -693,8 +697,38 @@ export function initiativeEditFromBody(read, name, had = {}) {
   return { body };
 }
 
+// setupCardHTML is spec 009 FR-005: the three model choices a fresh plan
+// hasn't made, as a checklist with the recommended defaults one click away.
+// Once every model is chosen (or the card is acknowledged) it disappears.
+export function setupCardHTML(sp = {}, dated = 0) {
+  if (sp.setupAcknowledged) return '';
+  const items = [];
+  const wipChosen = WIP_MODELS.some((m) => m.id === sp.wipModel);
+  if (!wipChosen) {
+    items.push({ field: 'Work-in-progress model', why: 'which initiatives count against the org limit',
+      rec: 'strict — protect the constraint absolutely, accept idle elsewhere (you can compare the three anytime)' });
+  }
+  if (sp.estimateModel !== 'effort') {
+    items.push({ field: 'Estimate model', why: 'how the sheet\u2019s estimate column is read',
+      rec: 'effort — total work divided across each team\u2019s lanes' });
+  }
+  if (!items.length) return '';
+  return `<div class="card ord-setup-card" id="setup-card">
+    <b>Set up this plan</b>
+    <p class="hint">Two choices shape every number here. Recommended defaults below — one click each, change later in ⚙ Assumptions.</p>
+    ${items.map((it, i) => `<div class="setup-item">
+      <div><b>${esc(it.field)}</b> <span class="hint">— ${esc(it.why)}</span></div>
+      <div class="hint">recommended: ${esc(it.rec)}</div>
+      <button type="button" class="primary setup-apply" data-setup="${i === 0 && !wipChosen ? 'wip' : 'estimate'}">use recommended</button>
+    </div>`).join('')}
+    <button type="button" class="setup-dismiss hint">dismiss — keep the defaults silently</button>
+  </div>`;
+}
+
 export function orderViewHTML(sched, opts = {}) {
-  return `<div class="card ord-card">
+  const dated = (sched.initiatives || []).filter((si) => si.targetWeek !== null && si.targetWeek !== undefined).length;
+  return `${setupCardHTML(opts.scheduling || {}, dated)}
+  <div class="card ord-card">
     ${orderHeaderHTML(sched, opts)}
     ${opts.scheduling === undefined ? '' : schedulingDialogHTML(opts.scheduling, sched.wipLimit, sched)}
     ${orderTableHTML(sched, opts)}
