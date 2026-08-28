@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en" data-bs-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Conway — In-App Manual</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="vendor/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="css/conway.css">
+<style>
+  body { max-width: 820px; margin: 0 auto; padding: 40px 24px 100px;
+    color: var(--text); background: var(--bg);
+    font-family: var(--bs-body-font-family); font-size: 15px; line-height: 1.7; }
+  h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -.5px; }
+  .lede { color: var(--muted); margin-top: 0; font-size: 16px; }
+  h2 { font-size: 19px; margin: 38px 0 8px; padding-top: 18px; border-top: 1px solid var(--border); }
+  h2:first-of-type { border-top: 0; padding-top: 0; }
+  h3 { font-size: 15px; margin: 18px 0 4px; }
+  p, li { color: var(--text); }
+  .why { background: var(--panel2); border-left: 3px solid var(--accent); padding: 10px 14px;
+    border-radius: 0 6px 6px 0; margin: 10px 0; }
+  .why::before { content: 'Why this matters'; display: block; font-size: 11px;
+    text-transform: uppercase; letter-spacing: .06em; color: var(--accent); margin-bottom: 4px; }
+  .k { color: var(--accent); font-weight: 600; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 14px; }
+  th, td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--panel2); }
+  .ritual li { margin: 8px 0; }
+  code { background: var(--panel2); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  .sidebar { position: fixed; top: 0; right: 0; bottom: 0; width: 190px; overflow-y: auto;
+    border-left: 1px solid var(--border); padding: 16px 0 16px 14px; font-size: 13px; }
+  .sidebar a { display: block; color: var(--muted); text-decoration: none; padding: 3px 10px 3px 0; }
+  .sidebar a:hover { color: var(--text); }
+  @media (max-width: 1100px) { .sidebar { display: none; } body { padding-right: 24px; } }
+</style>
+</head>
+<body>
+
+<h1>Conway — in-app manual</h1>
+<p class="lede">How to plan a delivery period your org can actually commit to —
+and how to see, honestly, where the schedule will slip before it does.</p>
+
+<nav class="sidebar">
+  <a href="#what">What Conway does</a>
+  <a href="#flow-actions">Flow Actions</a>
+  <a href="#network">Org Network</a>
+  <a href="#scoreboard">Flow Scoreboard</a>
+  <a href="#hygiene">Data Hygiene</a>
+  <a href="#simulator">Feature Simulator</a>
+  <a href="#planning-loop">Planning: the loop</a>
+  <a href="#plan-setup">Plan setup</a>
+  <a href="#assumptions">Assumptions &amp; levers</a>
+  <a href="#order">The Order view</a>
+  <a href="#order-cols">Order columns &amp; actions</a>
+  <a href="#fever">Fever chart</a>
+  <a href="#timeline">Timeline</a>
+  <a href="#baselines">Baselines</a>
+  <a href="#warnings">Warnings &amp; verdicts</a>
+</nav>
+
+<h2 id="what">What Conway does, and why</h2>
+<p>Most software planning tools answer "who is doing what?" Conway answers a
+harder question: <b>"what will actually finish, by when, given the teams you
+have?"</b></p>
+<p>It does this by reading your real delivery data from Jira — how long work
+actually takes at each team, which teams block which, how much work is already
+in flight — and using that history to forecast what a new plan can realistically
+deliver. It doesn't ask you to guess durations or trust optimism. It uses what
+already happened.</p>
+<div class="why"><p>If you plan without respecting capacity, the busy teams
+become bottlenecks. Work queues behind them, dates slip, and the slip is
+invisible until it's too late to react. Conway makes the queue visible
+<i>before</i> you commit, so you can sequence work, freeze what won't finish,
+and add capacity only where it actually shortens the schedule.</p></div>
+<p>You don't need to know any theory to use Conway. But if you're curious:
+the thinking comes from constraint management — every system has one
+bottleneck at a time, and improving anything except the bottleneck improves
+nothing. Conway finds that bottleneck (called the <b>drum</b>), protects it,
+and sequences everything else around it.</p>
+
+<h2 id="flow-actions">Flow Actions</h2>
+<p>This is the triage screen. Three panels tell you, right now, what needs
+attention — and what you should stop doing.</p>
+<h3>The constraint</h3>
+<p>The busiest team, ranked by a queue score. The team at #1 is where flow
+chokes first. Watch whether the #1 card <i>moves</i> week to week — if it
+never changes, the org isn't acting on the bottleneck.</p>
+<h3>Bad multitasking — freeze candidates</h3>
+<p>Teams doing too many things at once. Each bar shows how far a pod's work
+exceeds a healthy WIP cap (the slider adjusts what "healthy" means). Red bars
+are the triage list: <b>finish</b>, <b>freeze</b> (out of sight, out of
+attention), or <b>kill</b>. Work that stays on the board keeps stealing
+attention even when nobody is working on it.</p>
+<h3>Buffer fever chart</h3>
+<p>In-flight epics as dots on a chart. Each dot's position shows whether the
+epic is consuming its safety margin faster than it's making progress. Green:
+say nothing. Yellow: plan a response. Red: the buffer is gone — renegotiate
+the date now, not at the end.</p>
+<div class="why"><p>If you only read one card per week, read the #1
+constraint card. Improving a non-bottleneck team improves nothing — the queue
+at the constraint sets the pace for everyone.</p></div>
+
+<h2 id="network">Org Network</h2>
+<p>The dependency map: which teams block which, drawn from real blocking
+history (not opinion). Left is upstream (platform teams), right is downstream
+(consumer-facing teams).</p>
+<h3>How to read it</h3>
+<ul>
+  <li><b>Node size</b> = how much work is in flight at that pod.</li>
+  <li><b>Colour</b> = queue heat — how close the pod is to drowning.</li>
+  <li><b>Edge width</b> = how many times that blocking link fired in the last
+      12 months. Arrow points at the blocked pod.</li>
+</ul>
+<h3>Controls</h3>
+<table>
+  <tr><th>Control</th><th>What it does</th></tr>
+  <tr><td>minimum links slider</td><td>hides edges below the weight, so the
+      loud ones stand out</td></tr>
+  <tr><td>hide pods with no visible links</td><td>removes isolated pods from
+      the picture</td></tr>
+  <tr><td>click a pod node</td><td>opens its detail: current WIP, cycle-time
+      distribution, who it blocks and who blocks it</td></tr>
+</table>
+
+<h2 id="scoreboard">Flow Scoreboard</h2>
+<p>The league table of per-pod delivery metrics, mined from the last 180 days
+of Jira data. Sort the columns to answer different questions.</p>
+<h3>Columns and how to use them</h3>
+<table>
+  <tr><th>Column</th><th>What it tells you</th><th>Sort by it when you want to know</th></tr>
+  <tr><td>Dependents</td><td>how many pods wait on this one</td><td>"who is
+      everyone waiting on?"</td></tr>
+  <tr><td>Queue ρ</td><td>how close to capacity the pod is (≥ 0.85 = already
+      late)</td><td>"who is drowning?"</td></tr>
+  <tr><td>Cycle P85</td><td>the realistic lead time for a task at that
+      pod</td><td>"how long will my ask actually take?"</td></tr>
+  <tr><td>Kingman ×</td><td>the wait multiplier at current load — ∞ when a pod
+      is over 100% (its queue can't self-clear)</td><td>"where will a small
+      increase in work cause a big increase in waiting?"</td></tr>
+</table>
+<div class="why"><p>The most dangerous pod on this screen is both high-ρ and
+high-dependents: a <b>hub under load</b>. Everyone waits on it, and it's
+already drowning.</p></div>
+
+<h2 id="hygiene">Data Hygiene</h2>
+<p>The quality of Conway's forecasts depends on the quality of your Jira data.
+This page shows each gap and the pod it distorts, so you know exactly what to
+fix to sharpen every number.</p>
+<h3>Common gaps and what they cost</h3>
+<table>
+  <tr><th>Gap</th><th>What it degrades</th></tr>
+  <tr><td>unsized tasks</td><td>epic forecasts fall back to the pod's median
+      item instead of using real data</td></tr>
+  <tr><td>stale in-flight items</td><td>WIP and queue heat are overstated,
+      polluting the freeze list</td></tr>
+  <tr><td>unassigned in-progress work</td><td>zombie work that nobody is
+      actually doing</td></tr>
+  <tr><td>low link density</td><td>the dependency graph under-represents real
+      coupling, so suggested dependencies miss real blocks</td></tr>
+</table>
+<p>Click a pod row to drill into categories, then a category to see the
+individual Jiras.</p>
+
+<h2 id="simulator">Feature Simulator</h2>
+<p>Answer "can we do this by then?" for one epic — before you commit. It runs
+10,000 Monte Carlo trials over the task graph using each pod's real
+cycle-time distribution, so the forecast reflects reality, not optimism.</p>
+<h3>What to do</h3>
+<ol>
+  <li>Type a Jira epic key and press <b>Import epic</b> — tasks, pods and
+      blocking links fill in from real data.</li>
+  <li>Adjust task sizes or dependencies to match what you know.</li>
+  <li>Press <b>Run 10,000 trials</b> and read the forecast.</li>
+</ol>
+<h3>Reading the forecast</h3>
+<table>
+  <tr><th>Panel</th><th>What it tells you</th></tr>
+  <tr><td>stat cards</td><td>P50, P85, P95 finish dates. <b>Commit the P85</b> —
+      a P50 date is a coin flip.</td></tr>
+  <tr><td>completion probability (CDF)</td><td>the chance of finishing by any
+      given date</td></tr>
+  <tr><td>tornado chart</td><td>which pod, if made 25% faster, saves the most
+      days — do that first</td></tr>
+  <tr><td>P85 schedule</td><td>a representative Gantt with the critical path
+      in red — the chain that sets the finish date</td></tr>
+</table>
+<div class="why"><p>When a team asks for headcount or a date slips, this page
+tests the claim with data instead of opinion. The tornado chart shows where a
+week of help actually buys calendar time — and where it buys nothing.</p></div>
+
+<h2 id="planning-loop">Planning: the loop</h2>
+<p>Planning in Conway is a cycle, not a one-time act. You set up a plan,
+review the order, shape it, freeze what you accept, and re-plan when reality
+changes.</p>
+<ol class="ritual">
+  <li><b>Set up</b> — attach a roster (a frozen copy of team composition as of
+      today), upload the initiatives matrix, set the period start, horizon and
+      capacity loss. The <em>Plan setup</em> disclosure holds all of this.</li>
+  <li><b>Choose your models</b> — WIP model (strict / drum-gated / off),
+      estimate model (effort ÷ lanes vs wall-clock), optional splitting. The
+      <em>Set up this plan</em> card offers recommended defaults with one
+      click.</li>
+  <li><b>Review the order</b> — the Order view sequences everything by
+      capacity. Your stated priority order is the working plan; the engine's
+      best guess appears as a suggestion (↳N) you can accept or ignore.</li>
+  <li><b>Shape it</b> — pin priorities to hold them, edit estimates or dates
+      (✎ on any row), or drag bars on the timeline. Every change recomputes
+      the whole schedule.</li>
+  <li><b>Freeze it</b> — save the agreed order as a <b>baseline</b>. It stores
+      the schedule and the inputs that produced it, so later re-plans are
+      measured against it.</li>
+  <li><b>Compare</b> — the live order against a baseline, or two baselines
+      against each other. The gap between "what we agreed" and "what we now
+      propose" is the decision.</li>
+</ol>
+
+<h2 id="plan-setup">Plan setup</h2>
+<table>
+  <tr><th>Control</th><th>What it means</th></tr>
+  <tr><td>roster</td><td>a frozen copy of team composition, attached when you
+      create the plan. Later roster edits don't silently change an existing
+      plan — attach the new roster explicitly.</td></tr>
+  <tr><td>initiatives matrix</td><td>one row per initiative: name, leads, and
+      a column per team with its estimate in effort-weeks. Optional columns
+      for priority, target dates, dependencies, tier and cost of
+      delay.</td></tr>
+  <tr><td>horizon</td><td>the planning period in weeks. Nothing is scheduled
+      to start past it — work that can't fit is reported, not hidden.</td></tr>
+  <tr><td>capacity loss</td><td>the fraction of capacity lost to PTO, meetings
+      and ramp. 10% means a lane delivers 90% of a week per week. This
+      stretches every duration.</td></tr>
+  <tr><td>strict: match dependencies to roster</td><td>a dependency naming an
+      unknown pod becomes an error instead of a silently ignored cell</td></tr>
+</table>
+
+<h2 id="assumptions">Assumptions &amp; levers (⚙)</h2>
+<p>These shape the schedule. Each one changes what the order looks like —
+so change them with intent.</p>
+<table>
+  <tr><th>Lever</th><th>What it means</th></tr>
+  <tr><td>period start</td><td>week 0 — every target date is measured from
+      here. Without it, dates cannot become weeks and the verdicts stay
+      empty.</td></tr>
+  <tr><td>WIP model</td><td>how many initiatives may be in flight across the
+      org. <b>strict</b>: every initiative counts. <b>drum-gated</b>: only
+      work touching the drum counts. <b>off</b>: no org limit. The Order view
+      prices all three side by side.</td></tr>
+  <tr><td>org WIP limit</td><td>the number of initiatives in flight at once.
+      Blank derives it from the drum pod's track count.</td></tr>
+  <tr><td>estimate model</td><td><b>effort</b>: the estimate is total work,
+      divided across the team's lanes — 60 pair-weeks on a 3-pair team takes
+      ~20 weeks. <b>wall-clock</b>: the estimate is one lane's
+      duration.</td></tr>
+  <tr><td>buffer</td><td>protective time added to each chain (25% by default)
+      so a slip eats the buffer instead of the promise. 0 commits on the raw
+      finish — no safety net.</td></tr>
+  <tr><td>full-kit gate</td><td>minimum readiness (all inputs present) before
+      an initiative may start</td></tr>
+  <tr><td>per-pod limit</td><td>initiatives at one pod at once; blank is
+      uncapped</td></tr>
+  <tr><td>starts per quarter</td><td>how much change the org can absorb per
+      quarter</td></tr>
+  <tr><td>splitting tax</td><td>the overhead (in weeks) of dividing one piece
+      of work across a team's lanes. Blank turns splitting off.</td></tr>
+  <tr><td>chunk size</td><td>work above this many weeks divides across lanes;
+      no track carries more. 45 weeks chunks as 20+20+5 at a 20-week
+      cap.</td></tr>
+  <tr><td>drum target utilization</td><td>holds releases so drum load stays
+      under the ceiling, keeping headroom for escapes</td></tr>
+  <tr><td>calendar windows</td><td>freezes, site holidays and reduced-capacity
+      spans — drawn on the timeline and enforced by the scheduler</td></tr>
+</table>
+
+<h2 id="order">The Order view</h2>
+<p>This is where the schedule lives: every initiative ranked, with the dates
+you can promise and the reason each start is where it is.</p>
+<h3>Reading it</h3>
+<ul>
+  <li>The <b>verdict banner</b> is the whole answer in one sentence: how many
+      dates are at risk, and the worst one by name.</li>
+  <li>Your <b>stated priority order is the working plan</b>. The engine's
+      suggestion appears as <code>↳N</code> beside the rank. ⚡ Optimize offers
+      its best order — accepting is always your call.</li>
+  <li><b>Binds</b> names what set each start: dependency, pod capacity, WIP
+      limit, freeze, kit gate, drum stagger, or a pin you placed.</li>
+  <li><b>Expand a row</b> (▸) to see the per-pod slices: start, finish, latest
+      safe start and slack per pod.</li>
+</ul>
+
+<h2 id="order-cols">Order columns and actions</h2>
+<table>
+  <tr><th>Column / action</th><th>What it means</th></tr>
+  <tr><td>#</td><td>the order's rank. <code>↳N</code> beside it is the engine's
+      suggestion (click ⚡ Optimize to see it).</td></tr>
+  <tr><td>Stated</td><td>your priority; <code>2 →1</code> shows the engine's
+      counter-proposal. <b>pin</b> holds your rank — <b>unpin</b> releases it
+      back to the engine.</td></tr>
+  <tr><td>Start / Commit</td><td>raw finish + buffer tail → the commit week you
+      may promise. The buffer is the safety net.</td></tr>
+  <tr><td>Verdict</td><td>on-time · late (with weeks) · beyond-horizon ·
+      structurally-infeasible · no-date · provisional (rests on unestimated
+      work)</td></tr>
+  <tr><td>options ▾</td><td>priced remedies for a missing date: descope, add
+      capacity, move the date — each priced by its effect on the whole
+      portfolio</td></tr>
+  <tr><td>✎ edit</td><td>change priority, target date, tier, cost of delay,
+      earliest start, dependencies, kit %, progress, or locks — per
+      initiative</td></tr>
+  <tr><td>⚡ Optimize order</td><td>runs every dispatch rule and offers its
+      best order beside yours, priced. Accepting is explicit — the engine
+      suggests, you decide.</td></tr>
+</table>
+
+<h2 id="fever">Fever chart (Order view)</h2>
+<p>Each dot is a dated initiative read at its target date. The x-axis is how
+much of the chain should be done by then; the y-axis is how much buffer the
+date consumes. Under the green line is comfortable, amber is burning fast, red
+has spent it. The zones match the Observe fever chart, so both views read the
+same way.</p>
+
+<h2 id="timeline">Timeline</h2>
+<p>The order drawn as spans: one row per initiative, or one block per pod with
+a lane per track. The same schedule, seen from two angles.</p>
+<h3>Reading it</h3>
+<ul>
+  <li><b>solid bar</b> — scheduled work. <b>lighter tail</b> — the buffer.
+      <b>◆</b> — the target date.</li>
+  <li><b>→</b> — waits on another pod.</li>
+  <li><b>idle lanes</b> — capacity the plan leaves free, shown on purpose: a
+      pod that looks idle is a pod you can load.</li>
+  <li><b>hover a week number</b> — the calendar date. <b>hover a bar</b> —
+      start, finish, slack, and its lane ladder if split.</li>
+</ul>
+<h3>Controls</h3>
+<table>
+  <tr><th>Control</th><th>What it does</th></tr>
+  <tr><td>by initiative / by pod</td><td>rows per initiative, or one block per
+      pod with a lane per track and per-slice bars</td></tr>
+  <tr><td>26w / 52w / all</td><td>how much of the schedule to draw; the period
+      end is marked when the view is wider</td></tr>
+  <tr><td>⛶ full screen</td><td>more room for lane-accurate dragging; ESC
+      exits</td></tr>
+  <tr><td>filter (by-pod)</td><td>fuzzy initiative search — matching bars
+      render, others hide. Matching pods waterfall by earliest start.
+      <em>hide empty pods</em> drops untouched pods. <em>show other work as
+      ghosts</em> keeps the context faintly visible.</td></tr>
+  <tr><td>drag a bar</td><td>moves the slice's start week; vertical drag moves
+      it between the pod's tracks. Overlapping drops are refused with the
+      conflict named.</td></tr>
+</table>
+
+<h2 id="baselines">Baselines</h2>
+<p>A baseline freezes the current order with the inputs that produced it.
+It's how you say "this is what we agreed" — and how you measure the cost of
+changing your mind later.</p>
+<h3>Saving and activating</h3>
+<ul>
+  <li><b>Save as baseline</b> (Order header) — name it, and the schedule plus
+      its inputs are stored. The <b>chip</b> in the header shows the active
+      baseline and whether inputs have moved since.</li>
+  <li><b>make active</b> — switches which baseline the plan is measured
+      against. Only one is active at a time.</li>
+</ul>
+<h3>Comparing</h3>
+<ul>
+  <li><b>compare</b> — the live order against the selected baseline: rank,
+      start and commit deltas per initiative, additions and removals.</li>
+  <li><b>vs…</b> — two baselines against each other: what changed between the
+      agreed order and a later proposal.</li>
+</ul>
+
+<h2 id="warnings">Warnings &amp; verdicts</h2>
+<table>
+  <tr><th>What you see</th><th>What it means and what to do</th></tr>
+  <tr><td>pods missing from the roster</td><td>a team name in the matrix isn't
+      in the roster. Switch roster, or add the pod. Those slices can't be
+      scheduled until then.</td></tr>
+  <tr><td>no period start</td><td>target dates need week 0. Set it in ⚙
+      Assumptions — every verdict on the page comes alive.</td></tr>
+  <tr><td>no target dates</td><td>add one via ✎ on any row, or upload a sheet
+      with a Target Date column. Until then, the order is by capacity and
+      priority alone.</td></tr>
+  <tr><td>beyond-horizon</td><td>cannot start inside the period. Shorten the
+      chain, add capacity at its constraint, or accept it for a later
+      period.</td></tr>
+  <tr><td>structurally-infeasible</td><td>chain + buffer cannot meet the date
+      however work is ordered. Later date, less scope, or earlier start.</td></tr>
+  <tr><td>provisional</td><td>some pods never estimated the work — dates are
+      directional, not promises.</td></tr>
+  <tr><td>inputs have moved</td><td>the roster or estimates changed since the
+      baseline was saved. Re-plan or re-baseline.</td></tr>
+</table>
+
+<p class="hint" style="margin-top:40px">The theory under all of it: every
+system has one constraint at a time. Protect it, feed it full-kit work, and
+let everything else wait — the dates you protect are the dates you keep. The
+<code>?</code> chips throughout the app carry these definitions in context.</p>
+
+</body>
+</html>

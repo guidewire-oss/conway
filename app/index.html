@@ -56,6 +56,7 @@
         <!-- "🎮 Run games" injected here for facilitators by auth.js -->
       </div>
     </div>
+    <button id="docs-btn" class="tab docs-tab" data-docs="docs-top" title="The in-app manual — every view and lever explained">Docs</button>
     <button id="guide-btn" class="tab guide-tab">Guide</button>
     <button id="theme-btn" class="tab" aria-label="Switch color theme" title="Switch dark / light (for projectors and screenshots)">☾</button>
   </nav>
@@ -71,7 +72,7 @@
   <section id="view-flow" class="view">
     <div class="flow-grid">
       <div class="panel-card">
-        <h2>1 · The constraint <span class="hint">(identify → exploit → subordinate → elevate)</span>
+        <h2>1 · The constraint <span class="hint">(identify → exploit → subordinate → elevate)</span> <button type="button" class="docs-link" data-docs="flow-actions" title="how this page works">📖 docs</button>
         <span class="help" data-tip="Score = Kingman queue factor ρ/(1−ρ) × downstream reach. The Goal: improve the bottleneck and the whole system improves; improve anywhere else and you've improved nothing. Act top-to-bottom: cap WIP (free) before adding people (expensive).">?</span></h2>
         <div id="constraint-cards"></div>
       </div>
@@ -110,7 +111,7 @@
   <section id="view-simulator" class="view">
     <div class="sim-grid">
       <div class="panel-card" id="feature-editor">
-        <h2>Feature definition</h2>
+        <h2>Feature definition <button type="button" class="docs-link" data-docs="simulator" title="how this page works">📖 docs</button></h2>
         <div class="epic-import">
           <input id="epic-key" placeholder="ABC-12345" size="12">
           <button id="import-epic">Import epic</button>
@@ -147,7 +148,7 @@
 
   <section id="view-scoreboard" class="view">
     <div class="panel-card">
-      <h2>Pod flow scoreboard <span class="hint">(mined from Jira, last 180 days)</span>
+      <h2>Pod flow scoreboard <span class="hint">(mined from Jira, last 180 days)</span> <button type="button" class="docs-link" data-docs="scoreboard" title="how this page works">📖 docs</button>
       <span class="help" data-tip="Sort by Dependents = who is everyone waiting on. Sort by Load ρ = who is drowning. Both at once ('hub under load') is the most dangerous cell on this screen. Kingman × shows the wait multiplier at current load (∞ when a pod is over 100% — its queue can't self-clear).">?</span></h2>
       <div id="wip-summary" class="wip-summary"></div>
       <table id="score-table"></table>
@@ -156,7 +157,7 @@
 
   <section id="view-hygiene" class="view">
     <div class="panel-card">
-      <h2>Jira data hygiene <span class="hint">(what's starving the model — fix these to sharpen every forecast)</span>
+      <h2>Jira data hygiene <span class="hint">(what's starving the model — fix these to sharpen every forecast)</span> <button type="button" class="docs-link" data-docs="hygiene" title="how this page works">📖 docs</button>
       <span class="help" data-tip="Each gap degrades a specific output: unsized tasks → epic forecasts fall back to the pod's median item; stale In-Progress items → WIP and queue heat are overstated, polluting the freeze list; unassigned in-progress → zombie work; low link density → the dependency graph and suggestions under-represent real coupling. Click a pod row to drill into categories, then a category to see the individual Jiras.">?</span></h2>
       <div id="hygiene-cards" class="stat-cards"></div>
       <table id="hygiene-table" class="sortable" style="margin-top:14px"></table>

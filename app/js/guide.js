@@ -295,7 +295,7 @@ const PERSONAS = {
   },
 };
 
-// openUsage shows the offline manual (app/usage.html) in the guide overlay's
+// openUsage shows the offline manual (app/docs.html) in the guide overlay's
 // iframe slot; `anchor` scrolls it to a section (spec 012 FR-003).
 export function openUsage(anchor) {
   const overlay = document.getElementById('guide-overlay');
@@ -304,7 +304,7 @@ export function openUsage(anchor) {
   const t = document.getElementById('guide-title'); if (t) t.textContent = 'Usage guide';
   document.getElementById('guide-personas').innerHTML = '';
   document.getElementById('guide-body').innerHTML =
-    '<iframe class="briefing-frame" src="usage.html" title="Conway usage guide"></iframe>';
+    '<iframe class="briefing-frame" src="docs.html" title="Conway in-app manual"></iframe>';
   if (anchor) {
     const frame = document.querySelector('#guide-body iframe');
     frame?.addEventListener('load', () => {
