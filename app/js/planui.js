@@ -9,6 +9,7 @@ import {
 import { esc, orderViewHTML, schedulingFromForm, initiativeEditDialogHTML, initiativeEditFromBody, wipModelsTableHTML } from './order.js';
 import { exportBlockPNG } from './exportpng.js';
 import { attachDrag } from './drag.js';
+import { openDocs } from './docs.js';
 import { fuzzyMatch } from './filter.js';
 import { baselineChipHTML, baselinePanelHTML, saveErrorMessage, latestOnly } from './baseline.js';
 import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
@@ -22,6 +23,13 @@ let root, current = null;
 let wipModelsPendingFor = null;
 
 export function initPlanUI() {
+  // Docs deep links (spec 012 FR-003): any .usage-link opens the in-app
+  // manual at its anchor. Delegated — warnings re-render constantly.
+  document.addEventListener('click', (ev) => {
+    const link = ev.target.closest?.('.usage-link');
+    if (!link) return;
+    openDocs(link.dataset.anchor);
+  });
   // The assumptions dialog's ESC + focus management: ONE handler for the app's
   // lifetime (renderOrder re-renders the dialog constantly; per-render
   // listeners would stack). ESC closes wherever focus sits; on close, focus
@@ -145,7 +153,7 @@ function renderPlan() {
     ${current.isDraft ? `<p class="plan-warn">✎ Previewing an unsaved initiatives upload — nothing is saved yet.
       <button id="plan-draft-save" class="primary">Save initiatives</button>
       <button id="plan-draft-discard">Discard</button></p>` : ''}
-    ${unknown.length ? `<p class="plan-warn">⚠ ${unknown.length} pod(s) referenced by initiatives but missing from the roster: ${unknown.map(esc).join(', ')} — <button type="button" id="unknown-fix" class="warn-act">switch roster</button> or fix the sheet.</p>` : ''}
+    ${unknown.length ? `<p class="plan-warn">⚠ ${unknown.length} pod(s) referenced by initiatives but missing from the roster: ${unknown.map(esc).join(', ')} — <button type="button" id="unknown-fix" class="warn-act">switch roster</button> or fix the sheet. <button type="button" class="usage-link" data-anchor="warnings">learn more</button></p>` : ''}
     ${nTeams > 0 && nInit > 0 ? `<div class="plan-views"><span class="seg">
       <button class="${view() === 'network' ? 'seg-on' : ''}" id="view-network">Network</button><button class="${view() === 'order' ? 'seg-on' : ''}" id="view-order">Order</button><button class="${view() === 'timeline' ? 'seg-on' : ''}" id="view-timeline">▦ Timeline</button>
     </span>${baselineChipHTML(current.baselines)}</div>` : ''}
@@ -208,6 +216,15 @@ function renderPlan() {
 }
 
 const view = () => ['order', 'timeline'].includes(current && current.view) ? current.view : 'network';
+
+// Spec 012 FR-004: one-time callouts. Dismissal persists per session.
+function wireCallouts(host) {
+  host.querySelectorAll('.callout-dismiss').forEach((b) =>
+    b.addEventListener('click', () => {
+      sessionStorage.setItem(`conway-callout-${b.dataset.dismiss}`, '1');
+      host.querySelector(`[data-callout="${b.dataset.dismiss}"]`)?.remove();
+    }));
+}
 
 // loadWipModels re-asks for the order with the per-model comparison attached, for
 // the assumptions dialog. A failure is quiet on purpose: the dialog's job is editing
@@ -568,6 +585,13 @@ function applyLiveAssumptions() {
 async function renderTimeline() {
   const host = document.getElementById('plan-dash');
   if (!host) return;
+  // Spec 012 FR-004: first-visit callout, dismissed once per session.
+  const callout = (key, text) => {
+    const k = `conway-callout-${key}`;
+    if (sessionStorage.getItem(k)) return '';
+    return `<p class="plan-warn callout" data-callout="${key}">${text}
+      <button type="button" class="callout-dismiss" data-dismiss="${key}">got it</button></p>`;
+  };
   if (!current.schedule) {
     host.innerHTML = '<p class="hint">Working out the order…</p>';
     const forPlan = current.id;
@@ -640,8 +664,10 @@ async function renderTimeline() {
     <p class="hint" id="tl-drag-note" hidden></p>
     <div id="tl-main"></div>
     <div id="tl-pod"></div>`;
+  host.insertAdjacentHTML('afterbegin', callout('timeline', 'Drag bars to move work between weeks or tracks; the engine reschedules everything. Filter to one initiative or one pod; ⛶ for room. Waterfall order under a filter shows the chain top-to-bottom.'));
   host.querySelectorAll('[data-tlspan]').forEach((b) =>
     b.addEventListener('click', () => { current.tlSpan = b.dataset.tlspan; renderTimeline(); }));
+  wireCallouts(host);
   // Fullscreen (spec 008): lane-accurate dragging needs the real estate. ESC
   // exits — the stable document-level keydown lives in initPlanUI so the
   // re-render never stacks handlers.
@@ -830,6 +856,13 @@ async function renderTimeline() {
 async function renderOrder() {
   const host = document.getElementById('plan-dash');
   if (!host) return;
+  // Spec 012 FR-004: first-visit callout, dismissed once per session.
+  const callout = (key, text) => {
+    const k = `conway-callout-${key}`;
+    if (sessionStorage.getItem(k)) return '';
+    return `<p class="plan-warn callout" data-callout="${key}">${text}
+      <button type="button" class="callout-dismiss" data-dismiss="${key}">got it</button></p>`;
+  };
   if (!current.schedule) {
     host.innerHTML = '<p class="hint">Working out the order…</p>';
     // What this request is for. Checked again on arrival, because between issuing it
@@ -871,7 +904,8 @@ async function renderOrder() {
   const schedForForm = current.calDraft
     ? { ...schedOpts, calendars: current.calDraft }
     : schedOpts;
-  host.innerHTML = orderViewHTML(current.schedule, {
+  host.innerHTML = callout('order', 'Your stated priority order is the working plan — ⚡ Optimize suggests, pins hold, ✎ edits. Baselines freeze what you accept.')
+    + orderViewHTML(current.schedule, {
     noPin: current.isDraft, // nothing is saved to pin against on a draft
     engineRanks: current.schedule.engineRanks, // spec 006: the suggestion column
     storedInitiatives: current.initiatives, // spec 009: the sheet's own dates, pre-scheduler
@@ -880,7 +914,7 @@ async function renderOrder() {
     scheduling: schedForForm,
   }) + baselinePanelHTML(current.baselines, current.baselineCompare, current.isDraft);
   applyLiveAssumptions(); // edits carried across an add/del re-render
-  wireBaselineControls();
+  wireCallouts(host);
   host.querySelectorAll('.ord-options').forEach((b) =>
     b.addEventListener('click', () => toggleRemedies(b)));
   // AC 8.1: the timeline opens from the order view in one action.

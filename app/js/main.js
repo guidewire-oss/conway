@@ -274,5 +274,7 @@ document.getElementById('net-plan')?.addEventListener('click', () => document.ge
 // Bootstrap form adoption (spec 011 FR-001): class-inject before the first
 // render so native focus/validation semantics load with the app.
 import { initForms } from './forms.js';
+import { initDocs } from './docs.js';
 initForms();
+initDocs();
 initAuth().then(load);
