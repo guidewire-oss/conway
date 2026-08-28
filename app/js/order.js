@@ -232,7 +232,8 @@ export function infeasibleNote(sched) {
   if (!stuck.length) return '';
   const names = stuck.map((si) => `${esc(si.name)} <span class="hint">(needs ${weekLabel(si.commitWeek)}, wanted ${weekLabel(si.targetWeek)})</span>`);
   return `<p class="plan-warn">⚠ ${stuck.length} date${stuck.length > 1 ? 's' : ''} no ordering can meet: ${names.join(' · ')}.
-    Only a later date, less scope or an earlier start moves these.</p>`;
+    Only a later date, less scope or an earlier start moves these.
+    <button type="button" class="usage-link" data-anchor="warnings">learn more</button></p>`;
 }
 
 // feverZone applies the Observe fever chart's thresholds (sim.js feverPoint):
