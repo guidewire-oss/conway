@@ -23,7 +23,7 @@ assert.ok(modules.length > 0, 'no app modules found — the test is broken, not 
 // those: presence + a compile-only parse (a SyntaxError fails; DOM access
 // cannot happen because the source is never run). An emptied file — the
 // drag.js incident — fails the presence check.
-const DOM_AT_TOP_LEVEL = new Set(['main.js', 'sortable.js']);
+const DOM_AT_TOP_LEVEL = new Set(['main.js', 'sortable.js', 'docs.js']);
 
 test(`every app module is present and loads (${modules.length} modules)`, async (t) => {
   for (const mod of modules) {

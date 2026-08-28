@@ -9,7 +9,7 @@ import {
 import { esc, orderViewHTML, schedulingFromForm, initiativeEditDialogHTML, initiativeEditFromBody, wipModelsTableHTML } from './order.js';
 import { exportBlockPNG } from './exportpng.js';
 import { attachDrag } from './drag.js';
-import { openUsage } from './guide.js';
+import { openDocs } from './docs.js';
 import { fuzzyMatch } from './filter.js';
 import { baselineChipHTML, baselinePanelHTML, saveErrorMessage, latestOnly } from './baseline.js';
 import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
@@ -23,12 +23,12 @@ let root, current = null;
 let wipModelsPendingFor = null;
 
 export function initPlanUI() {
-  // Usage deep links (spec 012 FR-003): any .usage-link opens the offline
+  // Docs deep links (spec 012 FR-003): any .usage-link opens the in-app
   // manual at its anchor. Delegated — warnings re-render constantly.
   document.addEventListener('click', (ev) => {
     const link = ev.target.closest?.('.usage-link');
     if (!link) return;
-    import('./guide.js').then((g) => g.openUsage(link.dataset.anchor));
+    openDocs(link.dataset.anchor);
   });
   // The assumptions dialog's ESC + focus management: ONE handler for the app's
   // lifetime (renderOrder re-renders the dialog constantly; per-render
@@ -216,6 +216,15 @@ function renderPlan() {
 }
 
 const view = () => ['order', 'timeline'].includes(current && current.view) ? current.view : 'network';
+
+// Spec 012 FR-004: one-time callouts. Dismissal persists per session.
+function wireCallouts(host) {
+  host.querySelectorAll('.callout-dismiss').forEach((b) =>
+    b.addEventListener('click', () => {
+      sessionStorage.setItem(`conway-callout-${b.dataset.dismiss}`, '1');
+      host.querySelector(`[data-callout="${b.dataset.dismiss}"]`)?.remove();
+    }));
+}
 
 // loadWipModels re-asks for the order with the per-model comparison attached, for
 // the assumptions dialog. A failure is quiet on purpose: the dialog's job is editing
@@ -658,6 +667,7 @@ async function renderTimeline() {
   host.insertAdjacentHTML('afterbegin', callout('timeline', 'Drag bars to move work between weeks or tracks; the engine reschedules everything. Filter to one initiative or one pod; ⛶ for room. Waterfall order under a filter shows the chain top-to-bottom.'));
   host.querySelectorAll('[data-tlspan]').forEach((b) =>
     b.addEventListener('click', () => { current.tlSpan = b.dataset.tlspan; renderTimeline(); }));
+  wireCallouts(host);
   // Fullscreen (spec 008): lane-accurate dragging needs the real estate. ESC
   // exits — the stable document-level keydown lives in initPlanUI so the
   // re-render never stacks handlers.
@@ -712,14 +722,6 @@ async function renderTimeline() {
   };
   // dragNote paints the drag outcome line above the timeline (success is
   // silence; an overlap refusal names the conflict).
-  // Spec 012 FR-004: one-time callouts. Dismissal persists per session.
-  function wireCallouts() {
-    host.querySelectorAll('.callout-dismiss').forEach((b) =>
-      b.addEventListener('click', () => {
-        sessionStorage.setItem(`conway-callout-${b.dataset.dismiss}`, '1');
-        host.querySelector(`[data-callout="${b.dataset.dismiss}"]`)?.remove();
-      }));
-  }
   function dragNote(msg) {
     const el = document.getElementById('tl-drag-note');
     if (!el) return;
@@ -917,7 +919,7 @@ async function renderOrder() {
     scheduling: schedForForm,
   }) + baselinePanelHTML(current.baselines, current.baselineCompare, current.isDraft);
   applyLiveAssumptions(); // edits carried across an add/del re-render
-  wireCallouts();
+  wireCallouts(host);
   host.querySelectorAll('.ord-options').forEach((b) =>
     b.addEventListener('click', () => toggleRemedies(b)));
   // AC 8.1: the timeline opens from the order view in one action.

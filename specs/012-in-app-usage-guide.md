@@ -15,7 +15,7 @@ baseline, compare, timeline — but nothing in the app teaches that loop. The
 Guide modal routes by persona but froze before planning existed; vocabulary
 tooltips cover words, not procedure. This spec adds a **Planning Manager
 persona** to the Guide (clickable steps that navigate), a **dismissible
-first-visit callout** on Order and Timeline, an **in-app usage panel** (the
+first-visit callout** on Order and Timeline, an **in-app docs panel** (the
 manual, shipped offline in `app/`), and **deep links** from warnings into it.
 
 ---
@@ -62,17 +62,17 @@ verdicts and the interactions
 > Then the app navigates to the step's view (and opens its dialog where the
 > step says so)
 
-**AC 2.1: The usage panel is offline-complete**
+**AC 2.1: The docs panel is offline-complete**
 
 > Given no network
-> When the usage panel opens
+> When the docs panel opens
 > Then every section renders (the content ships inside `app/`)
 
 **AC 3.1: Warnings deep-link**
 
 > Given the missing-pod or no-period-start warning
 > When "learn more" is clicked
-> Then the usage panel opens scrolled to the matching section
+> Then the docs panel opens scrolled to the matching section
 
 **AC 3.2: First-visit callouts dismiss for good**
 
@@ -87,7 +87,7 @@ verdicts and the interactions
 | ID | Requirement | Priority |
 |----|------------|----------|
 | FR-001 | The Guide modal MUST gain a Planning Manager persona whose steps navigate on click | MUST |
-| FR-002 | A usage panel (theme-styled overlay, content shipped in `app/usage.html`) MUST open from the Guide and from setup-card "learn more" links | MUST |
+| FR-002 | A docs panel (theme-styled overlay, content shipped in `app/docs.html`) MUST open from the Guide and from setup-card "learn more" links | MUST |
 | FR-003 | Warnings (missing pods, no period start, beyond-horizon) MUST carry "learn more" deep links into the panel | MUST |
 | FR-004 | First-visit callouts on Order and Timeline MUST be dismissible and session-persistent | SHOULD |
 | FR-005 | The panel MUST cover: the planning ritual, effort model & chunking, verdicts & fever chart, baselines & comparison, pins/drags/filters, WIP models & stagger | MUST |
@@ -112,7 +112,7 @@ verdicts and the interactions
 
 ## 8. API Contract
 
-None — all content ships in `app/usage.html`.
+None — all content ships in `app/docs.html`.
 
 ---
 
@@ -139,7 +139,7 @@ entry points.
 
 **Decision:** The Guide modal stays the single entry for "how do I use this":
 it gains the Planning Manager persona (routing steps), and each step can open
-the usage panel at an anchor. The panel is one overlay shipped offline.
+the docs panel at an anchor. The panel is one overlay shipped offline.
 
 **Alternatives considered:**
 - Wiki-style separate docs view — rejected: fragments help content and

@@ -450,11 +450,11 @@ export function verdictBannerHTML(sched, opts = {}) {
     if (opts.sheetHasDates) {
       return `<div class="verdict-banner verdict-none">The sheet carries target dates, but the plan has no period start —
         dates cannot become weeks without one. Set it in ⚙ Assumptions and every verdict on this page comes alive.
-        <button type="button" class="usage-link" data-anchor="ritual">learn more</button></div>`;
+        <button type="button" class="usage-link" data-anchor="planning-loop">learn more</button></div>`;
     }
     return `<div class="verdict-banner verdict-none">No target dates yet — dates are what the verdicts measure.
       Add one via ✎ on any row below (or upload a sheet with a Target Date column) and every date on this page comes alive.
-      <button type="button" class="usage-link" data-anchor="verdicts">learn more</button></div>`;
+      <button type="button" class="usage-link" data-anchor="order">learn more</button></div>`;
   }
   // Every non-on-time verdict counts — unschedulable rows have weeksLate 0
   // (the verdict carries the information), so filtering on verdict alone is
@@ -544,6 +544,8 @@ export function orderHeaderHTML(sched, opts = {}) {
     ${yours ? optimizeOfferHTML(sched) : ''}
     ${yours ? `${term('optimize')}<button type="button" class="primary" id="ord-optimize" title="Run every dispatch rule and present the best ordering beside yours, priced. Accepting it is always your call — this is an optimization, not the solution.">⚡ Optimize order</button>`
       : `<button type="button" id="ord-unoptimize" title="Return to your stated order. The engine's proposal stays available.">↩ back to your order</button>`}
+    <button type="button" class="docs-link" data-docs="order" title="how the Order view works — every column and action">📖 docs</button>
+    <button type="button" class="docs-link" data-docs="order" title="how the Order view works — every column and action">📖 docs</button>
     <button type="button" id="sched-open" title="period start, WIP model, buffers, freezes — set once">⚙ Assumptions</button>
     <button type="button" id="tl-open" title="open this order as a timeline (Story 8)">▦ Open timeline ▸</button>
     <span class="ord-bl-head">
