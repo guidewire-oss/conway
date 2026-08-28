@@ -27,6 +27,13 @@ function ensureOverlay() {
       </div>
     </div>`;
   document.body.appendChild(overlay);
+  // Forward Escape from inside the iframe: key events stay in the iframe's
+  // document and BS Modal never sees them (cubic P2).
+  frame.addEventListener('load', () => {
+    frame.contentWindow.document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape') { const m = bootstrap.Modal.getInstance(ov); if (m) m.hide(); }
+    });
+  }, { once: true });
   return overlay;
 }
 
@@ -42,7 +49,13 @@ export function openDocs(section) {
     frame.contentWindow.location.hash = section || '';
   } else {
     frame.src = target;
-    frame.addEventListener('load', () => { frame.dataset.loaded = '1'; }, { once: true });
+    frame.addEventListener('load', () => {
+      frame.dataset.loaded = '1';
+      // Propagate the app's theme to the iframe document (cubic P2: the
+      // manual stayed dark in light mode).
+      frame.contentWindow.document.documentElement.setAttribute('data-bs-theme',
+        document.documentElement.getAttribute('data-bs-theme') || 'dark');
+    }, { once: true });
   }
 }
 

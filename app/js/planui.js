@@ -694,11 +694,6 @@ async function renderTimeline() {
       }, 120);
     });
   }
-  host.querySelectorAll('.callout-dismiss').forEach((b) =>
-    b.addEventListener('click', () => {
-      sessionStorage.setItem(`conway-callout-${b.dataset.dismiss}`, '1');
-      host.querySelector(`[data-callout="${b.dataset.dismiss}"]`)?.remove();
-    }));
   document.getElementById('tl-hide-empty')?.addEventListener('change', (ev) => {
     current.tlHideEmpty = ev.target.checked;
     renderTimeline();

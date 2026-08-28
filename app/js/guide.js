@@ -379,7 +379,7 @@ export function initGuide(state) {
           if (dest === 'plan') {
             document.querySelector('.plan-setup')?.setAttribute('open', '');
           } else {
-            document.getElementById(`view-${dest}`)?.click();
+            document.getElementById(`view-${dest === 'baseline' ? 'order' : dest}`)?.click();
           }
         }, 350);
       }));
