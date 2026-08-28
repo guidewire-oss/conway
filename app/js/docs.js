@@ -29,8 +29,9 @@ function ensureOverlay() {
   document.body.appendChild(overlay);
   // Forward Escape from inside the iframe: key events stay in the iframe's
   // document and BS Modal never sees them (cubic P2).
-  frame.addEventListener('load', () => {
-    frame.contentWindow.document.addEventListener('keydown', (ev) => {
+  const frm = overlay.querySelector('#docs-frame');
+  frm.addEventListener('load', () => {
+    frm.contentWindow.document.addEventListener('keydown', (ev) => {
       if (ev.key === 'Escape') { const m = bootstrap.Modal.getInstance(ov); if (m) m.hide(); }
     });
   }, { once: true });
@@ -47,12 +48,14 @@ export function openDocs(section) {
   // setting the hash on a loaded frame scrolls it; a fresh load picks it up
   if (frame.dataset.loaded === '1') {
     frame.contentWindow.location.hash = section || '';
+    // Re-apply theme on every open — a theme toggle between opens would
+    // leave the iframe in its old palette (cubic P2).
+    frame.contentWindow.document.documentElement.setAttribute('data-bs-theme',
+      document.documentElement.getAttribute('data-bs-theme') || 'dark');
   } else {
     frame.src = target;
     frame.addEventListener('load', () => {
       frame.dataset.loaded = '1';
-      // Propagate the app's theme to the iframe document (cubic P2: the
-      // manual stayed dark in light mode).
       frame.contentWindow.document.documentElement.setAttribute('data-bs-theme',
         document.documentElement.getAttribute('data-bs-theme') || 'dark');
     }, { once: true });

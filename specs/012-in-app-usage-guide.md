@@ -89,7 +89,7 @@ verdicts and the interactions
 |----|------------|----------|
 | FR-001 | The Guide modal MUST gain a Planning Manager persona whose steps navigate on click | MUST |
 | FR-002 | A docs panel (theme-styled overlay, content shipped in `app/docs.html`) MUST open from the Guide and from setup-card "learn more" links | MUST |
-| FR-003 | Warnings (missing pods, no period start, beyond-horizon) MUST carry "learn more" deep links into the panel | MUST (beyond-horizon covered by the no-dates banner which fires alongside it) |
+| FR-003 | Warnings (missing pods, no period start, beyond-horizon) MUST carry "learn more" deep links into the panel | MUST (beyond-horizon gets its own link: it fires alongside no-dates only when the plan also lacks a period start, so the two banners are not interchangeable) |
 | FR-004 | First-visit callouts on Order and Timeline MUST be dismissible and session-persistent | SHOULD |
 | FR-005 | The panel MUST cover: the planning ritual, effort model & chunking, verdicts & fever chart, baselines & comparison, pins/drags/filters, WIP models & stagger | MUST |
 
