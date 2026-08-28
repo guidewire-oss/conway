@@ -1079,5 +1079,6 @@ export function fitNote(fit, horizonWeeks) {
          <b>${esc(fit.heldBy[0].constraint)}</b> held ${fit.heldBy[0].count > 1 ? 'them' : 'it'} out`
       : `${load}% of capacity is used, and the release rules held ${many ? 'them' : 'it'} out`;
   return `<p class="plan-warn ord-fit">${n} initiative${many ? 's' : ''}
-    ${many ? 'do' : 'does'} not fit this ${horizon}-week period: ${why}.</p>`;
+    ${many ? 'do' : 'does'} not fit this ${horizon}-week period: ${why}.
+    <button type="button" class="usage-link" data-anchor="warnings">learn more</button></p>`;
 }
