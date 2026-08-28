@@ -250,6 +250,18 @@ function computeInsights(state, wipSummary) {
 }
 
 const PERSONAS = {
+  planner: {
+    label: 'Planning Manager',
+    intro: 'You turn a roster and an initiative list into an execution order the org can commit to. The loop: set up, review the order, shape it, freeze it, compare.',
+    path: [
+      ['Plan setup', 'Open your plan. The setup disclosure holds the roster, the initiatives matrix and the capacity loss; the ⚙ Assumptions dialog holds the period start, WIP model, estimate model, buffers and freezes. The Set-up card offers recommended defaults until every choice is made.', 'plan'],
+      ['The Order', 'The verdict banner is the answer ("N of M dates at risk"). Your stated priority order is the working plan; the engine\u2019s suggestion shows as ↳N. Pin, edit with ✎, or press ⚡ Optimize — accepting a proposal is always your call.', 'order'],
+      ['Baseline it', 'Freeze the agreed order with Save as baseline (Order header). It stores the schedule and the inputs that produced it, so later re-plans are measured against it.', 'baseline'],
+      ['Compare', 'Compare the live order against a baseline, or two baselines against each other: rank, start and commit deltas per initiative. The gap between agreed and proposed is the decision.', 'order'],
+      ['Timeline', 'By initiative or by pod. Drag bars to move work between weeks or tracks, filter to one initiative across all pods, full-screen for room. ESC exits.', 'timeline'],
+      ['Usage guide', 'The full manual — models, verdicts, interactions, warnings — ships in-app. Open it from the link below whenever a term or a warning is unclear.', 'usage'],
+    ],
+  },
   exec: {
     label: 'Executive / VP',
     intro: 'You manage the system, not the tasks. Your levers: where attention goes, what gets frozen, '
@@ -282,6 +294,25 @@ const PERSONAS = {
     ],
   },
 };
+
+// openUsage shows the offline manual (app/usage.html) in the guide overlay's
+// iframe slot; `anchor` scrolls it to a section (spec 012 FR-003).
+export function openUsage(anchor) {
+  const overlay = document.getElementById('guide-overlay');
+  if (!overlay) return;
+  openModal(overlay);
+  const t = document.getElementById('guide-title'); if (t) t.textContent = 'Usage guide';
+  document.getElementById('guide-personas').innerHTML = '';
+  document.getElementById('guide-body').innerHTML =
+    '<iframe class="briefing-frame" src="usage.html" title="Conway usage guide"></iframe>';
+  if (anchor) {
+    const frame = document.querySelector('#guide-body iframe');
+    frame?.addEventListener('load', () => {
+      try { frame.contentWindow.document.getElementById(anchor)?.scrollIntoView({ block: 'start' }); }
+      catch { /* cross-origin guard; same-origin in practice */ }
+    }, { once: true });
+  }
+}
 
 export function initGuide(state) {
   let wipSummary = {};
@@ -324,7 +355,8 @@ export function initGuide(state) {
         docs/snapshots-and-scenarios.md.</div>
       <p class="guide-intro">${p.intro}</p>
       <h3>Where to look, in order</h3>
-      <ol class="guide-path">${p.path.map(([t, d]) => `<li><b>${t}</b> — ${d}</li>`).join('')}</ol>
+      <ol class="guide-path">${p.path.map(([t, d, nav]) => `<li><b>${t}</b> — ${d}${nav ? ` <button type="button" class="guide-go" data-nav="${nav}">go ›</button>` : ''}</li>`).join('')}</ol>
+      <p><button type="button" class="primary" id="usage-open">📖 Open the usage guide</button></p>
       <h3>Today's insights from your data</h3>
       ${insights.map((i) => `
         <div class="insight">
@@ -333,5 +365,27 @@ export function initGuide(state) {
           <div class="i-why"><b>Why:</b> ${i.why}</div>
         </div>`).join('')}
       <p class="hint">Numbers update with every data refresh — these are computed live, not canned.</p>`;
+
+    // Spec 012: the planner persona's steps navigate; the usage panel opens
+    // from any persona. Both close the modal first — the destination is the
+    // app itself.
+    overlay.querySelectorAll('.guide-go').forEach((b) =>
+      b.addEventListener('click', () => {
+        closeModal(overlay);
+        if (b.dataset.nav === 'usage') { openUsage(); return; }
+        document.querySelector('.tab[data-view="plan"]')?.click();
+        setTimeout(() => {
+          const dest = b.dataset.nav;
+          if (dest === 'plan') {
+            document.querySelector('.plan-setup')?.setAttribute('open', '');
+          } else {
+            document.getElementById(`view-${dest}`)?.click();
+          }
+        }, 350);
+      }));
+    document.getElementById('usage-open')?.addEventListener('click', () => {
+      closeModal(overlay);
+      openUsage();
+    });
   }
 }
