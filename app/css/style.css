@@ -388,6 +388,16 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .tag { font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em; padding: 1px 6px; border-radius: 8px; background: var(--panel2); color: var(--muted); border: 1px solid var(--border); }
 
 .ord-table td { vertical-align: baseline; }
+.ord-table th { position: sticky; top: 0; z-index: 2; background: var(--bg); }
+/* Sticky headers only work inside a scroll container (style.css:98 documents
+   this hazard). The Order card gets one so the 29-row table scrolls with its
+   headers pinned, instead of page-scrolling past the viewport top. */
+.ord-scroll { max-height: calc(100vh - 240px); overflow-y: auto; }
+.ord-table th { position: sticky; top: 0; z-index: 2; background: var(--bg); }
+/* Sticky headers only work inside a scroll container (style.css:98 documents
+   this hazard). The Order card gets one so the 29-row table scrolls with its
+   headers pinned, instead of page-scrolling past the viewport top. */
+.ord-scroll { max-height: calc(100vh - 240px); overflow-y: auto; }
 .ord-row:hover td { background: var(--panel2); }
 .ord-why td { border-bottom: 1px solid rgba(43,58,74,.4); padding-top: 0; }
 .ord-move { color: var(--accent); font-weight: 600; }
@@ -608,13 +618,20 @@ button.bl-chip:focus-visible { outline: 2px solid var(--accent); outline-offset:
   font-variant-numeric: tabular-nums; font-size: 12px; }
 
 /* ── IA #2: verdict banner, comparison bars, assumptions dialog ─────────── */
-.verdict-banner { border-radius: var(--bs-border-radius); padding: 10px 16px;
-  margin: 0 0 10px; font-size: 14px; line-height: 1.55; border: 1px solid var(--border); }
-.verdict-banner b { font-size: 15px; }
-.verdict-miss { background: rgba(var(--c-danger), .10); border-color: rgba(var(--c-danger), .45);
+.verdict-banner { border-radius: var(--bs-border-radius-lg); padding: 16px 20px;
+  margin: 0 0 14px; font-size: 16px; line-height: 1.55; border: 1.5px solid var(--border); }
+.verdict-banner b { font-size: 18px; }
+.verdict-banner .verdict-icon { font-size: 28px; vertical-align: middle; margin-right: 8px; }
+.verdict-miss { background: rgba(var(--c-danger), .15); border-color: rgba(var(--c-danger), .5);
   color: var(--text); }
-.verdict-ok { background: rgba(var(--c-success), .10); border-color: rgba(var(--c-success), .45); }
+.verdict-ok { background: rgba(var(--c-success), .15); border-color: rgba(var(--c-success), .5); }
 .verdict-none { background: var(--bs-secondary-bg); color: var(--muted); }
+.ord-hero { display: flex; align-items: center; gap: 14px; margin: 0 0 14px;
+  padding: 14px 18px; border-radius: var(--bs-border-radius-lg); }
+.ord-hero .verdict-icon { font-size: 32px; }
+.ord-hero-body { flex: 1; }
+.ord-hero-headline { font-size: 18px; font-weight: 700; margin: 0 0 2px; }
+.ord-hero-sub { color: var(--muted); font-size: 13px; margin: 0; }
 
 .ord-bars { display: inline-flex; flex-direction: column; gap: 4px;
   min-width: min(340px, 100%); max-width: 100%; }
