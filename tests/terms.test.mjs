@@ -16,7 +16,7 @@ test('the affordance is a real button with a complete accessible name (WCAG 1.3.
   const html = term('rho');
   assert.match(html, /<button[^>]*class="help term-tip"/);
   assert.match(html, /aria-label="What does Load ρ mean\?"/);
-  assert.match(html, /data-tip="/);
+  assert.match(html, /data-bs-title="/);
 });
 
 test('the term label renders beside the affordance when given', () => {
@@ -33,7 +33,7 @@ test('tooltip text stays a well-formed attribute value', () => {
   // Definitions are literals today, but the affordance interpolates them into
   // a double-quoted attribute — a raw double quote would break out of it.
   const html = term('weighted-late');
-  const m = html.match(/data-tip="([^"]*)"/); // the regex only matches if no raw " inside
+  const m = html.match(/data-bs-title="([^"]*)"/); // the regex only matches if no raw " inside
   assert.ok(m, 'data-tip value contains no raw double quote');
   assert.ok(!/undefined|NaN/.test(html), 'no leaked undefined');
 });

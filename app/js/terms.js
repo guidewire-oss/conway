@@ -137,7 +137,7 @@ export function term(id, label) {
   const t = TERMS[id];
   const text = String(t.tip).replace(/"/g, '&quot;');
   return `${label ? `${esc(label)} ` : ''}` +
-    `<button type="button" class="help term-tip" data-tip="${text}" ` +
+    `<button type="button" class="help term-tip" data-bs-toggle="tooltip" data-bs-title="${text}" ` +
     `aria-label="What does ${esc(t.label)} mean?" title="${text}">?</button>`;
 }
 
