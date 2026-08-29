@@ -299,14 +299,6 @@ table.sortable thead th.sort-desc::after { content: " ▼"; font-size: 9px; opac
 .pods-toggle-lbl { font-weight: 600; }
 .btn-group .btn { font-size: 12px; padding: 5px 12px; border: 0; color: var(--muted); background: transparent; cursor: pointer; }
 .btn-group .btn.active { background: var(--panel2); color: var(--text); }
-/* planui's network toggle applies .seg to the buttons themselves rather than to a
-   wrapper, so the descendant rule above never matches and its active state had no
-   styling at all. This gives that spelling a usable active state — it does NOT
-   reproduce the wrapper's joined pill, because a flat button keeps the global
-   button border. New switchers should use the wrapper form (.plan-views below),
-   which is what the rules above are written for. */
-button.seg { background: transparent; color: var(--muted); padding: 5px 12px; cursor: pointer; font-size: 12px; }
-button.seg.seg-on { background: var(--panel2); color: var(--text); }
 #netpanel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; overflow-y: auto; max-height: calc(100vh - 175px); }
 #netpanel h2 { color: var(--accent); }
 #netpanel dl { margin: 8px 0; }

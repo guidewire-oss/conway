@@ -348,7 +348,7 @@ export function podHeatmapHTML(sched, horizonWeeks) {
   // the week number alone asks the planner to do date arithmetic in their head.
   const head = Array.from({ length: weeks }, (_, w) => {
     const d = weekToDate(w, sched.periodStart);
-    return `<th class="ord-wk"${d ? ` data-tip="week of ${esc(d)}"` : ''}>${w % 5 === 0 ? w : ''}</th>`;
+    return `<th class="ord-wk"${d ? ` data-bs-toggle="tooltip" data-bs-title="week of ${esc(d)}"` : ''}>${w % 5 === 0 ? w : ''}</th>`;
   }).join('');
   const rows = pods.map((ps) => {
     const cells = Array.from({ length: weeks }, (_, w) => {

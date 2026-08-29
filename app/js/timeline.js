@@ -209,7 +209,7 @@ export function portfolioTimelineHTML(sched, opts = {}) {
   const s = axisScale(span);
   const ticks = axisTicks(span).map((t) => {
     const title = tickTitle(t.week, sched.periodStart || opts.periodStart);
-    return `<span class="tl-tick" style="${pct(s(t.week))}"${title ? ` data-tip="${esc(title)}"` : ''}>${t.label}</span>`;
+    return `<span class="tl-tick" style="${pct(s(t.week))}"${title ? ` data-bs-toggle="tooltip" data-bs-title="${esc(title)}"` : ''}>${t.label}</span>`;
   }).join('');
   const grid = axisTicks(span).map((t) =>
     `<div class="tl-grid" style="${pct(s(t.week))}"></div>`).join('');
@@ -469,7 +469,7 @@ export function podLensHTML(sched, opts = {}) {
   const s = axisScale(span);
   const ticks = axisTicks(span).map((t) => {
     const title = tickTitle(t.week, sched.periodStart || opts.periodStart);
-    return `<span class="tl-tick" style="${pct(s(t.week))}"${title ? ` data-tip="${esc(title)}"` : ''}>${t.label}</span>`;
+    return `<span class="tl-tick" style="${pct(s(t.week))}"${title ? ` data-bs-toggle="tooltip" data-bs-title="${esc(title)}"` : ''}>${t.label}</span>`;
   }).join('');
   return `<div class="panel-card tl-card">
     <div class="ord-head"><b>Timeline — by pod</b>
