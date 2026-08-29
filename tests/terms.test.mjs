@@ -34,7 +34,7 @@ test('tooltip text stays a well-formed attribute value', () => {
   // a double-quoted attribute — a raw double quote would break out of it.
   const html = term('weighted-late');
   const m = html.match(/data-bs-title="([^"]*)"/); // the regex only matches if no raw " inside
-  assert.ok(m, 'data-tip value contains no raw double quote');
+  assert.ok(m, 'data-bs-title value contains no raw double quote');
   assert.ok(!/undefined|NaN/.test(html), 'no leaked undefined');
 });
 
