@@ -156,7 +156,7 @@ function renderPlan() {
       <button id="plan-draft-discard">Discard</button></p>` : ''}
     ${unknown.length ? `<p class="plan-warn">⚠ ${unknown.length} pod(s) referenced by initiatives but missing from the roster: ${unknown.map(esc).join(', ')} — <button type="button" id="unknown-fix" class="warn-act">switch roster</button> or fix the sheet. <button type="button" class="usage-link" data-anchor="warnings">learn more</button></p>` : ''}
     ${nTeams > 0 && nInit > 0 ? `<div class="plan-views"><div class="btn-group" role="group">
-      <button class="${view() === 'network' ? 'active' : ''}" id="view-network">Network</button><button class="${view() === 'order' ? 'active' : ''}" id="view-order">Order</button><button class="${view() === 'timeline' ? 'active' : ''}" id="view-timeline">▦ Timeline</button>
+      <button class="btn ${view() === 'network' ? 'active' : ''}" id="view-network">Network</button><button class="btn ${view() === 'order' ? 'active' : ''}" id="view-order">Order</button><button class="btn ${view() === 'timeline' ? 'active' : ''}" id="view-timeline">▦ Timeline</button>
     </div>${baselineChipHTML(current.baselines)}</div>` : ''}
     ${nTeams === 0 ? `
       <div class="panel-card plan-start">
@@ -1411,7 +1411,7 @@ function paintDash() {
     <div class="plan-net panel-card">
       <div class="plan-net-head"><b>Dependency network</b>
         <span>
-          <button class="seg ${mode === 'before' ? 'active' : ''}" id="net-before">baseline</button><button class="seg ${mode === 'after' ? 'active' : ''}" id="net-after">with levers</button>
+          <button class="btn ${mode === 'before' ? 'active' : ''}" id="net-before">baseline</button><button class="btn ${mode === 'after' ? 'active' : ''}" id="net-after">with levers</button>
         </span></div>
       <div class="plan-net-wrap">
         <svg id="plan-svg"></svg>
