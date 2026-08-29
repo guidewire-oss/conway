@@ -79,13 +79,14 @@ async function renderList() {
     <div class="plan-head"><h2>Your plans</h2><button id="plan-new" class="primary">+ New plan</button><button id="plan-demo">Load demo plan</button></div>
     <p class="hint">Sample files to try the upload path: <a href="/api/sample/teams.csv" download>teams.csv</a> · <a href="/api/sample/initiatives.xlsx" download>initiatives.xlsx</a> (same data as the demo).</p>
     <table class="wip-table">
-      <thead><tr><th>Name</th><th>Pods</th><th>Initiatives</th><th>Updated</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Pods</th><th>Initiatives</th><th>Health</th><th>Updated</th><th></th></tr></thead>
       <tbody>${(plans || []).map((p) => `<tr>
         <td><a class="plan-open" data-id="${p.id}">${esc(p.name)}</a></td>
         <td>${p.teamCount || 0}</td><td>${p.initiativeCount || 0}</td>
+        <td>${p.periodStart ? '<span class="tag" style="color:var(--green)">dates ✓</span>' : '<span class="hint">no dates</span>'} ${p.baselineCount ? `<span class="tag">${p.baselineCount} baseline${p.baselineCount > 1 ? 's' : ''}</span>` : ''}</td>
         <td>${fmtDate(p.updatedAt)}</td>
         <td><button class="plan-del" data-id="${p.id}">delete</button></td></tr>`).join('')
-      || '<tr><td colspan="5" class="hint">No plans yet — create one to upload your teams &amp; initiatives.</td></tr>'}
+      || '<tr><td colspan="6" class="hint">No plans yet — create one to upload your teams &amp; initiatives.</td></tr>'}
       </tbody></table>`;
   root.querySelector('#plan-new').addEventListener('click', createPlan);
   root.querySelector('#plan-demo').addEventListener('click', async () => {
