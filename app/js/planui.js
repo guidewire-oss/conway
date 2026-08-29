@@ -155,9 +155,9 @@ function renderPlan() {
       <button id="plan-draft-save" class="primary">Save initiatives</button>
       <button id="plan-draft-discard">Discard</button></p>` : ''}
     ${unknown.length ? `<p class="plan-warn">⚠ ${unknown.length} pod(s) referenced by initiatives but missing from the roster: ${unknown.map(esc).join(', ')} — <button type="button" id="unknown-fix" class="warn-act">switch roster</button> or fix the sheet. <button type="button" class="usage-link" data-anchor="warnings">learn more</button></p>` : ''}
-    ${nTeams > 0 && nInit > 0 ? `<div class="plan-views"><span class="seg">
-      <button class="${view() === 'network' ? 'seg-on' : ''}" id="view-network">Network</button><button class="${view() === 'order' ? 'seg-on' : ''}" id="view-order">Order</button><button class="${view() === 'timeline' ? 'seg-on' : ''}" id="view-timeline">▦ Timeline</button>
-    </span>${baselineChipHTML(current.baselines)}</div>` : ''}
+    ${nTeams > 0 && nInit > 0 ? `<div class="plan-views"><div class="btn-group" role="group">
+      <button class="${view() === 'network' ? 'active' : ''}" id="view-network">Network</button><button class="${view() === 'order' ? 'active' : ''}" id="view-order">Order</button><button class="${view() === 'timeline' ? 'active' : ''}" id="view-timeline">▦ Timeline</button>
+    </div>${baselineChipHTML(current.baselines)}</div>` : ''}
     ${nTeams === 0 ? `
       <div class="panel-card plan-start">
         <h3>A plan is a roster + the initiatives you intend to run, sequenced by capacity.</h3>
@@ -644,16 +644,16 @@ async function renderTimeline() {
   const spanSel = current.tlSpan || 'period';
   const spanWeeks = (spans.find((sp) => sp.id === spanSel) || spans[0]).weeks;
   const lensBtn = (id, on, label) =>
-    `<button class="${on ? 'seg-on' : ''}" id="${id}">${label}</button>`;
+    `<button class="${on ? 'active' : ''}" id="${id}">${label}</button>`;
   host.innerHTML = `
-    <div class="plan-views"><span class="seg">
+    <div class="plan-views"><div class="btn-group" role="group">
       ${lensBtn('tl-by-initiative', lens === 'initiative', '◉ by initiative')}
       ${lensBtn('tl-by-pod', lens === 'pod', '○ by pod')}
     </span>
-    <span class="seg" title="how much of the schedule to draw — the period end is marked when the view is wider">
-      ${spans.map((sp) => `<button class="${sp.id === spanSel ? 'seg-on' : ''}" data-tlspan="${sp.id}">${sp.label}</button>`).join('')}
+    <div class="btn-group" role="group" title="how much of the schedule to draw — the period end is marked when the view is wider">
+      ${spans.map((sp) => `<button class="${sp.id === spanSel ? 'active' : ''}" data-tlspan="${sp.id}">${sp.label}</button>`).join('')}
     </span>
-    <span class="seg">
+    <div class="btn-group" role="group">
       <button id="tl-fullscreen" title="fullscreen the timeline for lane-accurate dragging (ESC to exit)">⛶ full screen</button>
     </span>
     <span class="tl-filter" id="tl-filter-box">
@@ -661,8 +661,7 @@ async function renderTimeline() {
         value="${esc(current.tlFilter || '')}" aria-label="${lens === 'pod' ? 'filter initiatives' : 'filter pods'}">
       <span class="hint" id="tl-filter-count"></span>
       ${lens === 'pod' ? `<label class="hint" title="hide pods whose initiatives all fail the filter — the waterfall shows only the chain"><input type="checkbox" id="tl-hide-empty" ${current.tlHideEmpty ? 'checked' : ''}> hide empty pods</label>` : ''}
-    </span></div>
-    <p class="hint" id="tl-drag-note" hidden></p>
+    </div></div>
     <div id="tl-main"></div>
     <div id="tl-pod"></div>`;
   host.insertAdjacentHTML('afterbegin', callout('timeline', 'Drag bars to move work between weeks or tracks; the engine reschedules everything. Filter to one initiative or one pod; ⛶ for room. Waterfall order under a filter shows the chain top-to-bottom.'));
@@ -1412,7 +1411,7 @@ function paintDash() {
     <div class="plan-net panel-card">
       <div class="plan-net-head"><b>Dependency network</b>
         <span>
-          <button class="seg ${mode === 'before' ? 'seg-on' : ''}" id="net-before">baseline</button><button class="seg ${mode === 'after' ? 'seg-on' : ''}" id="net-after">with levers</button>
+          <button class="seg ${mode === 'before' ? 'active' : ''}" id="net-before">baseline</button><button class="seg ${mode === 'after' ? 'active' : ''}" id="net-after">with levers</button>
         </span></div>
       <div class="plan-net-wrap">
         <svg id="plan-svg"></svg>
