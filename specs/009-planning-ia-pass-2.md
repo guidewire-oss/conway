@@ -142,7 +142,7 @@ material)
 | FR-003 | The no-dates banner MUST name the fix (✎ editor / Target Date column) in one sentence | MUST |
 | FR-004 | The missing-pod warning MUST offer "switch roster" inline, opening the roster picker | MUST |
 | FR-005 | An unchosen-models checklist card MUST render above the order table until every model is chosen, with one-click "use recommended" | MUST |
-| FR-006 | The plans list SHOULD show per-plan health chips: dated-count, estimate model, baseline count | SHOULD |
+| FR-006 | The plans list SHOULD show per-plan health chips: estimate model, period-start status, baseline count | DONE (2026-08-28) |
 
 ---
 
@@ -171,9 +171,9 @@ No new endpoints.
 
 ## 9. Out of Scope
 
-- The Order-view hero redesign (verdict banner scale-up, sticky headers) —
-  bigger, its own pass
-- Timeline visual legend — cosmetic, bundled later
+- ~~The Order-view hero redesign~~ — done in the critical-path PR
+- ~~Plans-list health chips —~~ done in PR #48/#49
+- ~~Timeline visual legend~~ — done in PR #49 (BS tooltips on week ticks)
 - Any engine/schedule behaviour
 
 ---

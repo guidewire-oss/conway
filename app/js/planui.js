@@ -83,7 +83,7 @@ async function renderList() {
       <tbody>${(plans || []).map((p) => `<tr>
         <td><a class="plan-open" data-id="${p.id}">${esc(p.name)}</a></td>
         <td>${p.teamCount || 0}</td><td>${p.initiativeCount || 0}</td>
-        <td>${p.periodStart ? '<span class="tag" style="color:var(--green)">dates ✓</span>' : '<span class="hint">no dates</span>'} ${p.baselineCount ? `<span class="tag">${p.baselineCount} baseline${p.baselineCount > 1 ? 's' : ''}</span>` : ''}</td>
+        <td><span class="tag">${p.estimateModel === 'effort' ? 'effort' : 'wall-clock'}</span> ${p.periodStart ? '<span class="tag" style="color:var(--green)">dates ✓</span>' : '<span class="hint">no dates</span>'} ${p.baselineCount ? `<span class="tag">${p.baselineCount} baseline${p.baselineCount > 1 ? 's' : ''}</span>` : ''}</td>
         <td>${fmtDate(p.updatedAt)}</td>
         <td><button class="plan-del" data-id="${p.id}">delete</button></td></tr>`).join('')
       || '<tr><td colspan="6" class="hint">No plans yet — create one to upload your teams &amp; initiatives.</td></tr>'}
