@@ -187,7 +187,8 @@ function applyRoleGating() {
 // dynamic content natively — replacing the custom tooltip div. The app
 // theme bridge maps bs-* vars, so tooltips follow the light/dark theme.
 new bootstrap.Tooltip(document.body, {
-  selector: '[data-bs-toggle="tooltip"], .help',
+  selector: '[data-bs-toggle="tooltip"], [data-tip], .help',
+  title: (el) => el.dataset.bsTitle ?? el.dataset.tip ?? '',
   trigger: 'hover focus',
   placement: 'bottom'
 });
