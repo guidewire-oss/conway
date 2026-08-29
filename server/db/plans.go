@@ -44,7 +44,7 @@ func (d *DB) ListPlans(owner string, all bool) ([]PlanRow, error) {
 	             COALESCE(jsonb_array_length(initiatives),0),
 	             roster_id,created_at,updated_at,
 	             scheduling->>'periodStart',
-	             (SELECT COUNT(*) FROM baselines b WHERE b.plan_id = plans.id)
+	             (SELECT COUNT(*) FROM plan_baselines b WHERE b.plan_id = plans.id)
 	             FROM plans`
 	args := []any{}
 	if !all {
