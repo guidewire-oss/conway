@@ -389,7 +389,15 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 
 .ord-table td { vertical-align: baseline; }
 .ord-table th { position: sticky; top: 0; z-index: 2; background: var(--bg); }
+/* Sticky headers only work inside a scroll container (style.css:98 documents
+   this hazard). The Order card gets one so the 29-row table scrolls with its
+   headers pinned, instead of page-scrolling past the viewport top. */
+.ord-scroll { max-height: calc(100vh - 240px); overflow-y: auto; }
 .ord-table th { position: sticky; top: 0; z-index: 2; background: var(--bg); }
+/* Sticky headers only work inside a scroll container (style.css:98 documents
+   this hazard). The Order card gets one so the 29-row table scrolls with its
+   headers pinned, instead of page-scrolling past the viewport top. */
+.ord-scroll { max-height: calc(100vh - 240px); overflow-y: auto; }
 .ord-row:hover td { background: var(--panel2); }
 .ord-why td { border-bottom: 1px solid rgba(43,58,74,.4); padding-top: 0; }
 .ord-move { color: var(--accent); font-weight: 600; }

@@ -215,13 +215,13 @@ export function rowTraceHTML(row) {
 export function orderTableHTML(sched, opts = {}) {
   const rows = orderRows(sched);
   if (!rows.length) return '<p class="hint">No initiatives to order yet.</p>';
-  return `<table class="wip-table ord-table">
+  return `<div class="ord-scroll"><table class="wip-table ord-table">
     <thead><tr>
       <th>#</th><th>Initiative</th><th>Stated</th><th>Start</th>
       <th>${term('commit', 'Commit')}</th><th>${term('target', 'Target')}</th><th>${term('verdict', 'Verdict')}</th><th>${term('binds', 'Binds')}</th>
     </tr></thead>
     <tbody>${rows.map((r) => orderRowHTML(r, opts)).join('')}</tbody>
-  </table>`;
+  </table></div>`;
 }
 
 // infeasibleNote lists the dates no ordering could meet, separately from the ones
@@ -448,15 +448,16 @@ export function verdictBannerHTML(sched, opts = {}) {
   if (!dated.length) {
     if (opts.sheetHasDates) {
       return `<div class="verdict-banner verdict-none ord-hero">
-        <span class="ord-hero-icon">📅</span>
-        <div>
+        <span class="verdict-icon">📅</span>
+        <div class="ord-hero-body">
           <p class="ord-hero-headline">Target dates can't be read yet — the plan has no period start</p>
-          <p class="ord-hero-sub">Set the period start in ⚙ Assumptions and every verdict on this page comes alive.</p>
+          <p class="ord-hero-sub">Set the period start in ⚙ Assumptions and every verdict on this page comes alive.
+            <button type="button" class="usage-link" data-anchor="planning-loop">learn more</button></p>
         </div></div>`;
     }
     return `<div class="verdict-banner verdict-none ord-hero">
-      <span class="ord-hero-icon">📅</span>
-      <div>
+      <span class="verdict-icon">📅</span>
+      <div class="ord-hero-body">
         <p class="ord-hero-headline">No target dates yet</p>
         <p class="ord-hero-sub">Add one via ✎ on any row below (or upload a sheet with a Target Date column) and every date on this page comes alive.</p>
       </div></div>`;
@@ -467,8 +468,8 @@ export function verdictBannerHTML(sched, opts = {}) {
   const missing = dated.filter((si) => si.verdict !== 'on-time');
   if (!missing.length) {
     return `<div class="verdict-banner verdict-ok ord-hero">
-      <span class="ord-hero-icon">✓</span>
-      <div>
+      <span class="verdict-icon">✓</span>
+      <div class="ord-hero-body">
         <p class="ord-hero-headline">All ${dated.length} date${dated.length > 1 ? 's' : ''} hold</p>
         <p class="ord-hero-sub">Every dated initiative lands on or before its target under this order.</p>
       </div></div>`;
@@ -482,8 +483,8 @@ export function verdictBannerHTML(sched, opts = {}) {
     : worst.verdict === 'unschedulable' ? 'it cannot be scheduled as entered'
     : `${worst.weeksLate || 0}w over`;
   return `<div class="verdict-banner verdict-miss ord-hero">
-    <span class="ord-hero-icon">⚠</span>
-    <div>
+    <span class="verdict-icon">⚠</span>
+    <div class="ord-hero-body">
       <p class="ord-hero-headline">${n} of ${dated.length} date${n > 1 ? 's' : ''} at risk</p>
       <p class="ord-hero-sub">Worst: <b>${esc(worst.name)}</b> — ${worstWhy}${term('verdict')}</p>
     </div></div>`;
