@@ -227,8 +227,8 @@ function setPodsView(mode) {
   if (!net || !tbl) return;
   const showNet = mode === 'net';
   net.hidden = !showNet; tbl.hidden = showNet;
-  document.getElementById('pods-view-net')?.classList.toggle('seg-on', showNet);
-  document.getElementById('pods-view-table')?.classList.toggle('seg-on', !showNet);
+  document.getElementById('pods-view-net')?.classList.toggle('active', showNet);
+  document.getElementById('pods-view-table')?.classList.toggle('active', !showNet);
   if (showNet) renderGameNet(); // re-measure now the svg is visible
 }
 
