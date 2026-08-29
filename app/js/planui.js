@@ -1411,7 +1411,7 @@ function paintDash() {
     <div class="plan-net panel-card">
       <div class="plan-net-head"><b>Dependency network</b>
         <span>
-          <button class="btn ${mode === 'before' ? 'active' : ''}" id="net-before">baseline</button><button class="btn ${mode === 'after' ? 'active' : ''}" id="net-after">with levers</button>
+          <div class="btn-group" role="group"><button class="btn ${mode === 'before' ? 'active' : ''}" id="net-before">baseline</button><button class="btn ${mode === 'after' ? 'active' : ''}" id="net-after">with levers</button></div>
         </span></div>
       <div class="plan-net-wrap">
         <svg id="plan-svg"></svg>
