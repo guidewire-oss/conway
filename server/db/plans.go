@@ -26,6 +26,7 @@ type PlanRow struct {
 	UpdatedAt       int64   `json:"updatedAt"`
 	PeriodStart     *string `json:"periodStart,omitempty"`
 	BaselineCount   int     `json:"baselineCount,omitempty"`
+	EstimateModel   string  `json:"estimateModel,omitempty"`
 }
 
 func (d *DB) CreatePlan(p PlanRow) error {
@@ -44,7 +45,8 @@ func (d *DB) ListPlans(owner string, all bool) ([]PlanRow, error) {
 	             COALESCE(jsonb_array_length(initiatives),0),
 	             roster_id,created_at,updated_at,
 	             scheduling->>'periodStart',
-	             (SELECT COUNT(*) FROM plan_baselines b WHERE b.plan_id = plans.id)
+	             (SELECT COUNT(*) FROM plan_baselines b WHERE b.plan_id = plans.id),
+	             COALESCE(scheduling->>'estimateModel','')
 	             FROM plans`
 	args := []any{}
 	if !all {
@@ -62,7 +64,7 @@ func (d *DB) ListPlans(owner string, all bool) ([]PlanRow, error) {
 		var p PlanRow
 		if err := rows.Scan(&p.ID, &p.Owner, &p.Name, &p.HorizonWeeks, &p.CapacityLoss,
 			&p.TeamCount, &p.InitiativeCount, &p.RosterID, &p.CreatedAt, &p.UpdatedAt,
-			&p.PeriodStart, &p.BaselineCount); err != nil {
+			&p.PeriodStart, &p.BaselineCount, &p.EstimateModel); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
