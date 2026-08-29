@@ -297,9 +297,8 @@ table.sortable thead th.sort-desc::after { content: " ▼"; font-size: 9px; opac
 .admin-session { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0; padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
 .pods-toggle { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
 .pods-toggle-lbl { font-weight: 600; }
-.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
-.seg button { background: transparent; color: var(--muted); border: 0; padding: 5px 12px; cursor: pointer; font-size: 12px; }
-.seg button.seg-on { background: var(--panel2); color: var(--text); }
+.btn-group .btn { font-size: 12px; padding: 5px 12px; border: 0; color: var(--muted); background: transparent; cursor: pointer; }
+.btn-group .btn.active { background: var(--panel2); color: var(--text); }
 /* planui's network toggle applies .seg to the buttons themselves rather than to a
    wrapper, so the descendant rule above never matches and its active state had no
    styling at all. This gives that spelling a usable active state — it does NOT

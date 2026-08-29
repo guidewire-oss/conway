@@ -182,42 +182,16 @@ function applyRoleGating() {
   // staff land on Home (the default active view) — nothing to switch
 }
 
-// floating tooltip for .help icons, clamped to the viewport (delegated, so it
-// works for dynamically re-rendered panels too)
-const tip = document.createElement('div');
-tip.id = 'tooltip';
-tip.hidden = true;
-document.body.appendChild(tip);
-// Keyboard parity (WCAG 1.3.1): the glossary affordances are buttons, so
-// focusin/focusout shows the same definition a mouseover does — a keyboard
-// user must not get a silent '?'.
-const showTip = (h) => {
-  tip.textContent = h.dataset.tip ?? '';
-  tip.hidden = false;
-  const r = h.getBoundingClientRect();
-  const tw = tip.offsetWidth, th = tip.offsetHeight;
-  const vw = window.innerWidth, vh = window.innerHeight;
-  let x = r.left + r.width / 2 - tw / 2;
-  x = Math.max(8, Math.min(x, vw - tw - 8));
-  let y = r.bottom + 8;
-  if (y + th > vh - 8) y = Math.max(8, r.top - th - 8);
-  tip.style.left = `${x}px`;
-  tip.style.top = `${y}px`;
-};
-document.addEventListener('mouseover', (ev) => {
-  // .help is the glossary chip; [data-tip] extends the same instant tooltip
-  // to any element (timeline week ticks use it — native title tooltips take
-  // a second to appear and read as broken).
-  const h = ev.target.closest?.('.help, [data-tip]');
-  if (!h) { tip.hidden = true; return; }
-  showTip(h);
+// Bootstrap Tooltip (spec 011 FR-002): delegated init on document.body.
+// BS handles positioning, viewport clamping, hover + focus triggers, and
+// dynamic content natively — replacing the custom tooltip div. The app
+// theme bridge maps bs-* vars, so tooltips follow the light/dark theme.
+new bootstrap.Tooltip(document.body, {
+  selector: '[data-tip], .help',
+  title: (el) => el.dataset.tip ?? el.title ?? '',
+  trigger: 'hover focus',
+  placement: 'bottom'
 });
-document.addEventListener('focusin', (ev) => {
-  const h = ev.target.closest?.('.help');
-  if (h) showTip(h);
-});
-document.addEventListener('focusout', () => { tip.hidden = true; });
-document.addEventListener('scroll', () => { tip.hidden = true; }, true);
 
 // The "Viewing" picker is the org snapshot every OBSERVE screen renders. Plan
 // and Games carry their own data (a plan's roster and initiatives, a game's
