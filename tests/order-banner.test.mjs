@@ -20,7 +20,7 @@ test('the verdict banner counts the misses and names the worst case', () => {
   // beyond-horizon, and the test then disagreed with the code it was checking.
   const missing = dated.filter((i) => i.verdict !== 'on-time');
   assert.ok(missing.length > 0, 'fixture must have misses for this spec');
-  assert.match(html, new RegExp(`${missing.length} of ${dated.length} dated initiatives miss`));
+  assert.match(html, new RegExp(`${missing.length} of ${dated.length} date${missing.length > 1 ? 's' : ''} at risk`));
   // worst case named: the largest weeksLate among dated
   const worst = dated.reduce((a, b) => (b.weeksLate > a.weeksLate ? b : a));
   assert.match(html, new RegExp(worst.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
@@ -30,7 +30,7 @@ test('a clean plan reads as clean', () => {
   const fine = JSON.parse(JSON.stringify(sched));
   fine.initiatives.forEach((i) => { i.verdict = 'on-time'; i.weeksLate = 0; });
   const html = verdictBannerHTML(fine);
-  assert.match(html, /every dated initiative holds/i);
+  assert.match(html, /All \d+ dates? hold/);
 });
 
 test('an unschedulable dated initiative is a miss, not a silent pass (the every-holds guard)', () => {
@@ -40,7 +40,7 @@ test('an unschedulable dated initiative is a miss, not a silent pass (the every-
   odd.initiatives.forEach((i) => { i.verdict = 'on-time'; i.weeksLate = 0; });
   dated[0].verdict = 'unschedulable'; dated[0].weeksLate = 0;
   const html = verdictBannerHTML(odd);
-  assert.match(html, /1 of \d+ dated initiatives miss/);
+  assert.match(html, /1 of \d+ dates? at risk/);
   assert.match(html, /cannot be scheduled as entered/);
   assert.ok(!html.includes('undefined'), 'no undefined weeks in the banner');
 });
