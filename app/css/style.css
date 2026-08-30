@@ -725,8 +725,11 @@ button.plan-back { background: none; border: 0; padding: 0; font: inherit; }
   border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; font-size: 12px; }
 
 /* Lens filters (spec 010): dimmed bars keep the capacity picture while the
-   matches pop. */
+   matches pop. Ghost bars are the same idea from the other side: under a
+   filter with "show other work" on, the NON-matching bars render dimmed —
+   context, not editable plan (no drag contract on a ghost). */
 .tl-bar.tl-dim, .tl-row.tl-dim, .tl-subrow.tl-dim { opacity: .25; }
+.tl-bar.tl-ghost { opacity: .25; }
 .tl-row.tl-dim { min-height: 14px; }
 .tl-filter { display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; }
 .tl-filter input[type="search"] { padding: 3px 8px; font-size: 12px; width: 170px; }
