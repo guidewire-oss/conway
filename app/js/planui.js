@@ -716,7 +716,7 @@ async function renderTimeline() {
   const spanSel = current.tlSpan || 'period';
   const spanWeeks = (spans.find((sp) => sp.id === spanSel) || spans[0]).weeks;
   host.innerHTML = `
-    ${timelineControlsHTML({ lens, horizon, spans, spanSel, filter: current.tlFilter, hideEmpty: current.tlHideEmpty })}
+    ${timelineControlsHTML({ lens, horizon, spans, spanSel, filter: current.tlFilter, hideEmpty: current.tlHideEmpty, ghost: current.tlGhost })}
     <div id="tl-main"></div>
     <div id="tl-pod"></div>`;
   host.insertAdjacentHTML('afterbegin', callout('timeline', 'Drag bars to move work between weeks or tracks; the engine reschedules everything. Filter to one initiative or one pod; ⛶ for room. Waterfall order under a filter shows the chain top-to-bottom.'));
@@ -753,6 +753,10 @@ async function renderTimeline() {
     current.tlHideEmpty = ev.target.checked;
     renderTimeline();
   });
+  document.getElementById('tl-ghost')?.addEventListener('change', (ev) => {
+    current.tlGhost = ev.target.checked;
+    renderTimeline();
+  });
   document.getElementById('tl-fullscreen')?.addEventListener('click', () => {
     host.classList.toggle('tl-fullscreen');
     const btn = document.getElementById('tl-fullscreen');
@@ -777,6 +781,10 @@ async function renderTimeline() {
     main.innerHTML = lens === 'pod'
       ? podLensHTML(sched, {
         horizonWeeks: horizon, span: spanWeeks, pinnedLanes: pinnedLanesByPod(), initiativeQuery: current.tlFilter || '', hideEmptyPods: current.tlHideEmpty,
+        // Spec 010 amendment: non-matching bars render as dimmed ghosts when
+        // "show other work" is on — the capacity filling the gaps (e.g., what
+        // holds a pod while the filtered initiative waits) stays visible.
+        ghostOthers: current.tlGhost,
         // Spec 008 S4: the resize gesture needs each slice's ABSOLUTE effort
         // weeks (estimateEdits is pod -> effort), which the schedule's slices
         // do not carry — only the plan's initiatives do.
@@ -944,8 +952,8 @@ async function renderTimeline() {
   // Lens switches clear ALL filter state (spec 010 AC 2.2): the query means a
   // different thing per lens, and a carried-over hide-empty leaves pods
   // missing with no visible cause (cubic P2).
-  document.getElementById('tl-by-initiative')?.addEventListener('click', () => { current.tlLens = 'initiative'; current.tlFilter = ''; current.tlHideEmpty = false; renderTimeline(); });
-  document.getElementById('tl-by-pod')?.addEventListener('click', () => { current.tlLens = 'pod'; current.tlFilter = ''; current.tlHideEmpty = false; renderTimeline(); });
+  document.getElementById('tl-by-initiative')?.addEventListener('click', () => { current.tlLens = 'initiative'; current.tlFilter = ''; current.tlHideEmpty = false; current.tlGhost = false; renderTimeline(); });
+  document.getElementById('tl-by-pod')?.addEventListener('click', () => { current.tlLens = 'pod'; current.tlFilter = ''; current.tlHideEmpty = false; current.tlGhost = false; renderTimeline(); });
 }
 
 // renderOrder computes the execution order and paints §13.2's table plus the

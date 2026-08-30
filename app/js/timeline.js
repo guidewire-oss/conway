@@ -546,7 +546,7 @@ export function podSheetHTML(ps, sched, opts = {}) {
 // browser ignored the stray closers and the first .btn-group (a flex row)
 // swallowed #tl-main — every button stretched viewport-tall and the chart
 // squeezed into the leftover width. Every opener here must close.
-export function timelineControlsHTML({ lens, horizon, spans, spanSel, filter, hideEmpty }) {
+export function timelineControlsHTML({ lens, horizon, spans, spanSel, filter, hideEmpty, ghost }) {
   const lensBtn = (id, on, label) =>
     `<button class="${on ? 'active' : ''}" id="${id}">${label}</button>`;
   return `
@@ -565,5 +565,6 @@ export function timelineControlsHTML({ lens, horizon, spans, spanSel, filter, hi
         value="${esc(filter || '')}" aria-label="${lens === 'pod' ? 'filter initiatives' : 'filter pods'}">
       <span class="hint" id="tl-filter-count"></span>
       ${lens === 'pod' ? `<label class="hint" title="hide pods whose initiatives all fail the filter — the waterfall shows only the chain"><input type="checkbox" id="tl-hide-empty" ${hideEmpty ? 'checked' : ''}> hide empty pods</label>` : ''}
+      ${lens === 'pod' ? `<label class="hint" title="show non-matching bars dimmed, so the capacity that fills the gaps is visible"><input type="checkbox" id="tl-ghost" ${ghost ? 'checked' : ''}> show other work</label>` : ''}
     </span></div>`;
 }
