@@ -13,7 +13,7 @@ import { openDocs } from './docs.js';
 import { fuzzyMatch } from './filter.js';
 import { baselineChipHTML, baselinePanelHTML, saveErrorMessage, latestOnly } from './baseline.js';
 import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
-import { portfolioTimelineHTML, podLensHTML, podSheetHTML } from './timeline.js';
+import { portfolioTimelineHTML, podLensHTML, podSheetHTML, timelineControlsHTML } from './timeline.js';
 
 let root, current = null;
 // Spec 008 S4: one-level undo for timeline drags. dragUndo snapshots the
@@ -715,25 +715,8 @@ async function renderTimeline() {
   ].filter((sp) => sp.weeks > horizon || sp.id === 'period');
   const spanSel = current.tlSpan || 'period';
   const spanWeeks = (spans.find((sp) => sp.id === spanSel) || spans[0]).weeks;
-  const lensBtn = (id, on, label) =>
-    `<button class="${on ? 'active' : ''}" id="${id}">${label}</button>`;
   host.innerHTML = `
-    <div class="plan-views"><div class="btn-group" role="group">
-      ${lensBtn('tl-by-initiative', lens === 'initiative', '◉ by initiative')}
-      ${lensBtn('tl-by-pod', lens === 'pod', '○ by pod')}
-    </span>
-    <div class="btn-group" role="group" title="how much of the schedule to draw — the period end is marked when the view is wider">
-      ${spans.map((sp) => `<button class="${sp.id === spanSel ? 'active' : ''}" data-tlspan="${sp.id}">${sp.label}</button>`).join('')}
-    </span>
-    <div class="btn-group" role="group">
-      <button id="tl-fullscreen" title="fullscreen the timeline for lane-accurate dragging (ESC to exit)">⛶ full screen</button>
-    </span>
-    <span class="tl-filter" id="tl-filter-box">
-      <input id="tl-filter" type="search" placeholder="${lens === 'pod' ? 'filter by initiative…' : 'filter by pod…'}"
-        value="${esc(current.tlFilter || '')}" aria-label="${lens === 'pod' ? 'filter initiatives' : 'filter pods'}">
-      <span class="hint" id="tl-filter-count"></span>
-      ${lens === 'pod' ? `<label class="hint" title="hide pods whose initiatives all fail the filter — the waterfall shows only the chain"><input type="checkbox" id="tl-hide-empty" ${current.tlHideEmpty ? 'checked' : ''}> hide empty pods</label>` : ''}
-    </div></div>
+    ${timelineControlsHTML({ lens, horizon, spans, spanSel, filter: current.tlFilter, hideEmpty: current.tlHideEmpty })}
     <div id="tl-main"></div>
     <div id="tl-pod"></div>`;
   host.insertAdjacentHTML('afterbegin', callout('timeline', 'Drag bars to move work between weeks or tracks; the engine reschedules everything. Filter to one initiative or one pod; ⛶ for room. Waterfall order under a filter shows the chain top-to-bottom.'));

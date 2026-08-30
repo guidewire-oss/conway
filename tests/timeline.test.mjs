@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import {
   axisScale, axisTicks, timelineRowHTML, portfolioTimelineHTML,
   podLanesHTML, podLensHTML, podSheetHTML, todayLineHTML, periodEndHTML,
+  timelineControlsHTML,
 } from '../app/js/timeline.js';
 import { esc } from '../app/js/order.js';
 
@@ -442,4 +443,43 @@ test('the by-pod lens waterfalls matching pods by earliest start', () => {
     { horizonWeeks: 26, span: 26, initiativeQuery: 'dev', hideEmptyPods: true });
   assert.ok(!hidden.includes('Unrelated'), 'hide-empty drops non-matching pods');
   assert.ok(hidden.includes('FirstPod') && hidden.includes('LatePod'));
+});
+
+// The lens/zoom/filter row above the timeline (planui renders #tl-main and
+// #tl-pod as its siblings). Regression for the `.seg` to `.btn-group`
+// migration: `</span>` closers left on `<div>` openers made the browser
+// ignore the stray closers, the first .btn-group (a flex row) swallowed
+// #tl-main, and every button stretched viewport-tall while the chart
+// squeezed into the leftover width. The markup must be tag-balanced.
+const VOID_TAGS = new Set(['input', 'br', 'img', 'hr', 'meta', 'link']);
+
+function tagBalance(html) {
+  const stack = [];
+  for (const m of html.matchAll(/<\/?([a-zA-Z][a-zA-Z0-9-]*)[^>]*?>/g)) {
+    const tag = m[1].toLowerCase();
+    if (VOID_TAGS.has(tag) || m[0].endsWith('/>')) continue;
+    if (m[0][1] === '/') {
+      const open = stack.pop();
+      if (open !== tag) return `</${tag}> closes <${open ?? 'nothing'}>`;
+    } else {
+      stack.push(tag);
+    }
+  }
+  return stack.length ? `unclosed <${stack.join('><')}>` : null;
+}
+
+test('the timeline controls markup is tag-balanced (regression: btn-group swallowed tl-main)', () => {
+  const spans = [
+    { id: 'period', label: '26w period', weeks: 26 },
+    { id: 'all', label: 'all (84w)', weeks: 84 },
+  ];
+  for (const lens of ['initiative', 'pod']) {
+    const html = timelineControlsHTML({ lens, horizon: 26, spans, spanSel: 'period', filter: '', hideEmpty: false });
+    assert.equal(tagBalance(html), null, `${lens} lens controls balance`);
+    assert.match(html, /<div id="tl-by-initiative"|id="tl-by-initiative"/);
+    assert.match(html, /class="tl-filter"/);
+  }
+  const pod = timelineControlsHTML({ lens: 'pod', horizon: 26, spans, spanSel: 'all', filter: 'x', hideEmpty: true });
+  assert.match(pod, /id="tl-hide-empty"/, 'hide-empty checkbox rides the pod lens');
+  assert.match(tagBalance(pod) ?? '', /^$/, 'pod lens with the checkbox also balances');
 });
