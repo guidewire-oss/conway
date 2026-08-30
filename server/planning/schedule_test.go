@@ -1270,3 +1270,49 @@ var _ = Describe("pin inside a freeze", func() {
 		Expect(sl.BindingConstraint).To(Equal(bindFreeze), "the freeze is the mover")
 	})
 })
+
+// Spec 014: a per-pod capacity loss override changes only that pod's
+// arithmetic (AC 1.1), an unset pod inherits the plan global (AC 1.2), and
+// the loss is visible on the pod's schedule (AC 3.1). Two identical pods,
+// one overridden: same effort, different durations, same-week rho story.
+var _ = Describe("per-pod capacity loss override", func() {
+	var sched *Schedule
+
+	BeforeEach(func() {
+		// Two 2-track pods, 20 effort weeks each. At 0% loss both run 10 weeks;
+		// the 30% pod runs ceil(20 / (2 x 0.7)) = 15.
+		teams := []Team{
+			{Name: "Ops", Tracks: 2, CapacityLoss: 0.30},
+			{Name: "Product", Tracks: 2},
+		}
+		inits := []Initiative{
+			{Name: "On-call rotation", Work: map[string]TeamWork{"Ops": podWork(20)}},
+			{Name: "Greenfield", Work: map[string]TeamWork{"Product": podWork(20)}},
+		}
+		sched = ComputeSchedule(teams, inits,
+			Params{HorizonWeeks: 26, CapacityLoss: 0.10},
+			SchedulingParams{PeriodStart: specPeriodStart, BufferPct: pctOf(0), EstimateModel: EstimateEffort})
+	})
+
+	It("stretches only the overridden pod's durations", func() {
+		ops := scheduledFor(sched, "On-call rotation").Slices[0]
+		prod := scheduledFor(sched, "Greenfield").Slices[0]
+		Expect(ops.FinishWeek-ops.StartWeek).To(Equal(15), "30% loss: 20 / (2 x 0.7)")
+		Expect(prod.FinishWeek-prod.StartWeek).To(Equal(12), "inherits the plan global: 20 / (2 x 0.9)")
+	})
+
+	It("carries the effective loss on the pod schedule, marking the override", func() {
+		ops := podScheduleFor(sched, "Ops")
+		Expect(ops.LossPct).To(Equal(30.0))
+		Expect(ops.LossOverride).To(BeTrue())
+		prod := podScheduleFor(sched, "Product")
+		Expect(prod.LossPct).To(Equal(10.0), "the inherited plan global")
+		Expect(prod.LossOverride).To(BeFalse())
+	})
+
+	It("sums per-pod capacity in the fit line (FR-006)", func() {
+		// Ops: 2 x 26 x 0.7 = 36.4; Product: 2 x 26 x 0.9 = 46.8; total 83.2.
+		// A global-only average would say 2 x 26 x 0.9 x 2 = 93.6.
+		Expect(sched.Fit.TrackWeeksAvailable).To(BeNumerically("~", 83.2, 0.01))
+	})
+})

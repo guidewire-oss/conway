@@ -43,7 +43,10 @@ func TestWriteInitiativesRoundTrip(t *testing.T) {
 	if len(got.Initiatives) != len(inits) {
 		t.Fatalf("initiatives: %d vs %d", len(got.Initiatives), len(inits))
 	}
-	teamsBack := ParseTeamsRows(readCSV(t, WriteTeamsCSV(teams)))
+	teamsBack, err := ParseTeamsRows(readCSV(t, WriteTeamsCSV(teams)))
+	if err != nil {
+		t.Fatalf("teams csv round-trip parse: %v", err)
+	}
 	if len(teamsBack) != len(teams) {
 		t.Fatalf("teams csv round-trip: %d vs %d", len(teamsBack), len(teams))
 	}

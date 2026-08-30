@@ -3,6 +3,8 @@ package planning
 import (
 	"bytes"
 	"encoding/csv"
+	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -17,6 +19,21 @@ type Team struct {
 	Pairs  bool   `json:"pairs"`          // does this team pair-program?
 	Tracks int    `json:"tracks"`         // explicit track override (0 = derive from devs/pairs)
 	Site   string `json:"site,omitempty"` // location, for cross-site-seam analysis
+	// CapacityLoss (spec 014): this pod's own fraction of tracked time that
+	// never becomes product work (ops burden, support, on-call, ramp). 0 means
+	// inherit the plan's global loss — the override is opt-in per pod.
+	CapacityLoss float64 `json:"capacityLoss,omitempty"`
+}
+
+// EffectiveLoss is the loss this pod plans with: its own override when one is
+// set, else the plan's global figure. The one definition of pod loss —
+// durations, placement, utilization, and the fit line all go through here, so
+// the views cannot disagree (spec 014 FR-002).
+func (t Team) EffectiveLoss(global float64) float64 {
+	if t.CapacityLoss > 0 {
+		return t.CapacityLoss
+	}
+	return global
 }
 
 // EffectiveTracks is the pod's max parallel tracks of work: an explicit override
@@ -71,17 +88,19 @@ func ParseTeamsCSV(data []byte) ([]Team, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ParseTeamsRows(rows), nil
+	return ParseTeamsRows(rows)
 }
 
 // ParseTeamsRows builds the roster from a dense grid (row 0 = header), shared by
 // the CSV and XLSX paths. It auto-detects the Name / Developers / Location /
-// Pairs / Tracks columns by header.
-func ParseTeamsRows(rows [][]string) []Team {
+// Pairs / Tracks / Capacity Loss columns by header. An out-of-range loss cell
+// refuses the whole roster, naming the pod (spec 014 AC 2.2) — a silently
+// clamped loss would under-plan one pod while looking fine everywhere else.
+func ParseTeamsRows(rows [][]string) ([]Team, error) {
 	if len(rows) == 0 {
-		return nil
+		return nil, nil
 	}
-	idx := map[string]int{"name": -1, "devs": -1, "site": -1, "pairs": -1, "tracks": -1}
+	idx := map[string]int{"name": -1, "devs": -1, "site": -1, "pairs": -1, "tracks": -1, "loss": -1}
 	for i, h := range rows[0] {
 		l := strings.ToLower(strings.TrimSpace(h))
 		switch {
@@ -95,6 +114,8 @@ func ParseTeamsRows(rows [][]string) []Team {
 			idx["pairs"] = i
 		case idx["tracks"] < 0 && (l == "tracks" || l == "capacity" || strings.Contains(l, "stream") || strings.Contains(l, "parallel") || strings.Contains(l, "lane")):
 			idx["tracks"] = i
+		case idx["loss"] < 0 && strings.Contains(l, "loss"):
+			idx["loss"] = i
 		}
 	}
 	if idx["name"] < 0 {
@@ -125,9 +146,26 @@ func ParseTeamsRows(rows [][]string) []Team {
 		if n, err := strconv.Atoi(strings.TrimSpace(at(row, "tracks"))); err == nil && n > 0 {
 			t.Tracks = n
 		}
+		// The loss cell reads as a percent ("15", "15%") or a fraction ("0.15");
+		// empty inherits the plan global (spec 014 AC 2.1). Exactly 100% would
+		// leave the pod no capacity at all, so it is refused like any other
+		// out-of-range value.
+		if raw := strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(at(row, "loss")), "%")); raw != "" {
+			v, err := strconv.ParseFloat(raw, 64)
+			if err != nil {
+				return nil, fmt.Errorf("pod %q: capacity loss %q must be a percent between 0 and 100", name, raw)
+			}
+			if v > 1 {
+				v /= 100 // a bare number reads as a percent
+			}
+			if v < 0 || v >= 1 {
+				return nil, fmt.Errorf("pod %q: capacity loss %q must be a percent between 0 and 100", name, raw)
+			}
+			t.CapacityLoss = v
+		}
 		teams = append(teams, t)
 	}
-	return teams
+	return teams, nil
 }
 
 // countPeople returns the headcount in a Developers cell: a plain integer is
@@ -169,9 +207,11 @@ type PodLoad struct {
 	Team          string  `json:"team"`
 	DemandWeeks   float64 `json:"demandWeeks"`   // sum of estimates assigned to the pod
 	Tracks        int     `json:"tracks"`        // effective parallel tracks
-	CapacityWeeks float64 `json:"capacityWeeks"` // tracks * horizon * (1 - loss)
+	CapacityWeeks float64 `json:"capacityWeeks"` // tracks * horizon * (1 - effective loss)
 	Rho           float64 `json:"rho"`           // demand / capacity (utilization)
 	Constraint    bool    `json:"constraint"`    // rho >= 1: over capacity for the period
+	LossPct       float64 `json:"lossPct"`       // the pod's effective loss, in percent (spec 014)
+	LossOverride  bool    `json:"lossOverride"`  // true when the pod sets its own loss, not the plan's
 }
 
 // Utilization computes per-pod demand, capacity, and ρ for the plan. Pods are
@@ -193,8 +233,10 @@ func Utilization(plan *Plan, teams []Team, params Params) []PodLoad {
 	}
 	// union of teams that have a roster entry or any demand
 	names := map[string]bool{}
+	byName := map[string]Team{}
 	for _, t := range teams {
 		names[t.Name] = true
+		byName[t.Name] = t
 	}
 	for team := range demand {
 		names[team] = true
@@ -202,7 +244,10 @@ func Utilization(plan *Plan, teams []Team, params Params) []PodLoad {
 	var out []PodLoad
 	for name := range names {
 		tr := tracks[name]
-		capw := float64(tr) * params.HorizonWeeks * (1 - params.CapacityLoss)
+		// The pod's own loss, inheriting the plan global when unset (spec 014
+		// FR-002/FR-003): a demand-only pod with no roster entry inherits too.
+		loss := byName[name].EffectiveLoss(params.CapacityLoss)
+		capw := float64(tr) * params.HorizonWeeks * (1 - loss)
 		d := demand[name]
 		pl := PodLoad{Team: name, DemandWeeks: d, Tracks: tr, CapacityWeeks: capw}
 		switch {
@@ -212,6 +257,8 @@ func Utilization(plan *Plan, teams []Team, params Params) []PodLoad {
 			pl.Rho = InfiniteRho // demand but no capacity
 		}
 		pl.Constraint = pl.Rho >= 1
+		pl.LossPct = math.Round(loss * 100)
+		pl.LossOverride = byName[name].CapacityLoss > 0
 		out = append(out, pl)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Rho > out[j].Rho })

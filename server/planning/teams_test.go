@@ -2,6 +2,7 @@ package planning
 
 import (
 	"math"
+	"strings"
 	"testing"
 )
 
@@ -41,7 +42,7 @@ func TestUtilization(t *testing.T) {
 	// Alpha: 6 tracks; Gamma: 2 tracks. Horizon 26, loss 10% -> cap factor 23.4/track.
 	teams := []Team{{Name: "Alpha", Devs: 6}, {Name: "Gamma", Devs: 4, Pairs: true}}
 	plan := &Plan{Initiatives: []Initiative{{Work: map[string]TeamWork{
-		"Alpha":      {Weeks: 20, InPath: true},
+		"Alpha": {Weeks: 20, InPath: true},
 		"Gamma": {Weeks: 60, InPath: true}, // way over its 2-track capacity
 	}}}}
 	loads := Utilization(plan, teams, Params{HorizonWeeks: 26, CapacityLoss: 0.10})
@@ -74,5 +75,37 @@ func TestUtilizationNoCapacity(t *testing.T) {
 	// empty response body otherwise.
 	if len(loads) != 1 || !loads[0].Constraint || loads[0].Rho != InfiniteRho {
 		t.Fatalf("team with demand but no capacity must be flagged: %+v", loads)
+	}
+}
+
+// Spec 014 AC 2.1/2.2: the roster may carry a per-pod capacity loss as a
+// percent ("15", "15%") or a fraction ("0.15"); an empty cell inherits the
+// plan global; an out-of-range cell refuses the roster, naming the pod.
+func TestParseTeamsLossColumn(t *testing.T) {
+	csv := "Pod Name,Developers,Capacity Loss %\n" +
+		"Alpha,3,15\n" +
+		"Beta,2,15%\n" +
+		"Gamma,2,0.15\n" +
+		"Delta,2,\n"
+	teams, err := ParseTeamsCSV([]byte(csv))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]float64{"Alpha": 0.15, "Beta": 0.15, "Gamma": 0.15, "Delta": 0}
+	for _, tm := range teams {
+		if tm.CapacityLoss != want[tm.Name] {
+			t.Fatalf("%s loss = %v, want %v", tm.Name, tm.CapacityLoss, want[tm.Name])
+		}
+	}
+}
+
+func TestParseTeamsLossOutOfRangeRefusesTheRoster(t *testing.T) {
+	for _, cell := range []string{"150%", "-3", "100%", "abc"} {
+		csv := "Pod Name,Developers,Capacity Loss %\nAlpha,3," + cell + "\n"
+		if _, err := ParseTeamsCSV([]byte(csv)); err == nil {
+			t.Fatalf("cell %q must refuse the roster", cell)
+		} else if !strings.Contains(err.Error(), "Alpha") {
+			t.Fatalf("refusal must name the pod: %v", err)
+		}
 	}
 }

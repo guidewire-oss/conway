@@ -475,9 +475,12 @@ export function podLensHTML(sched, opts = {}) {
   }
   const blocks = pods.map((ps) => {
     const rho = podRho(ps, horizon);
+    // Spec 014 FR-005: an overridden pod's loss is legible where the pod is —
+    // inheriting pods stay quiet (the plan header owns the global figure).
+    const loss = ps.lossOverride && ps.lossPct ? ` · <b title="this pod's own capacity loss override">loss ${ps.lossPct}%</b>` : '';
     return `<div class="tl-pod" data-pod="${esc(ps.pod)}">
       <div class="ord-head"><b>${esc(ps.pod)}</b>
-        <span class="hint">ρ ${rho.toFixed(2)} · ${ps.tracks} track${ps.tracks > 1 ? 's' : ''} · ${(ps.slices || []).length} slice${(ps.slices || []).length === 1 ? '' : 's'}</span>
+        <span class="hint">ρ ${rho.toFixed(2)} · ${ps.tracks} track${ps.tracks > 1 ? 's' : ''} · ${(ps.slices || []).length} slice${(ps.slices || []).length === 1 ? '' : 's'}${loss}</span>
         <button type="button" class="pod-export" data-export-pod="${esc(ps.pod)}" title="download this pod's timeline as a PNG">⬇ PNG</button></div>
       ${podLanesHTML(ps, { ...opts, horizonWeeks: span, pinnedLanes: (opts.pinnedLanes || {})[ps.pod] || null })}
     </div>`;
@@ -530,7 +533,7 @@ export function podSheetHTML(ps, sched, opts = {}) {
 
   return `<div class="panel-card ord-card" data-pod-sheet="${esc(ps.pod)}">
     <div class="ord-head"><b>${esc(ps.pod)} — ${ps.tracks} track${ps.tracks > 1 ? 's' : ''}</b>
-      <span class="hint">${slices.length} slice${slices.length === 1 ? '' : 's'} in start order</span>
+      <span class="hint">${slices.length} slice${slices.length === 1 ? '' : 's'} in start order${ps.lossPct ? ` · capacity loss ${ps.lossPct}%${ps.lossOverride ? '' : ' (plan default)'}` : ''}</span>
       <button type="button" class="pod-export" data-export-sheet="${esc(ps.pod)}" title="download this sheet as a PNG">⬇ PNG</button></div>
     <table class="wip-table">
       <thead><tr><th>Initiative</th><th>Weeks</th><th>Start</th><th>Start by</th><th>Slack</th><th>Waiting on</th><th>Blocks</th></tr></thead>

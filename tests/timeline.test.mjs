@@ -506,3 +506,17 @@ test('the pod lens ghosts non-matching bars only when the toggle is on', () => {
   assert.match(on, /\(other work\): w3–w26/, 'the ghost title names the span');
   assert.match(on, /Apollo/, 'and the match still renders');
 });
+
+// Spec 014 FR-005: an overridden pod's loss is legible where the pod is; a
+// pod inheriting the plan global says so on its sheet.
+test('the pod card and sheet show the effective capacity loss', () => {
+  const ps = { pod: 'Atlas', tracks: 2, flatRho: 0.9, lossPct: 30, lossOverride: true, slices: [] };
+  const card = podLensHTML({ podWeeks: [ps], initiatives: [], horizonWeeks: 26 }, { horizonWeeks: 26, span: 26 });
+  assert.match(card, /loss 30%/);
+  const inherited = podLensHTML({ podWeeks: [{ pod: 'Beacon', tracks: 2, flatRho: 0.5, lossPct: 10, lossOverride: false, slices: [] }], initiatives: [], horizonWeeks: 26 }, { horizonWeeks: 26, span: 26 });
+  assert.ok(!/loss 10%/.test(inherited), 'inheriting pods stay quiet on the card');
+  const sheet = podSheetHTML({ ...ps, slices: [] }, { initiatives: [], horizonWeeks: 26 }, { horizonWeeks: 26, span: 26 });
+  assert.match(sheet, /capacity loss 30%/);
+  const sheetInherited = podSheetHTML({ pod: 'Beacon', tracks: 2, lossPct: 10, lossOverride: false, slices: [] }, { initiatives: [], horizonWeeks: 26 }, { horizonWeeks: 26, span: 26 });
+  assert.match(sheetInherited, /capacity loss 10% \(plan default\)/);
+});

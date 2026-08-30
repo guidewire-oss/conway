@@ -30,6 +30,9 @@ type NetPod struct {
 	Pairing  bool   `json:"pairing"`
 	DevCount int    `json:"devCount"`
 	Streams  int    `json:"streams,omitempty"` // explicit work-streams (pairs); 0 = derive from devCount/pairing
+	// CapacityLoss (spec 014): the pod's own loss override, preserved so a
+	// roster carries the pod's honesty about its time through save/attach.
+	CapacityLoss float64 `json:"capacityLoss,omitempty"`
 }
 
 type NetEdge struct {
