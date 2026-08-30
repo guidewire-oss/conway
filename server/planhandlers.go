@@ -210,7 +210,11 @@ func (s *server) uploadPlanTeams(w http.ResponseWriter, r *http.Request, p *db.P
 		http.Error(w, "could not read file: "+err.Error(), 400)
 		return
 	}
-	teams := planning.ParseTeamsRows(rows)
+	teams, err := planning.ParseTeamsRows(rows)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
 	if len(teams) == 0 {
 		http.Error(w, "no teams found — expected a pod roster (Pod Name, Developers, …)", 400)
 		return
@@ -228,7 +232,7 @@ func (s *server) uploadPlanTeams(w http.ResponseWriter, r *http.Request, p *db.P
 func netPodsToTeams(pods []NetPod) []planning.Team {
 	teams := make([]planning.Team, len(pods))
 	for i, p := range pods {
-		teams[i] = planning.Team{Name: p.Name, Devs: p.DevCount, Pairs: p.Pairing, Tracks: p.Streams, Site: p.Location}
+		teams[i] = planning.Team{Name: p.Name, Devs: p.DevCount, Pairs: p.Pairing, Tracks: p.Streams, Site: p.Location, CapacityLoss: p.CapacityLoss}
 	}
 	return teams
 }

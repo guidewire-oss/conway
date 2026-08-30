@@ -283,8 +283,13 @@ func (s *server) handleParseRoster(w http.ResponseWriter, r *http.Request, _ aut
 		return
 	}
 	pods := make([]NetPod, 0)
-	for _, t := range planning.ParseTeamsRows(rows) {
-		pods = append(pods, NetPod{Name: t.Name, Location: t.Site, Pairing: t.Pairs, DevCount: t.Devs, Streams: t.Tracks})
+	teams, err := planning.ParseTeamsRows(rows)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	for _, t := range teams {
+		pods = append(pods, NetPod{Name: t.Name, Location: t.Site, Pairing: t.Pairs, DevCount: t.Devs, Streams: t.Tracks, CapacityLoss: t.CapacityLoss})
 	}
 	if len(pods) == 0 {
 		http.Error(w, "no teams found — needs a header row with Pod Name, Developers, Location, Pairs", 400)

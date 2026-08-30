@@ -138,13 +138,16 @@ func WriteInitiativesXLSX(teams []Team, inits []Initiative) []byte {
 func WriteTeamsCSV(teams []Team) []byte {
 	var b bytes.Buffer
 	wr := csv.NewWriter(&b)
-	wr.Write([]string{"Pod Name", "Tracks", "Location", "Pairs"})
+	// The loss column ships empty (FR-007): every pod inherits the plan global
+	// unless a planner fills it in — the shape is discoverable, the default
+	// stays honest.
+	_ = wr.Write([]string{"Pod Name", "Tracks", "Location", "Pairs", "Capacity Loss %"})
 	for _, t := range teams {
 		pairs := "no"
 		if t.Pairs {
 			pairs = "yes"
 		}
-		wr.Write([]string{t.Name, strconv.Itoa(t.EffectiveTracks()), t.Site, pairs})
+		_ = wr.Write([]string{t.Name, strconv.Itoa(t.EffectiveTracks()), t.Site, pairs, ""})
 	}
 	wr.Flush()
 	return b.Bytes()

@@ -49,7 +49,7 @@ const (
 	bindKitGate       = "kit-gate"
 	bindEarliestStart = "earliest-start"
 	bindPredecessor   = "predecessor"
-	bindFreeze        = "freeze" // a calendar window refused the start or finish (FR-018)
+	bindFreeze        = "freeze"       // a calendar window refused the start or finish (FR-018)
 	bindStagger       = "drum stagger" // release held to keep drum load under the target (Decision 5)
 )
 
@@ -135,7 +135,7 @@ type SchedulingParams struct {
 	// EstimateModel (spec 006 Decision 2): effort divides each pod estimate
 	// by the pod's lanes; wall-clock keeps the estimate as one lane's duration.
 	// Absent means wall-clock so every existing plan keeps its dates.
-	EstimateModel            string           `json:"estimateModel,omitempty"`            // effort | wall-clock; absent = wall-clock
+	EstimateModel string `json:"estimateModel,omitempty"` // effort | wall-clock; absent = wall-clock
 	// AcceptedOrdering (spec 006 Decision 1): which ordering the planner put
 	// in force — their own (stated/sheet) or the engine's accepted proposal.
 	// Absent = stated; nothing about the maths changes, only which column the
@@ -161,8 +161,8 @@ type SchedulingParams struct {
 }
 
 const (
-	EstimateEffort     = "effort"
-	EstimateWallClock  = "wall-clock"
+	EstimateEffort    = "effort"
+	EstimateWallClock = "wall-clock"
 )
 
 // estimateModel is the model in force; anything unrecognised falls back to
@@ -262,21 +262,21 @@ type LanePhase struct {
 
 // WorkSlice is one initiative's work at one pod, placed in time (§7).
 type WorkSlice struct {
-	Initiative        string  `json:"initiative"`
-	Pod               string  `json:"pod"`
-	RemainingWeeks    float64 `json:"remainingWeeks"` // after carryover
+	Initiative     string  `json:"initiative"`
+	Pod            string  `json:"pod"`
+	RemainingWeeks float64 `json:"remainingWeeks"` // after carryover
 	// LanesUsed is how many tracks this slice occupies per week (spec 006
 	// Decision 2): 1 under wall-clock; under effort, the lanes the work needs
 	// (capped at the pod's tracks) — a busy pod is honestly busy for everyone.
 	LanesUsed int `json:"lanesUsed,omitempty"`
 	// Phases (spec 007): the slice's lanes over time when splitting — it grows
 	// as lanes free. Empty when the slice ran at a constant LanesUsed.
-	Phases []LanePhase `json:"phases,omitempty"`
-	StartWeek         int     `json:"startWeek"`
-	FinishWeek        int     `json:"finishWeek"` // exclusive
-	WaitWeeks         float64 `json:"waitWeeks"`  // ready to started
-	BindingConstraint string  `json:"bindingConstraint,omitempty"`
-	Estimated         bool    `json:"estimated"`
+	Phases            []LanePhase `json:"phases,omitempty"`
+	StartWeek         int         `json:"startWeek"`
+	FinishWeek        int         `json:"finishWeek"` // exclusive
+	WaitWeeks         float64     `json:"waitWeeks"`  // ready to started
+	BindingConstraint string      `json:"bindingConstraint,omitempty"`
+	Estimated         bool        `json:"estimated"`
 	// The in-plan, cycle-broken predecessors this slice waits on — the arrows
 	// the timeline draws (FR-037) and the upstream names FR-042 requires.
 	DependsOn []string `json:"dependsOn,omitempty"`
@@ -313,6 +313,11 @@ type PodSchedule struct {
 	MeanUtil float64   `json:"meanUtil,omitempty"`
 	FlatRho  float64   `json:"flatRho,omitempty"`
 	Idle     IdleWeeks `json:"idle,omitempty"`
+	// Spec 014 FR-005: the pod's effective capacity loss, so the card and the
+	// sheet can show it where the pod is. LossOverride distinguishes a pod's
+	// own override from the inherited plan global.
+	LossPct      float64 `json:"lossPct,omitempty"`
+	LossOverride bool    `json:"lossOverride,omitempty"`
 }
 
 // IdleWeeks are track-weeks, not calendar weeks: a 3-track pod idle all week
@@ -479,12 +484,12 @@ type Schedule struct {
 	// EngineRanks is the best dispatch rule's per-initiative rank when the
 	// working order is the planner's (spec 006): the suggestion column. Empty
 	// when the engine's order is in force — it IS the spine then.
-	EngineRanks               map[string]int        `json:"engineRanks,omitempty"`
-	Conflicts                 []Conflict            `json:"conflicts,omitempty"`
-	Assumptions               []string              `json:"assumptions,omitempty"`
-	Warnings                  []string              `json:"warnings,omitempty"`
-	HorizonWeeks              int                   `json:"horizonWeeks"`
-	PeriodStart               string                `json:"periodStart,omitempty"`
+	EngineRanks  map[string]int `json:"engineRanks,omitempty"`
+	Conflicts    []Conflict     `json:"conflicts,omitempty"`
+	Assumptions  []string       `json:"assumptions,omitempty"`
+	Warnings     []string       `json:"warnings,omitempty"`
+	HorizonWeeks int            `json:"horizonWeeks"`
+	PeriodStart  string         `json:"periodStart,omitempty"`
 }
 
 // schedInput is one initiative digested once, before any rule runs: its pods in
@@ -496,7 +501,7 @@ type schedInput struct {
 	order       []string // in-path pods, dependencies first
 	deps        map[string][]string
 	durations   map[string]int
-	drumWeeks   float64 // consumption of the drum pods
+	drumWeeks   float64         // consumption of the drum pods
 	drumSet     map[string]bool // which of its pods are drums (the stagger gate reads this)
 	totalWeeks  float64
 	chainAlone  int // critical chain at unlimited capacity
@@ -605,7 +610,7 @@ func computeOne(teams []Team, inits []Initiative, params Params, sp SchedulingPa
 	// (AC 1.1), so a nearly-finished carryover would otherwise crown the wrong pod.
 	prepared := make([]*schedInput, 0, len(inits))
 	for i, it := range inits {
-		prepared = append(prepared, prepareInitiative(i, it, tracks, params, sp))
+		prepared = append(prepared, prepareInitiative(i, it, byName, tracks, params, sp))
 	}
 	drumPods, drum := drumsOf(residualLoads(prepared, tracks, params))
 	wip := deriveWipLimit(sp, tracks, drum)
@@ -666,13 +671,20 @@ func computeOne(teams []Team, inits []Initiative, params Params, sp SchedulingPa
 	for i := range sched.Initiatives {
 		sched.Initiatives[i].RankingTerms.Rule = bestRule
 	}
-	sched.Fit = fitOf(inits, sched.Initiatives, tracks, params, horizon)
+	sched.Fit = fitOf(inits, sched.Initiatives, teams, params, horizon)
 	sched.Reconciliation = reconcile(sched.Initiatives, bestRule)
 	sched.Conflicts = conflictingCommitments(sched.Initiatives)
 	annotateSliceSlack(sched.Initiatives)
 	// PodWeeks was built during the run, before the annotation: the pod view
 	// reads those copies, so the slack pair has to reach them too.
 	propagateSliceSlack(sched.Initiatives, sched.PodWeeks)
+	// Spec 014 FR-005: each pod card and sheet carries its effective loss, so
+	// an override is legible where the pod is and inheriting pods say so.
+	for i := range sched.PodWeeks {
+		ps := &sched.PodWeeks[i]
+		ps.LossPct = math.Round(byName[ps.Pod].EffectiveLoss(params.CapacityLoss) * 100)
+		ps.LossOverride = byName[ps.Pod].CapacityLoss > 0
+	}
 	// AC 4.2 (spec 004 Story 4): the aggregate-consistency sentence. Mean weekly
 	// utilization beside the flat rho, and the idle track-weeks bucketed by the
 	// cause the schedule can actually see.
@@ -733,7 +745,7 @@ func deriveWipLimit(sp SchedulingParams, tracks map[string]int, drum string) Wip
 	return WipLimit{Value: n, Derived: true, FromPod: drum, Model: model}
 }
 
-func prepareInitiative(idx int, it Initiative, tracks map[string]int, params Params, sp SchedulingParams) *schedInput {
+func prepareInitiative(idx int, it Initiative, teams map[string]Team, tracks map[string]int, params Params, sp SchedulingParams) *schedInput {
 	in := &schedInput{idx: idx, init: it, durations: map[string]int{}, weight: initiativeWeight(it)}
 
 	inPath := map[string]bool{}
@@ -766,7 +778,10 @@ func prepareInitiative(idx int, it Initiative, tracks map[string]int, params Par
 				}
 			}
 		}
-		in.durations[pod] = sliceWeeks(w, it, params.CapacityLoss, laneDiv)
+		// The pod's own loss (spec 014): an overridden pod converts effort to
+		// duration at its own rate; every other pod uses the plan global. One
+		// definition — EffectiveLoss — so ranking and placement agree.
+		in.durations[pod] = sliceWeeks(w, it, teams[pod].EffectiveLoss(params.CapacityLoss), laneDiv)
 		// Rank on the capacity still to be consumed, not the original estimate: an
 		// initiative that is 80% done occupies two more weeks of the drum, not ten,
 		// and ranking it as though it were whole starves work that has more left.
@@ -1588,7 +1603,7 @@ func splitPlace(c *podCalendar, tracks, ready int, effort float64, loss float64,
 	}
 	// The tax weeks run at the FIRST phase's lanes: the team is dividing the
 	// work during them, so they occupy lanes without consuming effort.
-		done := 0.0
+	done := 0.0
 	taxLeft := tax
 	bound := ready + int(total) + tax + horizonBound // a pod cannot free lanes it never had
 	for w <= bound {
@@ -1775,7 +1790,7 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 			// lanes is exactly the split the planner asked for (225 single-lane
 			// weeks onto a free track halves the time, plus tax).
 			if effort := in.init.Work[pod].effortWeeks(in.init); effort > 0 {
-				if ph, _ := splitPlace(cal[pod], tracks[pod], begin, effort, capacityLoss, sp.SplitTaxWeeks, rules, pod, site, in.init.InFlight, lanes, perPodCap, in.init.Name); ph != nil {
+				if ph, _ := splitPlace(cal[pod], tracks[pod], begin, effort, teams[pod].EffectiveLoss(capacityLoss), sp.SplitTaxWeeks, rules, pod, site, in.init.InFlight, lanes, perPodCap, in.init.Name); ph != nil {
 					// Collapse adjacent equal-lane phases (a tax ramp that
 					// never changes occupancy is one phase, not two).
 					phases := ph[:1]
@@ -1791,10 +1806,10 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 						Initiative: in.init.Name, Pod: pod,
 						RemainingWeeks: float64(phases[len(phases)-1].ToWeek - phases[0].FromWeek),
 						LanesUsed:      phases[0].Lanes, Phases: phases,
-						StartWeek:      phases[0].FromWeek, FinishWeek: phases[len(phases)-1].ToWeek,
-						WaitWeeks:      float64(phases[0].FromWeek - ready),
+						StartWeek: phases[0].FromWeek, FinishWeek: phases[len(phases)-1].ToWeek,
+						WaitWeeks:         float64(phases[0].FromWeek - ready),
 						BindingConstraint: reason, Estimated: in.init.Work[pod].Estimated && in.init.Work[pod].Weeks > 0,
-						DependsOn:       append([]string(nil), in.deps[pod]...),
+						DependsOn: append([]string(nil), in.deps[pod]...),
 					})
 					if phases[len(phases)-1].ToWeek > finish {
 						finish = phases[len(phases)-1].ToWeek
@@ -1979,7 +1994,7 @@ func podWeekInitiatives(c *podCalendar, w int, exclude string) int {
 // the period can absorb. Demand counts every initiative's in-path work, including
 // the ones that did not fit -- they are the demand, and leaving them out would
 // report a plan that fits.
-func fitOf(inits []Initiative, sis []ScheduledInitiative, tracks map[string]int,
+func fitOf(inits []Initiative, sis []ScheduledInitiative, teams []Team,
 	params Params, horizon int) *ScheduleFit {
 	fit := &ScheduleFit{}
 	// Demand comes from the inputs, not the placed slices: an initiative held out
@@ -2003,13 +2018,15 @@ func fitOf(inits []Initiative, sis []ScheduledInitiative, tracks map[string]int,
 			}
 		}
 	}
-	total := 0
-	for _, tr := range tracks {
-		total += tr
-	}
 	// The loss is why this is capacity rather than nameplate: a pod at three tracks
-	// does not deliver three track-weeks a week (Params.CapacityLoss).
-	fit.TrackWeeksAvailable = float64(total) * float64(horizon) * (1 - params.WithDefaults().CapacityLoss)
+	// does not deliver three track-weeks a week. Per-pod losses (spec 014) sum to
+	// the portfolio's true available capacity — a global average would overstate
+	// the overridden pods and understate the rest.
+	avail := 0.0
+	for _, t := range teams {
+		avail += float64(t.EffectiveTracks()) * float64(horizon) * (1 - t.EffectiveLoss(params.WithDefaults().CapacityLoss))
+	}
+	fit.TrackWeeksAvailable = avail
 	return fit
 }
 
