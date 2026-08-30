@@ -474,12 +474,35 @@ test('the timeline controls markup is tag-balanced (regression: btn-group swallo
     { id: 'all', label: 'all (84w)', weeks: 84 },
   ];
   for (const lens of ['initiative', 'pod']) {
-    const html = timelineControlsHTML({ lens, horizon: 26, spans, spanSel: 'period', filter: '', hideEmpty: false });
+    const html = timelineControlsHTML({ lens, horizon: 26, spans, spanSel: 'period', filter: '', hideEmpty: false, ghost: false });
     assert.equal(tagBalance(html), null, `${lens} lens controls balance`);
     assert.match(html, /<div id="tl-by-initiative"|id="tl-by-initiative"/);
     assert.match(html, /class="tl-filter"/);
   }
-  const pod = timelineControlsHTML({ lens: 'pod', horizon: 26, spans, spanSel: 'all', filter: 'x', hideEmpty: true });
+  const pod = timelineControlsHTML({ lens: 'pod', horizon: 26, spans, spanSel: 'all', filter: 'x', hideEmpty: true, ghost: true });
   assert.match(pod, /id="tl-hide-empty"/, 'hide-empty checkbox rides the pod lens');
-  assert.match(tagBalance(pod) ?? '', /^$/, 'pod lens with the checkbox also balances');
+  assert.match(pod, /id="tl-ghost" checked/, 'the ghost toggle rides the pod lens and carries state');
+  assert.match(tagBalance(pod) ?? '', /^$/, 'pod lens with the checkboxes also balances');
+  const init = timelineControlsHTML({ lens: 'initiative', horizon: 26, spans, spanSel: 'period', filter: '', hideEmpty: false, ghost: false });
+  assert.ok(!init.includes('tl-ghost'), 'the ghost toggle is pod-lens only');
+});
+
+// Spec 010 amendment: with "show other work" on, non-matching bars render as
+// dimmed ghosts carrying an "(other work)" title — the capacity that fills
+// the gaps stays visible instead of reading as dead space. Off (default),
+// they are hidden entirely.
+test('the pod lens ghosts non-matching bars only when the toggle is on', () => {
+  const ps = [
+    { pod: 'Okocim', tracks: 2, slices: [
+      { initiative: 'DevSpace', pod: 'Okocim', startWeek: 0, finishWeek: 4, lanesUsed: 1, latestStartWeek: 2, slackWeeks: 1 },
+      { initiative: 'CR-DR', pod: 'Okocim', startWeek: 3, finishWeek: 26, lanesUsed: 1, latestStartWeek: 5, slackWeeks: 1 },
+    ]},
+  ];
+  const off = podLensHTML({ podWeeks: ps, initiatives: [], horizonWeeks: 26 }, { horizonWeeks: 26, span: 26, initiativeQuery: 'devspace' });
+  assert.match(off, /DevSpace/, 'the match renders');
+  assert.ok(!off.includes('CR-DR'), 'the non-match is hidden by default');
+  const on = podLensHTML({ podWeeks: ps, initiatives: [], horizonWeeks: 26 }, { horizonWeeks: 26, span: 26, initiativeQuery: 'devspace', ghostOthers: true });
+  assert.match(on, /class="tl-bar tl-trunc tl-ghost"/, 'the non-match renders as a ghost');
+  assert.match(on, /\(other work\): w3–w26/, 'the ghost title names the span');
+  assert.match(on, /DevSpace/, 'and the match still renders');
 });
