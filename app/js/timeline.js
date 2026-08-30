@@ -70,11 +70,12 @@ export function periodEndHTML(horizon, span) {
     <span class="tl-period-end-label">period end · w${w}</span></div>`;
 }
 
-function barHTML({ left, width, cls = '', label, title, initiative, pod, startWeek, lane }) {
+function barHTML({ left, width, cls = '', label, title, initiative, pod, startWeek, lane, estimate, lanes }) {
   // tl-trunc on every bar (FR-039): the CSS clips overflow with ellipsis, and
   // the full text survives in the title. data-initiative/pod/startWeek carry
   // the drag contract (spec 008): a released drag pins that slice's start.
-  const drag = initiative ? ` data-initiative="${esc(initiative)}" data-pod="${esc(pod)}" data-start-week="${startWeek}"${lane !== undefined ? ` data-lane="${lane}"` : ''}` : '';
+  // data-estimate carries the slice's effort weeks for the right-edge resize.
+  const drag = initiative ? ` data-initiative="${esc(initiative)}" data-pod="${esc(pod)}" data-start-week="${startWeek}"${estimate !== undefined ? ` data-estimate="${estimate}"` : ''}${lanes !== undefined ? ` data-lanes="${lanes}"` : ''}${lane !== undefined ? ` data-lane="${lane}"` : ''}` : '';
   return `<div class="tl-bar tl-trunc ${cls}" style="${pct(left)};width:${width.toFixed(2)}%" title="${esc(title)}"${drag}>${esc(label)}</div>`;
 }
 
@@ -340,6 +341,21 @@ export function podLanesHTML(ps, opts = {}) {
   const q = opts.initiativeQuery || '';
   const ghost = !!opts.ghostOthers;
   const { placement, lanes } = assignLanes(ps.slices || [], ps.tracks || 0, opts.pinnedLanes || null);
+  // Spec 008 S4: bars carry the initiative's ABSOLUTE effort weeks for the
+  // right-edge resize (estimateEdits is pod -> effort). The schedule's slices
+  // only know their post-division duration, so the plan's initiatives supply
+  // the effort; the duration is the fallback when the plan is not at hand.
+  // In-flight initiatives carry NO estimate: their remaining effort is
+  // progress-adjusted and the absolute estimate cannot be derived from the
+  // bar, so the resize gesture is withheld (falls through to a move).
+  const effortOf = {};
+  for (const pi of opts.planInitiatives || []) effortOf[pi.name] = pi;
+  const effortWeeks = (sl) => {
+    const pi = effortOf[sl.initiative];
+    if (pi?.inFlight) return undefined;
+    const w = pi?.work?.[sl.pod]?.weeks;
+    return (typeof w === 'number' && w > 0) ? w : sl.remainingWeeks;
+  };
   const rows = [];
   for (let lane = 0; lane < Math.max(lanes, 1); lane++) {
     const inLane = placement.filter((p) => p.lane === lane);
@@ -390,7 +406,7 @@ export function podLanesHTML(ps, opts = {}) {
         left, width,
         cls: lead === false ? 'tl-cont' : '',
         label: `${sl.initiative} ${dur}${collapsed ? wTag : ''}`,
-        initiative: sl.initiative, pod: sl.pod, startWeek: sl.startWeek, lane,
+        initiative: sl.initiative, pod: sl.pod, startWeek: sl.startWeek, lane, estimate: effortWeeks(sl), lanes: sl.lanesUsed || 1,
         title: `${sl.initiative}: w${sl.startWeek}–w${sl.finishWeek} · start by w${sl.latestStartWeek}` +
           (sl.slackWeeks === 0 ? ' · no slack' : ` · ${sl.slackWeeks}w slack`) +
           (overrun > 0 ? ` · ${overrun}w past the horizon` : '') +

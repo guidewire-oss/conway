@@ -1,6 +1,6 @@
 # Drag-to-Edit the Timeline, Fully Propagated
 
-**Status:** Draft
+**Status:** In Progress (S1–S3 merged; S4 edge-resize + undo in review)
 **Author(s):** opencode (implementer), Anoop (product owner)
 **Date:** 2026-08-26
 **Story/Ticket:** next slice after spec 007; user-directed
@@ -157,7 +157,7 @@ levers); `PATCH /initiatives` persists them.
 | # | Question | Owner | Target Date | Resolution |
 |---|----------|-------|-------------|------------|
 | Q1 | Should a drag-pin expire when the underlying estimate changes (stale pin warning), or persist until cleared? | Anoop | 2026-08-30 | pending — default: persist, warn when the pinned start predates a re-estimate |
-| Q2 | Edge-stretch on the LEFT edge changes start, on the RIGHT changes finish — should the other end stay fixed (anchor), or should start stay and duration grow? | Anoop | 2026-08-30 | pending — default: the dragged edge moves, the opposite edge anchors |
+| Q2 | Edge-stretch on the LEFT edge changes start, on the RIGHT changes finish — should the other end stay fixed (anchor), or should start stay and duration grow? | Anoop | 2026-08-30 | resolved 2026-08-29 by chat: the dragged edge moves, the opposite edge anchors. The right edge PATCHes the pod's estimate (`estimateEdits`) and the engine re-divides by lanes — not a PinnedFinish field |
 
 ---
 
@@ -211,6 +211,45 @@ dragged plan is different once recomputed.
 
 **Decision:** Save-as-baseline and pairwise compare work unchanged on dragged
 plans. No new machinery.
+
+### Decision 4: Edge-resize edits the estimate; undo is one level of scheduling params
+
+**Context:** A right-edge stretch could be modeled as a PinnedFinish, but a
+finish pin fights the engine's own re-division by lanes and the effort model —
+the planner's intent is "more or less work", not "a later date".
+
+**Decision:** The right edge PATCHes `estimateEdits` (pod -> new absolute
+effort-weeks); the engine re-divides by lanes under the plan's estimate model.
+The left edge moves the start AND shrinks/grows the estimate by the same
+duration so the finish stays anchored (Q2: the dragged edge moves, the
+opposite edge anchors). The effort math is the inverse of the engine's
+forward direction — `duration = effort / ((1−loss) × lanes)`, so
+`Δeffort = Δduration × lanes × (1−loss)` — using the plan's own capacity
+loss, never a hardcoded default.
+
+Undo (⌘Z) restores the pre-drag scheduling params of the last-dragged
+initiative — the full pin maps (the PATCH replaces them) plus the pod's prior
+weeks — and the undo itself is not undoable. A refused drag does not consume
+the undo slot; a save (dialog, assumptions, params, or upload) does. Edge
+drags are offered only in the by-pod lens, same as body drags.
+
+**Alternatives considered:**
+- PinnedFinish field — rejected: a second date-shaped override the engine must
+  reason around; the estimate is what the planner means.
+- Left edge as a plain move — rejected: the preview shows a resize; the
+  post-drag chart must match what the hand drew (Q2's anchor semantics).
+
+**Consequences:** A resize changes ρ and the pod's load, not just the chart —
+which is the point of going through the engine. The conversion is lossy at
+integer weeks (both directions round), so a stretched bar may land a week off
+the pointer; the next drag corrects it.
+
+### Open: in-flight resize [NEEDS CLARIFICATION]
+
+An in-flight initiative's remaining effort is progress-adjusted before the
+engine divides by lanes, so the absolute estimate cannot be derived from the
+bar — the resize gesture is WITHHELD on in-flight slices (they fall through to
+a move) until the estimate semantics for in-flight drags is decided.
 
 ---
 
