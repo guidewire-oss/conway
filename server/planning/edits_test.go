@@ -274,3 +274,51 @@ var _ = Describe("initiative edit clears", func() {
 		Expect(out[0].TargetDate).To(Equal(""))
 	})
 })
+
+// Spec 008 S4: estimateEdits updates the pod's effort weeks. Only existing
+// pods are updated — a drag cannot add work to a pod the initiative doesn't
+// touch. Other pods are untouched. The caller's Work map is never mutated,
+// and a bad edit (negative weeks, unknown pod) refuses the whole batch
+// without touching anything (AC 2.4).
+var _ = Describe("estimateEdits", func() {
+	It("updates the pod's effort weeks", func() {
+		inits := []Initiative{{Name: "Big", Work: map[string]TeamWork{
+			"Delta": {Weeks: 10, Estimated: true, InPath: true},
+			"Wola":  {Weeks: 5, Estimated: true, InPath: true}}}}
+		edits := []InitiativeEdit{{
+			Name:          "Big",
+			EstimateEdits: map[string]float64{"Delta": 15},
+		}}
+		out, err := ApplyInitiativeEdits(inits, edits, SchedulingParams{PeriodStart: specPeriodStart}, 26)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out[0].Work["Delta"].Weeks).To(Equal(15.0))
+		Expect(out[0].Work["Wola"].Weeks).To(Equal(5.0), "other pods untouched")
+		Expect(out[0].Work["Delta"].Estimated).To(BeTrue())
+		// The caller's slice is untouched: a shallow struct copy shares the
+		// Work map, so the apply must clone before writing.
+		Expect(inits[0].Work["Delta"].Weeks).To(Equal(10.0), "caller's Work map unchanged")
+	})
+
+	It("refuses a negative or zero estimate and names the pod", func() {
+		inits := []Initiative{{Name: "Big", Work: map[string]TeamWork{
+			"Delta": {Weeks: 10, Estimated: true}}}}
+		out, err := ApplyInitiativeEdits(inits, []InitiativeEdit{{
+			Name: "Big", EstimateEdits: map[string]float64{"Delta": -3},
+		}}, SchedulingParams{PeriodStart: specPeriodStart}, 26)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("positive"))
+		Expect(out).To(BeNil())
+		Expect(inits[0].Work["Delta"].Weeks).To(Equal(10.0), "nothing applied on refusal")
+	})
+
+	It("refuses an estimate for a pod the initiative does not touch", func() {
+		inits := []Initiative{{Name: "Big", Work: map[string]TeamWork{
+			"Delta": {Weeks: 10, Estimated: true}}}}
+		out, err := ApplyInitiativeEdits(inits, []InitiativeEdit{{
+			Name: "Big", EstimateEdits: map[string]float64{"Nowhere": 12},
+		}}, SchedulingParams{PeriodStart: specPeriodStart}, 26)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("no work on pod Nowhere"))
+		Expect(out).To(BeNil())
+	})
+})
