@@ -14,6 +14,7 @@ import { fuzzyMatch } from './filter.js';
 import { baselineChipHTML, baselinePanelHTML, saveErrorMessage, latestOnly } from './baseline.js';
 import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
 import { portfolioTimelineHTML, podLensHTML, podSheetHTML, timelineControlsHTML } from './timeline.js';
+import { healthReportHTML, remediesSectionHTML } from './report.js';
 
 let root, current = null;
 // Spec 008 S4: one-level undo for timeline drags. dragUndo snapshots the
@@ -52,6 +53,8 @@ export function initPlanUI() {
       return;
     }
     if (ev.key !== 'Escape') return;
+    // The health report's overlay is next: a modal card, ESC is its exit too.
+    document.querySelector('.report-overlay')?.remove();
     // Fullscreen timeline exits first (spec 008): it is a view state, and
     // ESC is its advertised exit.
     const fs = document.getElementById('plan-dash');
@@ -227,7 +230,7 @@ function renderPlan() {
       <button id="plan-draft-discard">Discard</button></p>` : ''}
     ${unknown.length ? `<p class="plan-warn">⚠ ${unknown.length} pod(s) referenced by initiatives but missing from the roster: ${unknown.map(esc).join(', ')} — <button type="button" id="unknown-fix" class="warn-act">switch roster</button> or fix the sheet. <button type="button" class="usage-link" data-anchor="warnings">learn more</button></p>` : ''}
     ${nTeams > 0 && nInit > 0 ? `<div class="plan-views"><div class="btn-group" role="group">
-      <button class="btn ${view() === 'network' ? 'active' : ''}" id="view-network">Network</button><button class="btn ${view() === 'order' ? 'active' : ''}" id="view-order">Order</button><button class="btn ${view() === 'timeline' ? 'active' : ''}" id="view-timeline">▦ Timeline</button>
+      <button class="btn ${view() === 'network' ? 'active' : ''}" id="view-network">Network</button><button class="btn ${view() === 'order' ? 'active' : ''}" id="view-order">Order</button><button class="btn ${view() === 'timeline' ? 'active' : ''}" id="view-timeline">▦ Timeline</button><button class="btn" id="view-report" title="one printable card: verdicts, capacity, conflicts, remedies (spec 013)">⎙ Report</button>
     </div>${baselineChipHTML(current.baselines)}</div>` : ''}
     ${nTeams === 0 ? `
       <div class="panel-card plan-start">
@@ -270,6 +273,7 @@ function renderPlan() {
   document.getElementById('view-network')?.addEventListener('click', () => setView('network'));
   document.getElementById('view-order')?.addEventListener('click', () => setView('order'));
   document.getElementById('view-timeline')?.addEventListener('click', () => setView('timeline'));
+  document.getElementById('view-report')?.addEventListener('click', openHealthReport);
   // The chip summarises a panel that only exists in the Order view, so it has to be
   // able to get there — otherwise it is a status message with no way through. The
   // scroll happens in renderOrder once the panel actually exists: with a stale
@@ -954,6 +958,52 @@ async function renderTimeline() {
   // missing with no visible cause (cubic P2).
   document.getElementById('tl-by-initiative')?.addEventListener('click', () => { current.tlLens = 'initiative'; current.tlFilter = ''; current.tlHideEmpty = false; current.tlGhost = false; renderTimeline(); });
   document.getElementById('tl-by-pod')?.addEventListener('click', () => { current.tlLens = 'pod'; current.tlFilter = ''; current.tlHideEmpty = false; current.tlGhost = false; renderTimeline(); });
+}
+
+// openHealthReport renders the spec-013 health card from the CACHED schedule
+// (never recomputing one — NFR-001; a plan without a schedule is routed to the
+// Order view, which computes and caches it), then fills the remedies section
+// from the per-click remedies endpoint. The overlay is modal: nothing under it
+// changes while it is open, so the card cannot go stale behind the planner's
+// back — closing and reopening re-renders from the fresh cache (AC 3.2).
+async function openHealthReport() {
+  if (!current) return;
+  if (!current.schedule) { setView('order'); return; }
+  const dash = document.getElementById('plan-dash');
+  if (!dash) return;
+  const forPlan = current.id;
+  const atEpoch = orderEpoch;
+  const overlay = document.createElement('div');
+  overlay.className = 'report-overlay';
+  overlay.innerHTML = `
+    <div class="report-actions no-print">
+      <button type="button" id="report-print">⎙ Print</button>
+      <button type="button" id="report-close">Close</button>
+    </div>
+    ${healthReportHTML(current.schedule, {
+      planName: current.name, baselines: current.baselines,
+      generatedAt: new Date().toLocaleString(),
+    })}`;
+  dash.appendChild(overlay);
+  document.getElementById('report-close')?.addEventListener('click', () => overlay.remove());
+  document.getElementById('report-print')?.addEventListener('click', () => window.print());
+  // Remedies are per-click and stateless server-side (same contract as the
+  // Order view's panels): fill the section when the answer lands, name the
+  // failure if it does not (NFR-003). A stale answer is discarded unread.
+  try {
+    const r = await req('/api/plan/' + forPlan + '/schedule/remedies', {
+      method: 'POST', body: JSON.stringify(orderRequestBody()),
+    });
+    if (!current || current.id !== forPlan || orderEpoch !== atEpoch || !overlay.isConnected) return;
+    const slot = overlay.querySelector('#report-remedies');
+    if (!slot) return;
+    if (!r || !r.ok) {
+      const why = r ? await r.text() : 'the request did not reach the server';
+      slot.innerHTML = remediesSectionHTML({ error: why.slice(0, 200) });
+      return;
+    }
+    slot.innerHTML = remediesSectionHTML(await r.json());
+  } catch { /* a network raise leaves the card's own note standing */ }
 }
 
 // renderOrder computes the execution order and paints §13.2's table plus the

@@ -730,6 +730,34 @@ button.plan-back { background: none; border: 0; padding: 0; font: inherit; }
    context, not editable plan (no drag contract on a ghost). */
 .tl-bar.tl-dim, .tl-row.tl-dim, .tl-subrow.tl-dim { opacity: .25; }
 .tl-bar.tl-ghost { opacity: .25; }
+
+/* Plan health report (spec 013): a modal card summarizing the one schedule.
+   Printing isolates the card (Decision 2): everything else drops out and the
+   card goes black-on-white, so browser print/PDF yields the card alone. */
+.report-overlay { position: fixed; inset: 0; z-index: 160; background: rgba(0,0,0,.6);
+  overflow: auto; padding: 24px; }
+.report-overlay .report-actions { display: flex; gap: 8px; justify-content: flex-end;
+  max-width: 760px; margin: 0 auto 8px; }
+.report-card { max-width: 760px; margin: 0 auto; background: var(--panel);
+  border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; }
+.report-card h2 { margin: 0 0 4px; font-size: 20px; }
+.report-card h3 { margin: 18px 0 6px; font-size: 14px; }
+.report-card .report-head .hint { margin: 0; font-size: 13px; }
+.report-card ul.report-list, .report-card ul.report-list ul { margin: 4px 0; padding-left: 18px; }
+.report-card li { margin: 3px 0; font-size: 13px; }
+.report-card .report-ok { color: var(--green); font-size: 13px; margin: 4px 0; }
+.report-card .report-foot { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 10px; }
+.report-card .report-foot p { margin: 2px 0; font-size: 12px; }
+
+@media print {
+  body * { visibility: hidden; }
+  .report-overlay, .report-overlay * { visibility: visible; }
+  .report-overlay { position: static; background: #fff; padding: 0; overflow: visible; }
+  .report-overlay .no-print { display: none; }
+  .report-card { max-width: none; border: 0; background: #fff; color: #111; }
+  .report-card .hint { color: #444; }
+  .report-card .report-ok { color: #0a7d33; }
+}
 .tl-row.tl-dim { min-height: 14px; }
 .tl-filter { display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; }
 .tl-filter input[type="search"] { padding: 3px 8px; font-size: 12px; width: 170px; }
