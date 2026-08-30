@@ -539,3 +539,31 @@ export function podSheetHTML(ps, sched, opts = {}) {
     <p class="hint">⚠ no slack: starting later moves the initiative's commit date. "Start by" is the last week that does not.</p>
   </div>`;
 }
+
+// timelineControlsHTML is the lens/zoom/filter row above the timeline. Kept as
+// a pure string function so the tag balance is testable: when the `.seg` to
+// `.btn-group` migration left `</span>` closers on `<div>` openers, the
+// browser ignored the stray closers and the first .btn-group (a flex row)
+// swallowed #tl-main — every button stretched viewport-tall and the chart
+// squeezed into the leftover width. Every opener here must close.
+export function timelineControlsHTML({ lens, horizon, spans, spanSel, filter, hideEmpty }) {
+  const lensBtn = (id, on, label) =>
+    `<button class="${on ? 'active' : ''}" id="${id}">${label}</button>`;
+  return `
+    <div class="plan-views"><div class="btn-group" role="group">
+      ${lensBtn('tl-by-initiative', lens === 'initiative', '◉ by initiative')}
+      ${lensBtn('tl-by-pod', lens === 'pod', '○ by pod')}
+    </div>
+    <div class="btn-group" role="group" title="how much of the schedule to draw — the period end is marked when the view is wider">
+      ${spans.map((sp) => `<button class="${sp.id === spanSel ? 'active' : ''}" data-tlspan="${sp.id}">${sp.label}</button>`).join('')}
+    </div>
+    <div class="btn-group" role="group">
+      <button id="tl-fullscreen" title="fullscreen the timeline for lane-accurate dragging (ESC to exit)">⛶ full screen</button>
+    </div>
+    <span class="tl-filter" id="tl-filter-box">
+      <input id="tl-filter" type="search" placeholder="${lens === 'pod' ? 'filter by initiative…' : 'filter by pod…'}"
+        value="${esc(filter || '')}" aria-label="${lens === 'pod' ? 'filter initiatives' : 'filter pods'}">
+      <span class="hint" id="tl-filter-count"></span>
+      ${lens === 'pod' ? `<label class="hint" title="hide pods whose initiatives all fail the filter — the waterfall shows only the chain"><input type="checkbox" id="tl-hide-empty" ${hideEmpty ? 'checked' : ''}> hide empty pods</label>` : ''}
+    </span></div>`;
+}
