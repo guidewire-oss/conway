@@ -22,10 +22,10 @@ const isoDate = "2006-01-02"
 // planner's target date because the form omitted the field would be exactly the
 // silent data loss this feature exists to prevent.
 type InitiativeEdit struct {
-	Name               string    `json:"name"`
-	StatedPriority     *int      `json:"statedPriority,omitempty"`
-	PriorityLocked     *bool     `json:"priorityLocked,omitempty"`
-	TargetDate         *string   `json:"targetDate,omitempty"`
+	Name           string  `json:"name"`
+	StatedPriority *int    `json:"statedPriority,omitempty"`
+	PriorityLocked *bool   `json:"priorityLocked,omitempty"`
+	TargetDate     *string `json:"targetDate,omitempty"`
 	// ClearDate is the explicit clear for the target date: JSON null on
 	// targetDate means "not mentioned" (the pointer protocol), so clearing
 	// needs its own flag or a dialog that empties the field can never unset it.
@@ -36,15 +36,18 @@ type InitiativeEdit struct {
 	EarliestStart      *string   `json:"earliestStart,omitempty"`
 	AfterInitiatives   *[]string `json:"afterInitiatives,omitempty"`
 	KitPct             *float64  `json:"kitPct,omitempty"`
+	// EstimateEdits (spec 008 S4): pod -> new absolute effort-weeks from a
+	// timeline right-edge drag. The scheduler re-divides by lanes.
+	EstimateEdits map[string]float64 `json:"estimateEdits,omitempty"`
 	// PinnedStarts (spec 008): pod -> pinned start week from a timeline drag.
 	// A non-nil map REPLACES the pins for that initiative (an empty map
 	// clears them) — pointer semantics so "no pins" is expressible.
-	PinnedStarts       *map[string]int `json:"pinnedStarts,omitempty"`
+	PinnedStarts *map[string]int `json:"pinnedStarts,omitempty"`
 	// PinnedLanes (spec 008 Decision 3): pod -> lane offset from a vertical
 	// drag. Validated against the current lane stack; overlaps are refused.
-	PinnedLanes        *map[string]int `json:"pinnedLanes,omitempty"`
-	InFlight           *bool     `json:"inFlight,omitempty"`
-	ProgressPct        *float64  `json:"progressPct,omitempty"`
+	PinnedLanes *map[string]int `json:"pinnedLanes,omitempty"`
+	InFlight    *bool           `json:"inFlight,omitempty"`
+	ProgressPct *float64        `json:"progressPct,omitempty"`
 }
 
 // PeriodBounds is the plan's first and last day: the period start, and the
@@ -109,6 +112,22 @@ func ApplyInitiativeEdits(inits []Initiative, edits []InitiativeEdit, sp Schedul
 				r.targetDate = &iso
 			}
 		}
+		// EstimateEdits (spec 008 S4): validate before touching anything, same
+		// as the dates — a refused edit must leave the plan alone (AC 2.4).
+		// Negative or non-finite weeks would silently delete the slice from
+		// the schedule (sliceWeeks returns 0), which is not an edit anyone
+		// asked for.
+		for pod, weeks := range e.EstimateEdits {
+			if !(weeks > 0) || math.IsNaN(weeks) || math.IsInf(weeks, 0) {
+				problems = append(problems, fmt.Sprintf("%s: estimate for %s must be a positive number of weeks, got %v", e.Name, pod, weeks))
+				bad = true
+				continue
+			}
+			if _, ok := inits[idx].Work[pod]; !ok {
+				problems = append(problems, fmt.Sprintf("%s: no work on pod %s to resize", e.Name, pod))
+				bad = true
+			}
+		}
 		if e.EarliestStart != nil {
 			// Readable, but not bounds-checked: AC 2.4 is about the target date, and
 			// "cannot start until after this period" is a legitimate thing to record.
@@ -154,6 +173,24 @@ func ApplyInitiativeEdits(inits []Initiative, edits []InitiativeEdit, sp Schedul
 			it.PinnedLanes = map[string]int{}
 			for pod, l := range *e.PinnedLanes {
 				it.PinnedLanes[pod] = l
+			}
+		}
+		// EstimateEdits (spec 008 S4): pod -> new absolute effort-weeks from a
+		// timeline right-edge drag. Only existing pods are updated — a drag
+		// cannot add work to a pod the initiative doesn't touch. The Work map
+		// is cloned first: it belongs to the caller's initiative (the contract
+		// two comments up), and an in-place write would corrupt it.
+		if len(e.EstimateEdits) > 0 {
+			wk := make(map[string]TeamWork, len(it.Work))
+			for pod, w := range it.Work {
+				wk[pod] = w
+			}
+			it.Work = wk
+			for pod, weeks := range e.EstimateEdits {
+				if orig, ok := it.Work[pod]; ok {
+					it.Work[pod] = TeamWork{Weeks: weeks, Estimated: true,
+						InPath: orig.InPath, DependsOn: orig.DependsOn}
+				}
 			}
 		}
 		assign(&it.InFlight, e.InFlight)
