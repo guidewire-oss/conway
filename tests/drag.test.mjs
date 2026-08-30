@@ -133,6 +133,35 @@ test('a click (no movement) dispatches nothing', async () => {
   assert.equal(fired, 0);
 });
 
+test('a click leaves the bar\'s rendered width intact', async () => {
+  // Regression: release() reset the drag preview with style.width = '',
+  // wiping the % width barHTML rendered — an absolutely positioned bar then
+  // shrank to shrink-to-fit (its label width) on every mere click.
+  const bar = makeBar({ initiative: 'Big', pod: 'P', startWeek: '2', estimate: '10', lanes: '1' });
+  bar.style.width = '47.87%';
+  attachDrag(makeRoot([bar]), { onPin: () => {}, onResize: () => {} });
+  await drag(bar, 60, 5, 61, 5); // a click
+  assert.equal(bar.style.width, '47.87%', 'the rendered width survives a click');
+});
+
+test('a pointercancel restores the rendered width', async () => {
+  const bar = makeBar({ initiative: 'Big', pod: 'P', startWeek: '2', estimate: '10', lanes: '2' });
+  bar.style.width = '47.87%';
+  attachDrag(makeRoot([bar]), { onPin: () => {}, onResize: () => {} });
+  bar.listeners.pointerdown({ button: 0, pointerType: 'mouse', pointerId: 1, clientX: 116, clientY: 5, preventDefault: () => {} });
+  bar.style.width = '500px'; // the resize preview wrote a px width
+  bar.listeners.pointercancel();
+  assert.equal(bar.style.width, '47.87%', 'cancel restores the rendered width, not a wipe');
+});
+
+test('a resize drag restores the original width on release', async () => {
+  const bar = makeBar({ initiative: 'Big', pod: 'P', startWeek: '2', estimate: '10', lanes: '2' });
+  bar.style.width = '47.87%';
+  attachDrag(makeRoot([bar]), { onPin: () => {}, onResize: () => {} });
+  await drag(bar, 116, 5, 129, 5);
+  assert.equal(bar.style.width, '47.87%', 'the preview\'s px width is undone; the render owns the width');
+});
+
 test('an edge gesture with no horizontal movement dispatches nothing', async () => {
   const bar = makeBar({ initiative: 'Big', pod: 'P', startWeek: '2', estimate: '10', lanes: '1' });
   let fired = 0;
