@@ -19,7 +19,7 @@ The hook being versioned with the repo means it survives re-clones — unlike
 
 ## Provenance
 
-- Observed 2026-08-26: `git config core.hooksPath` → `~/workspace/guidewire/git-hooks-core`
+- Observed 2026-08-26: `git config core.hooksPath` → `<an unrelated local hooksPath>`
   (missing dir); direct push to main succeeded with no gate output. Correct enable step
   found in softwareaifactory.sh install docs (step 6) and the hook's own header comment.
 - Related: lesson 014 (the TDZ-style silent-failure pattern in hooks), and the first

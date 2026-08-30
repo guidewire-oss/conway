@@ -304,7 +304,7 @@ function assignLanes(slices, cap = 0, pinnedLanes = null) {
   // Never draw more lanes than the pod has tracks. When time-overlapping
   // multi-lane slices cannot each get their own consecutive span (they were
   // serialized server-side, so they can), the walk pushed some past the cap —
-  // dropping them would hide real work (DevSpace vanished this way). Overflow
+  // dropping them would hide real work (whole initiatives vanished this way). Overflow
   // slices collapse onto the first lane, one row tall, with their width badge
   // still carrying lanesUsed.
   const lanes = cap > 0 ? Math.min(laneEnds.length, cap) : laneEnds.length;

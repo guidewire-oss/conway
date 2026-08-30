@@ -54,21 +54,21 @@ func TestSimDiagnosis(t *testing.T) {
 			switch g.Round {
 			case 1:
 				return []game.Move{
-					{Lever: "wipCap", Pod: "Danville", CapX: 0.8}, {Lever: "wipCap", Pod: "Kanata", CapX: 0.8},
-					{Lever: "wipCap", Pod: "Bolinas", CapX: 0.8}, {Lever: "wipCap", Pod: "Okocim", CapX: 0.8},
+					{Lever: "wipCap", Pod: "Cascade", CapX: 0.8}, {Lever: "wipCap", Pod: "Kanata", CapX: 0.8},
+					{Lever: "wipCap", Pod: "Beacon", CapX: 0.8}, {Lever: "wipCap", Pod: "Atlas", CapX: 0.8},
 					{Lever: "hire", Pod: "Kanata"},
 				}
 			case 2:
 				return []game.Move{
 					{Lever: "wipCap", Pod: "Avondale", CapX: 0.8}, {Lever: "wipCap", Pod: "Capitola", CapX: 0.8},
 					{Lever: "wipCap", Pod: "Bandipur", CapX: 0.8},
-					{Lever: "innovate", Pod: "Danville", Flavor: "holistic"}, // 2 AP
-					{Lever: "commit", Pod: "Danville", DueRound: g.Round + 1},
+					{Lever: "innovate", Pod: "Cascade", Flavor: "holistic"}, // 2 AP
+					{Lever: "commit", Pod: "Cascade", DueRound: g.Round + 1},
 				}
 			case 3:
 				return []game.Move{
-					{Lever: "hygieneSprint", Pod: "Danville"}, {Lever: "hygieneSprint", Pod: "Kanata"},
-					{Lever: "interfaceInvest", From: "Zakopane", To: "Danville"},
+					{Lever: "hygieneSprint", Pod: "Cascade"}, {Lever: "hygieneSprint", Pod: "Kanata"},
+					{Lever: "interfaceInvest", From: "Zakopane", To: "Cascade"},
 					{Lever: "interruptPolicy", Pod: "Krakow", Model: "followsun"},
 					{Lever: "wipCap", Pod: byRho(g)[0], CapX: 0.8},
 					{Lever: "commit", Pod: "Kanata", DueRound: g.Round + 1},
@@ -79,7 +79,7 @@ func TestSimDiagnosis(t *testing.T) {
 					{Lever: "wipCap", Pod: h[0], CapX: 0.8}, {Lever: "wipCap", Pod: h[1], CapX: 0.8},
 					{Lever: "wipCap", Pod: h[2], CapX: 0.8}, {Lever: "wipCap", Pod: h[3], CapX: 0.8},
 					{Lever: "wipCap", Pod: h[4], CapX: 0.8},
-					{Lever: "commit", Pod: "Danville", DueRound: g.Round + 1}, {Lever: "commit", Pod: "Bolinas", DueRound: g.Round + 1},
+					{Lever: "commit", Pod: "Cascade", DueRound: g.Round + 1}, {Lever: "commit", Pod: "Beacon", DueRound: g.Round + 1},
 				}
 			}
 		},

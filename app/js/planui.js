@@ -947,7 +947,7 @@ async function renderTimeline() {
   if (current.tlPod) paintPodSheet(current.tlPod);
 
   // Lens switches clear the filter (spec 010 AC 2.2 as amended): the query
-  // means a different thing in each lens, and carrying 'devspace' into the
+  // means a different thing in each lens, and carrying one lens's query into the
   // pod filter matches nothing — surprising beats persistent here.
   // Lens switches clear ALL filter state (spec 010 AC 2.2): the query means a
   // different thing per lens, and a carried-over hide-empty leaves pods

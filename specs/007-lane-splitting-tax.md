@@ -3,7 +3,7 @@
 **Status:** Draft
 **Author(s):** opencode (implementer), Anoop (product owner)
 **Date:** 2026-08-26
-**Story/Ticket:** discovered planning GWCP Portfolio_Priority; extends spec 006 Decision 2
+**Story/Ticket:** discovered planning a 29x35 portfolio; extends spec 006 Decision 2
 **Sprint/Cycle:** n/a
 
 ---
@@ -99,7 +99,7 @@ deliver, and I can turn splitting off entirely with a high tax
 | ID | Requirement | Threshold | How to Verify |
 |----|------------|-----------|---------------|
 | NFR-001 | No regression | suites green | `go test ./...`, `node --test` |
-| NFR-002 | 29×35 GWCP plan with splitting | < 2s | schedbench |
+| NFR-002 | 29×35 reference plan with splitting | < 2s | schedbench |
 
 ---
 

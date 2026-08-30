@@ -32,7 +32,7 @@ func TestImportStructureClampsNegativeDevCount(t *testing.T) {
 // a dated roster for planning to stay accurate.
 func TestHandleSnapshotImportRequiresRosterID(t *testing.T) {
 	s := &server{db: &db.DB{}, store: auth.NewStore([]byte("x"))}
-	body := `{"name":"Q3 import","projects":["GWCP"]}`
+	body := `{"name":"Q3 import","projects":["PROJ"]}`
 	req := httptest.NewRequest("POST", "/api/snapshots/import", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	s.handleSnapshotImport(rec, req, auth.Claims{Sub: "mgr1"})

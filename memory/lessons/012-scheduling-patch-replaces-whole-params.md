@@ -16,7 +16,7 @@ scheduling change, check whether the plan's `periodStart` was wiped.
 
 ## Provenance
 
-- Observed 2026-08-25 while testing the GWCP plan via curl: after
+- Observed 2026-08-25 while testing the reference plan via curl: after
   `PATCH {"wipModel":"drum-gated"}`, `/schedule` returned `periodStart: null`
   and every dated initiative became `no-date`; the stored plan showed
   `scheduling: {wipModel: ...}` alone. Confirmed by reading

@@ -285,11 +285,11 @@ test('orgFlowScore tradeoff: zero-transfer merge cuts coord tax but raises queue
 test('fullKitCheck flags missing pods, sizes, SRE, saturation, and undeclared deps', async () => {
   const { fullKitCheck } = await import('../app/js/sim.js');
   const epic = {
-    epic: 'GWCP-1',
+    epic: 'PROJ-1',
     tasks: [
-      { key: 'GWCP-2', pod: 'Alpha', points: 3, status: 'Open', blockedBy: [], blocks: [] },
-      { key: 'GWCP-3', pod: 'Beta', points: null, status: 'Open', blockedBy: ['GWCP-99'], blocks: [] },
-      { key: 'GWCP-4', pod: null, points: 5, status: 'Open', blockedBy: [], blocks: [] },
+      { key: 'PROJ-2', pod: 'Alpha', points: 3, status: 'Open', blockedBy: [], blocks: [] },
+      { key: 'PROJ-3', pod: 'Beta', points: null, status: 'Open', blockedBy: ['PROJ-99'], blocks: [] },
+      { key: 'PROJ-4', pod: null, points: 5, status: 'Open', blockedBy: [], blocks: [] },
     ],
   };
   const stats = {
@@ -299,9 +299,9 @@ test('fullKitCheck flags missing pods, sizes, SRE, saturation, and undeclared de
   const pods = [
     { name: 'Alpha', devCount: 5 }, { name: 'Beta', devCount: 4 },
   ];
-  const r = fullKitCheck(epic, { stats, pods, srePods: ['Cooperstown'] });
+  const r = fullKitCheck(epic, { stats, pods, srePods: ['Gamma'] });
   const by = (id) => r.items.find((i) => i.id === id);
-  assert.equal(by('pods-assigned').status, 'fail');     // GWCP-4 has no pod
+  assert.equal(by('pods-assigned').status, 'fail');     // PROJ-4 has no pod
   assert.equal(by('sized').status, 'fail');             // 1 of 3 unsized
   assert.equal(by('blockers').status, 'warn');          // external blocker unknown
   assert.equal(by('sre').status, 'fail');               // no SRE task
@@ -315,21 +315,21 @@ test('fullKitCheck flags missing pods, sizes, SRE, saturation, and undeclared de
 test('fullKitCheck passes a well-formed kit', async () => {
   const { fullKitCheck } = await import('../app/js/sim.js');
   const epic = {
-    epic: 'GWCP-1',
+    epic: 'PROJ-1',
     hasOutcome: true,
     tasks: [
-      { key: 'GWCP-2', pod: 'Alpha', points: 3, status: 'Open', blockedBy: [], blocks: ['GWCP-3'] },
-      { key: 'GWCP-3', pod: 'Beta', points: 2, status: 'Open', blockedBy: ['GWCP-2'], blocks: [] },
-      { key: 'GWCP-5', pod: 'Cooperstown', points: 2, status: 'Open', blockedBy: ['GWCP-3'], blocks: [] },
+      { key: 'PROJ-2', pod: 'Alpha', points: 3, status: 'Open', blockedBy: [], blocks: ['PROJ-3'] },
+      { key: 'PROJ-3', pod: 'Beta', points: 2, status: 'Open', blockedBy: ['PROJ-2'], blocks: [] },
+      { key: 'PROJ-5', pod: 'Gamma', points: 2, status: 'Open', blockedBy: ['PROJ-3'], blocks: [] },
     ],
   };
   const stats = {
-    Alpha: { wip: 4, rho0: 0.4 }, Beta: { wip: 2, rho0: 0.3 }, Cooperstown: { wip: 3, rho0: 0.4 },
+    Alpha: { wip: 4, rho0: 0.4 }, Beta: { wip: 2, rho0: 0.3 }, Gamma: { wip: 3, rho0: 0.4 },
   };
   const pods = [
-    { name: 'Alpha', devCount: 5 }, { name: 'Beta', devCount: 4 }, { name: 'Cooperstown', devCount: 6 },
+    { name: 'Alpha', devCount: 5 }, { name: 'Beta', devCount: 4 }, { name: 'Gamma', devCount: 6 },
   ];
-  const r = fullKitCheck(epic, { stats, pods, srePods: ['Cooperstown'] });
+  const r = fullKitCheck(epic, { stats, pods, srePods: ['Gamma'] });
   assert.ok(r.items.every((i) => i.status === 'pass'), JSON.stringify(r.items.filter((i) => i.status !== 'pass')));
   assert.equal(r.score, 1);
 });

@@ -388,23 +388,23 @@ test('bars expose the drag data attributes', () => {
 test('fuzzyMatch: substring, subsequence, case-insensitive, empty', async () => {
   const { fuzzyMatch } = await import('../app/js/filter.js');
   assert.equal(fuzzyMatch('', 'anything'), true);
-  assert.equal(fuzzyMatch('devspace', 'DevSpace/VAMOS EA & GA'), true);
-  assert.equal(fuzzyMatch('DVSPACE', 'DevSpace/VAMOS EA & GA'), true);
-  assert.equal(fuzzyMatch('dvspace', 'DevSpace/VAMOS EA & GA'), true, 'subsequence');
-  assert.equal(fuzzyMatch('vamos ea', 'DevSpace/VAMOS EA & GA'), true, 'substring of the full name');
-  assert.equal(fuzzyMatch('xyz', 'DevSpace/VAMOS EA & GA'), false);
-  assert.equal(fuzzyMatch('okocim', ''), false, 'empty target never matches a query');
+  assert.equal(fuzzyMatch('apollo', 'Apollo/App Platform'), true);
+  assert.equal(fuzzyMatch('APOLLO', 'Apollo/App Platform'), true);
+  assert.equal(fuzzyMatch('aplat', 'Apollo/App Platform'), true, 'subsequence');
+  assert.equal(fuzzyMatch('app platform', 'Apollo/App Platform'), true, 'substring of the full name');
+  assert.equal(fuzzyMatch('xyz', 'Apollo/App Platform'), false);
+  assert.equal(fuzzyMatch('atlas', ''), false, 'empty target never matches a query');
 });
 
 test('the by-pod lens hides non-matching initiative bars', () => {
   const ps = [
-    { pod: 'Okocim', tracks: 2, slices: [
-      { initiative: 'DevSpace/VAMOS', pod: 'Okocim', startWeek: 0, finishWeek: 4, lanesUsed: 2, latestStartWeek: 2, slackWeeks: 1 },
-      { initiative: 'BYOK', pod: 'Okocim', startWeek: 4, finishWeek: 6, lanesUsed: 1, latestStartWeek: 5, slackWeeks: 1 },
+    { pod: 'Atlas', tracks: 2, slices: [
+      { initiative: 'Apollo/Mobile', pod: 'Atlas', startWeek: 0, finishWeek: 4, lanesUsed: 2, latestStartWeek: 2, slackWeeks: 1 },
+      { initiative: 'BYOK', pod: 'Atlas', startWeek: 4, finishWeek: 6, lanesUsed: 1, latestStartWeek: 5, slackWeeks: 1 },
     ]},
   ];
-  const html = podLensHTML({ podWeeks: ps, initiatives: [], horizonWeeks: 26 }, { horizonWeeks: 26, span: 26, initiativeQuery: 'devspace' });
-  assert.match(html, /title="DevSpace/, 'DevSpace renders');
+  const html = podLensHTML({ podWeeks: ps, initiatives: [], horizonWeeks: 26 }, { horizonWeeks: 26, span: 26, initiativeQuery: 'apollo' });
+  assert.match(html, /title="Apollo/, 'the match renders');
   assert.ok(!html.includes('BYOK'), 'BYOK does not render at all');
   const clear = podLensHTML({ podWeeks: ps, initiatives: [], horizonWeeks: 26 }, { horizonWeeks: 26, span: 26 });
   assert.ok(clear.includes('BYOK'), 'empty query shows everything');
@@ -413,13 +413,13 @@ test('the by-pod lens hides non-matching initiative bars', () => {
 test('the by-initiative lens hides rows not touching the typed pod', () => {
   const sched = { initiatives: [
     { name: 'A', proposedRank: 1, startWeek: 0, rawFinishWeek: 3, commitWeek: 4,
-      slices: [{ pod: 'Okocim', startWeek: 0, finishWeek: 3, latestStartWeek: 1, slackWeeks: 1 }] },
+      slices: [{ pod: 'Atlas', startWeek: 0, finishWeek: 3, latestStartWeek: 1, slackWeeks: 1 }] },
     { name: 'B', proposedRank: 2, startWeek: 0, rawFinishWeek: 2, commitWeek: 3,
-      slices: [{ pod: 'Wola', startWeek: 0, finishWeek: 2, latestStartWeek: 1, slackWeeks: 1 }] },
+      slices: [{ pod: 'Beacon', startWeek: 0, finishWeek: 2, latestStartWeek: 1, slackWeeks: 1 }] },
   ], horizonWeeks: 26 };
-  const html = portfolioTimelineHTML(sched, { horizonWeeks: 26, span: 26, podQuery: 'okocim' });
-  assert.ok(html.includes('data-init="A"'), 'A touches Okocim, renders');
-  assert.ok(!html.includes('data-init="B"'), 'B does not touch Okocim, does not render');
+  const html = portfolioTimelineHTML(sched, { horizonWeeks: 26, span: 26, podQuery: 'atlas' });
+  assert.ok(html.includes('data-init="A"'), 'A touches Atlas, renders');
+  assert.ok(!html.includes('data-init="B"'), 'B does not touch Atlas, does not render');
 });
 
 // Spec 010 amendments: waterfall ordering + hide-empty-pods under a filter.
@@ -493,16 +493,16 @@ test('the timeline controls markup is tag-balanced (regression: btn-group swallo
 // they are hidden entirely.
 test('the pod lens ghosts non-matching bars only when the toggle is on', () => {
   const ps = [
-    { pod: 'Okocim', tracks: 2, slices: [
-      { initiative: 'DevSpace', pod: 'Okocim', startWeek: 0, finishWeek: 4, lanesUsed: 1, latestStartWeek: 2, slackWeeks: 1 },
-      { initiative: 'CR-DR', pod: 'Okocim', startWeek: 3, finishWeek: 26, lanesUsed: 1, latestStartWeek: 5, slackWeeks: 1 },
+    { pod: 'Atlas', tracks: 2, slices: [
+      { initiative: 'Apollo', pod: 'Atlas', startWeek: 0, finishWeek: 4, lanesUsed: 1, latestStartWeek: 2, slackWeeks: 1 },
+      { initiative: 'DR drill', pod: 'Atlas', startWeek: 3, finishWeek: 26, lanesUsed: 1, latestStartWeek: 5, slackWeeks: 1 },
     ]},
   ];
-  const off = podLensHTML({ podWeeks: ps, initiatives: [], horizonWeeks: 26 }, { horizonWeeks: 26, span: 26, initiativeQuery: 'devspace' });
-  assert.match(off, /DevSpace/, 'the match renders');
+  const off = podLensHTML({ podWeeks: ps, initiatives: [], horizonWeeks: 26 }, { horizonWeeks: 26, span: 26, initiativeQuery: 'apollo' });
+  assert.match(off, /Apollo/, 'the match renders');
   assert.ok(!off.includes('CR-DR'), 'the non-match is hidden by default');
-  const on = podLensHTML({ podWeeks: ps, initiatives: [], horizonWeeks: 26 }, { horizonWeeks: 26, span: 26, initiativeQuery: 'devspace', ghostOthers: true });
+  const on = podLensHTML({ podWeeks: ps, initiatives: [], horizonWeeks: 26 }, { horizonWeeks: 26, span: 26, initiativeQuery: 'apollo', ghostOthers: true });
   assert.match(on, /class="tl-bar tl-trunc tl-ghost"/, 'the non-match renders as a ghost');
   assert.match(on, /\(other work\): w3–w26/, 'the ghost title names the span');
-  assert.match(on, /DevSpace/, 'and the match still renders');
+  assert.match(on, /Apollo/, 'and the match still renders');
 });

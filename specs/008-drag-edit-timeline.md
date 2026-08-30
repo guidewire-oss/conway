@@ -119,7 +119,7 @@ baseline
 | ID | Requirement | Threshold | How to Verify |
 |----|------------|-----------|---------------|
 | NFR-001 | No regression | suites green | `go test ./...`, `node --test` |
-| NFR-002 | Drag-to-recompute on 29×35 GWCP plan | < 1.5s | in-browser |
+| NFR-002 | Drag-to-recompute on a 29×35 reference plan | < 1.5s | in-browser |
 | NFR-003 | Draggable affordance discoverable | cursor + hint text on first drag | in-browser |
 
 ---

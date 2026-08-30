@@ -1,6 +1,6 @@
 // Fuzzy matching for the timeline lens filters (spec 010). Case-insensitive,
-// substring OR subsequence: "dvspace" matches "DevSpace/VAMOS" because the
-// letters appear in order; "vamos" matches "DevSpace/VAMOS EA & GA" as a
+// substring OR subsequence: "aplat" matches "Apollo/App Platform" because the
+// letters appear in order; "app platform" matches "Apollo/App Platform" as a
 // substring after squashing. Pure functions — no DOM — so the shape is
 // unit-tested.
 

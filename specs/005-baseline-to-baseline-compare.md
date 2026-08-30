@@ -3,7 +3,7 @@
 **Status:** In Progress
 **Author(s):** opencode (implementer), Anoop (product owner)
 **Date:** 2026-08-25
-**Story/Ticket:** follows specs/001 Story 7 (AC 7.4); discovered during GWCP testing
+**Story/Ticket:** follows specs/001 Story 7 (AC 7.4); discovered during portfolio-plan testing
 **Sprint/Cycle:** n/a
 
 ---

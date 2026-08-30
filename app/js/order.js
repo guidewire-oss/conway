@@ -573,7 +573,7 @@ export function orderHeaderHTML(sched, opts = {}) {
 // attributes; this dialog is the other — every field the edit API accepts,
 // prefilled from the STORED initiative (not the scheduled row, which carries
 // only what the schedule reports), so a planner can fill what the sheet left
-// blank (the GWCP matrix has no priority column at all) or correct what it got
+// blank (some source matrices have no priority column at all) or correct what it got
 // wrong without re-uploading.
 export function initiativeEditDialogHTML(it) {
   if (!it) return '';

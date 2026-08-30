@@ -2,7 +2,7 @@
 
 ## Lesson
 
-`git config core.hooksPath` was set to `~/workspace/guidewire/git-hooks-core`, which does not
+`git config core.hooksPath` was set to `<an unrelated local hooksPath>`, which does not
 exist on this machine (the org dir holds `org-chart`, no hooks). Git silently runs zero hooks
 when the path is missing — so `direct-main-push-block`, `pending-lessons-push-block` and every
 other pre-push gate were dead locally. A direct push to main went through unnoticed (a chore
@@ -13,6 +13,6 @@ enforcement; `make preflight` runs the same gates explicitly and is the reliable
 
 ## Provenance
 
-- Observed 2026-08-26: `git config core.hooksPath` → `~/workspace/guidewire/git-hooks-core`;
-  `ls` → ENOENT; `ls ~/workspace/guidewire` → only `org/org-chart`. Commit 8db5461 pushed to
+- Observed 2026-08-26: `git config core.hooksPath` → `<an unrelated local hooksPath>`;
+  `ls` → ENOENT; `ls <that path>` → only `org/org-chart`. Commit 8db5461 pushed to
   main directly with no hook output.
