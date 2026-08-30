@@ -37,6 +37,7 @@ export function attachDrag(root, { onPin, onResize, span, horizon, periodStart, 
     let startX = 0;
     let startY = 0;
     let startW = 0; // width at pointerdown — resize previews grow from it
+    let savedWidth = null; // the bar's rendered inline width, restored on release
     let dragging = false;
     let mode = 'move';
 
@@ -63,6 +64,11 @@ export function attachDrag(root, { onPin, onResize, span, horizon, periodStart, 
       startX = ev.clientX;
       startY = ev.clientY;
       startW = bar.getBoundingClientRect().width;
+      // The preview writes px widths over the rendered % width; release and
+      // cancel must restore THIS, not clear it — clearing collapses an
+      // absolutely positioned bar to shrink-to-fit, and every click on a bar
+      // wiped its width (the "shrinking timeline").
+      savedWidth = bar.style.width;
       bar.setPointerCapture(ev.pointerId);
       bar.style.cursor = mode === 'move' ? 'grabbing' : mode === 'resize-w' ? 'w-resize' : 'e-resize';
       ev.preventDefault();
@@ -89,7 +95,7 @@ export function attachDrag(root, { onPin, onResize, span, horizon, periodStart, 
       dragging = false;
       bar.style.cursor = 'grab';
       bar.style.transform = '';
-      bar.style.width = '';
+      bar.style.width = savedWidth ?? '';
       bar.style.opacity = '';
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
@@ -129,7 +135,7 @@ export function attachDrag(root, { onPin, onResize, span, horizon, periodStart, 
     bar.addEventListener('pointercancel', () => {
       dragging = false;
       bar.style.transform = '';
-      bar.style.width = '';
+      bar.style.width = savedWidth ?? '';
       bar.style.opacity = '';
     });
   });
