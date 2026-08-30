@@ -16,7 +16,7 @@ exposed the mismatch.
 
 ## Provenance
 
-- Observed 2026-08-25 via in-browser probe on the the reference plan: first pairwise
+- Observed 2026-08-25 via in-browser probe on the reference plan: first pairwise
   card read "17 initiatives have moved from the baseline → v2 Aurora first";
   after the mapping fix, "...from v1 first cut → v2 Aurora first". Fix in
   app/js/planui.js (compare-to wiring).

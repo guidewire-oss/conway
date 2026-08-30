@@ -3,7 +3,7 @@
 **Status:** Draft
 **Author(s):** opencode (implementer), Anoop (product owner)
 **Date:** 2026-08-25
-**Story/Ticket:** discovered during the reference planning; estimate semantics confirmed wrong in review
+**Story/Ticket:** discovered while planning a 29x35 portfolio; estimate semantics confirmed wrong in review
 **Sprint/Cycle:** n/a
 
 ---
@@ -13,7 +13,7 @@
 Two changes, one theme — the planner's intent leads, the engine serves it.
 First, estimates become **effort** (person/pair-weeks of work) that the
 scheduler divides across a pod's lanes, instead of single-lane wall-clock
-weeks — the the reference plan schedule is currently pessimistic by the lane factor, the
+weeks — the reference schedule was pessimistic by the lane factor, the
 single biggest distortion in every date. Second, the Order view's default
 stops being the engine's best ordering: the plan opens in **the planner's own
 order** (stated priority, else sheet order), is baselined on demand, and a
@@ -275,6 +275,6 @@ same, and baselines freeze whatever order was in force.
 
 | Metric | Current | Target | How to Measure |
 |--------|---------|--------|----------------|
-| the reference plan longest chain (52w period) | week 79+ | materially inside, honestly beyond-horizon | schedbench + in-browser |
+| Reference plan longest chain (52w period) | week 79+ | materially inside, honestly beyond-horizon | schedbench + in-browser |
 | First thing a planner sees | engine's order | their own order, priced | in-browser |
 | Glossary entries on levers | 15 general | +5 lever-specific | term() call audit |

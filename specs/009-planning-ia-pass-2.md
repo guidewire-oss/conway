@@ -151,7 +151,7 @@ material)
 | ID | Requirement | Threshold | How to Verify |
 |----|------------|-----------|---------------|
 | NFR-001 | No regression | suites green | `go test ./...`, `node --test` |
-| NFR-002 | First paint of Order summary above the fold (< 1000px) on the the reference plan | y < 1000 | in-browser |
+| NFR-002 | First paint of Order summary above the fold (< 1000px) on the reference plan | y < 1000 | in-browser |
 
 ---
 
