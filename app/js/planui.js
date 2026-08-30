@@ -16,6 +16,12 @@ import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
 import { portfolioTimelineHTML, podLensHTML, podSheetHTML } from './timeline.js';
 
 let root, current = null;
+// Spec 008 S4: one-level undo for timeline drags. dragUndo snapshots the
+// pre-drag scheduling params of the last-dragged initiative (the full pin
+// maps — the PATCH replaces them — plus the pod's prior effort weeks); ⌘Z
+// PATCHes them back. A dialog save or a second drag replaces the snapshot;
+// the undo itself is not undoable.
+let dragUndo = null;
 // One comparison request at a time, keyed to what it is for. A bare boolean
 // stranded the table: if the plan or the order moved while a request was out, the
 // new dialog's request was skipped as "already pending" and the stale response was
@@ -36,6 +42,15 @@ export function initPlanUI() {
   // returns to the ⚙ that opened it — the same contract modal.js gives the
   // shared modals.
   document.addEventListener('keydown', (ev) => {
+    // ⌘Z / Ctrl+Z undoes the last timeline drag (spec 008 S4). Not inside
+    // fields — there the browser's own text undo must win.
+    if ((ev.metaKey || ev.ctrlKey) && (ev.key === 'z' || ev.key === 'Z')) {
+      const t = ev.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      ev.preventDefault();
+      undoDrag();
+      return;
+    }
     if (ev.key !== 'Escape') return;
     // Fullscreen timeline exits first (spec 008): it is a view state, and
     // ESC is its advertised exit.
@@ -68,6 +83,62 @@ export function initPlanUI() {
 const fmtDate = (ts) => ts ? new Date(ts * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—';
 
 async function req(path, opts) { try { return await authFetch(path, opts); } catch { return null; } }
+
+// dragNote paints the drag outcome line above the timeline (success is
+// silence; a refusal names the conflict). Module level so undoDrag — which
+// lives outside renderTimeline's closure — can report too.
+function dragNote(msg) {
+  const el = document.getElementById('tl-drag-note');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.hidden = !msg;
+  el.classList.toggle('plan-warn', !!msg);
+}
+
+// snapshotDragUndo records the pre-drag scheduling params of the initiative
+// being dragged (spec 008 S4). The full pin maps are copied because the PATCH
+// replaces them wholesale — restoring a merge would leak the drag's pin. The
+// caller assigns the result to dragUndo only once the PATCH succeeded, so a
+// refused drag cannot steal the undo slot.
+function snapshotDragUndo(it, pod) {
+  return {
+    planId: current.id,
+    name: it.name,
+    pod,
+    pinnedStarts: { ...(it.pinnedStarts || {}) },
+    pinnedLanes: { ...(it.pinnedLanes || {}) },
+    weeks: it.work?.[pod]?.weeks,
+  };
+}
+
+// undoDrag restores the pre-drag scheduling params of the last timeline drag
+// (spec 008 S4): one level, drags only, and the undo itself is not undoable.
+async function undoDrag() {
+  const u = dragUndo;
+  if (!u || !current || current.id !== u.planId || current.isDraft) return;
+  const it = (current.initiatives || []).find((i) => i.name === u.name);
+  if (!it) return;
+  const edit = { name: u.name, pinnedStarts: u.pinnedStarts, pinnedLanes: u.pinnedLanes };
+  if (u.weeks !== undefined && u.weeks > 0) edit.estimateEdits = { [u.pod]: u.weeks };
+  dragUndo = null;
+  const atEpoch = orderEpoch; // captured before the PATCH (cubic P1)
+  const r = await req('/api/plan/' + u.planId + '/initiatives', {
+    method: 'PATCH', body: JSON.stringify({ initiatives: [edit] }),
+  });
+  if (!r || !r.ok) {
+    const why = r ? await r.text() : 'the request did not reach the server';
+    dragNote(why.slice(0, 200));
+    return;
+  }
+  if (orderEpoch !== atEpoch) return; // a recompute landed while the PATCH was away
+  dragNote('');
+  try {
+    const d = await r.json();
+    if (Array.isArray(d.initiatives)) current.initiatives = d.initiatives;
+  } catch { /* cache stays; the server is authoritative */ }
+  current.schedule = null;
+  if (view() === 'order') await renderOrder(); else if (view() === 'timeline') await renderTimeline(); else await renderDash();
+}
 
 async function renderList() {
   current = null;
@@ -300,6 +371,7 @@ async function saveScheduling() {
   }
   const saved = await r.json();
   if (!current || current.id !== forPlan || orderEpoch !== atEpoch) return; // a stale save
+  dragUndo = null; // saved assumptions supersede any drag snapshot (spec 008 S4, FR-006)
   current.scheduling = saved.scheduling || body;
   current.calDraft = null; // the draft is saved now; the form reads the policy
   // The carried assumptions are saved too: leaving them would make the next
@@ -715,20 +787,18 @@ async function renderTimeline() {
     }
     return out;
   };
-  // dragNote paints the drag outcome line above the timeline (success is
-  // silence; an overlap refusal names the conflict).
-  function dragNote(msg) {
-    const el = document.getElementById('tl-drag-note');
-    if (!el) return;
-    el.textContent = msg || '';
-    el.hidden = !msg;
-    el.classList.toggle('plan-warn', !!msg);
-  }
+  // dragNote is module level (used by the drag callbacks and undoDrag).
   const paint = () => {
     const main = document.getElementById('tl-main');
     if (!main) return;
     main.innerHTML = lens === 'pod'
-      ? podLensHTML(sched, { horizonWeeks: horizon, span: spanWeeks, pinnedLanes: pinnedLanesByPod(), initiativeQuery: current.tlFilter || '', hideEmptyPods: current.tlHideEmpty })
+      ? podLensHTML(sched, {
+        horizonWeeks: horizon, span: spanWeeks, pinnedLanes: pinnedLanesByPod(), initiativeQuery: current.tlFilter || '', hideEmptyPods: current.tlHideEmpty,
+        // Spec 008 S4: the resize gesture needs each slice's ABSOLUTE effort
+        // weeks (estimateEdits is pod -> effort), which the schedule's slices
+        // do not carry — only the plan's initiatives do.
+        planInitiatives: current.initiatives || [],
+      })
       : portfolioTimelineHTML(sched, {
         podQuery: current.tlFilter || '',
         horizonWeeks: horizon, span: spanWeeks, todayWeek, expand: current.tlExpand,
@@ -768,15 +838,21 @@ async function renderTimeline() {
     }
     // Spec 008: drag-to-edit. A released drag pins the slice's start and the
     // engine recomputes; the re-render repaints every view from one schedule.
+    // Spec 008 S4 (Decision 4): the right-edge resize PATCHes the pod's
+    // estimate (the engine re-divides by lanes), and the left edge moves the
+    // start while shrinking the estimate so the finish anchors.
     main.dataset.horizon = String(spanWeeks);
     attachDrag(main, {
       readOnly: current.isDraft, // matchMedia('.pointer: coarse)') gate lives inside attachDrag
 
       horizon: spanWeeks,
-      onPin: async (initiative, pod, { startWeek, laneDelta }) => {
+      // Decision 4 math: the plan's own capacity loss, not the 10% default.
+      lossFactor: 1 - (Number.isFinite(current.capacityLoss) ? current.capacityLoss : 0.1),
+      onPin: async (initiative, pod, { startWeek, laneDelta, effort }) => {
         const forPlan = current.id;
         const it = (current.initiatives || []).find((i) => i.name === initiative);
         if (!it) return;
+        const undo = snapshotDragUndo(it, pod); // spec 008 S4: ⌘Z restores these params
         const edit = { name: initiative };
         if (startWeek !== null && startWeek !== undefined) {
           edit.pinnedStarts = { ...(it.pinnedStarts || {}), [pod]: startWeek };
@@ -789,6 +865,10 @@ async function renderTimeline() {
           const offset = Math.max(0, curLane + laneDelta);
           edit.pinnedLanes = { ...(it.pinnedLanes || {}), [pod]: offset };
         }
+        // A left-edge drag (Q2): the estimate shrinks so the finish anchors.
+        if (effort !== undefined && Number.isFinite(effort)) {
+          edit.estimateEdits = { [pod]: Math.max(1, effort) };
+        }
         const atEpoch = orderEpoch; // captured before the PATCH (cubic P1)
         const r = await req('/api/plan/' + forPlan + '/initiatives', {
           method: 'PATCH',
@@ -798,11 +878,13 @@ async function renderTimeline() {
         if (!r || !r.ok) {
           // The overlap refusal (spec 008 Decision 3) surfaces as the
           // timeline's own note — the chart is the context for the error.
+          // A failed drag must not steal the undo slot (FR-006).
           const why = r ? await r.text() : 'the request did not reach the server';
           if (current && current.id === forPlan) dragNote(why.slice(0, 200));
           return;
         }
         if (orderEpoch !== atEpoch) return; // a recompute landed while the PATCH was away
+        dragUndo = undo; // the drag stuck: only now does it own the undo slot
         dragNote('');
         try {
           const d = await r.json();
@@ -811,6 +893,38 @@ async function renderTimeline() {
         current.schedule = null;
         // Re-render the CURRENT view, not necessarily Timeline (cubic P2).
         if (view() === 'order') await renderOrder(); else if (view() === 'timeline') await renderTimeline(); else await renderDash();
+      },
+      // Spec 008 S4: right-edge resize PATCHes the pod's effort weeks. The
+      // server accepts estimateEdits and re-divides by lanes.
+      onResize: async (initiative, pod, newEffort) => {
+        if (!Number.isFinite(newEffort)) return; // a mid-render gesture, not an edit
+        const forPlan = current.id;
+        const it = (current.initiatives || []).find((i) => i.name === initiative);
+        if (!it) return;
+        const undo = snapshotDragUndo(it, pod); // spec 008 S4: ⌘Z restores the prior weeks
+        const atEpoch = orderEpoch; // captured before the PATCH (cubic P1)
+        const r = await req('/api/plan/' + forPlan + '/initiatives', {
+          method: 'PATCH',
+          body: JSON.stringify({ initiatives: [{
+            name: initiative,
+            estimateEdits: { [pod]: Math.max(1, newEffort) },
+          }] }),
+        });
+        if (!current || current.id !== forPlan) return;
+        if (!r || !r.ok) {
+          const why = r ? await r.text() : 'the request did not reach the server';
+          dragNote(why.slice(0, 200));
+          return;
+        }
+        if (orderEpoch !== atEpoch) return; // a recompute landed while the PATCH was away
+        dragUndo = undo;
+        dragNote('');
+        try {
+          const d = await r.json();
+          if (Array.isArray(d.initiatives)) current.initiatives = d.initiatives;
+        } catch { /* cache stays; the server is authoritative */ }
+        current.schedule = null;
+        await renderTimeline();
       },
     });
     // FR-043 (spec 004 Story 3): each pod block exports itself as a PNG. The
@@ -1185,6 +1299,7 @@ async function renderOrder() {
       }
       const save = document.getElementById('ie-save');
       if (save) { save.disabled = true; save.textContent = 'Saving…'; }
+      dragUndo = null; // a dialog save supersedes any drag snapshot (spec 008 S4)
       const forPlan = current.id;
       const atEpoch = orderEpoch;
       const r = await req('/api/plan/' + forPlan + '/initiatives', {
@@ -1292,6 +1407,7 @@ async function savePlanParams() {
   const horizon = +document.getElementById('plan-horizon').value || 26;
   const loss = (+document.getElementById('plan-loss').value || 0) / 100;
   await req('/api/plan/' + current.id, { method: 'PATCH', body: JSON.stringify({ horizonWeeks: horizon, capacityLoss: loss }) });
+  dragUndo = null; // saved params supersede any drag snapshot (spec 008 S4, FR-006)
   openPlan(current.id);
 }
 
@@ -1302,6 +1418,7 @@ async function uploadFile(kind, file) {
   root.querySelector('.plan-uploads').insertAdjacentHTML('beforeend', '<span class="hint" id="plan-uploading">uploading…</span>');
   const r = await req('/api/plan/' + current.id + '/' + kind, { method: 'POST', body: fd });
   if (!r || !r.ok) { alert('Upload failed: ' + (r ? await r.text() : 'network')); document.getElementById('plan-uploading')?.remove(); return; }
+  dragUndo = null; // an upload replaces the initiatives wholesale (spec 008 S4, FR-006)
   openPlan(current.id); // re-fetch assembled view
 }
 
