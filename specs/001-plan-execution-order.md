@@ -988,7 +988,7 @@ instance.
 
 **Decision:** Run the schedule generator under several rules — the tardiness
 index, minimum slack, value per constraint week, constraint-first,
-critical-path-first (longest chain releases first; added when the the reference plan
+critical-path-first (longest chain releases first; added when a 29x35 portfolio plan
 showed idle-lane gaps the lateness rules ignored), and the planner's stated
 priority order — and keep the best by the objective, reporting which rule won.
 The stated-order run is always computed, since it is what Story 6 compares

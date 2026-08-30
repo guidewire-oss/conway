@@ -391,7 +391,7 @@ test('fuzzyMatch: substring, subsequence, case-insensitive, empty', async () => 
   assert.equal(fuzzyMatch('apollo', 'Apollo/App Platform'), true);
   assert.equal(fuzzyMatch('APOLLO', 'Apollo/App Platform'), true);
   assert.equal(fuzzyMatch('aplat', 'Apollo/App Platform'), true, 'subsequence');
-  assert.equal(fuzzyMatch('app platform ea', 'Apollo/App Platform'), true, 'substring of the full name');
+  assert.equal(fuzzyMatch('app platform', 'Apollo/App Platform'), true, 'substring of the full name');
   assert.equal(fuzzyMatch('xyz', 'Apollo/App Platform'), false);
   assert.equal(fuzzyMatch('atlas', ''), false, 'empty target never matches a query');
 });
@@ -404,7 +404,7 @@ test('the by-pod lens hides non-matching initiative bars', () => {
     ]},
   ];
   const html = podLensHTML({ podWeeks: ps, initiatives: [], horizonWeeks: 26 }, { horizonWeeks: 26, span: 26, initiativeQuery: 'apollo' });
-  assert.match(html, /title="Apollo/, 'Apollo renders');
+  assert.match(html, /title="Apollo/, 'the match renders');
   assert.ok(!html.includes('BYOK'), 'BYOK does not render at all');
   const clear = podLensHTML({ podWeeks: ps, initiatives: [], horizonWeeks: 26 }, { horizonWeeks: 26, span: 26 });
   assert.ok(clear.includes('BYOK'), 'empty query shows everything');
@@ -495,7 +495,7 @@ test('the pod lens ghosts non-matching bars only when the toggle is on', () => {
   const ps = [
     { pod: 'Atlas', tracks: 2, slices: [
       { initiative: 'Apollo', pod: 'Atlas', startWeek: 0, finishWeek: 4, lanesUsed: 1, latestStartWeek: 2, slackWeeks: 1 },
-      { initiative: 'CR-DR', pod: 'Atlas', startWeek: 3, finishWeek: 26, lanesUsed: 1, latestStartWeek: 5, slackWeeks: 1 },
+      { initiative: 'DR drill', pod: 'Atlas', startWeek: 3, finishWeek: 26, lanesUsed: 1, latestStartWeek: 5, slackWeeks: 1 },
     ]},
   ];
   const off = podLensHTML({ podWeeks: ps, initiatives: [], horizonWeeks: 26 }, { horizonWeeks: 26, span: 26, initiativeQuery: 'apollo' });
