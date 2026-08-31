@@ -1,6 +1,6 @@
 # Site Timezone Overlap
 
-**Status:** Draft
+**Status:** In Progress (engine + site table + API implemented; admin editor in the plan setup)
 **Author(s):** Anoop Gopalakrishnan (with Claude)
 **Date:** 2026-08-17
 **Story/Ticket:** _TBD_
@@ -87,6 +87,7 @@ be materially worse.
 > Given a computed overlap in hours
 > When a cross-site handoff cost is derived
 > Then it uses the bands already specified: >= 4h a quarter-day, >= 2h a half-day, > 0h a full day, 0h a day and a half
+> And in the weekly scheduling model the allowance rounds to whole weeks — today 0 — so the bands price the game world's coordination costs until the model gains sub-week resolution (amended 2026-08-30)
 
 **AC 1.3: One computation, used everywhere**
 
@@ -164,7 +165,7 @@ be materially worse.
 | FR-009 | The system MUST list pods whose site data cannot produce a real overlap, consistent with the existing data-hygiene reporting | MUST |
 | FR-010 | The system SHOULD seed the table with the sites of the roster being imported, leaving timezone unset for an admin to fill | SHOULD |
 | FR-011 | The system MUST NOT infer a site's timezone from a pod name or from any personal data | MUST NOT |
-| FR-012 | `scripts/build_pods.py` MUST be deleted once this port is verified, completing the v1 pipeline removal | MUST |
+| FR-012 | `scripts/build_pods.py` MUST be deleted once this port is verified, completing the v1 pipeline removal — deleted 2026-08-30 | MUST |
 
 ---
 
@@ -228,10 +229,10 @@ be materially worse.
 
 | # | Question | Owner | Target Date | Resolution |
 |---|----------|-------|-------------|------------|
-| Q1 | What default working-hours window? The old script implied a standard business day; 09:00–17:00 local is the obvious choice but understates orgs that flex for overlap. | Anoop | — | [NEEDS CLARIFICATION] |
-| Q2 | Does the site table live per-roster or globally? Per-roster keeps a snapshot honest as offices change; global avoids re-entering the same sites every import. | Anoop | — | [NEEDS CLARIFICATION] |
-| Q3 | Which date does Plan model overlap at — the period start, or per-week so a DST shift mid-period is reflected? Per-week is more correct and more machinery. | Anoop | — | [NEEDS CLARIFICATION] |
-| Q4 | The five sites in the deleted table were real offices. Should the shipped default table be empty, or seeded with common IANA zones as examples? Seeding with real office names in a public repo is the thing to avoid. | Anoop | — | [NEEDS CLARIFICATION] |
+| Q1 | What default working-hours window? The old script implied a standard business day; 09:00–17:00 local is the obvious choice but understates orgs that flex for overlap. | Anoop | — | resolved 2026-08-30: 09:00–17:00 local per site, editable per site later |
+| Q2 | Does the site table live per-roster or globally? Per-roster keeps a snapshot honest as offices change; global avoids re-entering the same sites every import. | Anoop | — | resolved 2026-08-30: per-plan (the plan's roster is the snapshot), seeded from the roster's distinct sites on first read; a "use previous plan's sites" convenience is a later slice |
+| Q3 | Which date does Plan model overlap at — the period start, or per-week so a DST shift mid-period is reflected? Per-week is more correct and more machinery. | Anoop | — | resolved 2026-08-30: the overlap function takes a date; consumers evaluate at the modelled date (the game world uses the current date) — per-week consumers can call it per week without changing the function |
+| Q4 | The five sites in the deleted table were real offices. Should the shipped default table be empty, or seeded with common IANA zones as examples? Seeding with real office names in a public repo is the thing to avoid. | Anoop | — | resolved 2026-08-30: the table seeds from the roster's own site names with timezones unset; the editor offers common IANA zones as example choices — no real office names ship in the repo |
 
 ---
 
@@ -305,6 +306,6 @@ FR-008's labelling this would be misleading rather than conservative.
 - [x] Requirements use MUST/SHOULD/MAY language
 - [x] Non-functional requirements have measurable thresholds
 - [x] Out of Scope is explicit
-- [ ] Open questions are marked, owned, and time-bound — owners assigned, target dates pending
+- [x] Open questions resolved (Q1–Q4, 2026-08-30)
 - [x] No implementation details in the requirements
 - [x] AI can read this spec (markdown, in the repo)

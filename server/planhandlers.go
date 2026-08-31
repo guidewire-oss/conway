@@ -178,6 +178,10 @@ func (s *server) handlePlanItem(w http.ResponseWriter, r *http.Request, c auth.C
 		s.schedulePlan(w, r, p)
 	case sub == "schedule/remedies" && r.Method == http.MethodPost:
 		s.remediesPlan(w, r, p)
+	case sub == "sites" && r.Method == http.MethodGet:
+		s.listPlanSites(w, p)
+	case sub == "sites" && r.Method == http.MethodPatch:
+		s.patchPlanSites(w, r, p)
 	case sub == "baseline" && r.Method == http.MethodPost:
 		s.saveBaseline(w, r, p, c)
 	case sub == "baseline" && r.Method == http.MethodGet:
@@ -231,6 +235,101 @@ func (s *server) uploadPlanTeams(w http.ResponseWriter, r *http.Request, p *db.P
 		return
 	}
 	writeJSON(w, map[string]any{"teams": len(teams)})
+}
+
+// listPlanSites returns the plan's site table (spec 003 FR-006): every site
+// the roster references, configured or not, flagged so the UI can ask for the
+// missing timezones. The table is seeded from the roster on first read
+// (FR-010) and persisted immediately, so the sites editor owns one state.
+func (s *server) listPlanSites(w http.ResponseWriter, p *db.PlanRow) {
+	var sites []planning.Site
+	if len(p.Sites) > 0 {
+		if err := json.Unmarshal(p.Sites, &sites); err != nil {
+			http.Error(w, "the plan's site table is unreadable: "+err.Error(), 500)
+			return
+		}
+	}
+	var teams []planning.Team
+	if len(p.Teams) > 0 {
+		_ = json.Unmarshal(p.Teams, &teams)
+	}
+	sites = planning.SitesFromTeams(teams, sites)
+	blob, err := json.Marshal(sites)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if err := s.db.SavePlanSites(p.ID, blob, time.Now().Unix()); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeJSON(w, map[string]any{"sites": sites})
+}
+
+// patchPlanSites sets one site's timezone and working hours (spec 003 FR-007 /
+// AC 2.2). The timezone must be an IANA name the tz database knows — a fixed
+// offset would be silently wrong for half the year (Decision 2) — and the
+// change is visible to every overlap consumer on the next read.
+func (s *server) patchPlanSites(w http.ResponseWriter, r *http.Request, p *db.PlanRow) {
+	var body struct {
+		Name      string  `json:"name"`
+		Timezone  string  `json:"timezone"`
+		WorkStart float64 `json:"workStartHour"`
+		WorkEnd   float64 `json:"workEndHour"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "could not read the sites request: "+err.Error(), 400)
+		return
+	}
+	name := strings.TrimSpace(body.Name)
+	if name == "" {
+		http.Error(w, "which site?", 400)
+		return
+	}
+	if body.Timezone != "" {
+		if _, err := time.LoadLocation(body.Timezone); err != nil {
+			http.Error(w, fmt.Sprintf("%q is not an IANA timezone this server knows", body.Timezone), 400)
+			return
+		}
+	}
+	var sites []planning.Site
+	if len(p.Sites) > 0 {
+		if err := json.Unmarshal(p.Sites, &sites); err != nil {
+			http.Error(w, "the plan's site table is unreadable: "+err.Error(), 500)
+			return
+		}
+	}
+	var teams []planning.Team
+	if len(p.Teams) > 0 {
+		_ = json.Unmarshal(p.Teams, &teams) // the roster blob we wrote; a failure surfaces as an unknown-site below
+	}
+	sites = planning.SitesFromTeams(teams, sites)
+	found := false
+	for i := range sites {
+		if sites[i].Name != name {
+			continue
+		}
+		sites[i].Timezone = body.Timezone
+		sites[i].WorkStart = body.WorkStart
+		sites[i].WorkEnd = body.WorkEnd
+		sites[i].Unknown = body.Timezone == ""
+		sites[i].Defaulted = body.WorkEnd <= body.WorkStart
+		found = true
+	}
+	if !found {
+		http.Error(w, fmt.Sprintf("no site named %q is referenced by this plan's roster", name), 404)
+		return
+	}
+	blob, err := json.Marshal(sites)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if err := s.db.SavePlanSites(p.ID, blob, time.Now().Unix()); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	writeJSON(w, map[string]any{"sites": sites})
 }
 
 // netPodsToTeams converts a roster's pods to planning.Team rows — the fields
@@ -1089,7 +1188,18 @@ func (s *server) planWorld(planID string) (*World, error) {
 		w.Pods = append(w.Pods, game.PodInfo{Name: t.Name, Location: t.Site, Pairing: t.Pairs, Streams: tracks, DevCount: float64(t.Devs)})
 		w.Stats[t.Name] = game.PodStat{Wip: demand[t.Name], ThroughputWk: tracks, Mu: 2, Sigma: 0.6, HygieneScore: 0.5}
 	}
-	// overlap: same-site pods coordinate cheaply; cross-site is the slow seam
+	// Overlap (spec 003): the plan's site table drives real working-hours
+	// overlap; same-site pairs coordinate cheaply; unknown sites keep today's
+	// pessimistic default (NFR-004) so only genuinely-configured pairs change.
+	var sites []planning.Site
+	if len(p.Sites) > 0 {
+		_ = json.Unmarshal(p.Sites, &sites) // written by this same editor; a corrupt blob reads as unset
+	}
+	siteByName := map[string]planning.Site{}
+	for _, s := range sites {
+		siteByName[s.Name] = s
+	}
+	now := time.Now()
 	for _, a := range teams {
 		w.Overlap[a.Name] = map[string]float64{}
 		for _, b := range teams {
@@ -1099,7 +1209,17 @@ func (s *server) planWorld(planID string) (*World, error) {
 			case a.Site != "" && a.Site == b.Site:
 				w.Overlap[a.Name][b.Name] = 6
 			default:
-				w.Overlap[a.Name][b.Name] = 2
+				hours, configured, err := planning.OverlapHours(
+					planning.Site{Name: a.Site, Timezone: siteByName[a.Site].Timezone},
+					planning.Site{Name: b.Site, Timezone: siteByName[b.Site].Timezone}, now)
+				switch {
+				case err != nil:
+					w.Overlap[a.Name][b.Name] = 2
+				case configured:
+					w.Overlap[a.Name][b.Name] = hours
+				default:
+					w.Overlap[a.Name][b.Name] = 2 // unknown site: today's default (NFR-004)
+				}
 			}
 		}
 	}
