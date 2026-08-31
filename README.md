@@ -239,4 +239,4 @@ See `SPEC.md` for the model and the path to a shareable v2.
 
 ## License
 
-[MIT](LICENSE) — Copyright © 2026 Anoop Gopalakrishnan.
+[MIT](LICENSE) — Copyright © 2026 Guidewire Software, LLC.
