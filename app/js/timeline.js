@@ -70,12 +70,14 @@ export function periodEndHTML(horizon, span) {
     <span class="tl-period-end-label">period end · w${w}</span></div>`;
 }
 
-function barHTML({ left, width, cls = '', label, title, initiative, pod, startWeek, lane, estimate, lanes }) {
+function barHTML({ left, width, cls = '', label, title, initiative, pod, startWeek, lane, estimate, lanes, loss }) {
   // tl-trunc on every bar (FR-039): the CSS clips overflow with ellipsis, and
   // the full text survives in the title. data-initiative/pod/startWeek carry
   // the drag contract (spec 008): a released drag pins that slice's start.
-  // data-estimate carries the slice's effort weeks for the right-edge resize.
-  const drag = initiative ? ` data-initiative="${esc(initiative)}" data-pod="${esc(pod)}" data-start-week="${startWeek}"${estimate !== undefined ? ` data-estimate="${estimate}"` : ''}${lanes !== undefined ? ` data-lanes="${lanes}"` : ''}${lane !== undefined ? ` data-lane="${lane}"` : ''}` : '';
+  // data-estimate carries the slice's effort weeks for the right-edge resize;
+  // data-loss the pod's effective loss percent, so the resize converts
+  // duration to effort at the rate the engine will re-apply (spec 014).
+  const drag = initiative ? ` data-initiative="${esc(initiative)}" data-pod="${esc(pod)}" data-start-week="${startWeek}"${estimate !== undefined ? ` data-estimate="${estimate}"` : ''}${lanes !== undefined ? ` data-lanes="${lanes}"` : ''}${loss !== undefined ? ` data-loss="${loss}"` : ''}${lane !== undefined ? ` data-lane="${lane}"` : ''}` : '';
   return `<div class="tl-bar tl-trunc ${cls}" style="${pct(left)};width:${width.toFixed(2)}%" title="${esc(title)}"${drag}>${esc(label)}</div>`;
 }
 
@@ -407,6 +409,10 @@ export function podLanesHTML(ps, opts = {}) {
         cls: lead === false ? 'tl-cont' : '',
         label: `${sl.initiative} ${dur}${collapsed ? wTag : ''}`,
         initiative: sl.initiative, pod: sl.pod, startWeek: sl.startWeek, lane, estimate: effortWeeks(sl), lanes: sl.lanesUsed || 1,
+        // Spec 014: the pod's effective loss rides the bar, so the resize
+        // gesture converts duration to effort at the same rate the engine
+        // will — a 30%-loss pod's drag is not a 10%-loss drag.
+        loss: ps.lossPct,
         title: `${sl.initiative}: w${sl.startWeek}–w${sl.finishWeek} · start by w${sl.latestStartWeek}` +
           (sl.slackWeeks === 0 ? ' · no slack' : ` · ${sl.slackWeeks}w slack`) +
           (overrun > 0 ? ` · ${overrun}w past the horizon` : '') +

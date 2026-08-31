@@ -67,9 +67,11 @@ func ComputeResult(teams []Team, inits []Initiative, params Params, wipGain floa
 		wipGain = 0
 	}
 	tracks := map[string]int{}
+	byName := map[string]Team{}
 	names := map[string]bool{}
 	for _, t := range teams {
 		tracks[t.Name] = t.EffectiveTracks()
+		byName[t.Name] = t
 		names[t.Name] = true
 	}
 	demand := map[string]float64{}
@@ -86,7 +88,11 @@ func ComputeResult(teams []Team, inits []Initiative, params Params, wipGain floa
 	for name := range names {
 		d := demand[name] * (1 - wipGain)
 		tr := tracks[name]
-		capw := float64(tr) * params.HorizonWeeks * (1 - params.CapacityLoss)
+		// The pod's own loss (spec 014 FR-002): the what-if view must plan with
+		// the same effective capacity the schedule uses, or the two views
+		// disagree about exactly the pods the override exists for.
+		loss := byName[name].EffectiveLoss(params.CapacityLoss)
+		capw := float64(tr) * params.HorizonWeeks * (1 - loss)
 		var r float64
 		switch {
 		case capw > 0:
@@ -95,7 +101,8 @@ func ComputeResult(teams []Team, inits []Initiative, params Params, wipGain floa
 			r = InfiniteRho
 		}
 		rho[name] = r
-		loads = append(loads, PodLoad{Team: name, DemandWeeks: d, Tracks: tr, CapacityWeeks: capw, Rho: r, Constraint: r >= 1})
+		loads = append(loads, PodLoad{Team: name, DemandWeeks: d, Tracks: tr, CapacityWeeks: capw, Rho: r, Constraint: r >= 1,
+			LossPct: math.Round(loss * 100), LossOverride: byName[name].CapacityLoss > 0})
 	}
 	sort.Slice(loads, func(i, j int) bool { return loads[i].Rho > loads[j].Rho })
 

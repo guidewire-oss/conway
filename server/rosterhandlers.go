@@ -8,6 +8,8 @@ import (
 
 	"conway/server/auth"
 	"conway/server/db"
+	"fmt"
+	"math"
 )
 
 // Rosters are reusable, editable team-structure definitions (pods). They feed
@@ -49,6 +51,10 @@ func (s *server) handleRosters(w http.ResponseWriter, r *http.Request, c auth.Cl
 		name := strings.TrimSpace(b.Name)
 		if name == "" {
 			http.Error(w, "name the roster", 400)
+			return
+		}
+		if err := validLosses(b.Pods); err != nil {
+			http.Error(w, err.Error(), 400)
 			return
 		}
 		pods, _ := json.Marshal(b.Pods)
@@ -115,6 +121,10 @@ func (s *server) handleRosterItem(w http.ResponseWriter, r *http.Request, c auth
 		if name == "" {
 			name = row.Name
 		}
+		if err := validLosses(b.Pods); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
 		pods, _ := json.Marshal(b.Pods)
 		if err := s.db.UpdateRoster(id, name, pods, time.Now().Unix()); err != nil {
 			http.Error(w, err.Error(), 500)
@@ -147,4 +157,17 @@ func (s *server) rosterPods(id string) ([]NetPod, error) {
 		json.Unmarshal(row.Pods, &pods)
 	}
 	return pods, nil
+}
+
+// validLosses enforces spec 014 FR-004 on roster-authored pods: a capacity
+// loss override must be a fraction in [0, 1). The file-upload path refuses
+// bad values naming the pod; the roster API is held to the same contract, so
+// a crafted loss cannot reach the engine and split its arithmetic in two.
+func validLosses(pods []NetPod) error {
+	for _, p := range pods {
+		if p.CapacityLoss < 0 || p.CapacityLoss >= 1 || math.IsNaN(p.CapacityLoss) {
+			return fmt.Errorf("pod %q: capacity loss must be a fraction between 0 and 1", p.Name)
+		}
+	}
+	return nil
 }

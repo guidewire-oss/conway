@@ -426,8 +426,9 @@ type RuleScore struct {
 type ScheduleFit struct {
 	// PodWeeksDemanded is every initiative's in-path work, whether or not it fitted.
 	PodWeeksDemanded float64 `json:"podWeeksDemanded"`
-	// TrackWeeksAvailable is tracks x horizon, less the capacity loss: what the
-	// pods can actually absorb rather than their nameplate.
+	// TrackWeeksAvailable is the per-pod sum of tracks x horizon less each
+	// pod's effective loss (spec 014): what the pods can actually absorb
+	// rather than their nameplate.
 	TrackWeeksAvailable float64 `json:"trackWeeksAvailable"`
 	// BeyondHorizon counts the initiatives that could not begin inside the period.
 	BeyondHorizon int `json:"beyondHorizon"`
@@ -682,7 +683,7 @@ func computeOne(teams []Team, inits []Initiative, params Params, sp SchedulingPa
 	// an override is legible where the pod is and inheriting pods say so.
 	for i := range sched.PodWeeks {
 		ps := &sched.PodWeeks[i]
-		ps.LossPct = math.Round(byName[ps.Pod].EffectiveLoss(params.CapacityLoss) * 100)
+		ps.LossPct = math.Round(byName[ps.Pod].EffectiveLoss(params.CapacityLoss)*1000) / 10
 		ps.LossOverride = byName[ps.Pod].CapacityLoss > 0
 	}
 	// AC 4.2 (spec 004 Story 4): the aggregate-consistency sentence. Mean weekly
@@ -1587,6 +1588,11 @@ func releaseGates(in *schedInput, sp SchedulingParams, wip WipLimit, start, fini
 func splitPlace(c *podCalendar, tracks, ready int, effort float64, loss float64, tax int, rules *calendarRules, pod, site string, inFlight bool, lanesNeeded, perPodCap int, initiative string) ([]LanePhase, string) {
 	if c == nil || tracks <= 0 {
 		return nil, "" // unknown-capacity pods cannot split; the caller falls back
+	}
+	// Same loss guard sliceWeeks applies (spec 014 review): an out-of-range
+	// loss must not turn the stretch into an infinity or a negative total.
+	if loss <= 0 || loss >= 1 {
+		loss = 0
 	}
 	total := effort / (1 - loss) // loss-stretched effort, exact this time
 	if lanesNeeded < 1 {

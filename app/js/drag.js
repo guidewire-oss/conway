@@ -105,7 +105,13 @@ export function attachDrag(root, { onPin, onResize, span, horizon, periodStart, 
       if (weekDelta === 0 && laneDelta === 0) return;
       const estimate = Number(bar.dataset.estimate);
       const lanes = Number(bar.dataset.lanes || 1);
-      const delta = Math.round(weekDelta * lanes * lossFactor); // Decision 4 math
+      // Spec 014: the pod's effective loss rides the bar (data-loss, percent)
+      // — a 30%-loss pod converts duration to effort at 0.7, not at the plan
+      // global. The opts.lossFactor (the plan global) is the fallback for a
+      // schedule rendered before the pod carried the field.
+      const lossPct = Number(bar.dataset.loss);
+      const factor = Number.isFinite(lossPct) && lossPct > 0 ? 1 - lossPct / 100 : lossFactor;
+      const delta = Math.round(weekDelta * lanes * factor); // Decision 4 math
       if (mode === 'resize-w') {
         // Left edge (Q2): the dragged edge moves, the finish anchors. The
         // start moves AND the estimate shrinks by the same duration, so the
