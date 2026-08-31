@@ -741,8 +741,9 @@ critical paths at once.
 **ScheduleFit** _(derived; Decision 28)_
 - podWeeksDemanded: number — every initiative's in-path work, whether or not it
   fitted. Counting only placed work would report a plan that fits
-- trackWeeksAvailable: number — tracks x horizon, less `capacityLoss`: what the
-  pods can absorb rather than their nameplate. Zero is its own answer, not a 0%
+- trackWeeksAvailable: number — the per-pod sum of tracks x horizon, less each
+  pod's effective capacity loss (spec 014): what the pods can absorb rather
+  than their nameplate. Zero is its own answer, not a 0%
   load: it means no pod has a track, so nothing can be scheduled at all
 - beyondHorizon: integer — how many initiatives could not begin inside the period
 - heldBy: list of {constraint, count}, most common first — which bindingConstraint

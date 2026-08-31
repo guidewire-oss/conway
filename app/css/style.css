@@ -732,8 +732,11 @@ button.plan-back { background: none; border: 0; padding: 0; font: inherit; }
 .tl-bar.tl-ghost { opacity: .25; }
 
 /* Plan health report (spec 013): a modal card summarizing the one schedule.
-   Printing isolates the card (Decision 2): everything else drops out and the
-   card goes black-on-white, so browser print/PDF yields the card alone. */
+   Printing isolates the card (Decision 2): the hide-all rules are keyed off
+   the overlay's presence, so printing any other view prints that view; and
+   the card is pulled out of the flow with position:absolute, because
+   visibility:hidden alone keeps the hidden content's geometry — the card
+   would otherwise start pages deep into blank space. */
 .report-overlay { position: fixed; inset: 0; z-index: 160; background: rgba(0,0,0,.6);
   overflow: auto; padding: 24px; }
 .report-overlay .report-actions { display: flex; gap: 8px; justify-content: flex-end;
@@ -748,11 +751,13 @@ button.plan-back { background: none; border: 0; padding: 0; font: inherit; }
 .report-card .report-ok { color: var(--green); font-size: 13px; margin: 4px 0; }
 .report-card .report-foot { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 10px; }
 .report-card .report-foot p { margin: 2px 0; font-size: 12px; }
+.report-card .report-remedy-link { margin-left: 6px; }
 
 @media print {
-  body * { visibility: hidden; }
+  body:has(.report-overlay) * { visibility: hidden; }
   .report-overlay, .report-overlay * { visibility: visible; }
-  .report-overlay { position: static; background: #fff; padding: 0; overflow: visible; }
+  .report-overlay { position: absolute; top: 0; left: 0; right: 0;
+    background: #fff; padding: 0; overflow: visible; }
   .report-overlay .no-print { display: none; }
   .report-card { max-width: none; border: 0; background: #fff; color: #111; }
   .report-card .hint { color: #444; }

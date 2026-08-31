@@ -104,7 +104,7 @@ global figure where I don't
 > Given a pod with a loss override
 > When the pod's sheet or timeline card renders
 > Then the effective loss percentage is shown
-> And pods inheriting the global figure say so.
+> And pods inheriting the global figure say so on their sheet.
 
 ---
 
@@ -116,7 +116,7 @@ global figure where I don't
 | FR-002 | A pod's override MUST apply to slice durations, placement capacity, and pod ρ — one definition of effective loss used everywhere | MUST |
 | FR-003 | A pod without an override MUST inherit the plan's global capacity loss | MUST |
 | FR-004 | Values MUST satisfy 0 ≤ override < 1; inputs above 1 are read as percent; out-of-range uploads are refused naming the pod | MUST |
-| FR-005 | The pod sheet and by-pod timeline MUST show the pod's effective loss | SHOULD |
+| FR-005 | The pod sheet MUST show the pod's effective loss; the by-pod timeline card MUST badge it when the pod sets its own override | SHOULD |
 | FR-006 | The portfolio fit line MUST sum per-pod effective capacity, not a global average | SHOULD |
 | FR-007 | The sample teams CSV SHOULD carry the column with empty cells (all inherit) | MAY |
 
@@ -148,8 +148,12 @@ Derived:
 ## 8. API Contract
 
 No new endpoints. The roster upload (`POST /api/plan/{id}/teams` and the
-roster attach) carries the new column; the schedule/simulate responses gain
-no fields (the override is an input, not an output).
+roster attach) carries the new column. The override is an input, but the
+schedule and simulate responses DO carry it back out: `podWeeks` entries and
+`PodLoad` rows gain `lossPct` (the pod's effective loss, percent, one
+decimal) and `lossOverride`, so the pod card and sheet can show the loss
+where the pod is (FR-005) and the what-if view can plan with the same
+effective capacity the schedule uses.
 
 ---
 

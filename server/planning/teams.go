@@ -149,13 +149,20 @@ func ParseTeamsRows(rows [][]string) ([]Team, error) {
 		// The loss cell reads as a percent ("15", "15%") or a fraction ("0.15");
 		// empty inherits the plan global (spec 014 AC 2.1). Exactly 100% would
 		// leave the pod no capacity at all, so it is refused like any other
-		// out-of-range value.
-		if raw := strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(at(row, "loss")), "%")); raw != "" {
+		// out-of-range value. A percent-suffixed cell divides by 100
+		// unconditionally — "0.5%" is half a percent, not fifty.
+		trimmed := strings.TrimSpace(at(row, "loss"))
+		pct := strings.HasSuffix(trimmed, "%")
+		raw := strings.TrimSpace(strings.TrimSuffix(trimmed, "%"))
+		if raw != "" {
 			v, err := strconv.ParseFloat(raw, 64)
-			if err != nil {
+			// ParseFloat accepts "nan" and NaN fails every range comparison,
+			// so it is refused explicitly — a NaN loss would marshal-fail and
+			// silently wipe the roster (spec 014 review).
+			if err != nil || math.IsNaN(v) {
 				return nil, fmt.Errorf("pod %q: capacity loss %q must be a percent between 0 and 100", name, raw)
 			}
-			if v > 1 {
+			if pct || v > 1 {
 				v /= 100 // a bare number reads as a percent
 			}
 			if v < 0 || v >= 1 {
@@ -257,7 +264,7 @@ func Utilization(plan *Plan, teams []Team, params Params) []PodLoad {
 			pl.Rho = InfiniteRho // demand but no capacity
 		}
 		pl.Constraint = pl.Rho >= 1
-		pl.LossPct = math.Round(loss * 100)
+		pl.LossPct = math.Round(loss*1000) / 10
 		pl.LossOverride = byName[name].CapacityLoss > 0
 		out = append(out, pl)
 	}

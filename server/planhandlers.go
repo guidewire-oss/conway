@@ -219,7 +219,13 @@ func (s *server) uploadPlanTeams(w http.ResponseWriter, r *http.Request, p *db.P
 		http.Error(w, "no teams found — expected a pod roster (Pod Name, Developers, …)", 400)
 		return
 	}
-	b, _ := json.Marshal(teams)
+	// A marshal failure (e.g. a NaN loss) must not silently persist a null
+	// roster and answer 200 — the plan's teams would be gone (spec 014 review).
+	b, err := json.Marshal(teams)
+	if err != nil {
+		http.Error(w, "could not store the roster: "+err.Error(), 400)
+		return
+	}
 	if err := s.db.SavePlanTeams(p.ID, b, time.Now().Unix()); err != nil {
 		http.Error(w, err.Error(), 500)
 		return

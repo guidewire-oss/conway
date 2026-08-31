@@ -44,17 +44,27 @@ export function initPlanUI() {
   // shared modals.
   document.addEventListener('keydown', (ev) => {
     // ⌘Z / Ctrl+Z undoes the last timeline drag (spec 008 S4). Not inside
-    // fields — there the browser's own text undo must win.
+    // fields — there the browser's own text undo must win — and not while the
+    // health report is up: an edit fired from behind a modal would recompute
+    // the schedule the open card is summarizing (spec 013 AC 3.2).
     if ((ev.metaKey || ev.ctrlKey) && (ev.key === 'z' || ev.key === 'Z')) {
       const t = ev.target;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      if (document.querySelector('.report-overlay')) return;
       ev.preventDefault();
       undoDrag();
       return;
     }
     if (ev.key !== 'Escape') return;
-    // The health report's overlay is next: a modal card, ESC is its exit too.
-    document.querySelector('.report-overlay')?.remove();
+    // The health report's overlay closes first, alone: a report open over a
+    // fullscreen timeline is two ESC-exits stacked, and one keypress must not
+    // unwind both.
+    const report = document.querySelector('.report-overlay');
+    if (report) {
+      report.remove();
+      document.getElementById('view-report')?.focus();
+      return;
+    }
     // Fullscreen timeline exits first (spec 008): it is a view state, and
     // ESC is its advertised exit.
     const fs = document.getElementById('plan-dash');
@@ -963,9 +973,10 @@ async function renderTimeline() {
 // openHealthReport renders the spec-013 health card from the CACHED schedule
 // (never recomputing one — NFR-001; a plan without a schedule is routed to the
 // Order view, which computes and caches it), then fills the remedies section
-// from the per-click remedies endpoint. The overlay is modal: nothing under it
-// changes while it is open, so the card cannot go stale behind the planner's
-// back — closing and reopening re-renders from the fresh cache (AC 3.2).
+// from the per-click remedies endpoint. The overlay is a modal dialog with
+// focus management (Decision 2): focus moves in on open, Tab is trapped, and
+// view-report regains it on close — so no control beneath the card can take
+// keyboard input while it is up (AC 3.2). Mouse users were already safe.
 async function openHealthReport() {
   if (!current) return;
   if (!current.schedule) { setView('order'); return; }
@@ -975,6 +986,9 @@ async function openHealthReport() {
   const atEpoch = orderEpoch;
   const overlay = document.createElement('div');
   overlay.className = 'report-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-label', 'Plan health report');
   overlay.innerHTML = `
     <div class="report-actions no-print">
       <button type="button" id="report-print">⎙ Print</button>
@@ -985,8 +999,31 @@ async function openHealthReport() {
       generatedAt: new Date().toLocaleString(),
     })}`;
   dash.appendChild(overlay);
-  document.getElementById('report-close')?.addEventListener('click', () => overlay.remove());
-  document.getElementById('report-print')?.addEventListener('click', () => window.print());
+  const close = () => { overlay.remove(); document.getElementById('view-report')?.focus(); };
+  const printBtn = overlay.querySelector('#report-print');
+  const closeBtn = overlay.querySelector('#report-close');
+  closeBtn?.addEventListener('click', close);
+  printBtn?.addEventListener('click', () => window.print());
+  // A two-button tab loop: the card is static content, the actions are the
+  // only tab stops, so focus cycles between Print and Close while open.
+  closeBtn?.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Tab' && !ev.shiftKey) { ev.preventDefault(); printBtn?.focus(); }
+  });
+  printBtn?.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Tab' && ev.shiftKey) { ev.preventDefault(); closeBtn?.focus(); }
+  });
+  // The remedies link-back (AC 1.5): a row's "full options" opens the Order
+  // view's priced-options panel for that initiative — the summary stays a
+  // summary, the decision happens where the costs are priced.
+  overlay.querySelector('.report-card')?.addEventListener('click', (ev) => {
+    const btn = ev.target.closest?.('.report-remedy-link');
+    if (!btn) return;
+    const target = btn.dataset.target;
+    close();
+    setView('order');
+    showRemediesFor(target);
+  });
+  printBtn?.focus();
   // Remedies are per-click and stateless server-side (same contract as the
   // Order view's panels): fill the section when the answer lands, name the
   // failure if it does not (NFR-003). A stale answer is discarded unread.
@@ -1002,8 +1039,28 @@ async function openHealthReport() {
       slot.innerHTML = remediesSectionHTML({ error: why.slice(0, 200) });
       return;
     }
-    slot.innerHTML = remediesSectionHTML(await r.json());
+    let data = null;
+    try { data = await r.json(); } catch { data = { error: 'the server sent something this cannot read' }; }
+    slot.innerHTML = remediesSectionHTML(data);
   } catch { /* a network raise leaves the card's own note standing */ }
+}
+
+// showRemediesFor opens the Order view's remedy panel for one initiative — the
+// link-back target of the health report's top-remedies rows (spec 013 AC 1.5).
+// setView('order') paints asynchronously, so the [options ▾] expander is looked
+// up with a short retry, then clicked: toggleRemedies prices and mounts the
+// panel exactly as a manual expand would.
+function showRemediesFor(name) {
+  current.baselineFocus = false;
+  const tryOpen = (attempt) => {
+    const btn = document.querySelector(`.ord-options[data-init="${CSS.escape(name)}"]`);
+    if (!btn) {
+      if (attempt < 10) setTimeout(() => tryOpen(attempt + 1), 200);
+      return;
+    }
+    btn.click();
+  };
+  tryOpen(0);
 }
 
 // renderOrder computes the execution order and paints §13.2's table plus the
