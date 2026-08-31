@@ -70,6 +70,7 @@ export function baselineListHTML(baselines) {
       ${b.active ? '' : `<button type="button" class="bl-activate" data-id="${esc(b.id)}">make active</button>`}
       <button type="button" class="bl-compare" data-id="${esc(b.id)}">compare</button>
       ${vsSelect(b)}
+      <button type="button" class="bl-delete" data-id="${esc(b.id)}" title="delete this baseline">Delete</button>
     </td>
   </tr>`).join('');
   return `<table class="wip-table bl-table"><thead><tr>
@@ -130,24 +131,33 @@ export function compareTableHTML(result) {
   </div>`;
 }
 
-// baselinePanelHTML is the Order view's baseline section: §13.2's save control,
-// the history, and whatever comparison is open. draft=true means an unsaved
-// initiatives preview is up; the save is blocked because a baseline must freeze
-// stored inputs (FR-029), and the next list-read would otherwise call the freshly
-// saved baseline diverged — a false alarm on the chip the reader just set.
-export function baselinePanelHTML(baselines, compare, draft) {
-  return `<div class="panel-card ord-card bl-panel">
-    <div class="ord-head">
+// baselinesDrawerHTML is the slide-over that holds EVERYTHING baseline-related
+// (spec 015): the save row, the history with per-baseline actions, and the
+// pairwise comparison. It slides over the Order view, which stays visible —
+// activation and comparison are decisions made about the order, so the order
+// stays in sight. Draft=true blocks the save (FR-029): a baseline must freeze
+// stored inputs, and the next list-read would call the freshly saved one
+// diverged — a false alarm on the chip the reader just set.
+export function baselinesDrawerHTML(baselines, compare, { draft = false } = {}) {
+  const active = activeBaseline(baselines);
+  const cta = active?.diverged
+    ? '<p class="plan-warn bl-cta">The inputs have moved since this baseline was saved — save this changed plan as a new baseline to keep the old one comparable.</p>'
+    : '';
+  return `<aside class="bl-drawer" role="dialog" aria-modal="true" aria-label="Baselines">
+    <div class="bl-drawer-head">
       <b>Baselines${term('baseline')}</b>
       <span class="hint">the agreed order for this period, frozen with the inputs that produced it</span>
+      <button type="button" class="bl-drawer-close" title="close (ESC)">✕</button>
     </div>
-    ${baselineListHTML(baselines)}
+    ${cta}
     <div class="bl-save">
-      <button type="button" id="bl-save" class="primary" ${draft ? 'disabled' : ''}>Save as baseline</button>
+      <input id="bl-drawer-name" type="text" placeholder="name this order, e.g. v2 agreed 12 Jan" maxlength="80" ${draft ? 'disabled' : ''} aria-label="baseline name">
+      <button type="button" id="bl-save" class="primary" ${draft ? 'disabled' : ''}>Save current order</button>
       ${draft ? '<span class="plan-warn">Save the uploaded initiatives first — a baseline freezes what is stored, not the preview you are looking at.</span>' : ''}
     </div>
-  </div>
-  ${compareTableHTML(compare)}`;
+    ${baselineListHTML(baselines)}
+    ${compareTableHTML(compare)}
+  </aside>`;
 }
 
 // saveErrorMessage turns a failed baseline request into something a planner can

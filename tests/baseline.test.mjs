@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   fmtWhen, activeBaseline, baselineChipHTML, baselineListHTML,
-  deltaCell, compareTableHTML, baselinePanelHTML, saveErrorMessage, latestOnly,
+  deltaCell, compareTableHTML, baselinesDrawerHTML, saveErrorMessage, latestOnly,
 } from '../app/js/baseline.js';
 
 const saved = [
@@ -142,30 +142,32 @@ test('an initiative name from a spreadsheet cannot inject markup', () => {
   assert.ok(!baselineChipHTML([{ name: nasty, active: true }]).includes('<img'));
 });
 
-test('the panel composes without leaking undefined', () => {
-  const html = baselinePanelHTML(saved, null);
+test('the drawer composes without leaking undefined', () => {
+  const html = baselinesDrawerHTML(saved, null);
   assert.ok(!html.includes('undefined'));
   assert.ok(!html.includes('NaN'));
-  assert.match(html, /Save as baseline/);
-  assert.ok(!html.includes('bl-name'), 'the name lives in the save modal now, not the panel');
+  assert.match(html, /Save current order/);
+  assert.match(html, /id="bl-drawer-name"/, 'the save row carries the name field');
+  assert.match(html, /class="bl-delete"/, 'history rows offer delete (spec 015 FR-004)');
 });
 
 // FR-029's constraint made visible: a baseline freezes stored inputs, so the
 // panel must not offer the save while an unsaved initiatives preview is up —
 // the freshly saved baseline would read as diverged on the next list-read.
-test('the panel blocks the save while a draft preview is unsaved', () => {
-  const html = baselinePanelHTML(saved, null, true);
+test('the drawer blocks the save while a draft preview is unsaved', () => {
+  const html = baselinesDrawerHTML(saved, null, { draft: true });
   assert.match(html, /Save the uploaded initiatives first/);
   assert.match(html, /id="bl-save"[^>]*disabled/, 'the button is disabled, not just annotated');
+  assert.match(html, /id="bl-drawer-name"[^>]*disabled/, 'and so is the name field');
 });
 
 test('a draft-free panel offers the save', () => {
-  const html = baselinePanelHTML(saved, null, false);
+  const html = baselinesDrawerHTML(saved, null, { draft: false });
   assert.ok(!html.includes('disabled'), 'no disabled controls when there is no draft');
 });
 
 test('the panel survives a plan with nothing saved and nothing compared', () => {
-  const html = baselinePanelHTML(undefined, undefined);
+  const html = baselinesDrawerHTML(undefined, undefined);
   assert.ok(!html.includes('undefined'));
   assert.match(html, /No baselines yet/);
 });
@@ -326,4 +328,14 @@ test('latestOnly still refuses a claim that went stale during an await', async (
   await Promise.all([slow, fast]);
 
   assert.deepEqual(writes, ['newer'], 'only the newest request may write the card');
+});
+
+// Spec 015 FR-005: a diverged active baseline must offer the next step —
+// save this changed plan as a new baseline — not just report the drift.
+test('the drawer highlights the save row when the active baseline has diverged', () => {
+  const html = baselinesDrawerHTML([{ name: 'Kickoff', active: true, diverged: true, createdAt: 1756500000 }], null);
+  assert.match(html, /The inputs have moved since this baseline was saved/);
+  assert.match(html, /save this changed plan as a new baseline/);
+  const fresh = baselinesDrawerHTML([{ name: 'Kickoff', active: true, diverged: false, createdAt: 1756500000 }], null);
+  assert.ok(!fresh.includes('bl-cta'), 'no CTA when everything matches');
 });

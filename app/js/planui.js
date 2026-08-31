@@ -11,7 +11,7 @@ import { exportBlockPNG } from './exportpng.js';
 import { attachDrag } from './drag.js';
 import { openDocs } from './docs.js';
 import { fuzzyMatch } from './filter.js';
-import { baselineChipHTML, baselinePanelHTML, saveErrorMessage, latestOnly, activeBaseline } from './baseline.js';
+import { baselineChipHTML, baselinesDrawerHTML, saveErrorMessage, latestOnly, activeBaseline } from './baseline.js';
 import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
 import { portfolioTimelineHTML, podLensHTML, podSheetHTML, timelineControlsHTML } from './timeline.js';
 import { healthReportHTML, remediesSectionHTML } from './report.js';
@@ -65,6 +65,7 @@ export function initPlanUI() {
       document.getElementById('view-report')?.focus();
       return;
     }
+    if (document.querySelector('.bl-drawer-overlay')) { closeBaselinesDrawer(); return; }
     // Fullscreen timeline exits first (spec 008): it is a view state, and
     // ESC is its advertised exit.
     const fs = document.getElementById('plan-dash');
@@ -401,88 +402,97 @@ async function loadBaselines() {
   const body = await r.json();
   if (!current || current.id !== forPlan) return; // an answer to a stale question
   current.baselines = body.baselines || [];
+  refreshBaselinesDrawer(); // an open drawer must not show a stale list (AC 2.2)
 }
 
-// Baseline save UX (spec 009 Decision 5): ONE affordance — a small modal with
-// the name field focused — opened from the header button, the panel button,
-// or the chip when nothing is agreed yet. The old per-entry inline inputs
-// painted errors into a panel that could be scrolled away or collapsed, and
-// their per-render wiring is how saving went dead silently (lesson 020).
-async function openBaselineModal(prefill = '') {
+// Baselines drawer (spec 015): ONE home for saving, history, activation and
+// comparison. It slides over the Order view — which stays visible, because
+// activation and comparison are decisions made about the order — and is
+// appended to the document body, so Order re-renders cannot strand it (AC 2.2).
+// The chip opens it in one click from any view (FR-001).
+function baselinesDrawerOpen() {
+  return !!document.querySelector('.bl-drawer-overlay');
+}
+
+function openBaselinesDrawer() {
   if (!current) return;
-  if (document.querySelector('.bl-modal-overlay')) return; // one at a time
-  const dash = document.getElementById('plan-dash');
-  if (!dash) return;
+  if (baselinesDrawerOpen()) { refreshBaselinesDrawer(); return; }
   const overlay = document.createElement('div');
-  overlay.className = 'bl-modal-overlay';
-  overlay.setAttribute('role', 'dialog');
-  overlay.setAttribute('aria-modal', 'true');
-  overlay.setAttribute('aria-label', 'Save baseline');
-  overlay.innerHTML = `
-    <div class="bl-modal panel-card">
-      <h3>Save this order as a baseline</h3>
-      <p class="hint">A baseline freezes the order you are looking at together with the inputs that produced it, so later re-plans and actuals are measured against it.</p>
-      <input id="bl-modal-name" type="text" placeholder="name this order, e.g. v2 agreed 12 Jan" maxlength="80" value="${esc(prefill)}" aria-label="baseline name">
-      <p class="plan-warn" id="bl-modal-error" hidden></p>
-      <div class="bl-modal-actions">
-        <button type="button" id="bl-modal-cancel">Cancel</button>
-        <button type="button" id="bl-modal-save" class="primary">✓ Save baseline</button>
-      </div>
-    </div>`;
-  dash.appendChild(overlay);
-  const name = overlay.querySelector('#bl-modal-name');
-  const errEl = overlay.querySelector('#bl-modal-error');
-  const saveBtn = overlay.querySelector('#bl-modal-save');
-  const cancelBtn = overlay.querySelector('#bl-modal-cancel');
-  const fail = (msg) => { errEl.textContent = msg; errEl.hidden = false; };
-  const close = () => { overlay.remove(); document.getElementById('view-order')?.focus(); };
-  const save = async () => {
-    // A draft previews an unsaved sheet; a baseline freezes what is STORED —
-    // saving one from a draft would freeze the stale copy (cubic P1).
-    if (current.isDraft) {
-      fail('Save the uploaded initiatives first — a baseline freezes what is stored, not the preview.');
-      return;
-    }
-    const value = (name.value || '').trim();
-    if (!value) { name.focus(); fail('Give the baseline a name — it is how this period\u2019s agreed order is referred to later.'); return; }
-    saveBtn.disabled = true;
-    saveBtn.textContent = 'Saving…';
-    const forPlan = current.id;
-    const r = await req('/api/plan/' + forPlan + '/baseline', {
-      method: 'POST', body: JSON.stringify({ name: value, ...orderRequestBody() }),
-    });
-    if (!current || current.id !== forPlan) { overlay.remove(); return; }
-    if (!r || !r.ok) {
-      const why = r ? await r.text() : 'the request did not reach the server';
-      // A 405 here has one dominant cause worth naming (saveErrorMessage's
-      // history): a checkout updated the page while the server binary is old.
-      fail(saveErrorMessage(r ? r.status : 0, why, 'save'));
-      saveBtn.disabled = false;
-      saveBtn.textContent = '✓ Save baseline';
-      return;
-    }
-    overlay.remove();
-    await loadBaselines();
-    current.baselineCompare = null;
-    renderPlan(); // the header chip changes too, so repaint the plan rather than the panel
-  };
-  saveBtn.addEventListener('click', save);
-  name.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); save(); } });
-  cancelBtn.addEventListener('click', close);
-  overlay.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Escape') { ev.stopPropagation(); close(); }
-    // Tab loops within the dialog: the three controls are its only tab stops.
-    if (ev.key === 'Tab') {
-      const stops = [name, saveBtn, cancelBtn];
-      const i = stops.indexOf(document.activeElement);
-      if (i === -1) { ev.preventDefault(); name.focus(); return; }
-      const next = ev.shiftKey ? (i === 0 ? stops.length - 1 : i - 1) : (i === stops.length - 1 ? 0 : i + 1);
-      ev.preventDefault();
-      stops[next].focus();
-    }
+  overlay.className = 'bl-drawer-overlay';
+  overlay.innerHTML = baselinesDrawerHTML(current.baselines, current.baselineCompare, { draft: current.isDraft });
+  document.body.appendChild(overlay);
+  overlay.querySelector('.bl-drawer-close')?.addEventListener('click', closeBaselinesDrawer);
+  // Backdrop click closes; clicks inside the drawer do not.
+  overlay.addEventListener('click', (ev) => { if (ev.target === overlay) closeBaselinesDrawer(); });
+  overlay.querySelector('#bl-drawer-name')?.focus();
+}
+
+function closeBaselinesDrawer() {
+  document.querySelector('.bl-drawer-overlay')?.remove();
+}
+
+// refreshBaselinesDrawer re-renders the open drawer's content from the current
+// state — the drawer is outside the re-rendered dash, so it must refresh
+// itself whenever baselines move (save, activate, delete).
+function refreshBaselinesDrawer() {
+  const overlay = document.querySelector('.bl-drawer-overlay');
+  if (!overlay) return;
+  overlay.innerHTML = baselinesDrawerHTML(current.baselines, current.baselineCompare, { draft: current.isDraft });
+  overlay.querySelector('.bl-drawer-close')?.addEventListener('click', closeBaselinesDrawer);
+  overlay.addEventListener('click', (ev) => { if (ev.target === overlay) closeBaselinesDrawer(); });
+}
+
+// saveBaselinesDrawerSave persists the drawer's named snapshot (FR-003): a
+// draft preview is refused, a name is required, and a 405 names its dominant
+// cause (a checkout updated the page while the server binary is old).
+async function saveBaselinesDrawer() {
+  const name = document.getElementById('bl-drawer-name');
+  const errEl = document.querySelector('.bl-drawer-overlay .bl-drawer-error');
+  const fail = (msg) => { if (errEl) { errEl.textContent = msg; errEl.hidden = false; } };
+  if (current.isDraft) {
+    fail('Save the uploaded initiatives first — a baseline freezes what is stored, not the preview.');
+    return;
+  }
+  const value = (name?.value || '').trim();
+  if (!value) { name?.focus(); fail('Give the baseline a name — it is how this period\u2019s agreed order is referred to later.'); return; }
+  const saveBtn = document.getElementById('bl-save');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+  const forPlan = current.id;
+  const r = await req('/api/plan/' + forPlan + '/baseline', {
+    method: 'POST', body: JSON.stringify({ name: value, ...orderRequestBody() }),
   });
-  name.focus();
-  name.setSelectionRange(name.value.length, name.value.length);
+  if (!current || current.id !== forPlan) return;
+  if (!r || !r.ok) {
+    const why = r ? await r.text() : 'the request did not reach the server';
+    fail(saveErrorMessage(r ? r.status : 0, why, 'save'));
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save current order'; }
+    return;
+  }
+  await loadBaselines();
+  current.baselineCompare = null;
+  renderPlan(); // the chip changes too
+  refreshBaselinesDrawer();
+}
+
+// deleteBaseline is a two-step in-place confirmation (spec 015 Decision 2):
+// the first click arms the row's button, the second deletes. Any re-render
+// disarms it. Deleting the active baseline leaves the plan with none — an
+// honest state the chip reports (Q1 default).
+async function deleteBaseline(btn) {
+  if (btn.dataset.confirm !== '1') {
+    btn.dataset.confirm = '1';
+    btn.textContent = 'Confirm delete?';
+    btn.classList.add('bl-delete-armed');
+    return;
+  }
+  const forPlan = current.id;
+  const r = await req('/api/plan/' + forPlan + '/baseline/' + btn.dataset.id, { method: 'DELETE' });
+  if (!current || current.id !== forPlan) return;
+  if (!r || !r.ok) { await baselineError(r, 'delete'); return; }
+  await loadBaselines();
+  current.baselineCompare = null;
+  renderPlan();
+  refreshBaselinesDrawer();
 }
 
 // Baseline controls are wired by DELEGATION (lesson 020): the Order view
@@ -493,8 +503,10 @@ function wireBaselineDelegation() {
   document.addEventListener('click', (ev) => {
     const t = ev.target;
     if (!(t instanceof Element)) return;
-    if (t.closest('#bl-save-head, #bl-save')) { openBaselineModal(); return; }
-    if (t.closest('#bl-chip')) { onBaselineChipClick(); return; }
+    if (t.closest('#bl-save')) { saveBaselinesDrawer(); return; }
+    const del = t.closest('.bl-delete');
+    if (del) { deleteBaseline(del); return; }
+    if (t.closest('#bl-chip')) { openBaselinesDrawer(); return; }
     const act = t.closest('.bl-activate');
     if (act) { activateBaseline(act.dataset.id); return; }
     const cmp = t.closest('.bl-compare');
@@ -504,20 +516,6 @@ function wireBaselineDelegation() {
     const sel = ev.target instanceof Element ? ev.target.closest('.bl-vs-sel') : null;
     if (sel) onVsChange(sel);
   });
-}
-
-// onBaselineChipClick: an empty chip IS the save affordance (it says
-// "save one ▸"); a chip with an active baseline is a status whose details
-// live in the Order view's panel.
-function onBaselineChipClick() {
-  if (!current) return;
-  if (!activeBaseline(current.baselines)) {
-    if (view() !== 'order') setView('order');
-    openBaselineModal();
-    return;
-  }
-  if (view() !== 'order') { current.baselineFocus = true; setView('order'); return; }
-  document.querySelector('.bl-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 // onCompareClick: comparing the already-compared baseline dismisses the card —
@@ -1122,7 +1120,6 @@ async function openHealthReport() {
 // up with a short retry, then clicked: toggleRemedies prices and mounts the
 // panel exactly as a manual expand would.
 function showRemediesFor(name) {
-  current.baselineFocus = false;
   const tryOpen = (attempt) => {
     const btn = document.querySelector(`.ord-options[data-init="${CSS.escape(name)}"]`);
     if (!btn) {
@@ -1195,7 +1192,7 @@ async function renderOrder() {
     horizonWeeks: current.horizonWeeks,
     pod: current.orderPod,
     scheduling: schedForForm,
-  }) + baselinePanelHTML(current.baselines, current.baselineCompare, current.isDraft);
+  });
   applyLiveAssumptions(); // edits carried across an add/del re-render
   wireCallouts(host);
   host.querySelectorAll('.ord-options').forEach((b) =>
@@ -1421,14 +1418,14 @@ async function renderOrder() {
     current.schedule = null;
     await renderOrder();
     if (ordering === 'engine') {
-      // Q1: ask to baseline AFTER the re-render, or the fresh DOM drops the
-      // hint. One click, pre-filled, dismissible.
-      const bl = document.getElementById('bl-name');
-      if (bl) {
-        bl.value = bl.value || ('engine order ' + new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short' }));
-        document.querySelector('.bl-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        document.getElementById('bl-optimize-hint')?.remove();
-        bl.insertAdjacentHTML('afterend', '<span class="hint" id="bl-optimize-hint">save this accepted order as a baseline?</span>');
+      // Q1: ask to baseline AFTER the re-render — the drawer opens pre-filled
+      // with a dated name, one click away from freezing the accepted order.
+      if (!current.isDraft) {
+        openBaselinesDrawer();
+        const nameInput = document.getElementById('bl-drawer-name');
+        if (nameInput && !nameInput.value) {
+          nameInput.value = 'engine order ' + new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+        }
       }
     }
   };
@@ -1495,11 +1492,6 @@ async function renderOrder() {
   }));
   const closeInitEditor = () => document.getElementById('init-edit-dialog')?.remove();
   document.querySelector('.ord-queue')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  if (current.baselineFocus) {
-    current.baselineFocus = false; // one-shot: clicking the chip, not every render
-    document.querySelector('.bl-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    document.getElementById('bl-name')?.focus();
-  }
 }
 
 // previewInitiativesFile parses an uploaded sheet server-side and shows the

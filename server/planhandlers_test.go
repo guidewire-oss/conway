@@ -890,9 +890,14 @@ var _ = Describe("the baseline endpoints", func() {
 		})
 
 		It("refuses a method the endpoint does not have", func() {
-			Expect(route("DELETE", "b1")).To(Equal(405),
-				"baselines are immutable, so there is no delete (FR-030)")
+			Expect(route("PUT", "b1")).To(Equal(405))
 			Expect(route("PUT", "b1/compare")).To(Equal(405))
+		})
+
+		It("delete needs the database (spec 015 added delete)", func() {
+			// The routing harness has no db pool; the full delete path is
+			// exercised against the real store.
+			Expect(route("DELETE", "b1")).To(Equal(503))
 		})
 	})
 

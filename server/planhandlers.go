@@ -793,6 +793,8 @@ func (s *server) baselineItem(w http.ResponseWriter, r *http.Request, p *db.Plan
 		s.getBaseline(w, p, bid)
 	case action == "" && r.Method == http.MethodPatch:
 		s.patchBaseline(w, r, p, bid)
+	case action == "" && r.Method == http.MethodDelete:
+		s.deleteBaseline(w, p, bid)
 	case action == "compare" && r.Method == http.MethodPost:
 		s.compareBaseline(w, r, p, bid)
 	case strings.HasPrefix(action, "compare-to/") && r.Method == http.MethodPost:
@@ -800,6 +802,35 @@ func (s *server) baselineItem(w http.ResponseWriter, r *http.Request, p *db.Plan
 	default:
 		methodNotAllowed(w, r)
 	}
+}
+
+// deleteBaseline removes one saved baseline. Scoped by plan, so a guessed id
+// from another plan deletes nothing; a miss answers 404, not a silent ok.
+func (s *server) deleteBaseline(w http.ResponseWriter, p *db.PlanRow, bid string) {
+	if s.db == nil {
+		http.Error(w, "baselines require the database", http.StatusServiceUnavailable)
+		return
+	}
+	ok, err := s.db.DeleteBaseline(p.ID, bid)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if !ok {
+		http.Error(w, "no such baseline in this plan", 404)
+		return
+	}
+	// If the deleted one was active, the newest remaining becomes active — the
+	// chip reports the plan's latest agreement, not a surprising "none" while
+	// other agreements still exist (spec 015 Q1, resolved 2026-08-30).
+	remaining, err := s.db.ListBaselines(p.ID)
+	if err == nil && len(remaining) > 0 {
+		if _, aerr := s.db.SetBaselineActive(p.ID, remaining[0].ID); aerr == nil {
+			writeJSON(w, map[string]any{"ok": true, "active": remaining[0].Name})
+			return
+		}
+	}
+	writeJSON(w, map[string]any{"ok": true})
 }
 
 // compareBaselines compares two STORED baselines (spec 005): the delta between

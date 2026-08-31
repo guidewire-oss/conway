@@ -299,6 +299,19 @@ func (d *DB) SetBaselineActive(planID, id string) (bool, error) {
 	return true, tx.Commit(ctx)
 }
 
+// DeleteBaseline removes one baseline row, scoped by plan. Deleting the active
+// baseline leaves the plan with none — an honest state the chip reports (spec
+// 015 Q1 default). Baselines are otherwise immutable; deletion is the one way
+// a mistaken save leaves the history.
+func (d *DB) DeleteBaseline(planID, id string) (bool, error) {
+	tag, err := d.pool.Exec(context.Background(),
+		`DELETE FROM plan_baselines WHERE plan_id=$1 AND id=$2`, planID, id)
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
 // RenameBaseline changes only the name. Everything else about a saved baseline is
 // immutable (FR-030), which is why there is no general update.
 func (d *DB) RenameBaseline(planID, id, name string) (bool, error) {
