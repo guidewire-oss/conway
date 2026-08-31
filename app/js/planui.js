@@ -11,7 +11,7 @@ import { exportBlockPNG } from './exportpng.js';
 import { attachDrag } from './drag.js';
 import { openDocs } from './docs.js';
 import { fuzzyMatch } from './filter.js';
-import { baselineChipHTML, baselinePanelHTML, saveErrorMessage, latestOnly } from './baseline.js';
+import { baselineChipHTML, baselinePanelHTML, saveErrorMessage, latestOnly, activeBaseline } from './baseline.js';
 import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
 import { portfolioTimelineHTML, podLensHTML, podSheetHTML, timelineControlsHTML } from './timeline.js';
 import { healthReportHTML, remediesSectionHTML } from './report.js';
@@ -86,6 +86,7 @@ export function initPlanUI() {
     const d = document.getElementById('sched-dialog');
     if (d && !d.hidden) d.querySelector('input, select')?.focus();
   });
+  wireBaselineDelegation();
   root = document.getElementById('plan-root');
   if (!root) return;
   document.querySelector('.tab[data-view="plan"]')?.addEventListener('click', () => {
@@ -288,11 +289,7 @@ function renderPlan() {
   // able to get there — otherwise it is a status message with no way through. The
   // scroll happens in renderOrder once the panel actually exists: with a stale
   // cached order the async path returns early and there is nothing to scroll to yet.
-  document.getElementById('bl-chip')?.addEventListener('click', () => {
-    if (view() !== 'order') { current.baselineFocus = true; setView('order'); return; }
-    document.querySelector('.bl-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    document.getElementById('bl-name')?.focus();
-  });
+  // The baseline chip is wired by delegation (wireBaselineDelegation).
   renderRosterPicker(nTeams);
   if (nTeams > 0 && nInit > 0) {
     current.levers = current.levers || [];
@@ -406,49 +403,159 @@ async function loadBaselines() {
   current.baselines = body.baselines || [];
 }
 
-function wireBaselineControls() {
-  document.getElementById('bl-save')?.addEventListener('click', () => saveBaseline('bl-name'));
-  document.getElementById('bl-save-head')?.addEventListener('click', () => saveBaseline('bl-name-head'));
-  document.querySelectorAll('.bl-activate').forEach((b) =>
-    b.addEventListener('click', () => activateBaseline(b.dataset.id)));
-  document.querySelectorAll('.bl-compare').forEach((b) =>
-    b.addEventListener('click', () => {
-      // Toggle: comparing the already-compared baseline dismisses the card —
-      // a second click that does nothing reads as broken (button audit, 2026-08-23).
-      if (current.baselineCompare && current.baselineCompare.baseline?.id === b.dataset.id) {
-        current.baselineCompare = null;
-        renderOrder();
-        return;
-      }
-      compareBaseline(b.dataset.id);
-    }));
-  // Pairwise baseline compare (spec 005): both schedules are stored, so this never
-  // touches the live plan and needs no orderEpoch guard. It does need the compare
-  // gate: choose a second pair while the first request is out and the slower reply
-  // would otherwise land last and overwrite the newer card.
-  document.querySelectorAll('.bl-vs-sel').forEach((sel) =>
-    sel.addEventListener('change', async () => {
-      const other = sel.value;
-      sel.value = ''; // a one-shot trigger, not a persistent selection
-      if (!other) return;
-      const forPlan = current.id;
-      const ticket = compareGate.claim();
-      const r = await req('/api/plan/' + forPlan + '/baseline/' + sel.dataset.from + '/compare-to/' + other, {
-        method: 'POST', body: '{}',
-      });
-      const mine = () => !!current && current.id === forPlan && compareGate.isCurrent(ticket);
-      if (!mine()) return;
-      if (!r || !r.ok) { await baselineError(r, 'compare', mine); return; }
-      const res = await r.json();
-      // Parsing suspended too, so the gate is checked again before the write:
-      // passing it above only proved this was current a moment ago.
-      if (!mine()) return;
-      // The card reads result.baseline for the "from" end; the pairwise
-      // endpoint returns `from`. Same object, the view's name for it.
-      if (res && res.from && !res.baseline) res.baseline = res.from;
-      current.baselineCompare = res;
-      renderOrder();
-    }));
+// Baseline save UX (spec 009 Decision 5): ONE affordance — a small modal with
+// the name field focused — opened from the header button, the panel button,
+// or the chip when nothing is agreed yet. The old per-entry inline inputs
+// painted errors into a panel that could be scrolled away or collapsed, and
+// their per-render wiring is how saving went dead silently (lesson 020).
+async function openBaselineModal(prefill = '') {
+  if (!current) return;
+  if (document.querySelector('.bl-modal-overlay')) return; // one at a time
+  const dash = document.getElementById('plan-dash');
+  if (!dash) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'bl-modal-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-label', 'Save baseline');
+  overlay.innerHTML = `
+    <div class="bl-modal panel-card">
+      <h3>Save this order as a baseline</h3>
+      <p class="hint">A baseline freezes the order you are looking at together with the inputs that produced it, so later re-plans and actuals are measured against it.</p>
+      <input id="bl-modal-name" type="text" placeholder="name this order, e.g. v2 agreed 12 Jan" maxlength="80" value="${esc(prefill)}" aria-label="baseline name">
+      <p class="plan-warn" id="bl-modal-error" hidden></p>
+      <div class="bl-modal-actions">
+        <button type="button" id="bl-modal-cancel">Cancel</button>
+        <button type="button" id="bl-modal-save" class="primary">✓ Save baseline</button>
+      </div>
+    </div>`;
+  dash.appendChild(overlay);
+  const name = overlay.querySelector('#bl-modal-name');
+  const errEl = overlay.querySelector('#bl-modal-error');
+  const saveBtn = overlay.querySelector('#bl-modal-save');
+  const cancelBtn = overlay.querySelector('#bl-modal-cancel');
+  const fail = (msg) => { errEl.textContent = msg; errEl.hidden = false; };
+  const close = () => { overlay.remove(); document.getElementById('view-order')?.focus(); };
+  const save = async () => {
+    // A draft previews an unsaved sheet; a baseline freezes what is STORED —
+    // saving one from a draft would freeze the stale copy (cubic P1).
+    if (current.isDraft) {
+      fail('Save the uploaded initiatives first — a baseline freezes what is stored, not the preview.');
+      return;
+    }
+    const value = (name.value || '').trim();
+    if (!value) { name.focus(); fail('Give the baseline a name — it is how this period\u2019s agreed order is referred to later.'); return; }
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+    const forPlan = current.id;
+    const r = await req('/api/plan/' + forPlan + '/baseline', {
+      method: 'POST', body: JSON.stringify({ name: value, ...orderRequestBody() }),
+    });
+    if (!current || current.id !== forPlan) { overlay.remove(); return; }
+    if (!r || !r.ok) {
+      const why = r ? await r.text() : 'the request did not reach the server';
+      // A 405 here has one dominant cause worth naming (saveErrorMessage's
+      // history): a checkout updated the page while the server binary is old.
+      fail(saveErrorMessage(r ? r.status : 0, why, 'save'));
+      saveBtn.disabled = false;
+      saveBtn.textContent = '✓ Save baseline';
+      return;
+    }
+    overlay.remove();
+    await loadBaselines();
+    current.baselineCompare = null;
+    renderPlan(); // the header chip changes too, so repaint the plan rather than the panel
+  };
+  saveBtn.addEventListener('click', save);
+  name.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); save(); } });
+  cancelBtn.addEventListener('click', close);
+  overlay.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') { ev.stopPropagation(); close(); }
+    // Tab loops within the dialog: the three controls are its only tab stops.
+    if (ev.key === 'Tab') {
+      const stops = [name, saveBtn, cancelBtn];
+      const i = stops.indexOf(document.activeElement);
+      if (i === -1) { ev.preventDefault(); name.focus(); return; }
+      const next = ev.shiftKey ? (i === 0 ? stops.length - 1 : i - 1) : (i === stops.length - 1 ? 0 : i + 1);
+      ev.preventDefault();
+      stops[next].focus();
+    }
+  });
+  name.focus();
+  name.setSelectionRange(name.value.length, name.value.length);
+}
+
+// Baseline controls are wired by DELEGATION (lesson 020): the Order view
+// re-renders constantly, and per-render addEventListener wiring is how saving
+// went dead for three weeks — a refactor replaced the wiring call and nothing
+// failed loudly. One document-level handler survives every re-render.
+function wireBaselineDelegation() {
+  document.addEventListener('click', (ev) => {
+    const t = ev.target;
+    if (!(t instanceof Element)) return;
+    if (t.closest('#bl-save-head, #bl-save')) { openBaselineModal(); return; }
+    if (t.closest('#bl-chip')) { onBaselineChipClick(); return; }
+    const act = t.closest('.bl-activate');
+    if (act) { activateBaseline(act.dataset.id); return; }
+    const cmp = t.closest('.bl-compare');
+    if (cmp) { onCompareClick(cmp); return; }
+  });
+  document.addEventListener('change', (ev) => {
+    const sel = ev.target instanceof Element ? ev.target.closest('.bl-vs-sel') : null;
+    if (sel) onVsChange(sel);
+  });
+}
+
+// onBaselineChipClick: an empty chip IS the save affordance (it says
+// "save one ▸"); a chip with an active baseline is a status whose details
+// live in the Order view's panel.
+function onBaselineChipClick() {
+  if (!current) return;
+  if (!activeBaseline(current.baselines)) {
+    if (view() !== 'order') setView('order');
+    openBaselineModal();
+    return;
+  }
+  if (view() !== 'order') { current.baselineFocus = true; setView('order'); return; }
+  document.querySelector('.bl-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// onCompareClick: comparing the already-compared baseline dismisses the card —
+// a second click that does nothing reads as broken (button audit, 2026-08-23).
+function onCompareClick(btn) {
+  if (current.baselineCompare && current.baselineCompare.baseline?.id === btn.dataset.id) {
+    current.baselineCompare = null;
+    renderOrder();
+    return;
+  }
+  compareBaseline(btn.dataset.id);
+}
+
+// onVsChange: pairwise baseline compare (spec 005). Both schedules are stored,
+// so this never touches the live plan and needs no orderEpoch guard. It does
+// need the compare gate: choose a second pair while the first request is out
+// and the slower reply would otherwise land last and overwrite the newer card.
+async function onVsChange(sel) {
+  const other = sel.value;
+  sel.value = ''; // a one-shot trigger, not a persistent selection
+  if (!other) return;
+  const forPlan = current.id;
+  const ticket = compareGate.claim();
+  const r = await req('/api/plan/' + forPlan + '/baseline/' + sel.dataset.from + '/compare-to/' + other, {
+    method: 'POST', body: '{}',
+  });
+  const mine = () => !!current && current.id === forPlan && compareGate.isCurrent(ticket);
+  if (!mine()) return;
+  if (!r || !r.ok) { await baselineError(r, 'compare', mine); return; }
+  const res = await r.json();
+  // Parsing suspended too, so the gate is checked again before the write:
+  // passing it above only proved this was current a moment ago.
+  if (!mine()) return;
+  // The card reads result.baseline for the "from" end; the pairwise
+  // endpoint returns `from`. Same object, the view's name for it.
+  if (res && res.from && !res.baseline) res.baseline = res.from;
+  current.baselineCompare = res;
+  renderOrder();
 }
 
 // Both compare paths render into current.baselineCompare, so they share one gate:
@@ -490,42 +597,6 @@ function baselineNote(msg) {
 // saveBaseline freezes the order currently on screen, under a name. The body
 // carries the same draft initiatives and levers the order was computed from, so a
 // baseline records what the planner was actually looking at.
-async function saveBaseline(from = 'bl-name') {
-  // A draft previews an unsaved sheet; a baseline freezes what is STORED —
-  // saving one from a draft would freeze the stale copy (cubic P1). Both
-  // entries (header and panel) land here, so the gate covers both.
-  if (current.isDraft) {
-    baselineNote('Save the uploaded initiatives first — a baseline freezes what is stored, not the preview.');
-    return;
-  }
-  // from is the input id that triggered the save (spec 009 FR-002: the Order
-  // header carries its own entry; both land in the same handler and state).
-  const input = document.getElementById(from);
-  const name = (input?.value || '').trim();
-  if (!name) {
-    input?.focus();
-    baselineNote('Give the baseline a name \u2014 it is how this period\u2019s agreed order is referred to later.');
-    return;
-  }
-  const btn = document.getElementById(from === 'bl-name' ? 'bl-save' : 'bl-save-head');
-  if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
-  const forPlan = current.id;
-  const r = await req('/api/plan/' + forPlan + '/baseline', {
-    method: 'POST', body: JSON.stringify({ name, ...orderRequestBody() }),
-  });
-  if (!current || current.id !== forPlan) return;
-  if (!r || !r.ok) {
-    await baselineError(r);
-    // Restore whichever button was pressed (header or panel entry).
-    const live = document.getElementById(btn?.id || 'bl-save');
-    if (live) { live.disabled = false; live.textContent = live.id === 'bl-save-head' ? '✓ Save baseline' : 'Save as baseline'; }
-    return;
-  }
-  await loadBaselines();
-  current.baselineCompare = null;
-  renderPlan(); // the header chip changes too, so repaint the plan rather than the panel
-}
-
 async function activateBaseline(id) {
   const forPlan = current.id;
   const r = await req('/api/plan/' + forPlan + '/baseline/' + id, {

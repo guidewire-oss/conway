@@ -143,7 +143,6 @@ export function baselinePanelHTML(baselines, compare, draft) {
     </div>
     ${baselineListHTML(baselines)}
     <div class="bl-save">
-      <input id="bl-name" type="text" placeholder="name this order, e.g. v2 agreed 12 Jan" maxlength="80" ${draft ? 'disabled' : ''}>
       <button type="button" id="bl-save" class="primary" ${draft ? 'disabled' : ''}>Save as baseline</button>
       ${draft ? '<span class="plan-warn">Save the uploaded initiatives first — a baseline freezes what is stored, not the preview you are looking at.</span>' : ''}
     </div>

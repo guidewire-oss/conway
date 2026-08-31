@@ -147,7 +147,7 @@ test('the panel composes without leaking undefined', () => {
   assert.ok(!html.includes('undefined'));
   assert.ok(!html.includes('NaN'));
   assert.match(html, /Save as baseline/);
-  assert.match(html, /id="bl-name"/);
+  assert.ok(!html.includes('bl-name'), 'the name lives in the save modal now, not the panel');
 });
 
 // FR-029's constraint made visible: a baseline freezes stored inputs, so the
@@ -157,7 +157,6 @@ test('the panel blocks the save while a draft preview is unsaved', () => {
   const html = baselinePanelHTML(saved, null, true);
   assert.match(html, /Save the uploaded initiatives first/);
   assert.match(html, /id="bl-save"[^>]*disabled/, 'the button is disabled, not just annotated');
-  assert.match(html, /id="bl-name"[^>]*disabled/, 'and so is the name field');
 });
 
 test('a draft-free panel offers the save', () => {
