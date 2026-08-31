@@ -38,9 +38,13 @@ export function baselineChipHTML(baselines) {
   const why = diverged
     ? "The plan's inputs have changed since this baseline was saved, so it no longer describes this plan"
     : 'This baseline matches the plan as it stands';
-  return `<button type="button" class="bl-chip" id="bl-chip" title="${esc(why)} — open the baselines panel">
+  // The chip is a status label, not a storage surface: names longer than 25
+  // characters truncate with an ellipsis here, while the drawer and the
+  // tooltip keep the full name (spec 015 review).
+  const shown = active.name.length > 25 ? active.name.slice(0, 25) + '…' : active.name;
+  return `<button type="button" class="bl-chip" id="bl-chip" title="${esc(active.name)} — ${esc(why)}; open the baselines panel">
     agreed: <span class="bl-dot ${diverged ? 'bl-diverged' : 'bl-current'}">●</span>
-    ${esc(active.name)}${diverged ? ' <span class="tag">inputs have moved</span>' : ' <span class="tag">matches</span>'} <span class="hint">▾</span></button>`;
+    ${esc(shown)}${diverged ? ' <span class="tag">inputs have moved</span>' : ' <span class="tag">matches</span>'} <span class="hint">▾</span></button>`;
 }
 
 // baselineListHTML is the history. Every baseline stays readable, not just the
@@ -151,7 +155,7 @@ export function baselinesDrawerHTML(baselines, compare, { draft = false } = {}) 
     </div>
     ${cta}
     <div class="bl-save">
-      <input id="bl-drawer-name" type="text" placeholder="name this order, e.g. v2 agreed 12 Jan" maxlength="80" ${draft ? 'disabled' : ''} aria-label="baseline name">
+      <input id="bl-drawer-name" type="text" placeholder="name this order, e.g. v2 agreed 12 Jan" maxlength="25" ${draft ? 'disabled' : ''} aria-label="baseline name">
       <button type="button" id="bl-save" class="primary" ${draft ? 'disabled' : ''}>Save current order</button>
       ${draft ? '<span class="plan-warn">Save the uploaded initiatives first — a baseline freezes what is stored, not the preview you are looking at.</span>' : ''}
     </div>

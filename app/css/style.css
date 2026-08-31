@@ -779,7 +779,10 @@ button.plan-back { background: none; border: 0; padding: 0; font: inherit; }
 .bl-drawer-head .hint { flex: 1 1 auto; }
 .bl-drawer-close { background: none; border: 0; color: var(--text); font-size: 14px; cursor: pointer; }
 .bl-cta { border: 1px solid var(--amber); border-radius: 6px; padding: 8px 10px; }
-.bl-drawer .bl-save { display: flex; flex-direction: column; gap: 8px; margin: 10px 0 14px; }
+/* Horizontal save row: input and button side by side. The legacy
+   .bl-save input flex-basis (260px) is a WIDTH here — in the drawer's old
+   column layout it became the input's HEIGHT, a textarea-sized name box. */
+.bl-drawer .bl-save { display: flex; flex-direction: row; align-items: center; gap: 8px; margin: 10px 0 14px; }
 .bl-drawer .bl-save input { width: 100%; }
 .bl-drawer .bl-table td { font-size: 12px; }
 .bl-delete-armed { color: var(--red); border-color: var(--red); }

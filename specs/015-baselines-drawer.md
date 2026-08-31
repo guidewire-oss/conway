@@ -113,7 +113,7 @@ order they are about to freeze or restore.
 |----|------------|----------|
 | FR-001 | The status chip MUST open the drawer in one click from any view | MUST |
 | FR-002 | The drawer MUST hold the save row (inline name field), the history (saved date, divergence tag, Activate, Compare, Delete), and the compare selects and result | MUST |
-| FR-003 | Saving MUST require a name, freeze the stored inputs (draft preview refused), and refresh the drawer and the chip in place | MUST |
+| FR-003 | Saving MUST require a name of at most 25 characters (names are labels — the chip truncates longer legacy names with an ellipsis and keeps the full name in its tooltip), freeze the stored inputs (draft preview refused), and refresh the drawer and the chip in place | MUST |
 | FR-004 | Delete MUST be a two-step in-place confirmation and MUST be refused for the request that would leave the plan inconsistent; deleting the active baseline leaves the plan with none | MUST |
 | FR-005 | A diverged active baseline MUST highlight the save row with a named next-step message | SHOULD |
 | FR-006 | The Order header's save button and the bottom baseline panel MUST be removed (one home) | MUST |

@@ -148,6 +148,7 @@ test('the drawer composes without leaking undefined', () => {
   assert.ok(!html.includes('NaN'));
   assert.match(html, /Save current order/);
   assert.match(html, /id="bl-drawer-name"/, 'the save row carries the name field');
+  assert.match(html, /maxlength="25"/, 'names are labels: 25 characters max (spec 015 review)');
   assert.match(html, /class="bl-delete"/, 'history rows offer delete (spec 015 FR-004)');
 });
 
@@ -338,4 +339,17 @@ test('the drawer highlights the save row when the active baseline has diverged',
   assert.match(html, /save this changed plan as a new baseline/);
   const fresh = baselinesDrawerHTML([{ name: 'Kickoff', active: true, diverged: false, createdAt: 1756500000 }], null);
   assert.ok(!fresh.includes('bl-cta'), 'no CTA when everything matches');
+});
+
+// Spec 015 review: the chip is a status label — long names truncate at 25
+// characters with an ellipsis, and the tooltip keeps the full name.
+test('the chip truncates long baseline names with an ellipsis', () => {
+  const long = 'baseline renamed after the replan and again';
+  const html = baselineChipHTML([{ name: long, active: true, diverged: false }]);
+  assert.match(html, /baseline renamed after th…/);
+  assert.ok(!html.includes(long + '<'), 'the full name does not render inline');
+  assert.ok(html.includes('title="' + long), 'the tooltip keeps the full name');
+  const fits = baselineChipHTML([{ name: 'agreed order 30 Aug', active: true, diverged: false }]);
+  assert.match(fits, /agreed order 30 Aug/);
+  assert.ok(!fits.includes('…'), 'a name within the limit shows whole');
 });

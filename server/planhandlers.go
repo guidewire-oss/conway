@@ -707,6 +707,13 @@ func (s *server) saveBaseline(w http.ResponseWriter, r *http.Request, p *db.Plan
 		http.Error(w, "a baseline needs a name — it is how a period's agreed order is referred to later", 400)
 		return
 	}
+	// Baseline names are labels, not sentences: 25 characters keeps the chip
+	// readable (spec 015 review). The drawer input enforces this too; the
+	// server is the boundary for API callers.
+	if len(name) > 25 {
+		http.Error(w, "the baseline name is limited to 25 characters", 400)
+		return
+	}
 	inputs, err := s.planScheduleFor(p, body.scheduleRequest)
 	if err != nil {
 		if msg, bad := windowError(err); bad {
