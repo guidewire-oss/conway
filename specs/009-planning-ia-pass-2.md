@@ -208,6 +208,20 @@ wide for the header.
 panel below the table keeps everything. Two entry points, one state — both
 render from `current.baselines`.
 
+**Amended 2026-08-30 (review):** the save control no longer carries an inline
+name input. Saving opens ONE modal — name focused, errors shown inside it —
+from the header button, the panel button, or the chip when nothing is agreed
+yet (the empty chip literally reads "save one ▸", so it became the
+affordance). Two reasons: the inline entries painted failures into a panel
+that could be scrolled away or collapsed, and the duplicate name fields
+doubled the wiring surface for zero added value. The chip with an active
+baseline still opens the panel (activate/compare/history live there); the
+panel keeps its Save button as a third entry into the same modal. Wiring is
+by document-level delegation — the Order view re-renders constantly, and the
+per-render `addEventListener` approach silently lost every baseline control
+when a refactor replaced its wiring call (three weeks of "saving does
+nothing", found 2026-08-30).
+
 ---
 
 ## 12. Success Metrics
