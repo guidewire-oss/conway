@@ -7,6 +7,7 @@
 package main
 
 import (
+	_ "time/tzdata" // embed the IANA tz database: LoadLocation must work in minimal containers (spec 003)
 	"context"
 	"encoding/json"
 	"errors"

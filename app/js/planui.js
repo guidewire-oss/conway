@@ -230,6 +230,7 @@ function renderPlan() {
       <summary>Plan setup <span class="hint">${nTeams} pods · ${nInit} initiatives · ${(Math.round((p.capacityLoss || 0) * 100))}% capacity loss</span></summary>
       <div class="plan-uploads">
         <div class="plan-up" id="plan-roster-pick"></div>
+        <div id="plan-sites"></div>
         ${uploadField('initiatives', '⤓ Initiatives (XLSX/CSV)', nInit)}
         <label class="hint plan-up" title="Drop any dependency cell that doesn't match a roster pod name (case/whitespace-insensitive) — free text like &quot;Requirements unknown&quot; won't become a fake node in the network.">
           <input type="checkbox" id="plan-strict-deps" ${current.strictDeps ? 'checked' : ''}> strict: match dependencies to roster
@@ -292,6 +293,7 @@ function renderPlan() {
   // cached order the async path returns early and there is nothing to scroll to yet.
   // The baseline chip is wired by delegation (wireBaselineDelegation).
   renderRosterPicker(nTeams);
+  renderPlanSites(nTeams);
   if (nTeams > 0 && nInit > 0) {
     current.levers = current.levers || [];
     current.netMode = current.netMode || 'after';
@@ -1536,6 +1538,54 @@ async function saveDraftInitiatives() {
 // renderRosterPicker sources the plan's team structure from a saved roster
 // (preferred — pinned at attach time, matches the same roster the pods came
 // from) with a raw CSV/XLSX upload as the fallback when no roster exists yet.
+// renderPlanSites is the site-table editor (spec 003 FR-006/FR-007): every
+// site the roster references, with its IANA timezone and working hours. An
+// unset timezone means overlap involving that site is the pessimistic default,
+// and the editor says so — the manager fills what matters and the hygiene
+// signal stays visible until they do.
+const TZ_CHOICES = ['Europe/Dublin', 'Europe/London', 'Europe/Warsaw', 'Europe/Berlin',
+  'Europe/Paris', 'Europe/Madrid', 'America/New_York', 'America/Chicago',
+  'America/Denver', 'America/Los_Angeles', 'America/Toronto', 'America/Sao_Paulo',
+  'Asia/Kolkata', 'Asia/Singapore', 'Asia/Tokyo', 'Asia/Jerusalem',
+  'Australia/Sydney', 'Pacific/Auckland'];
+
+async function renderPlanSites(nTeams) {
+  const host = document.getElementById('plan-sites');
+  if (!host || nTeams === 0) return;
+  const r = await req('/api/plan/' + current.id + '/sites');
+  if (!current || !r || !r.ok) return;
+  let sites = [];
+  try { sites = (await r.json()).sites || []; } catch { return; }
+  const options = (tz) => ['<option value="">not set — overlap defaults</option>']
+    .concat(TZ_CHOICES.map(z => `<option value="${z}" ${z === tz ? 'selected' : ''}>${z}</option>`)).join('');
+  host.innerHTML = `
+    <div class="plan-sites">
+      <b class="hint">Sites — the timezones overlap is computed from</b>
+      <table class="wip-table"><thead><tr><th>Site</th><th>Timezone</th><th>Working hours</th><th></th></tr></thead>
+      <tbody>${sites.map((st) => `<tr data-site="${esc(st.name)}">
+        <td>${esc(st.name)}</td>
+        <td><select class="site-tz">${options(st.timezone)}</select></td>
+        <td class="site-hours"><input class="site-start" type="number" min="0" max="23" step="0.5" value="${st.workStartHour || 9}" aria-label="work start hour"> – <input class="site-end" type="number" min="0" max="24" step="0.5" value="${st.workEndHour || 17}" aria-label="work end hour"></td>
+        <td><button type="button" class="site-save">Save</button></td>
+      </tr>`).join('')}</tbody></table>
+      <p class="hint">Unset timezones price every cross-site handoff at the pessimistic default — fill the sites that matter.</p>
+    </div>`;
+  host.querySelectorAll('tr[data-site] .site-save').forEach((b) =>
+    b.addEventListener('click', async () => {
+      const row = b.closest('tr');
+      const body = {
+        name: row.dataset.site,
+        timezone: row.querySelector('.site-tz').value,
+        workStartHour: parseFloat(row.querySelector('.site-start').value) || 9,
+        workEndHour: parseFloat(row.querySelector('.site-end').value) || 17,
+      };
+      const res = await req('/api/plan/' + current.id + '/sites', { method: 'PATCH', body: JSON.stringify(body) });
+      if (!res || !res.ok) { alert('Could not save the site: ' + (res ? await res.text() : 'network')); return; }
+      b.textContent = 'Saved ✓';
+      setTimeout(() => { b.textContent = 'Save'; }, 1500);
+    }));
+}
+
 async function renderRosterPicker(nTeams) {
   const box = document.getElementById('plan-roster-pick');
   if (!box) return;

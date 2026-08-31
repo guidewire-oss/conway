@@ -19,6 +19,7 @@ type PlanRow struct {
 	Teams           []byte  `json:"-"`               // JSON []planning.Team
 	Initiatives     []byte  `json:"-"`               // JSON []planning.Initiative
 	Scheduling      []byte  `json:"-"`               // JSON planning.SchedulingParams
+	Sites           []byte  `json:"-"`               // JSON []planning.Site (spec 003)
 	RosterID        string  `json:"rosterId"`        // reference/label only — teams is a frozen copy, not a live join
 	TeamCount       int     `json:"teamCount"`       // populated by ListPlans
 	InitiativeCount int     `json:"initiativeCount"` // populated by ListPlans
@@ -75,9 +76,9 @@ func (d *DB) ListPlans(owner string, all bool) ([]PlanRow, error) {
 func (d *DB) GetPlan(id string) (*PlanRow, error) {
 	var p PlanRow
 	err := d.pool.QueryRow(context.Background(),
-		`SELECT id,owner,name,horizon_weeks,capacity_loss,teams,initiatives,scheduling,roster_id,created_at,updated_at
+		`SELECT id,owner,name,horizon_weeks,capacity_loss,teams,initiatives,scheduling,sites,roster_id,created_at,updated_at
 		 FROM plans WHERE id=$1`, id).
-		Scan(&p.ID, &p.Owner, &p.Name, &p.HorizonWeeks, &p.CapacityLoss, &p.Teams, &p.Initiatives, &p.Scheduling, &p.RosterID, &p.CreatedAt, &p.UpdatedAt)
+		Scan(&p.ID, &p.Owner, &p.Name, &p.HorizonWeeks, &p.CapacityLoss, &p.Teams, &p.Initiatives, &p.Scheduling, &p.Sites, &p.RosterID, &p.CreatedAt, &p.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -110,6 +111,14 @@ func (d *DB) SavePlanInitiatives(id string, inits []byte, updated int64) error {
 
 // SavePlanScheduling stores the plan-level scheduling policy (§8's PATCH
 // /api/plan/{id}/scheduling). Written whole, like teams and initiatives.
+// SavePlanSites persists the plan's site table (spec 003) — read whole into
+// the overlap consumers, written whole by the sites editor.
+func (d *DB) SavePlanSites(id string, sites []byte, updated int64) error {
+	_, err := d.pool.Exec(context.Background(),
+		`UPDATE plans SET sites=$1, updated_at=$2 WHERE id=$3`, sites, updated, id)
+	return err
+}
+
 func (d *DB) SavePlanScheduling(id string, params []byte, updated int64) error {
 	_, err := d.pool.Exec(context.Background(),
 		`UPDATE plans SET scheduling=$2, updated_at=$3 WHERE id=$1`, id, jsonbArg(params), updated)
