@@ -766,3 +766,20 @@ button.plan-back { background: none; border: 0; padding: 0; font: inherit; }
 .tl-row.tl-dim { min-height: 14px; }
 .tl-filter { display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; }
 .tl-filter input[type="search"] { padding: 3px 8px; font-size: 12px; width: 170px; }
+
+/* Baselines drawer (spec 015): one home for saving, history, activation and
+   comparison. Slides over the Order view, which stays visible — decisions are
+   made about the order, so the order stays in sight. */
+.bl-drawer-overlay { position: fixed; inset: 0; z-index: 155; background: rgba(0,0,0,.45); }
+.bl-drawer { position: absolute; top: 0; right: 0; bottom: 0; width: min(560px, 48vw);
+  background: var(--panel); border-left: 1px solid var(--border); padding: 18px 20px;
+  overflow-y: auto; box-shadow: -12px 0 30px rgba(0,0,0,.35); }
+.bl-drawer-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.bl-drawer-head b { font-size: 16px; }
+.bl-drawer-head .hint { flex: 1 1 auto; }
+.bl-drawer-close { background: none; border: 0; color: var(--text); font-size: 14px; cursor: pointer; }
+.bl-cta { border: 1px solid var(--amber); border-radius: 6px; padding: 8px 10px; }
+.bl-drawer .bl-save { display: flex; flex-direction: column; gap: 8px; margin: 10px 0 14px; }
+.bl-drawer .bl-save input { width: 100%; }
+.bl-drawer .bl-table td { font-size: 12px; }
+.bl-delete-armed { color: var(--red); border-color: var(--red); }

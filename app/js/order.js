@@ -561,7 +561,7 @@ export function orderHeaderHTML(sched, opts = {}) {
     <button type="button" id="sched-open" title="period start, WIP model, buffers, freezes — set once">⚙ Assumptions</button>
     <button type="button" id="tl-open" title="open this order as a timeline (Story 8)">▦ Open timeline ▸</button>
     <span class="ord-bl-head">
-      <button type="button" id="bl-save-head" class="primary" title="freeze this order with the inputs that produced it — you pick the name next"${opts.noPin ? ' disabled' : ''}>✓ Save baseline</button>
+
     </span>
   </div>
   <div class="plan-summary">${comparisonBarsHTML(obj)}</div>`;
