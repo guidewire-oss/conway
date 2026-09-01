@@ -7,13 +7,12 @@
 package main
 
 import (
-	_ "time/tzdata" // embed the IANA tz database: LoadLocation must work in minimal containers (spec 003)
 	"context"
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"math"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -21,10 +20,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+	_ "time/tzdata" // embed the IANA tz database: LoadLocation must work in minimal containers (spec 003)
 
 	"conway/server/auth"
 	"conway/server/db"
 	"conway/server/game"
+	"conway/server/logging"
 	"conway/server/oidc"
 )
 
@@ -34,6 +35,7 @@ const defaultGameID = "default"
 
 type server struct {
 	mu        sync.Mutex
+	log       *slog.Logger
 	store     *auth.Store
 	teams     map[string]map[string]json.RawMessage // gameID -> team -> standings
 	games     map[string]map[string]*game.Game      // gameID -> team -> authoritative game
@@ -58,6 +60,15 @@ type server struct {
 }
 
 // sess/gmap/tmap return the per-game maps, creating them on first use. Caller holds s.mu.
+// log returns the server's logger, falling back to slog's default for
+// constructions that never set one (tests, minimal harnesses).
+func (s *server) logger() *slog.Logger {
+	if s.log != nil {
+		return s.log
+	}
+	return slog.Default()
+}
+
 func (s *server) sess(gid string) *gameSession {
 	if s.sessions[gid] == nil {
 		s.sessions[gid] = &gameSession{Rounds: 4, Ap: 5, TimerSecs: 300}
@@ -99,12 +110,12 @@ type persisted struct {
 func (s *server) saveState() {
 	b, err := json.Marshal(persisted{Sessions: s.sessions, Games: s.games, Teams: s.teams})
 	if err != nil {
-		log.Printf("saveState marshal: %v", err)
+		s.logger().Error("saveState marshal", "err", err)
 		return
 	}
 	if s.db != nil {
 		if err := s.db.SaveGameState(b); err != nil {
-			log.Printf("saveState db: %v", err)
+			s.logger().Error("saveState db", "err", err)
 		}
 		return
 	}
@@ -113,11 +124,11 @@ func (s *server) saveState() {
 	}
 	tmp := s.statePath + ".tmp"
 	if err := os.WriteFile(tmp, b, 0600); err != nil {
-		log.Printf("saveState write: %v", err)
+		s.logger().Error("saveState write", "err", err)
 		return
 	}
 	if err := os.Rename(tmp, s.statePath); err != nil {
-		log.Printf("saveState rename: %v", err)
+		s.logger().Error("saveState rename", "err", err)
 	}
 }
 
@@ -128,7 +139,7 @@ func (s *server) loadState() {
 	if s.db != nil {
 		got, err := s.db.LoadGameState()
 		if err != nil {
-			log.Printf("loadState db: %v", err)
+			s.logger().Error("loadState db", "err", err)
 			return
 		}
 		if got == nil {
@@ -156,7 +167,7 @@ func (s *server) loadState() {
 	}
 	var p persisted
 	if err := json.Unmarshal(b, &p); err != nil {
-		log.Printf("loadState: %v", err)
+		s.logger().Error("loadState", "err", err)
 		return
 	}
 	if p.Sessions != nil {
@@ -185,7 +196,7 @@ func (s *server) loadState() {
 	for _, m := range s.games {
 		games += len(m)
 	}
-	log.Printf("restored game state: %d game(s), %d team-games", len(s.sessions), games)
+	s.logger().Info("restored game state", "games", len(s.sessions), "teamGames", games)
 	// re-arm each open game's timer (fires immediately if the deadline already lapsed)
 	for gid, sess := range s.sessions {
 		if sess.OpenRound >= 1 && sess.Deadline > 0 {
@@ -285,20 +296,19 @@ func retireLegacyStore(path string) {
 	// copy to a convenience rename is not a trade worth making. Lstat, not Stat, so
 	// a dangling symlink counts as present rather than as a free slot.
 	if _, err := os.Lstat(retired); err == nil {
-		log.Printf("not retiring legacy store %s: %s already exists. "+
-			"Move it aside if you want the import retired, or delete %s to stop it being re-imported",
-			path, retired, path)
+		slog.Warn("not retiring legacy store; the target already exists — move it aside to retire the import, or delete it to stop re-importing",
+			"path", path, "exists", retired)
 		return
 	}
 	if err := os.Rename(path, retired); err != nil {
 		// Not fatal. The accounts are already saved; the cost is that a later reset
 		// will import them again, which is the behaviour this replaces rather than a
 		// new failure. Say so instead of stopping the server.
-		log.Printf("could not retire legacy store %s (%v) — delete it by hand, "+
-			"or an admin reset will restore these accounts again", path, err)
+		slog.Warn("could not retire legacy store; delete it by hand, or an admin reset will restore these accounts again",
+			"path", path, "err", err)
 		return
 	}
-	log.Printf("retired legacy store to %s — it will not be imported again", retired)
+	slog.Info("retired legacy store; it will not be imported again", "path", retired)
 }
 
 // ensureStoreDir creates the directory holding the legacy file store, and reports
@@ -320,6 +330,13 @@ func ensureStoreDir(storePath string) error {
 }
 
 func main() {
+	// Structured logging first (spec: observability): everything below, and
+	// anything routed through the stdlib logger, lands in the same shape.
+	logger := logging.NewDefault()
+	slog.SetDefault(logger)
+	logging.ReplaceLogStandard()
+	slog.Info("conway starting", "format", logging.FormatFromEnv(), "minLevel", logging.LevelFromEnv().String())
+
 	// Defaults assume the repo root as the working directory (the module root
 	// since go.mod moved there): the SPA is ./app, and everything written at
 	// runtime — this store plus the game state beside it — goes under ./var.
@@ -332,21 +349,22 @@ func main() {
 	// the database. Not being able to create it is therefore a note, not a reason
 	// to exit -- a read-only root filesystem is a perfectly good way to run this.
 	if err := ensureStoreDir(storePath); err != nil {
-		log.Printf("store directory unavailable (%v); continuing, since Postgres holds "+
-			"the accounts, the signing secret and the game state", err)
+		slog.Warn("store directory unavailable; continuing, since Postgres holds the accounts, the signing secret and the game state", "err", err)
 	}
 
 	url := os.Getenv("DATABASE_URL")
 	if url == "" {
-		log.Fatal("DATABASE_URL is required (Postgres is the only supported backend — see docker-compose.yml)")
+		slog.Error("DATABASE_URL is required (Postgres is the only supported backend — see docker-compose.yml)")
+		os.Exit(1)
 	}
 	st := auth.NewStore(nil)
 	database, err := db.Open(context.Background(), url)
 	if err != nil {
-		log.Fatalf("connect Postgres: %v", err)
+		slog.Error("connect Postgres", "err", err)
+		os.Exit(1)
 	}
 	st.SetBackend(database)
-	log.Printf("persistence: Postgres")
+	slog.Info("persistence: Postgres")
 	_ = st.Load() // a missing/empty store just means a fresh start
 	// One-time import of a legacy file store into the DB (preserves accounts +
 	// signing secret from a pre-Postgres deployment, if one exists at storePath).
@@ -364,13 +382,14 @@ func main() {
 			}
 			st.Users = legacy.Users
 			legacyImported = storePath
-			log.Printf("migrated %d account(s) from legacy %s", len(st.Users), storePath)
+			slog.Info("migrated accounts from legacy store", "count", len(st.Users), "path", storePath)
 		}
 	}
 	if len(st.Secret) == 0 {
 		secret := make([]byte, 32)
 		if _, e := randRead(secret); e != nil {
-			log.Fatal(e)
+			slog.Error("migration setup failed", "err", e)
+			os.Exit(1)
 		}
 		st.Secret = secret
 	}
@@ -385,16 +404,16 @@ func main() {
 	switch envPw := os.Getenv("CONWAY_ADMIN_PASSWORD"); adminAction(st, envPw) {
 	case adminGenerate:
 		pw := randPw()
-		log.Printf("=== Conway admin password (save this): %s ===", pw)
+		slog.Info("=== Conway admin password (save this): " + pw + " ===")
 		st.SetAdmin(pw)
 	case adminSetFromEnv:
 		st.SetAdmin(envPw)
 		// Never silent in either direction: silence is what made the old behaviour so
 		// hard to diagnose. The value itself is not logged.
-		log.Printf("admin password set from CONWAY_ADMIN_PASSWORD")
+		slog.Info("admin password set from CONWAY_ADMIN_PASSWORD")
 	case adminReplaceFromEnv:
 		st.SetAdmin(envPw)
-		log.Printf("admin password set from CONWAY_ADMIN_PASSWORD (replaced the existing one)")
+		slog.Info("admin password set from CONWAY_ADMIN_PASSWORD (replaced the existing one)")
 	}
 	must(st.Save())
 	// Only after the accounts are durably in Postgres, so a failed Save leaves the
@@ -403,7 +422,7 @@ func main() {
 		retireLegacyStore(legacyImported)
 	}
 
-	s := &server{store: st,
+	s := &server{log: logger, store: st,
 		teams:    map[string]map[string]json.RawMessage{},
 		games:    map[string]map[string]*game.Game{},
 		sessions: map[string]*gameSession{},
@@ -420,7 +439,7 @@ func main() {
 			ClientSecret: os.Getenv("CONWAY_JIRA_CLIENT_SECRET"),
 			PublicURL:    env("CONWAY_PUBLIC_URL", "http://localhost:8741"),
 		}
-		log.Printf("Jira OAuth configured (redirect %s/api/jira/oauth/callback)", s.jiraOAuth.PublicURL)
+		slog.Info("Jira OAuth configured", "redirect", s.jiraOAuth.PublicURL+"/api/jira/oauth/callback")
 	}
 	s.oidcFlows = map[string]*oidcFlow{}
 	s.oidc = buildOIDC(context.Background(), env("CONWAY_PUBLIC_URL", "http://localhost:8741"))
@@ -429,7 +448,7 @@ func main() {
 	// from whatever's actually in the DB — seeded or real, never special-cased.
 	if env("CONWAY_SEED_BASELINE", "true") != "false" {
 		if err := database.SeedBaseline(context.Background()); err != nil {
-			log.Printf("warning: could not seed baseline snapshot: %v", err)
+			slog.Warn("could not seed baseline snapshot", "err", err)
 		}
 	}
 	s.world = s.defaultWorld()
@@ -524,20 +543,67 @@ func main() {
 		http.FileServer(http.Dir(assetDir)).ServeHTTP(w, r)
 	})))
 
-	log.Printf("Conway server on %s serving %s", addr, appDir)
+	slog.Info("conway server listening", "addr", addr, "appDir", appDir)
 	// An explicit server rather than http.ListenAndServe, so a header-read
 	// timeout bounds slowloris-style connections that would otherwise be held
 	// open indefinitely. ReadTimeout and WriteTimeout are deliberately unset:
 	// uploads run to maxUpload (20MB) over links we do not control, and nothing
 	// here streams, so capping whole-request duration would only break large
 	// imports. IdleTimeout reaps keep-alive connections instead.
+	logHandler := loggingMiddleware(mux)
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           mux,
+		Handler:           logHandler,
 		ReadHeaderTimeout: 20 * time.Second,
 		IdleTimeout:       120 * time.Second,
 	}
-	log.Fatal(srv.ListenAndServe())
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		slog.Error("server stopped", "err", err)
+		os.Exit(1)
+	}
+}
+
+// loggingMiddleware logs one line per HTTP request: method, path, status,
+// duration. Debug level adds query strings and the remote address. This is the
+// log the debugging session actually wants — before it, a 500 told the client
+// something failed and the server log nothing at all.
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		rec := &statusRecorder{ResponseWriter: w, status: 200}
+		next.ServeHTTP(rec, r)
+		// G706: request path and method are attacker-controlled strings —
+		// escaped via logging.Escape so a crafted URL cannot forge log lines.
+		attrs := []any{
+			"method", logging.Escape(r.Method),
+			"path", logging.Escape(r.URL.Path),
+			"status", rec.status,
+			"durMs", time.Since(start).Milliseconds(),
+		}
+		switch {
+		case rec.status >= 500:
+			slog.Error("http request", append(attrs, "remote", logging.Escape(r.RemoteAddr))...) //nolint:gosec // G706: escaped
+		case rec.status >= 400:
+			slog.Warn("http request", attrs...) //nolint:gosec // G706: path/method escaped above
+		default:
+			slog.Debug("http request", attrs...) //nolint:gosec // G706: path/method escaped above
+		}
+	})
+}
+
+// statusRecorder captures the status code a handler wrote.
+type statusRecorder struct {
+	http.ResponseWriter
+	status      int
+	wroteHeader bool
+}
+
+func (r *statusRecorder) WriteHeader(code int) {
+	if !r.wroteHeader {
+		r.status = code
+		r.wroteHeader = true
+	}
+	r.ResponseWriter.WriteHeader(code)
 }
 
 // ---- handlers -----------------------------------------------------------
@@ -761,7 +827,7 @@ func (s *server) armAutoSubmit(gid string, round int, deadline int64) {
 				// G706 is a false positive once the verb is %q: fmt quotes via
 				// strconv.Quote, so a newline in gid renders as \n and cannot forge
 				// a log line. Verified: %s emits a second line, %q does not.
-				log.Printf("auto-submit %q (round %d) recovered from panic: %v", gid, round, e) //nolint:gosec // G706: %q escapes newlines
+				s.logger().Error("auto-submit recovered from panic", "game", gid, "round", round, "err", e) //nolint:gosec // G706: %q escapes newlines
 			}
 		}()
 		s.mu.Lock()
@@ -778,7 +844,7 @@ func (s *server) armAutoSubmit(gid string, round int, deadline int64) {
 				func() { // isolate each team so one bad submit can't skip the rest
 					defer func() {
 						if e := recover(); e != nil {
-							log.Printf("auto-submit %q/%q (round %d) recovered: %v", gid, team, round, e) //nolint:gosec // G706: %q escapes newlines, see armAutoSubmit above
+							s.logger().Error("auto-submit recovered", "game", gid, "team", team, "round", round, "err", e) //nolint:gosec // G706: %q escapes newlines, see armAutoSubmit above
 						}
 					}()
 					s.submitRound(gid, g, team)
@@ -950,6 +1016,7 @@ func env(k, d string) string {
 
 func must(err error) {
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("listen", "err", err)
+		os.Exit(1)
 	}
 }

@@ -29,6 +29,7 @@ func (s *server) handleWip(w http.ResponseWriter, r *http.Request, id string) {
 	}
 	items, total, freezable, err := s.db.WipPage(id, pod, size, page*size)
 	if err != nil {
+		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -67,6 +68,7 @@ func (s *server) handleFever(w http.ResponseWriter, r *http.Request, id string) 
 	}
 	epics, err := s.db.FeverEpics(id, n)
 	if err != nil {
+		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -78,6 +80,7 @@ func (s *server) handleFever(w http.ResponseWriter, r *http.Request, id string) 
 func (s *server) handleHygieneIssues(w http.ResponseWriter, r *http.Request, id string) {
 	lists, err := s.db.HygieneIssueLists(id, r.URL.Query().Get("pod"))
 	if err != nil {
+		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -98,6 +101,7 @@ func (s *server) handleEpicView(w http.ResponseWriter, id, key string) {
 func (s *server) handleWipSummary(w http.ResponseWriter, id string) {
 	total, freezable, err := s.db.WipSummary(id)
 	if err != nil {
+		s.logger().Error("request failed", "err", err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -108,6 +112,7 @@ func (s *server) handleWipSummary(w http.ResponseWriter, id string) {
 func (s *server) handleEpicStats(w http.ResponseWriter, id string) {
 	known, missing, overdue, noDue, err := s.db.EpicStats(id)
 	if err != nil {
+		s.logger().Error("request failed", "err", err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -123,6 +128,7 @@ func (s *server) handleEdgeIssues(w http.ResponseWriter, r *http.Request, id str
 	}
 	items, err := s.db.EdgeIssues(id, from, to)
 	if err != nil {
+		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -133,6 +139,7 @@ func (s *server) handleEdgeIssues(w http.ResponseWriter, r *http.Request, id str
 func (s *server) handleUnassocEpics(w http.ResponseWriter, id string) {
 	rows, err := s.db.UnassocEpics(id, 500)
 	if err != nil {
+		s.logger().Error("request failed", "err", err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
