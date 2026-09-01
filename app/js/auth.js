@@ -242,6 +242,11 @@ function openAdmin() {
           </div>
           <table id="admin-users" class="wip-table"></table>
         </div>
+        <div id="admin-usage">
+          <h3>Usage — since this server booted</h3>
+          <table id="admin-metrics" class="wip-table"></table>
+          <p class="hint">Counters reset on restart. The request lines show which API paths are used most, by status class.</p>
+        </div>
         <p class="hint">Run games — rounds, the team roster &amp; the leaderboard — from the 🎮 Games panel.</p>
       </div>`;
     document.body.appendChild(ov);
@@ -251,6 +256,26 @@ function openAdmin() {
   }
   openModal(ov);
   refreshUsers();
+  refreshUsage();
+}
+
+// refreshUsage loads the admin metrics snapshot (GET /api/admin/metrics) and
+// renders it as one table: business events first, then request buckets.
+async function refreshUsage() {
+  const host = document.getElementById('admin-metrics');
+  if (!host) return;
+  try {
+    const r = await api('/api/admin/metrics');
+    if (!r.ok) { host.innerHTML = ''; return; }
+    const d = await r.json();
+    const m = d.metrics || {};
+    const names = Object.keys(m).sort();
+    const rows = names.map((k) => {
+      const isHttp = k.startsWith('http ');
+      return `<tr${isHttp ? ' class="dim-row"' : ''}><td>${esc(k)}</td><td>${m[k]}</td></tr>`;
+    }).join('');
+    host.innerHTML = `<thead><tr><th>What</th><th>Count</th></tr></thead><tbody>${rows || '<tr><td colspan="2" class="hint">nothing yet — counters are since boot</td></tr>'}</tbody>`;
+  } catch { host.innerHTML = ''; }
 }
 function closeAdmin() {
   closeModal(document.getElementById('admin-overlay'));
