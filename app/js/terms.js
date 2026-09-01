@@ -97,6 +97,15 @@ export const TERMS = {
     label: 'Effort estimate',
     tip: 'Total work for a team, in person/pair-weeks — not wall-clock time. 60 effort-weeks on a 3-lane team takes about 20 weeks.',
   },
+
+  loss: {
+    label: 'Capacity loss',
+    tip: 'The fraction of a track\'s time that never becomes product work: PTO, interviews, support, on-call, ramp. 10% means a week of capacity delivers 4.5 days of work. Every pod can override the plan\'s global figure.',
+  },
+  siteOverlap: {
+    label: 'Site overlap',
+    tip: 'How many working hours two sites share per day, from their real IANA timezones on the modelled date — daylight saving included. A handoff across zero shared hours costs more than one across eight.',
+  },
   objective: {
     label: 'Objective (weighted lateness)',
     tip: 'The plan\u2019s price tag: weeks missed by dated initiatives, weighted by cost of delay. Lower is better. Zero means every dated initiative holds \u2014 on a plan with no dates, zero carries no information.',
