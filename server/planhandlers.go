@@ -28,7 +28,7 @@ func (s *server) handlePlans(w http.ResponseWriter, r *http.Request, c auth.Clai
 	case http.MethodGet:
 		rows, err := s.db.ListPlans(c.Sub, c.Has("admin"))
 		if err != nil {
-			s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+			s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 			http.Error(w, err.Error(), 500)
 			return
 		}
@@ -53,7 +53,7 @@ func (s *server) handlePlans(w http.ResponseWriter, r *http.Request, c auth.Clai
 		p := db.PlanRow{ID: newID(), Owner: c.Sub, Name: body.Name,
 			HorizonWeeks: body.HorizonWeeks, CapacityLoss: body.CapacityLoss, CreatedAt: now, UpdatedAt: now}
 		if err := s.db.CreatePlan(p); err != nil {
-			s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+			s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 			http.Error(w, err.Error(), 500)
 			return
 		}
@@ -96,19 +96,19 @@ func (s *server) handlePlanDemo(w http.ResponseWriter, r *http.Request, c auth.C
 	p := db.PlanRow{ID: newID(), Owner: c.Sub, Name: "Demo — Platform plan",
 		HorizonWeeks: 26, CapacityLoss: 0.10, CreatedAt: now, UpdatedAt: now}
 	if err := s.db.CreatePlan(p); err != nil {
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
 	tb, _ := json.Marshal(teams)
 	ib, _ := json.Marshal(inits)
 	if err := s.db.SavePlanTeams(p.ID, tb, now); err != nil {
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
 	if err := s.db.SavePlanInitiatives(p.ID, ib, now); err != nil {
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -117,7 +117,7 @@ func (s *server) handlePlanDemo(w http.ResponseWriter, r *http.Request, c auth.C
 	// order readable the first time anyone opens it.
 	sb, _ := json.Marshal(planning.DemoScheduling())
 	if err := s.db.SavePlanScheduling(p.ID, sb, now); err != nil {
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -152,7 +152,7 @@ func (s *server) handlePlanItem(w http.ResponseWriter, r *http.Request, c auth.C
 	}
 	p, err := s.db.GetPlan(id)
 	if err != nil {
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -201,7 +201,7 @@ func (s *server) handlePlanItem(w http.ResponseWriter, r *http.Request, c auth.C
 		s.patchPlan(w, r, p)
 	case sub == "" && r.Method == http.MethodDelete:
 		if err := s.db.DeletePlan(id); err != nil {
-			s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+			s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 			http.Error(w, err.Error(), 500)
 			return
 		}
@@ -239,7 +239,7 @@ func (s *server) uploadPlanTeams(w http.ResponseWriter, r *http.Request, p *db.P
 		return
 	}
 	if err := s.db.SavePlanTeams(p.ID, b, time.Now().Unix()); err != nil {
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -261,7 +261,7 @@ func (s *server) uploadPlanTeams(w http.ResponseWriter, r *http.Request, p *db.P
 	}
 	if sb, err := json.Marshal(sites); err == nil {
 		if err := s.db.SavePlanSites(p.ID, sb, time.Now().Unix()); err != nil {
-			s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+			s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 			http.Error(w, err.Error(), 500)
 			return
 		}
@@ -288,12 +288,12 @@ func (s *server) listPlanSites(w http.ResponseWriter, p *db.PlanRow) {
 	sites = planning.SitesFromTeams(teams, sites)
 	blob, err := json.Marshal(sites)
 	if err != nil {
-		s.logger().Error("request failed", "err", err)
+		s.logger().Error().Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
 	if err := s.db.SavePlanSites(p.ID, blob, time.Now().Unix()); err != nil {
-		s.logger().Error("request failed", "err", err)
+		s.logger().Error().Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -356,12 +356,12 @@ func (s *server) patchPlanSites(w http.ResponseWriter, r *http.Request, p *db.Pl
 	}
 	blob, err := json.Marshal(sites)
 	if err != nil {
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
 	if err := s.db.SavePlanSites(p.ID, blob, time.Now().Unix()); err != nil {
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -395,7 +395,7 @@ func (s *server) attachPlanRoster(w http.ResponseWriter, r *http.Request, p *db.
 	}
 	pods, err := s.rosterPods(rosterID)
 	if err != nil {
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -406,7 +406,7 @@ func (s *server) attachPlanRoster(w http.ResponseWriter, r *http.Request, p *db.
 	teams := netPodsToTeams(pods)
 	b, _ := json.Marshal(teams)
 	if err := s.db.SetPlanRosterTeams(p.ID, rosterID, b, time.Now().Unix()); err != nil {
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -451,7 +451,7 @@ func (s *server) editPlanTeam(w http.ResponseWriter, r *http.Request, p *db.Plan
 	}
 	b, _ := json.Marshal(teams)
 	if err := s.db.SavePlanTeams(p.ID, b, time.Now().Unix()); err != nil {
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -491,7 +491,7 @@ func (s *server) uploadPlanInitiatives(w http.ResponseWriter, r *http.Request, p
 	}
 	b, _ := json.Marshal(plan.Initiatives)
 	if err := s.db.SavePlanInitiatives(p.ID, b, time.Now().Unix()); err != nil {
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -627,12 +627,12 @@ func (s *server) savePlanScheduling(w http.ResponseWriter, r *http.Request, p *d
 	}
 	b, err := json.Marshal(sp)
 	if err != nil {
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
 	if err := s.db.SavePlanScheduling(p.ID, b, time.Now().Unix()); err != nil {
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -684,12 +684,12 @@ func (s *server) editPlanInitiatives(w http.ResponseWriter, r *http.Request, p *
 	}
 	b, err := json.Marshal(edited)
 	if err != nil {
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
 	if err := s.db.SavePlanInitiatives(p.ID, b, time.Now().Unix()); err != nil {
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -729,7 +729,7 @@ func (s *server) schedulePlan(w http.ResponseWriter, r *http.Request, p *db.Plan
 			http.Error(w, msg, 400)
 			return
 		}
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -778,7 +778,7 @@ func (s *server) remediesPlan(w http.ResponseWriter, r *http.Request, p *db.Plan
 			http.Error(w, msg, 400)
 			return
 		}
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -865,7 +865,7 @@ func (s *server) saveBaseline(w http.ResponseWriter, r *http.Request, p *db.Plan
 			http.Error(w, msg, 400)
 			return
 		}
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -877,13 +877,13 @@ func (s *server) saveBaseline(w http.ResponseWriter, r *http.Request, p *db.Plan
 	sched := inputs.Recompute()
 	inputsBlob, err := json.Marshal(inputs)
 	if err != nil {
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
 	schedBlob, err := json.Marshal(sched)
 	if err != nil {
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -900,7 +900,7 @@ func (s *server) saveBaseline(w http.ResponseWriter, r *http.Request, p *db.Plan
 	// the client showing a chip that disagrees with the database.
 	active, err := s.db.SaveBaseline(row, makeActive)
 	if err != nil {
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -912,7 +912,7 @@ func (s *server) saveBaseline(w http.ResponseWriter, r *http.Request, p *db.Plan
 func (s *server) listBaselines(w http.ResponseWriter, p *db.PlanRow) {
 	rows, err := s.db.ListBaselines(p.ID)
 	if err != nil {
-		s.logger().Error("request failed", "err", err)
+		s.logger().Error().Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -920,7 +920,7 @@ func (s *server) listBaselines(w http.ResponseWriter, p *db.PlanRow) {
 	// "matches" would be a reassurance nothing supports. Fail instead.
 	inputs, err := s.planScheduleFor(p, scheduleRequest{})
 	if err != nil {
-		s.logger().Error("request failed", "err", err)
+		s.logger().Error().Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -971,7 +971,7 @@ func (s *server) deleteBaseline(w http.ResponseWriter, p *db.PlanRow, bid string
 	}
 	ok, err := s.db.DeleteBaseline(p.ID, bid)
 	if err != nil {
-		s.logger().Error("request failed", "err", err)
+		s.logger().Error().Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -1003,13 +1003,13 @@ func (s *server) compareBaselines(w http.ResponseWriter, _ *http.Request, p *db.
 	}
 	from, err := s.db.GetBaseline(p.ID, bid)
 	if err != nil {
-		s.logger().Error("request failed", "err", err)
+		s.logger().Error().Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
 	to, err := s.db.GetBaseline(p.ID, other)
 	if err != nil {
-		s.logger().Error("request failed", "err", err)
+		s.logger().Error().Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -1040,7 +1040,7 @@ func (s *server) compareBaselines(w http.ResponseWriter, _ *http.Request, p *db.
 func (s *server) getBaseline(w http.ResponseWriter, p *db.PlanRow, bid string) {
 	b, err := s.db.GetBaseline(p.ID, bid)
 	if err != nil {
-		s.logger().Error("request failed", "err", err)
+		s.logger().Error().Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -1092,7 +1092,7 @@ func (s *server) patchBaseline(w http.ResponseWriter, r *http.Request, p *db.Pla
 		}
 		ok, err := s.db.RenameBaseline(p.ID, bid, name)
 		if err != nil {
-			s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+			s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 			http.Error(w, err.Error(), 500)
 			return
 		}
@@ -1104,7 +1104,7 @@ func (s *server) patchBaseline(w http.ResponseWriter, r *http.Request, p *db.Pla
 	if body.Active != nil {
 		ok, err := s.db.SetBaselineActive(p.ID, bid)
 		if err != nil {
-			s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+			s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 			http.Error(w, err.Error(), 500)
 			return
 		}
@@ -1125,7 +1125,7 @@ func (s *server) compareBaseline(w http.ResponseWriter, r *http.Request, p *db.P
 	}
 	b, err := s.db.GetBaseline(p.ID, bid)
 	if err != nil {
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -1146,7 +1146,7 @@ func (s *server) compareBaseline(w http.ResponseWriter, r *http.Request, p *db.P
 			http.Error(w, msg, 400)
 			return
 		}
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -1176,7 +1176,7 @@ func (s *server) patchPlan(w http.ResponseWriter, r *http.Request, p *db.PlanRow
 		loss = *body.CapacityLoss // pointer lets a manager set exactly 0% loss
 	}
 	if err := s.db.UpdatePlanMeta(p.ID, name, hz, loss, time.Now().Unix()); err != nil {
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}

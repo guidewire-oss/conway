@@ -9,13 +9,13 @@ func fakeOrg() ([]PodInfo, map[string]PodStat, map[string]map[string]float64, []
 		{"Gamma", "Remote", true, 3, 6},
 	}
 	stats := map[string]PodStat{
-		"Alpha":       {Wip: 4, ThroughputWk: 4, Mu: 1.8, Sigma: 0.6, Rho0: 0.6, P50: 6, P85: 14, HygieneScore: 0.5},
-		"Beta":        {Wip: 20, ThroughputWk: 3, Mu: 2.1, Sigma: 0.7, Rho0: 0.9, P50: 8, P85: 20, HygieneScore: 0.3},
+		"Alpha": {Wip: 4, ThroughputWk: 4, Mu: 1.8, Sigma: 0.6, Rho0: 0.6, P50: 6, P85: 14, HygieneScore: 0.5},
+		"Beta":  {Wip: 20, ThroughputWk: 3, Mu: 2.1, Sigma: 0.7, Rho0: 0.9, P50: 8, P85: 20, HygieneScore: 0.3},
 		"Gamma": {Wip: 6, ThroughputWk: 5, Mu: 1.6, Sigma: 0.5, Rho0: 0.5, P50: 5, P85: 12, HygieneScore: 0.6},
 	}
 	overlap := map[string]map[string]float64{
-		"Alpha":       {"Alpha": 8, "Beta": 0, "Gamma": 2},
-		"Beta":        {"Alpha": 0, "Beta": 8, "Gamma": 2},
+		"Alpha": {"Alpha": 8, "Beta": 0, "Gamma": 2},
+		"Beta":  {"Alpha": 0, "Beta": 8, "Gamma": 2},
 		"Gamma": {"Alpha": 2, "Beta": 2, "Gamma": 8},
 	}
 	edges := []*Edge{{From: "Beta", To: "Alpha", Count: 6}}

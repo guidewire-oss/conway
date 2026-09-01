@@ -283,8 +283,8 @@ var _ = Describe("initiative edit clears", func() {
 var _ = Describe("estimateEdits", func() {
 	It("updates the pod's effort weeks", func() {
 		inits := []Initiative{{Name: "Big", Work: map[string]TeamWork{
-			"Delta": {Weeks: 10, Estimated: true, InPath: true},
-			"Beacon":  {Weeks: 5, Estimated: true, InPath: true}}}}
+			"Delta":  {Weeks: 10, Estimated: true, InPath: true},
+			"Beacon": {Weeks: 5, Estimated: true, InPath: true}}}}
 		edits := []InitiativeEdit{{
 			Name:          "Big",
 			EstimateEdits: map[string]float64{"Delta": 15},
