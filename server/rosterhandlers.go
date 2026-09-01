@@ -24,6 +24,7 @@ func (s *server) handleRosters(w http.ResponseWriter, r *http.Request, c auth.Cl
 	case http.MethodGet:
 		rows, err := s.db.ListRosters(c.Sub, c.Has("admin"))
 		if err != nil {
+			s.logger().Error("request failed", "path", r.URL.Path, "err", err)
 			http.Error(w, err.Error(), 500)
 			return
 		}
@@ -60,6 +61,7 @@ func (s *server) handleRosters(w http.ResponseWriter, r *http.Request, c auth.Cl
 		pods, _ := json.Marshal(b.Pods)
 		id := newID()
 		if err := s.db.CreateRoster(db.RosterRow{ID: id, Owner: c.Sub, Name: name, Pods: pods, CreatedAt: time.Now().Unix()}); err != nil {
+			s.logger().Error("request failed", "path", r.URL.Path, "err", err)
 			http.Error(w, err.Error(), 500)
 			return
 		}
@@ -81,6 +83,7 @@ func (s *server) handleRosterItem(w http.ResponseWriter, r *http.Request, c auth
 	}
 	row, err := s.db.GetRoster(id)
 	if err != nil {
+		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -111,6 +114,7 @@ func (s *server) handleRosterItem(w http.ResponseWriter, r *http.Request, c auth
 		json.NewDecoder(r.Body).Decode(&b)
 		if b.Public != nil { // visibility-only toggle
 			if err := s.db.SetRosterPublic(id, *b.Public); err != nil {
+				s.logger().Error("request failed", "path", r.URL.Path, "err", err)
 				http.Error(w, err.Error(), 500)
 				return
 			}
@@ -127,12 +131,14 @@ func (s *server) handleRosterItem(w http.ResponseWriter, r *http.Request, c auth
 		}
 		pods, _ := json.Marshal(b.Pods)
 		if err := s.db.UpdateRoster(id, name, pods, time.Now().Unix()); err != nil {
+			s.logger().Error("request failed", "path", r.URL.Path, "err", err)
 			http.Error(w, err.Error(), 500)
 			return
 		}
 		writeJSON(w, map[string]any{"ok": true, "pods": len(b.Pods)})
 	case http.MethodDelete:
 		if err := s.db.DeleteRoster(id); err != nil {
+			s.logger().Error("request failed", "path", r.URL.Path, "err", err)
 			http.Error(w, err.Error(), 500)
 			return
 		}

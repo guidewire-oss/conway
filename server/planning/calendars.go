@@ -106,7 +106,7 @@ func weekIndexOf(t0, t time.Time) int {
 	if days >= 0 {
 		return days / 7
 	}
-	return -(( -days + 6) / 7)
+	return -((-days + 6) / 7)
 }
 
 // calendarRules is the compiled constraint set the scheduler consults. Every

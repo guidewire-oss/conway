@@ -25,7 +25,7 @@ func buildWorld(read func(name string, v any) error) (*World, error) {
 			Pairing  bool    `json:"pairing"`
 			DevCount float64 `json:"devCount"`
 			Streams  float64 `json:"streams"` // explicit work-streams (pairs); 0 = derive
-			Sre      bool    `json:"sre"`      // SRE/platform-reliability pod (org-specific — set per pod in pods.json)
+			Sre      bool    `json:"sre"`     // SRE/platform-reliability pod (org-specific — set per pod in pods.json)
 		} `json:"pods"`
 		Overlap map[string]map[string]float64 `json:"overlap"`
 	}
