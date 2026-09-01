@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/rs/zerolog/log"
 	"net/http"
 	"strings"
 	"time"
@@ -166,6 +167,8 @@ func (s *server) runImport(jobID string, cl *jira.Client, owner, name string, pr
 		fail(err.Error())
 		return
 	}
+	s.metrics.Inc("jira_imports_done")
+	log.Info().Str("snapshot", id).Str("owner", owner).Int("issues", len(detailed)).Msg("Jira import finished")
 	s.updateJob(jobID, func(j *importJob) { j.Status, j.Snapshot = "done", id })
 }
 

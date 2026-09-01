@@ -37,6 +37,7 @@ const defaultGameID = "default"
 type server struct {
 	mu        sync.Mutex
 	log       *zerolog.Logger
+	metrics   *Metrics
 	store     *auth.Store
 	teams     map[string]map[string]json.RawMessage // gameID -> team -> standings
 	games     map[string]map[string]*game.Game      // gameID -> team -> authoritative game
@@ -421,6 +422,7 @@ func main() {
 	}
 
 	s := &server{store: st,
+		metrics:  NewMetrics(),
 		teams:    map[string]map[string]json.RawMessage{},
 		games:    map[string]map[string]*game.Game{},
 		sessions: map[string]*gameSession{},
@@ -495,6 +497,7 @@ func main() {
 	mux.HandleFunc("/api/sample/roster.csv", s.handleSampleRoster)            // team-structure roster example
 	mux.HandleFunc("/api/plan/demo", s.withAuth(s.handlePlanDemo, "manager")) // exact match wins over /api/plan/
 	mux.HandleFunc("/api/plan", s.withAuth(s.handlePlans, "manager"))
+	mux.HandleFunc("/api/admin/metrics", s.withAuth(s.handleAdminMetrics, "admin"))
 	mux.HandleFunc("/api/plan/", s.withAuth(s.handlePlanItem, "manager"))
 	// Snapshots — the org-network captures Observe renders and Train seeds from
 	mux.HandleFunc("/api/jira/status", s.withAuth(s.handleJiraStatus, "manager"))
@@ -549,7 +552,7 @@ func main() {
 	// uploads run to maxUpload (20MB) over links we do not control, and nothing
 	// here streams, so capping whole-request duration would only break large
 	// imports. IdleTimeout reaps keep-alive connections instead.
-	logHandler := loggingMiddleware(mux)
+	logHandler := s.loggingMiddleware(mux)
 	srv := &http.Server{
 		Addr:              addr,
 		Handler:           logHandler,
@@ -566,7 +569,7 @@ func main() {
 // duration. Debug level adds query strings and the remote address. This is the
 // log the debugging session actually wants — before it, a 500 told the client
 // something failed and the server log nothing at all.
-func loggingMiddleware(next http.Handler) http.Handler {
+func (s *server) loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		rec := &statusRecorder{ResponseWriter: w, status: 200}
@@ -588,6 +591,11 @@ func loggingMiddleware(next http.Handler) http.Handler {
 			Int("status", rec.status).
 			Int64("durMs", time.Since(start).Milliseconds()).
 			Msg("http request")
+		// Usage awareness (admin metrics): every request counts into a
+		// bucketed path, so "what is used most" is answerable without a
+		// time-series store. Counters are since-boot.
+		s.metrics.Inc("http_" + statusClass(rec.status))
+		s.metrics.Inc("http " + bucketPath(r.URL.Path) + " " + statusClass(rec.status))
 	})
 }
 
@@ -606,6 +614,12 @@ func (r *statusRecorder) WriteHeader(code int) {
 	r.ResponseWriter.WriteHeader(code)
 }
 
+// handleAdminMetrics serves the usage snapshot (admin role): business-event
+// counters and per-path request buckets, all since boot.
+func (s *server) handleAdminMetrics(w http.ResponseWriter, _ *http.Request, _ auth.Claims) {
+	writeJSON(w, map[string]any{"since": "boot", "metrics": s.metrics.Snapshot()})
+}
+
 // ---- handlers -----------------------------------------------------------
 
 func (s *server) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -618,9 +632,13 @@ func (s *server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	defer s.mu.Unlock()
 	u, err := s.store.Authenticate(strings.TrimSpace(body.Username), body.Password)
 	if err != nil {
+		s.metrics.Inc("logins_failed")
+		log.Warn().Str("user", strings.TrimSpace(body.Username)).Msg("login failed")
 		http.Error(w, "invalid credentials or expired account", 401)
 		return
 	}
+	s.metrics.Inc("logins")
+	log.Info().Str("user", u.Username).Msg("login")
 	writeJSON(w, map[string]any{
 		"token": s.store.Token(u), "roles": u.Roles, "display": u.Display, "username": u.Username,
 	})

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/rs/zerolog/log"
 	"io"
 	"net/http"
 	"sort"
@@ -58,6 +59,8 @@ func (s *server) handlePlans(w http.ResponseWriter, r *http.Request, c auth.Clai
 			return
 		}
 		writeJSON(w, map[string]any{"id": p.ID, "name": p.Name})
+		s.metrics.Inc("plans_created")
+		log.Info().Str("plan", p.ID).Str("name", p.Name).Str("owner", c.Sub).Msg("plan created")
 	default:
 		methodNotAllowed(w, r)
 	}
@@ -196,6 +199,7 @@ func (s *server) handlePlanItem(w http.ResponseWriter, r *http.Request, c auth.C
 	case strings.HasPrefix(sub, "baseline/"):
 		s.baselineItem(w, r, p, strings.TrimPrefix(sub, "baseline/"))
 	case sub == "" && r.Method == http.MethodGet:
+		s.metrics.Inc("plans_opened")
 		writeJSON(w, s.assemblePlan(p))
 	case sub == "" && r.Method == http.MethodPatch:
 		s.patchPlan(w, r, p)
@@ -267,6 +271,8 @@ func (s *server) uploadPlanTeams(w http.ResponseWriter, r *http.Request, p *db.P
 		}
 	}
 	writeJSON(w, map[string]any{"teams": len(teams)})
+	s.metrics.Inc("teams_uploads")
+	log.Info().Str("plan", p.ID).Int("pods", len(teams)).Msg("teams uploaded")
 }
 
 // listPlanSites returns the plan's site table (spec 003 FR-006): every site
@@ -365,6 +371,8 @@ func (s *server) patchPlanSites(w http.ResponseWriter, r *http.Request, p *db.Pl
 		http.Error(w, err.Error(), 500)
 		return
 	}
+	s.metrics.Inc("sites_patched")
+	log.Info().Str("plan", p.ID).Str("site", name).Str("timezone", body.Timezone).Msg("site timezone set")
 	writeJSON(w, map[string]any{"sites": sites})
 }
 
@@ -495,6 +503,8 @@ func (s *server) uploadPlanInitiatives(w http.ResponseWriter, r *http.Request, p
 		http.Error(w, err.Error(), 500)
 		return
 	}
+	s.metrics.Inc("initiatives_uploads")
+	log.Info().Str("plan", p.ID).Int("initiatives", len(plan.Initiatives)).Msg("initiatives uploaded")
 	writeJSON(w, map[string]any{"initiatives": len(plan.Initiatives)})
 }
 
@@ -636,6 +646,8 @@ func (s *server) savePlanScheduling(w http.ResponseWriter, r *http.Request, p *d
 		http.Error(w, err.Error(), 500)
 		return
 	}
+	s.metrics.Inc("scheduling_saved")
+	log.Info().Str("plan", p.ID).Msg("scheduling parameters saved")
 	writeJSON(w, map[string]any{"ok": true, "scheduling": sp})
 }
 
@@ -733,7 +745,26 @@ func (s *server) schedulePlan(w http.ResponseWriter, r *http.Request, p *db.Plan
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	writeJSON(w, inputs.RecomputeWith(planning.ScheduleOptions{CompareWipModels: body.WipModels}))
+	started := time.Now()
+	sched := inputs.RecomputeWith(planning.ScheduleOptions{CompareWipModels: body.WipModels})
+	placed := 0
+	for _, si := range sched.Initiatives {
+		if len(si.Slices) > 0 {
+			placed++
+		}
+	}
+	held := len(sched.Initiatives) - placed
+	s.metrics.Inc("schedules_computed")
+	log.Info().
+		Str("plan", p.ID).
+		Str("rule", sched.Rule).
+		Str("wipModel", sched.WipLimit.Model).
+		Int("initiatives", len(sched.Initiatives)).
+		Int("placed", placed).
+		Int("held", held).
+		Int64("durMs", time.Since(started).Milliseconds()).
+		Msg("schedule computed")
+	writeJSON(w, sched)
 }
 
 // scheduleRequest is the body /schedule and the baseline endpoints share: the
@@ -904,6 +935,8 @@ func (s *server) saveBaseline(w http.ResponseWriter, r *http.Request, p *db.Plan
 		http.Error(w, err.Error(), 500)
 		return
 	}
+	s.metrics.Inc("baselines_saved")
+	log.Info().Str("plan", p.ID).Str("baseline", name).Str("savedBy", c.Sub).Msg("baseline saved")
 	writeJSON(w, map[string]any{"id": row.ID, "name": row.Name, "active": active})
 }
 
@@ -1113,6 +1146,8 @@ func (s *server) patchBaseline(w http.ResponseWriter, r *http.Request, p *db.Pla
 			return
 		}
 	}
+	s.metrics.Inc("baselines_activated")
+	log.Info().Str("plan", p.ID).Str("baseline", bid).Msg("baseline activated")
 	writeJSON(w, map[string]any{"ok": true})
 }
 
