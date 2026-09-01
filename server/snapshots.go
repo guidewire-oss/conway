@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log/slog"
+	"github.com/rs/zerolog/log"
 	"net/http"
 	"strings"
 
@@ -32,7 +32,7 @@ func (s *server) handleSnapshots(w http.ResponseWriter, r *http.Request, c auth.
 	}
 	rows, err := s.db.ListSnapshots(c.Sub, c.Has("admin"))
 	if err != nil {
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -116,7 +116,7 @@ func (s *server) handleSnapshotItem(w http.ResponseWriter, r *http.Request, c au
 func (s *server) ownedSnapshot(w http.ResponseWriter, id string, c auth.Claims) *db.SnapshotRow {
 	row, err := s.db.GetSnapshot(id)
 	if err != nil {
-		s.logger().Error("request failed", "err", err)
+		s.logger().Error().Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return nil
 	}
@@ -141,7 +141,7 @@ func (s *server) deleteSnapshot(w http.ResponseWriter, id string, c auth.Claims)
 		return
 	}
 	if err := s.db.DeleteSnapshot(id); err != nil {
-		s.logger().Error("request failed", "err", err)
+		s.logger().Error().Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -163,7 +163,7 @@ func (s *server) patchSnapshot(w http.ResponseWriter, r *http.Request, id string
 	if b.RosterID != nil {
 		pods, err := s.rosterPods(*b.RosterID)
 		if err != nil {
-			s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+			s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 			http.Error(w, err.Error(), 500)
 			return
 		}
@@ -180,17 +180,17 @@ func (s *server) patchSnapshot(w http.ResponseWriter, r *http.Request, id string
 				rows[i] = db.PodRow{Name: p.Name, Location: p.Location, Pairing: p.Pairing, DevCount: p.DevCount, Streams: p.Streams}
 			}
 			if err := s.db.SetSnapshotPods(id, rows); err != nil {
-				s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+				s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 				http.Error(w, err.Error(), 500)
 				return
 			}
 		} else if err := s.db.PutSnapshotDoc(id, "pods.json", podsAndOverlapDoc(pods)); err != nil {
-			s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+			s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 			http.Error(w, err.Error(), 500)
 			return
 		}
 		if err := s.db.SetSnapshotRoster(id, *b.RosterID); err != nil {
-			s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+			s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 			http.Error(w, err.Error(), 500)
 			return
 		}
@@ -202,14 +202,14 @@ func (s *server) patchSnapshot(w http.ResponseWriter, r *http.Request, id string
 			return
 		}
 		if err := s.db.RenameSnapshot(id, name); err != nil {
-			s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+			s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 			http.Error(w, err.Error(), 500)
 			return
 		}
 	}
 	if b.Public != nil {
 		if err := s.db.SetSnapshotPublic(id, *b.Public); err != nil {
-			s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+			s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 			http.Error(w, err.Error(), 500)
 			return
 		}
@@ -253,14 +253,14 @@ func (s *server) defaultWorld() *World {
 	}
 	rows, err := s.db.ListSnapshots("", true)
 	if err != nil || len(rows) == 0 {
-		slog.Warn("no snapshot available yet to source the default world from (expected on a fresh, unseeded DB before any import)")
+		log.Warn().Msg("no snapshot available yet to source the default world from (expected on a fresh, unseeded DB before any import)")
 		return nil
 	}
 	w, err := s.worldFromSnapshot(rows[0].ID)
 	if err != nil {
-		slog.Error("could not build the default world from the most recent snapshot", "snapshot", rows[0].ID, "err", err)
+		log.Error().Str("snapshot", rows[0].ID).Err(err).Msg("could not build the default world from the most recent snapshot")
 		return nil
 	}
-	slog.Info("named snapshot missing; using the most recent as the default world", "wanted", baselineSnapshotID, "using", rows[0].ID)
+	log.Info().Str("wanted", baselineSnapshotID).Str("using", rows[0].ID).Msg("named snapshot missing; using the most recent as the default world")
 	return w
 }

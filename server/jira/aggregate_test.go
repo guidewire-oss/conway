@@ -67,8 +67,8 @@ func TestAggregateWipOnlyPodGetsDefaultEntry(t *testing.T) {
 // (server/db/snapshotquery.go WipPage/WipSummary) — not "anything unresolved".
 func TestAggregateWipExcludesBacklog(t *testing.T) {
 	stats, _ := Aggregate([]Issue{
-		{Key: "K-1", Pod: "Delta", IssueType: "Story", Created: day("2026-01-01"), StatusCat: "new"},          // backlog
-		{Key: "K-2", Pod: "Delta", IssueType: "Story", Created: day("2026-01-01"), StatusCat: "new"},          // backlog
+		{Key: "K-1", Pod: "Delta", IssueType: "Story", Created: day("2026-01-01"), StatusCat: "new"},           // backlog
+		{Key: "K-2", Pod: "Delta", IssueType: "Story", Created: day("2026-01-01"), StatusCat: "new"},           // backlog
 		{Key: "K-3", Pod: "Delta", IssueType: "Story", Created: day("2026-01-01"), StatusCat: "indeterminate"}, // actually in progress
 	}, WipModeLeaf)
 	k, ok := stats["Delta"]

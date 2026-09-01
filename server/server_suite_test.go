@@ -29,6 +29,7 @@ func newMemStore() *auth.Store {
 }
 
 type nopBackend struct{}
+
 func (nopBackend) Save(*auth.Store) error { return nil }
 func (nopBackend) Load(*auth.Store) error { return nil }
 
@@ -85,7 +86,7 @@ var _ = Describe("admin user extend guards", func() {
 	It("refuses an explicit zero rather than expiring a never-expires account", func() {
 		s := &server{store: newMemStore()}
 		s.store.CreateUser("Keeper", []string{"admin"}, 0) // never expires
-		before := s.store.Users["keeper"].ExpiresAt // 0
+		before := s.store.Users["keeper"].ExpiresAt        // 0
 
 		req := httptest.NewRequest("POST", "/api/admin/users/keeper/extend",
 			strings.NewReader(`{"hours":0}`))

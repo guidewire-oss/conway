@@ -47,7 +47,7 @@ func (s *server) addGameTeam(w http.ResponseWriter, r *http.Request, gid string)
 func (s *server) listGameTeams(w http.ResponseWriter, gid string) {
 	roster, err := s.db.ListGameTeams(gid)
 	if err != nil {
-		s.logger().Error("request failed", "err", err)
+		s.logger().Error().Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -73,7 +73,7 @@ func (s *server) listGameTeams(w http.ResponseWriter, gid string) {
 
 func (s *server) delGameTeam(w http.ResponseWriter, gid, name string) {
 	if err := s.db.DeleteGameTeam(gid, name); err != nil {
-		s.logger().Error("request failed", "err", err)
+		s.logger().Error().Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -95,7 +95,7 @@ func (s *server) handleGames(w http.ResponseWriter, r *http.Request, c auth.Clai
 	case http.MethodGet:
 		rows, err := s.db.ListGames(c.Sub, c.Has("admin"))
 		if err != nil {
-			s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+			s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 			http.Error(w, err.Error(), 500)
 			return
 		}
@@ -161,7 +161,7 @@ func (s *server) handleGames(w http.ResponseWriter, r *http.Request, c auth.Clai
 		g := db.GameRow{ID: newID(), Owner: c.Sub, Name: name, JoinCode: code,
 			Rounds: rounds, Ap: ap, TimerSecs: timer, Scenario: scenario, CreatedAt: now, ExpiresAt: exp}
 		if err := s.db.CreateGame(g); err != nil {
-			s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+			s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 			http.Error(w, err.Error(), 500)
 			return
 		}
@@ -190,7 +190,7 @@ func (s *server) handleGameItem(w http.ResponseWriter, r *http.Request, c auth.C
 	}
 	g, err := s.db.GetGame(id)
 	if err != nil {
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -313,7 +313,7 @@ func (s *server) editGame(w http.ResponseWriter, r *http.Request, g *db.GameRow)
 		g.Scenario = sc
 	}
 	if err := s.db.UpdateGameMeta(g); err != nil {
-		s.logger().Error("request failed", "path", r.URL.Path, "err", err)
+		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}

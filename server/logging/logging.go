@@ -1,59 +1,56 @@
-// Package logging sets up Conway's structured logging (spec: observability).
+// Package logging sets up Conway's structured logging on zerolog.
 //
-// One choice is deliberate: stdlib log/slog with ZERO third-party
-// dependencies — the colorized console handler is written here (~100 lines)
-// rather than pulled in (tint et al), because the app's dependency budget is
-// a stated value and a colorized handler is a closed, small problem.
+// Package choice (recorded): zerolog v1.35.1 — the app logs a few lines per
+// request, and zerolog's fluent context API plus its built-in pretty console
+// writer give colorized dev output and JSON machine output from the same
+// logger with no custom encoder to maintain.
 //
 // Two output shapes:
-//   - CONWAY_LOG_FORMAT=color (the default): a colorized console line, one per
-//     record — level colored, time dimmed, message plain, attributes dimmed.
-//     Built for a human tailing `docker compose logs` or `make logs`.
-//   - json: one JSON object per record, for log aggregation. Docker users set
-//     CONWAY_LOG_FORMAT=json and every field stays queryable.
+//   - CONWAY_LOG_FORMAT unset (the default): zerolog's ConsoleWriter — a
+//     colorized, human-readable line, auto-detecting a terminal. When output
+//     is collected (not a TTY), JSON is used instead, because color codes in a
+//     collected log are noise — unless the operator explicitly asked for
+//     color, which is honored.
+//   - CONWAY_LOG_FORMAT=json: one JSON object per record, for aggregation.
 //
 // Level: CONWAY_LOG_LEVEL=debug|info|warn|error (default info). Debug is the
-// engine's internals; production defaults keep the tail readable.
+// HTTP request stream and engine internals; the default keeps the tail quiet.
 package logging
 
 import (
-	"context"
 	"io"
-	"log"
-	"log/slog"
+	stdlog "log"
 	"os"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
-// ANSI escapes. Only emitted when the writer is a terminal (isTTY), so piped
-// logs (docker logs → files, CI) stay clean ASCII.
-type color string
+// Escape sanitizes an untrusted string for a one-line log record: control
+// characters and newlines become Go escapes, so a crafted value cannot forge
+// additional log lines or escape the record's quoting. Use for any
+// request-derived field (paths, emails, ids) passed into a log call.
+//
+// zerolog already escapes newlines inside string fields when writing JSON;
+// this remains for the console writer's line discipline and for call sites
+// that interpolate into a message.
+func Escape(s string) string { return strconv.Quote(s) }
 
-const (
-	cReset  color = "\033[0m"
-	cDim    color = "\033[2m"
-	cRed    color = "\033[31m"
-	cYellow color = "\x1b[33m"
-	cBlue   color = "\x1b[34m"
-	cCyan   color = "\x1b[36m"
-	cWhite  color = "\x1b[37m"
-)
-
-func (c color) wrap(s string) string { return string(c) + s + string(cReset) }
-
-// LevelFromEnv parses CONWAY_LOG_LEVEL, defaulting to info. Unrecognised
-// values fall back with the level noted — a typo must not silence the log.
-func LevelFromEnv() slog.Level {
+// LevelFromEnv parses CONWAY_LOG_LEVEL, defaulting to info. An unrecognised
+// value falls back with a warning at boot — a typo must not silence the log.
+func LevelFromEnv() zerolog.Level {
 	switch strings.ToLower(os.Getenv("CONWAY_LOG_LEVEL")) {
 	case "debug":
-		return slog.LevelDebug
+		return zerolog.DebugLevel
 	case "warn", "warning":
-		return slog.LevelWarn
+		return zerolog.WarnLevel
 	case "error":
-		return slog.LevelError
+		return zerolog.ErrorLevel
 	default:
-		return slog.LevelInfo
+		return zerolog.InfoLevel
 	}
 }
 
@@ -63,37 +60,46 @@ func FormatFromEnv() string {
 	return strings.ToLower(strings.TrimSpace(os.Getenv("CONWAY_LOG_FORMAT")))
 }
 
-// New returns the app logger. format is "color" or "json"; color is upgraded
-// to JSON automatically when the output is not a terminal, because ANSI codes
-// in a collected file are noise (and in some parsers, breakage).
-func New(w io.Writer, format string, level slog.Level) *slog.Logger {
+// New returns the app logger. format is "console" (colorized) or "json".
+func New(w io.Writer, format string, level zerolog.Level) zerolog.Logger {
 	if format == "json" {
-		return slog.New(slog.NewJSONHandler(w, &slog.HandlerOptions{Level: level}))
+		return log.Logger.Output(w).Level(level)
 	}
-	// "color": colors always on — pick json for piped/machine output.
-	return slog.New(newColorHandler(w, &slog.HandlerOptions{Level: level}))
+	out := zerolog.ConsoleWriter{Out: w, TimeFormat: time.Kitchen, NoColor: false}
+	return log.Logger.Output(out).Level(level)
 }
 
-// NewDefault builds the logger Conway boots with: colorized console unless
-// CONWAY_LOG_FORMAT=json, level from CONWAY_LOG_LEVEL.
-func NewDefault() *slog.Logger {
-	w := os.Stderr
+// NewDefault builds the logger Conway boots with: a colorized console when
+// stderr is a terminal, JSON when output is collected, and JSON whenever the
+// operator asked for it. The chosen shape is reported so a collected log says
+// which it is.
+func NewDefault() zerolog.Logger {
+	w := io.Writer(os.Stderr)
 	format := FormatFromEnv()
-	if format == "" && !isTTY(w) {
-		// Auto-detect only when the operator said nothing: a collected log
-		// (systemd, docker, make) loses nothing to color codes, so it gets
-		// JSON. An explicit CONWAY_LOG_FORMAT=color is honored — opt-in
-		// means opt-in.
-		format = "json"
-	}
 	if format == "" {
-		format = "color"
+		if isTTY(os.Stderr) {
+			format = "console"
+		} else {
+			format = "json" // a collected log loses nothing to color codes
+		}
 	}
-	return New(w, format, LevelFromEnv())
+	zerolog.SetGlobalLevel(LevelFromEnv())
+	// RFC3339 with milliseconds; ConsoleWriter renders it as HH:MM:SS.
+	zerolog.TimestampFunc = time.Now
+	logger := log.Logger
+	if format == "console" {
+		logger = logger.Output(zerolog.ConsoleWriter{Out: w, TimeFormat: time.Kitchen})
+	} else {
+		logger = logger.Output(w)
+	}
+	// The global logger IS this logger: everything logging through zerolog's
+	// package-level helpers — the request middleware included — shares the
+	// same shape.
+	log.Logger = logger
+	return logger
 }
 
-// isTTY reports whether w is a character device (a terminal). `os.Stderr`
-// implements Stat; the Fd is a char device only for real terminals.
+// isTTY reports whether w is a character device (a terminal).
 func isTTY(w io.Writer) bool {
 	f, ok := w.(*os.File)
 	if !ok {
@@ -106,127 +112,12 @@ func isTTY(w io.Writer) bool {
 	return fi.Mode()&os.ModeCharDevice != 0
 }
 
-// ReplaceLogLogger routes the stdlib logger (and anything using it) through
-// slog, so a stray fmt-style log.Printf still lands in the same shape.
+// ReplaceLogStandard routes the stdlib logger (and anything using it) through
+// zerolog, so a stray fmt-style log.Printf still lands in the same shape.
 func ReplaceLogStandard() {
-	log.SetFlags(0)
-	log.SetOutput(slog.NewLogLogger(slog.Default().Handler(), slog.LevelError).Writer())
+	std := zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.Kitchen}).
+		Level(zerolog.ErrorLevel).
+		With().Timestamp().Logger()
+	stdlog.SetOutput(std)
+	stdlog.SetFlags(0)
 }
-
-// colorHandler is a slog.Handler rendering one line per record:
-//
-//	12:00:00 INFO  schedule computed  plan=PLAx dur=1.2s placed=28
-//
-// It exists because stdlib's TextHandler has no colors, and the app's logs are
-// read by humans in a terminal far more often than by machines.
-type colorHandler struct {
-	opts  slog.HandlerOptions
-	attrs []slog.Attr
-	group string
-	w     io.Writer
-}
-
-func newColorHandler(w io.Writer, opts *slog.HandlerOptions) *colorHandler {
-	if opts == nil {
-		opts = &slog.HandlerOptions{}
-	}
-	return &colorHandler{w: w, opts: *opts}
-}
-
-func (h *colorHandler) Enabled(_ context.Context, l slog.Level) bool {
-	floor := slog.LevelInfo
-	if h.opts.Level != nil {
-		floor = h.opts.Level.Level()
-	}
-	return l >= floor
-}
-
-// appendAttr renders one attribute as key=value, colored dimly; an error
-// attribute is red, since that is usually the thing being looked for.
-func (h *colorHandler) appendAttr(buf *[]byte, a slog.Attr) {
-	if a.Equal(slog.Attr{}) {
-		return
-	}
-	a.Value = a.Value.Resolve()
-	if a.Value.Kind() == slog.KindString && strings.Contains(a.Value.String(), "\n") {
-		// multi-line values break one-line-per-record
-		s := strconv.Quote(a.Value.String())
-		*buf = append(*buf, (" " + a.Key + "=" + s)...)
-		return
-	}
-	switch {
-	case a.Value.Kind() == slog.KindAny && isErrVal(a.Value):
-		*buf = append(*buf, (" " + a.Key + "=" + cRed.wrap(a.Value.String()))...)
-	default:
-		*buf = append(*buf, (" " + a.Key + "=" + cDim.wrap(a.Value.String()))...)
-	}
-}
-
-func isErrVal(v slog.Value) bool {
-	_, ok := v.Any().(error)
-	return ok
-}
-
-func (h *colorHandler) Handle(_ context.Context, r slog.Record) error {
-	buf := make([]byte, 0, 200)
-	// Time: HH:MM:SS, dimmed. The date is noise in a tail.
-	if !r.Time.IsZero() {
-		buf = append(buf, r.Time.Format("15:04:05")...)
-		buf = append(buf, ' ')
-	}
-	// Level, colored and fixed-width.
-	buf = append(buf, h.levelText(r.Level)...)
-	buf = append(buf, ' ')
-	// The message.
-	buf = append(buf, r.Message...)
-	// Handler-level attrs, then record-level.
-	for _, a := range h.attrs {
-		h.appendAttr(&buf, a)
-	}
-	r.Attrs(func(a slog.Attr) bool {
-		h.appendAttr(&buf, a)
-		return true
-	})
-	buf = append(buf, '\n')
-	_, err := h.w.Write(buf)
-	return err
-}
-
-func (h *colorHandler) levelText(l slog.Level) string {
-	s := l.String() // DEBUG/INFO/WARN/ERROR
-	switch l {
-	case slog.LevelError:
-		return cRed.wrap(s)
-	case slog.LevelWarn:
-		return cYellow.wrap(s)
-	case slog.LevelInfo:
-		return cBlue.wrap(s)
-	default:
-		return cCyan.wrap(s)
-	}
-}
-
-// WithAttrs and WithGroup clone the handler: slog's contract requires the
-// receiver untouched.
-func (h *colorHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	nh := *h
-	nh.attrs = append(append([]slog.Attr{}, h.attrs...), attrs...)
-	return &nh
-}
-
-func (h *colorHandler) WithGroup(name string) slog.Handler {
-	if name == "" {
-		return h
-	}
-	nh := *h
-	nh.group = name
-	return &nh
-}
-
-var _ slog.Handler = (*colorHandler)(nil)
-
-// Escape sanitizes an untrusted string for a one-line log record: control
-// characters and newlines become Go escapes, so a crafted value cannot forge
-// additional log lines or escape the record's quoting. Use for any
-// request-derived field (paths, emails, ids) passed into a log call.
-func Escape(s string) string { return strconv.Quote(s) }

@@ -300,7 +300,6 @@ var _ = Describe("calendar window edge cases", func() {
 	})
 })
 
-
 var _ = Describe("calendar window edge cases, round two", func() {
 	weekDate := func(w int) string {
 		t0, _ := time.Parse(isoDate, specPeriodStart)

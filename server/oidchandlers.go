@@ -2,16 +2,13 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"log/slog"
+	"github.com/rs/zerolog/log"
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
-	"conway/server/logging"
 	"conway/server/oidc"
 )
 
@@ -62,7 +59,7 @@ func buildOIDC(ctx context.Context, publicURL string) *oidc.Provider {
 		cfg.Scopes = strings.Fields(s)
 	}
 	if len(cfg.RoleMap) == 0 {
-		slog.Warn("CONWAY_OIDC_ROLE_MAP is empty — no SSO user can be granted a role; SSO disabled")
+		log.Warn().Msg("CONWAY_OIDC_ROLE_MAP is empty — no SSO user can be granted a role; SSO disabled")
 		return nil
 	}
 	// Bound discovery so an unreachable IdP can't hang server startup (go-oidc
@@ -72,14 +69,14 @@ func buildOIDC(ctx context.Context, publicURL string) *oidc.Provider {
 	defer cancel()
 	p, err := oidc.NewProvider(dctx, cfg)
 	if err != nil {
-		slog.Warn("OIDC discovery failed; SSO disabled, password login still works", "err", err)
+		log.Warn().Err(err).Msg("OIDC discovery failed; SSO disabled, password login still works")
 		return nil
 	}
 	authMode := "public client, PKCE only"
 	if cfg.ClientSecret != "" {
 		authMode = "confidential client, PKCE + secret"
 	}
-	slog.Info("OIDC SSO configured", "issuer", strconv.Quote(cfg.Issuer), "redirect", strconv.Quote(cfg.RedirectURI), "mode", authMode)
+	log.Info().Str("issuer", cfg.Issuer).Str("redirect", cfg.RedirectURI).Str("mode", authMode).Msg("OIDC SSO configured")
 	return p
 }
 
@@ -144,13 +141,13 @@ func (s *server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	rawID, err := s.oidc.Exchange(ctx, code, flow.verifier)
 	if err != nil {
-		slog.Warn("oidc: code exchange failed", "err", err)
+		log.Warn().Err(err).Msg("oidc: code exchange failed")
 		redirectSSOError(w, r, "exchange_failed")
 		return
 	}
 	id, err := s.oidc.VerifyIDToken(ctx, rawID, flow.nonce)
 	if err != nil {
-		slog.Warn("oidc: id token verification failed", "err", err)
+		log.Warn().Err(err).Msg("oidc: id token verification failed")
 		redirectSSOError(w, r, "invalid_token")
 		return
 	}
@@ -158,7 +155,7 @@ func (s *server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	if len(roles) == 0 {
 		// Authenticated, but no group maps to a Conway role: deny, and log who
 		// tried and what groups they presented so an admin can fix the mapping.
-		slog.Warn("oidc: access denied; no recognized role from groups", "email", logging.Escape(id.Email), "sub", logging.Escape(id.Subject), "groups", fmt.Sprint(id.Groups)) //nolint:gosec // G706: values escaped via logging.Escape
+		log.Warn().Str("email", id.Email).Str("sub", id.Subject).Interface("groups", id.Groups).Msg("oidc: access denied; no recognized role from groups") //nolint:gosec // G706: values escaped via logging.Escape
 		redirectSSOError(w, r, "no_role")
 		return
 	}
@@ -169,11 +166,11 @@ func (s *server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	err = s.store.Save()
 	s.mu.Unlock()
 	if err != nil {
-		slog.Error("oidc: could not persist account", "user", logging.Escape(username), "err", err) //nolint:gosec // G706: escaped
+		log.Error().Str("user", username).Err(err).Msg("oidc: could not persist account")
 		redirectSSOError(w, r, "server_error")
 		return
 	}
-	slog.Info("oidc: signed in", "user", logging.Escape(username), "roles", fmt.Sprint(roles)) //nolint:gosec // G706: escaped
+	log.Info().Str("user", username).Interface("roles", roles).Msg("oidc: signed in")
 	// Deliver the token in the fragment so it never reaches the server logs or
 	// Referer headers; auth.js reads it, stores it, and strips it.
 	http.Redirect(w, r, "/#sso="+url.QueryEscape(tok), http.StatusFound)
