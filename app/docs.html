@@ -546,6 +546,13 @@ The game's coordination costs use the same table.</p></div>
       directional, not promises.</td></tr>
   <tr><td>inputs have moved</td><td>the roster or estimates changed since the
       baseline was saved. Re-plan or re-baseline.</td></tr>
+  <tr><td>only a couple of bars render</td><td>the plan's <b>WIP model hasn't
+      been chosen</b> — the scheduler is holding work behind a small
+      concurrent-initiative limit until you pick one. Use the banner on the
+      timeline (or ⚙ Assumptions on the Order view) to choose; the schedule
+      recomputes immediately, and the dialog shows what each model costs for
+      your plan. Choosing is not cosmetic: strict allows only a few concurrent
+      initiatives, off allows all — pick what your org actually runs.</td></tr>
 </table>
 
 <p class="hint" style="margin-top:40px">The theory under all of it: every
