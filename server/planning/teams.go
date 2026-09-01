@@ -19,6 +19,10 @@ type Team struct {
 	Pairs  bool   `json:"pairs"`          // does this team pair-program?
 	Tracks int    `json:"tracks"`         // explicit track override (0 = derive from devs/pairs)
 	Site   string `json:"site,omitempty"` // location, for cross-site-seam analysis
+	// Timezone (spec 003): the pod's site's IANA zone, read from the roster's
+	// optional Timezone column. Seeds the plan's site table on upload so the
+	// roster carries the timezone instead of a second form.
+	Timezone string `json:"timezone,omitempty"`
 	// CapacityLoss (spec 014): this pod's own fraction of tracked time that
 	// never becomes product work (ops burden, support, on-call, ramp). 0 means
 	// inherit the plan's global loss — the override is opt-in per pod.
@@ -100,7 +104,7 @@ func ParseTeamsRows(rows [][]string) ([]Team, error) {
 	if len(rows) == 0 {
 		return nil, nil
 	}
-	idx := map[string]int{"name": -1, "devs": -1, "site": -1, "pairs": -1, "tracks": -1, "loss": -1}
+	idx := map[string]int{"name": -1, "devs": -1, "site": -1, "pairs": -1, "tracks": -1, "loss": -1, "tz": -1}
 	for i, h := range rows[0] {
 		l := strings.ToLower(strings.TrimSpace(h))
 		switch {
@@ -116,6 +120,8 @@ func ParseTeamsRows(rows [][]string) ([]Team, error) {
 			idx["tracks"] = i
 		case idx["loss"] < 0 && strings.Contains(l, "loss"):
 			idx["loss"] = i
+		case idx["tz"] < 0 && strings.Contains(l, "timezone"):
+			idx["tz"] = i
 		}
 	}
 	if idx["name"] < 0 {
@@ -138,10 +144,11 @@ func ParseTeamsRows(rows [][]string) ([]Team, error) {
 			continue
 		}
 		t := Team{
-			Name:  name,
-			Devs:  countPeople(at(row, "devs")),
-			Pairs: truthy(at(row, "pairs")),
-			Site:  strings.TrimSpace(at(row, "site")),
+			Name:     name,
+			Devs:     countPeople(at(row, "devs")),
+			Pairs:    truthy(at(row, "pairs")),
+			Site:     strings.TrimSpace(at(row, "site")),
+			Timezone: strings.TrimSpace(at(row, "tz")),
 		}
 		if n, err := strconv.Atoi(strings.TrimSpace(at(row, "tracks"))); err == nil && n > 0 {
 			t.Tracks = n
