@@ -864,6 +864,21 @@ async function renderTimeline() {
   const paint = () => {
     const main = document.getElementById('tl-main');
     if (!main) return;
+    // Spec 001 Q17: an unchosen WIP model schedules as strict while the choice
+    // is demanded — the Order view's set-up card demands it, and so must the
+    // timeline, or a fresh plan renders two bars and reads as a broken filter.
+    document.getElementById('tl-wip-banner')?.remove();
+    if (sched.wipLimit?.model === 'unchosen') {
+      main.insertAdjacentHTML('beforebegin', `<p class="plan-warn callout" id="tl-wip-banner">⚠ The WIP model hasn't been chosen for this plan — the scheduler is holding all but ${sched.wipLimit.value} concurrent initiatives, so most bars are missing. <button type="button" class="usage-link" id="tl-choose-wip">choose it now</button></p>`);
+      document.getElementById('tl-choose-wip')?.addEventListener('click', () => {
+        current.setupFocus = true;
+        setView('order');
+      });
+      // and one click deeper: the assumptions dialog owns the WIP model choice
+      document.getElementById('tl-choose-wip')?.addEventListener('click', () => {
+        setTimeout(() => document.getElementById('sched-open')?.click(), 400);
+      }, { once: true });
+    }
     main.innerHTML = lens === 'pod'
       ? podLensHTML(sched, {
         horizonWeeks: horizon, span: spanWeeks, pinnedLanes: pinnedLanesByPod(), initiativeQuery: current.tlFilter || '', hideEmptyPods: current.tlHideEmpty,
@@ -1493,6 +1508,18 @@ async function renderOrder() {
       await renderOrder();
     });
   }));
+  if (current.setupFocus) {
+    current.setupFocus = false; // one-shot: clicking the timeline banner, not every render
+    const card = document.getElementById('setup-card');
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      card.classList.add('setup-focus');
+      setTimeout(() => card.classList.remove('setup-focus'), 2400);
+    } else {
+      // the card was dismissed earlier: the WIP model lives in ⚙ Assumptions
+      document.getElementById('sched-open')?.click();
+    }
+  }
   const closeInitEditor = () => document.getElementById('init-edit-dialog')?.remove();
   document.querySelector('.ord-queue')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }

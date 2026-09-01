@@ -798,3 +798,7 @@ button.plan-back { background: none; border: 0; padding: 0; font: inherit; }
 .sites-row b { flex: 0 0 160px; font-size: 13px; overflow: hidden; text-overflow: ellipsis; }
 .sites-row select { flex: 1; }
 .sites-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+
+/* The set-up card flash (spec 001 Q17): when the timeline banner demands the
+   WIP model choice, the card the click lands on pulses so it is findable. */
+.setup-focus { outline: 2px solid var(--bs-primary); outline-offset: 3px; }
