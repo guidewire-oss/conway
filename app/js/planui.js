@@ -11,6 +11,7 @@ import { exportBlockPNG } from './exportpng.js';
 import { attachDrag } from './drag.js';
 import { openDocs } from './docs.js';
 import { fuzzyMatch } from './filter.js';
+import { term } from './terms.js';
 import { baselineChipHTML, baselinesDrawerHTML, saveErrorMessage, latestOnly, activeBaseline } from './baseline.js';
 import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
 import { portfolioTimelineHTML, podLensHTML, podSheetHTML, timelineControlsHTML } from './timeline.js';
@@ -1560,7 +1561,7 @@ async function renderPlanSites(nTeams) {
     .concat(TZ_CHOICES.map(z => `<option value="${z}" ${z === tz ? 'selected' : ''}>${z}</option>`)).join('');
   host.innerHTML = `
     <div class="plan-sites">
-      <b class="hint">Sites — the timezones overlap is computed from</b>
+      <b class="hint">Sites — the timezones overlap is computed from</b> ${term('siteOverlap')}
       <table class="wip-table"><thead><tr><th>Site</th><th>Timezone</th><th>Working hours</th><th></th></tr></thead>
       <tbody>${sites.map((st) => `<tr data-site="${esc(st.name)}">
         <td>${esc(st.name)}</td>
