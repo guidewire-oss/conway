@@ -234,6 +234,28 @@ func (s *server) uploadPlanTeams(w http.ResponseWriter, r *http.Request, p *db.P
 		http.Error(w, err.Error(), 500)
 		return
 	}
+	// Spec 003: the roster carries its sites' timezones when it can (the
+	// optional Timezone column) — seed the plan's site table from it, keeping
+	// any timezone an admin already configured for a site that persists.
+	var existing []planning.Site
+	if len(p.Sites) > 0 {
+		_ = json.Unmarshal(p.Sites, &existing)
+	}
+	sites := planning.SitesFromTeams(teams, existing)
+	for i := range sites {
+		for _, t := range teams {
+			if t.Site == sites[i].Name && t.Timezone != "" && sites[i].Timezone == "" {
+				sites[i].Timezone = t.Timezone
+				sites[i].Unknown = false
+			}
+		}
+	}
+	if sb, err := json.Marshal(sites); err == nil {
+		if err := s.db.SavePlanSites(p.ID, sb, time.Now().Unix()); err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+	}
 	writeJSON(w, map[string]any{"teams": len(teams)})
 }
 

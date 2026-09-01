@@ -556,12 +556,14 @@ export function podSheetHTML(ps, sched, opts = {}) {
 // swallowed #tl-main — every button stretched viewport-tall and the chart
 // squeezed into the leftover width. Every opener here must close.
 export function timelineControlsHTML({ lens, horizon, spans, spanSel, filter, hideEmpty, ghost }) {
+  // The ◉/○ glyph follows the active state: hardcoding it on a label made
+  // "by initiative" read as selected even when "by pod" was (spec review).
   const lensBtn = (id, on, label) =>
-    `<button class="${on ? 'active' : ''}" id="${id}">${label}</button>`;
+    `<button class="${on ? 'active' : ''}" id="${id}">${on ? '◉' : '○'} ${label}</button>`;
   return `
     <div class="plan-views"><div class="btn-group" role="group">
-      ${lensBtn('tl-by-initiative', lens === 'initiative', '◉ by initiative')}
-      ${lensBtn('tl-by-pod', lens === 'pod', '○ by pod')}
+      ${lensBtn('tl-by-initiative', lens === 'initiative', 'by initiative')}
+      ${lensBtn('tl-by-pod', lens === 'pod', 'by pod')}
     </div>
     <div class="btn-group" role="group" title="how much of the schedule to draw — the period end is marked when the view is wider">
       ${spans.map((sp) => `<button class="${sp.id === spanSel ? 'active' : ''}" data-tlspan="${sp.id}">${sp.label}</button>`).join('')}

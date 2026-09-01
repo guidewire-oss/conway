@@ -163,7 +163,7 @@ be materially worse.
 | FR-007 | The system MUST let an admin add or correct a site's timezone and working hours, persisted alongside the roster data | MUST |
 | FR-008 | The system MUST resolve an unknown or empty site to the no-overlap band, and MUST mark every figure derived that way as a default | MUST |
 | FR-009 | The system MUST list pods whose site data cannot produce a real overlap, consistent with the existing data-hygiene reporting | MUST |
-| FR-010 | The system SHOULD seed the table with the sites of the roster being imported, leaving timezone unset for an admin to fill | SHOULD |
+| FR-010 | The system SHOULD seed the table with the sites of the roster being imported; the roster MAY carry a Timezone column, which seeds the timezone directly (amended 2026-08-31 review: the plan view reports sync state compactly instead of hosting the editor) | SHOULD |
 | FR-011 | The system MUST NOT infer a site's timezone from a pod name or from any personal data | MUST NOT |
 | FR-012 | `scripts/build_pods.py` MUST be deleted once this port is verified, completing the v1 pipeline removal — deleted 2026-08-30 | MUST |
 

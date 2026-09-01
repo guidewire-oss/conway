@@ -1539,11 +1539,11 @@ async function saveDraftInitiatives() {
 // renderRosterPicker sources the plan's team structure from a saved roster
 // (preferred — pinned at attach time, matches the same roster the pods came
 // from) with a raw CSV/XLSX upload as the fallback when no roster exists yet.
-// renderPlanSites is the site-table editor (spec 003 FR-006/FR-007): every
-// site the roster references, with its IANA timezone and working hours. An
-// unset timezone means overlap involving that site is the pessimistic default,
-// and the editor says so — the manager fills what matters and the hygiene
-// signal stays visible until they do.
+// renderPlanSites is the compact sites notice (spec 003 review): the big
+// inline table read as a second form inside Plan setup. The roster carries its
+// timezones now (the optional Timezone column), so this row only REPORTS the
+// sync state — "N of M sites have a timezone" — and links to the small modal
+// that fixes the missing ones.
 const TZ_CHOICES = ['Europe/Dublin', 'Europe/London', 'Europe/Warsaw', 'Europe/Berlin',
   'Europe/Paris', 'Europe/Madrid', 'America/New_York', 'America/Chicago',
   'America/Denver', 'America/Los_Angeles', 'America/Toronto', 'America/Sao_Paulo',
@@ -1557,34 +1557,70 @@ async function renderPlanSites(nTeams) {
   if (!current || !r || !r.ok) return;
   let sites = [];
   try { sites = (await r.json()).sites || []; } catch { return; }
-  const options = (tz) => ['<option value="">not set — overlap defaults</option>']
-    .concat(TZ_CHOICES.map(z => `<option value="${z}" ${z === tz ? 'selected' : ''}>${z}</option>`)).join('');
+  const withTz = sites.filter((st) => st.timezone);
+  const missing = sites.length - withTz.length;
   host.innerHTML = `
-    <div class="plan-sites">
-      <b class="hint">Sites — the timezones overlap is computed from</b> ${term('siteOverlap')}
-      <table class="wip-table"><thead><tr><th>Site</th><th>Timezone</th><th>Working hours</th><th></th></tr></thead>
-      <tbody>${sites.map((st) => `<tr data-site="${esc(st.name)}">
-        <td>${esc(st.name)}</td>
-        <td><select class="site-tz">${options(st.timezone)}</select></td>
-        <td class="site-hours"><input class="site-start" type="number" min="0" max="23" step="0.5" value="${st.workStartHour || 9}" aria-label="work start hour"> – <input class="site-end" type="number" min="0" max="24" step="0.5" value="${st.workEndHour || 17}" aria-label="work end hour"></td>
-        <td><button type="button" class="site-save">Save</button></td>
-      </tr>`).join('')}</tbody></table>
-      <p class="hint">Unset timezones price every cross-site handoff at the pessimistic default — fill the sites that matter.</p>
+    <div class="plan-sites plan-note">
+      <span class="hint">🌐 Sites: ${withTz.length} of ${sites.length} have a timezone.
+      ${missing ? 'Cross-site handoffs touching the rest price at the pessimistic default until set.' : 'Every cross-site handoff is priced from real working-hours overlap.'}</span>
+      ${missing ? '<button type="button" id="sites-fix" class="usage-link">set the missing timezones</button>' : ''}
+      <span class="hint">Timezones can also ride the roster itself — a Timezone column on the teams sheet.</span>
     </div>`;
-  host.querySelectorAll('tr[data-site] .site-save').forEach((b) =>
-    b.addEventListener('click', async () => {
-      const row = b.closest('tr');
-      const body = {
-        name: row.dataset.site,
-        timezone: row.querySelector('.site-tz').value,
-        workStartHour: parseFloat(row.querySelector('.site-start').value) || 9,
-        workEndHour: parseFloat(row.querySelector('.site-end').value) || 17,
-      };
-      const res = await req('/api/plan/' + current.id + '/sites', { method: 'PATCH', body: JSON.stringify(body) });
-      if (!res || !res.ok) { alert('Could not save the site: ' + (res ? await res.text() : 'network')); return; }
-      b.textContent = 'Saved ✓';
-      setTimeout(() => { b.textContent = 'Save'; }, 1500);
-    }));
+  document.getElementById('sites-fix')?.addEventListener('click', () => openSitesModal(sites.filter((st) => !st.timezone)));
+}
+
+// openSitesModal fixes the unconfigured sites in one small dialog — the roster
+// seeded them by name; the manager only picks zones for the ones that matter.
+function openSitesModal(missing) {
+  if (!missing.length || document.querySelector('.sites-modal-overlay')) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'sites-modal-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-label', 'Set site timezones');
+  const options = (tz) => ['<option value="">pick a timezone…</option>']
+    .concat(TZ_CHOICES.map((z) => `<option value="${z}" ${z === tz ? 'selected' : ''}>${z}</option>`)).join('');
+  overlay.innerHTML = `
+    <div class="sites-modal panel-card">
+      <h3>Set the missing timezones</h3>
+      <p class="hint">These sites have none, so handoffs touching them price at the pessimistic default. The roster's Timezone column fills this automatically on the next upload.</p>
+      ${missing.map((st) => `<div class="sites-row" data-site="${esc(st.name)}">
+        <b>${esc(st.name)}</b>
+        <select class="site-tz">${options(st.timezone)}</select>
+      </div>`).join('')}
+      <p class="plan-warn" id="sites-error" hidden></p>
+      <div class="sites-actions">
+        <button type="button" id="sites-cancel">Cancel</button>
+        <button type="button" id="sites-saveall" class="primary">Save</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const close = () => overlay.remove();
+  overlay.querySelector('#sites-cancel').addEventListener('click', close);
+  overlay.addEventListener('click', (ev) => { if (ev.target === overlay) close(); });
+  overlay.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') close(); });
+  overlay.querySelector('.site-tz').focus();
+  overlay.querySelector('#sites-saveall').addEventListener('click', async () => {
+    const errEl = overlay.querySelector('#sites-error');
+    const saveBtn = overlay.querySelector('#sites-saveall');
+    saveBtn.disabled = true;
+    for (const row of overlay.querySelectorAll('.sites-row')) {
+      const tz = row.querySelector('.site-tz').value;
+      if (!tz) continue; // leaving it unset is a legitimate choice
+      const res = await req('/api/plan/' + current.id + '/sites', {
+        method: 'PATCH',
+        body: JSON.stringify({ name: row.dataset.site, timezone: tz, workStartHour: 9, workEndHour: 17 }),
+      });
+      if (!res || !res.ok) {
+        errEl.textContent = (res ? await res.text() : 'the request did not reach the server').slice(0, 200);
+        errEl.hidden = false;
+        saveBtn.disabled = false;
+        return;
+      }
+    }
+    close();
+    renderPlan(); // the notice recounts and the game/report pick up the new overlap
+  });
 }
 
 async function renderRosterPicker(nTeams) {
