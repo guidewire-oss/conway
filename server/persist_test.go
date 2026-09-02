@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"testing"
 
 	"conway/server/game"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 func newPersistServer(sp string) *server {
@@ -18,43 +19,36 @@ func newPersistServer(sp string) *server {
 	}
 }
 
-// A pod replacement (redeploy / eviction) must not wipe live games: the snapshot
-// has to round-trip per-game sessions + games + standings.
-func TestStatePersistRoundTrip(t *testing.T) {
-	sp := filepath.Join(t.TempDir(), "game-state.json")
-	s := newPersistServer(sp)
-	s.sessions[defaultGameID] = &gameSession{Rounds: 4, Ap: 5, TimerSecs: 300, Open: true, OpenRound: 2}
-	s.gmap(defaultGameID)["team1"] = &game.Game{Round: 2, TotalRounds: 4, ApPerRound: 5,
-		Staged: []game.Move{{Lever: "wipLimit", Round: 2}}}
-	s.tmap(defaultGameID)["team1"] = json.RawMessage(`{"round":2,"score":{"total":42}}`)
-	s.saveState()
+var _ = Describe("game-state persistence", func() {
+	It("round-trips sessions, games and standings across a pod replacement", func() {
+		sp := filepath.Join(GinkgoT().TempDir(), "game-state.json")
+		s := newPersistServer(sp)
+		s.sessions[defaultGameID] = &gameSession{Rounds: 4, Ap: 5, TimerSecs: 300, Open: true, OpenRound: 2}
+		s.gmap(defaultGameID)["team1"] = &game.Game{Round: 2, TotalRounds: 4, ApPerRound: 5,
+			Staged: []game.Move{{Lever: "wipLimit", Round: 2}}}
+		s.tmap(defaultGameID)["team1"] = json.RawMessage(`{"round":2,"score":{"total":42}}`)
+		s.saveState()
 
-	if _, err := os.Stat(sp); err != nil {
-		t.Fatalf("snapshot not written: %v", err)
-	}
+		_, err := os.Stat(sp)
+		Expect(err).NotTo(HaveOccurred(), "snapshot not written")
 
-	// a brand-new pod boots against the same snapshot
-	s2 := newPersistServer(sp)
-	s2.loadState()
+		// a brand-new pod boots against the same snapshot
+		s2 := newPersistServer(sp)
+		s2.loadState()
 
-	if !s2.sess(defaultGameID).Open || s2.sess(defaultGameID).OpenRound != 2 {
-		t.Fatalf("session not restored: %+v", s2.sess(defaultGameID))
-	}
-	g := s2.gmap(defaultGameID)["team1"]
-	if g == nil || g.Round != 2 || len(g.Staged) != 1 {
-		t.Fatalf("game/staged not restored: %+v", g)
-	}
-	if string(s2.tmap(defaultGameID)["team1"]) == "" {
-		t.Fatalf("standings not restored")
-	}
-}
+		Expect(s2.sess(defaultGameID).Open).To(BeTrue())
+		Expect(s2.sess(defaultGameID).OpenRound).To(Equal(2), "session not restored")
+		g := s2.gmap(defaultGameID)["team1"]
+		Expect(g).NotTo(BeNil())
+		Expect(g.Round).To(Equal(2))
+		Expect(g.Staged).To(HaveLen(1), "staged move not restored")
+		Expect(string(s2.tmap(defaultGameID)["team1"])).NotTo(BeEmpty(), "standings not restored")
+	})
 
-// A missing snapshot (truly fresh deploy) must be a clean no-op, not an error.
-func TestLoadStateNoFileIsNoop(t *testing.T) {
-	s := newPersistServer(filepath.Join(t.TempDir(), "absent.json"))
-	s.loadState()
-	if len(s.gmap(defaultGameID)) != 0 || s.sess(defaultGameID).OpenRound != 0 {
-		t.Fatalf("fresh boot should stay empty, got games=%d round=%d",
-			len(s.gmap(defaultGameID)), s.sess(defaultGameID).OpenRound)
-	}
-}
+	It("treats a missing snapshot as a clean no-op", func() {
+		s := newPersistServer(filepath.Join(GinkgoT().TempDir(), "absent.json"))
+		s.loadState()
+		Expect(s.gmap(defaultGameID)).To(BeEmpty())
+		Expect(s.sess(defaultGameID).OpenRound).To(Equal(0), "fresh boot should stay empty")
+	})
+})

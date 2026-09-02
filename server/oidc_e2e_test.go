@@ -9,11 +9,12 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
+	. "github.com/onsi/ginkgo/v2"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
-	"testing"
 	"time"
 
 	"conway/server/auth"
@@ -33,11 +34,10 @@ type mockIdP struct {
 	nextClaims func() map[string]any
 }
 
-func newMockIdP(t *testing.T) *mockIdP {
-	t.Helper()
+func newMockIDP() *mockIdP {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		t.Fatal(err)
+		Fail(err.Error())
 	}
 	m := &mockIdP{key: key, signKey: key, kid: "mock-kid"}
 	mux := http.NewServeMux()
@@ -68,7 +68,7 @@ func newMockIdP(t *testing.T) *mockIdP {
 			http.Error(w, "bad token request", 400)
 			return
 		}
-		idTok := m.sign(t, m.nextClaims())
+		idTok := m.sign(m.nextClaims())
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{"id_token": idTok, "token_type": "Bearer", "access_token": "at"})
 	})
@@ -79,23 +79,21 @@ func newMockIdP(t *testing.T) *mockIdP {
 
 func (m *mockIdP) close() { m.srv.Close() }
 
-func (m *mockIdP) sign(t *testing.T, claims map[string]any) string {
-	t.Helper()
+func (m *mockIdP) sign(claims map[string]any) string {
 	enc := func(v any) string { b, _ := json.Marshal(v); return base64.RawURLEncoding.EncodeToString(b) }
 	hdr := enc(map[string]any{"alg": "RS256", "typ": "JWT", "kid": m.kid})
 	pay := enc(claims)
 	sum := sha256.Sum256([]byte(hdr + "." + pay))
 	sig, err := rsa.SignPKCS1v15(rand.Reader, m.signKey, crypto.SHA256, sum[:])
 	if err != nil {
-		t.Fatal(err)
+		Fail(err.Error())
 	}
 	return hdr + "." + pay + "." + base64.RawURLEncoding.EncodeToString(sig)
 }
 
 // newOIDCServer wires a server with a real OIDC provider pointed at the mock IdP
 // and a file-backed store (no Postgres needed).
-func newOIDCServer(t *testing.T, m *mockIdP, roleMap string) *server {
-	t.Helper()
+func newOIDCServer(m *mockIdP, roleMap string) *server {
 	cfg := oidc.Config{
 		Issuer:      m.issuer,
 		ClientID:    "conway-client",
@@ -104,28 +102,27 @@ func newOIDCServer(t *testing.T, m *mockIdP, roleMap string) *server {
 	}
 	p, err := oidc.NewProvider(context.Background(), cfg)
 	if err != nil {
-		t.Fatalf("provider: %v", err)
+		Fail(fmt.Sprintf("provider: %v", err))
 	}
 	st := auth.NewStore([]byte("test-secret"))
-	st.Path = t.TempDir() + "/store.json"
+	st.Path = GinkgoT().TempDir() + "/store.json"
 	return &server{store: st, oidc: p, oidcFlows: map[string]*oidcFlow{}}
 }
 
 // startFlow calls /api/oidc/start and returns the state plus the browser-binding
 // cookie the server set (nil if none) — the callback must present that cookie.
-func startFlow(t *testing.T, s *server) (string, *http.Cookie) {
-	t.Helper()
+func startFlow(s *server) (string, *http.Cookie) {
 	rec := httptest.NewRecorder()
 	s.handleOIDCStart(rec, httptest.NewRequest("GET", "/api/oidc/start", nil))
 	if rec.Code != 200 {
-		t.Fatalf("start status %d", rec.Code)
+		Fail(fmt.Sprintf("start status %d", rec.Code))
 	}
 	var body struct{ URL string }
 	json.Unmarshal(rec.Body.Bytes(), &body)
 	u, _ := url.Parse(body.URL)
 	state := u.Query().Get("state")
 	if state == "" || u.Query().Get("code_challenge_method") != "S256" {
-		t.Fatalf("authorize url missing state/PKCE: %s", body.URL)
+		Fail(fmt.Sprintf("authorize url missing state/PKCE: %s", body.URL))
 	}
 	var cookie *http.Cookie
 	for _, c := range rec.Result().Cookies() {
@@ -138,8 +135,7 @@ func startFlow(t *testing.T, s *server) (string, *http.Cookie) {
 
 // doCallback drives /api/oidc/callback with the given state and (optional)
 // binding cookie, returning the recorder.
-func doCallback(t *testing.T, s *server, state string, cookie *http.Cookie) *httptest.ResponseRecorder {
-	t.Helper()
+func doCallback(s *server, state string, cookie *http.Cookie) *httptest.ResponseRecorder {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/oidc/callback?code=xyz&state="+state, nil)
 	if cookie != nil {
@@ -149,135 +145,143 @@ func doCallback(t *testing.T, s *server, state string, cookie *http.Cookie) *htt
 	return rec
 }
 
-func TestOIDCLoginEndToEnd(t *testing.T) {
-	m := newMockIdP(t)
-	defer m.close()
-	s := newOIDCServer(t, m, "conway-facilitators=facilitator,conway-admins=admin")
+var _ = Describe("OIDCLoginEndToEnd", func() {
+	It("behaves", func() {
+		m := newMockIDP()
+		defer m.close()
+		s := newOIDCServer(m, "conway-facilitators=facilitator,conway-admins=admin")
 
-	state, cookie := startFlow(t, s)
-	// The IdP echoes the flow's nonce back in the id_token.
-	nonce := s.oidcFlows[state].nonce
-	m.nextClaims = func() map[string]any {
-		return map[string]any{
-			"iss": m.issuer, "sub": "00u-abc", "aud": "conway-client",
-			"exp": time.Now().Add(time.Hour).Unix(), "nonce": nonce,
-			"email": "Dana@Acme.com", "name": "Dana Ops",
-			"groups": []string{"conway-facilitators", "everyone"},
+		state, cookie := startFlow(s)
+		// The IdP echoes the flow's nonce back in the id_token.
+		nonce := s.oidcFlows[state].nonce
+		m.nextClaims = func() map[string]any {
+			return map[string]any{
+				"iss": m.issuer, "sub": "00u-abc", "aud": "conway-client",
+				"exp": time.Now().Add(time.Hour).Unix(), "nonce": nonce,
+				"email": "Dana@Acme.com", "name": "Dana Ops",
+				"groups": []string{"conway-facilitators", "everyone"},
+			}
 		}
-	}
 
-	rec := doCallback(t, s, state, cookie)
+		rec := doCallback(s, state, cookie)
 
-	if rec.Code != http.StatusFound {
-		t.Fatalf("callback status %d, body %s", rec.Code, rec.Body.String())
-	}
-	loc := rec.Header().Get("Location")
-	if !strings.HasPrefix(loc, "/#sso=") {
-		t.Fatalf("expected token in fragment, got redirect %q", loc)
-	}
-	rawTok, _ := url.QueryUnescape(strings.TrimPrefix(loc, "/#sso="))
-	claims, err := auth.ParseToken(s.store.Secret, rawTok, time.Now().Unix())
-	if err != nil {
-		t.Fatalf("minted token should parse: %v", err)
-	}
-	if claims.Sub != "dana@acme.com" || !claims.Has("facilitator") || claims.Has("admin") {
-		t.Fatalf("token claims mismatch: %+v", claims)
-	}
-	// JIT account exists, passwordless, correct roles.
-	u := s.store.Users["dana@acme.com"]
-	if u == nil || !u.SSO || !u.Has("facilitator") || u.Hash != "" {
-		t.Fatalf("JIT account wrong: %+v", u)
-	}
-	// The login flow is single-use: replaying the same state (even with the same
-	// binding cookie) fails because the flow was consumed.
-	rec2 := doCallback(t, s, state, cookie)
-	if got := rec2.Header().Get("Location"); !strings.Contains(got, "sso_error") {
-		t.Fatalf("state replay should fail, got %q", got)
-	}
-}
-
-func TestOIDCLoginDeniedNoRole(t *testing.T) {
-	m := newMockIdP(t)
-	defer m.close()
-	s := newOIDCServer(t, m, "conway-admins=admin")
-
-	state, cookie := startFlow(t, s)
-	nonce := s.oidcFlows[state].nonce
-	m.nextClaims = func() map[string]any {
-		return map[string]any{
-			"iss": m.issuer, "sub": "00u-nobody", "aud": "conway-client",
-			"exp": time.Now().Add(time.Hour).Unix(), "nonce": nonce,
-			"email": "nobody@acme.com", "groups": []string{"everyone"},
+		if rec.Code != http.StatusFound {
+			Fail(fmt.Sprintf("callback status %d, body %s", rec.Code, rec.Body.String()))
 		}
-	}
-	rec := doCallback(t, s, state, cookie)
-
-	loc := rec.Header().Get("Location")
-	if !strings.Contains(loc, "sso_error=no_role") {
-		t.Fatalf("expected no_role denial, got %q (body %s)", loc, rec.Body.String())
-	}
-	if len(s.store.Users) != 0 {
-		t.Fatalf("denied login must not provision an account, got %d users", len(s.store.Users))
-	}
-}
-
-func TestOIDCCallbackRejectsForgedToken(t *testing.T) {
-	m := newMockIdP(t)
-	defer m.close()
-	s := newOIDCServer(t, m, "conway-admins=admin")
-	state, cookie := startFlow(t, s)
-	// Sign the id_token with a foreign key while JWKS still advertises the real
-	// one — RS256 verification against the published key must fail.
-	forger, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatal(err)
-	}
-	m.signKey = forger
-	nonce := s.oidcFlows[state].nonce
-	m.nextClaims = func() map[string]any {
-		return map[string]any{
-			"iss": m.issuer, "sub": "x", "aud": "conway-client",
-			"exp": time.Now().Add(time.Hour).Unix(), "nonce": nonce,
-			"email": "attacker@acme.com", "groups": []string{"conway-admins"},
+		loc := rec.Header().Get("Location")
+		if !strings.HasPrefix(loc, "/#sso=") {
+			Fail(fmt.Sprintf("expected token in fragment, got redirect %q", loc))
 		}
-	}
-	rec := doCallback(t, s, state, cookie)
-	if !strings.Contains(rec.Header().Get("Location"), "sso_error") {
-		t.Fatalf("forged-token login must be rejected, got %q", rec.Header().Get("Location"))
-	}
-	if len(s.store.Users) != 0 {
-		t.Fatal("forged login must not provision an account")
-	}
-}
+		rawTok, _ := url.QueryUnescape(strings.TrimPrefix(loc, "/#sso="))
+		claims, err := auth.ParseToken(s.store.Secret, rawTok, time.Now().Unix())
+		if err != nil {
+			Fail(fmt.Sprintf("minted token should parse: %v", err))
+		}
+		if claims.Sub != "dana@acme.com" || !claims.Has("facilitator") || claims.Has("admin") {
+			Fail(fmt.Sprintf("token claims mismatch: %+v", claims))
+		}
+		// JIT account exists, passwordless, correct roles.
+		u := s.store.Users["dana@acme.com"]
+		if u == nil || !u.SSO || !u.Has("facilitator") || u.Hash != "" {
+			Fail(fmt.Sprintf("JIT account wrong: %+v", u))
+		}
+		// The login flow is single-use: replaying the same state (even with the same
+		// binding cookie) fails because the flow was consumed.
+		rec2 := doCallback(s, state, cookie)
+		if got := rec2.Header().Get("Location"); !strings.Contains(got, "sso_error") {
+			Fail(fmt.Sprintf("state replay should fail, got %q", got))
+		}
+	})
+})
+
+var _ = Describe("OIDCLoginDeniedNoRole", func() {
+	It("behaves", func() {
+		m := newMockIDP()
+		defer m.close()
+		s := newOIDCServer(m, "conway-admins=admin")
+
+		state, cookie := startFlow(s)
+		nonce := s.oidcFlows[state].nonce
+		m.nextClaims = func() map[string]any {
+			return map[string]any{
+				"iss": m.issuer, "sub": "00u-nobody", "aud": "conway-client",
+				"exp": time.Now().Add(time.Hour).Unix(), "nonce": nonce,
+				"email": "nobody@acme.com", "groups": []string{"everyone"},
+			}
+		}
+		rec := doCallback(s, state, cookie)
+
+		loc := rec.Header().Get("Location")
+		if !strings.Contains(loc, "sso_error=no_role") {
+			Fail(fmt.Sprintf("expected no_role denial, got %q (body %s)", loc, rec.Body.String()))
+		}
+		if len(s.store.Users) != 0 {
+			Fail(fmt.Sprintf("denied login must not provision an account, got %d users", len(s.store.Users)))
+		}
+	})
+})
+
+var _ = Describe("OIDCCallbackRejectsForgedToken", func() {
+	It("behaves", func() {
+		m := newMockIDP()
+		defer m.close()
+		s := newOIDCServer(m, "conway-admins=admin")
+		state, cookie := startFlow(s)
+		// Sign the id_token with a foreign key while JWKS still advertises the real
+		// one — RS256 verification against the published key must fail.
+		forger, err := rsa.GenerateKey(rand.Reader, 2048)
+		if err != nil {
+			Fail(err.Error())
+		}
+		m.signKey = forger
+		nonce := s.oidcFlows[state].nonce
+		m.nextClaims = func() map[string]any {
+			return map[string]any{
+				"iss": m.issuer, "sub": "x", "aud": "conway-client",
+				"exp": time.Now().Add(time.Hour).Unix(), "nonce": nonce,
+				"email": "attacker@acme.com", "groups": []string{"conway-admins"},
+			}
+		}
+		rec := doCallback(s, state, cookie)
+		if !strings.Contains(rec.Header().Get("Location"), "sso_error") {
+			Fail(fmt.Sprintf("forged-token login must be rejected, got %q", rec.Header().Get("Location")))
+		}
+		if len(s.store.Users) != 0 {
+			Fail("forged login must not provision an account")
+		}
+	})
+})
 
 // Login-CSRF / session-swap: a callback carrying a valid state but NOT the
 // browser-binding cookie (the attacker's callback URL replayed in a victim's
 // browser) must be rejected and provision nothing — even though the code would
 // otherwise exchange and verify cleanly.
-func TestOIDCCallbackRejectsUnboundState(t *testing.T) {
-	m := newMockIdP(t)
-	defer m.close()
-	s := newOIDCServer(t, m, "conway-admins=admin")
-	state, _ := startFlow(t, s)
-	nonce := s.oidcFlows[state].nonce
-	m.nextClaims = func() map[string]any {
-		return map[string]any{
-			"iss": m.issuer, "sub": "00u-attacker", "aud": "conway-client",
-			"exp": time.Now().Add(time.Hour).Unix(), "nonce": nonce,
-			"email": "attacker@acme.com", "groups": []string{"conway-admins"},
+var _ = Describe("OIDCCallbackRejectsUnboundState", func() {
+	It("behaves", func() {
+		m := newMockIDP()
+		defer m.close()
+		s := newOIDCServer(m, "conway-admins=admin")
+		state, _ := startFlow(s)
+		nonce := s.oidcFlows[state].nonce
+		m.nextClaims = func() map[string]any {
+			return map[string]any{
+				"iss": m.issuer, "sub": "00u-attacker", "aud": "conway-client",
+				"exp": time.Now().Add(time.Hour).Unix(), "nonce": nonce,
+				"email": "attacker@acme.com", "groups": []string{"conway-admins"},
+			}
 		}
-	}
-	// No binding cookie — mimics a victim's browser opening the attacker's URL.
-	rec := doCallback(t, s, state, nil)
-	if !strings.Contains(rec.Header().Get("Location"), "sso_error") {
-		t.Fatalf("unbound state must be rejected, got %q", rec.Header().Get("Location"))
-	}
-	if len(s.store.Users) != 0 {
-		t.Fatalf("login-CSRF attempt must not provision an account, got %d", len(s.store.Users))
-	}
-	// A wrong cookie value must also fail.
-	rec2 := doCallback(t, s, state, &http.Cookie{Name: oidcStateCookie, Value: "not-the-state"})
-	if !strings.Contains(rec2.Header().Get("Location"), "sso_error") {
-		t.Fatalf("mismatched binding cookie must be rejected, got %q", rec2.Header().Get("Location"))
-	}
-}
+		// No binding cookie — mimics a victim's browser opening the attacker's URL.
+		rec := doCallback(s, state, nil)
+		if !strings.Contains(rec.Header().Get("Location"), "sso_error") {
+			Fail(fmt.Sprintf("unbound state must be rejected, got %q", rec.Header().Get("Location")))
+		}
+		if len(s.store.Users) != 0 {
+			Fail(fmt.Sprintf("login-CSRF attempt must not provision an account, got %d", len(s.store.Users)))
+		}
+		// A wrong cookie value must also fail.
+		rec2 := doCallback(s, state, &http.Cookie{Name: oidcStateCookie, Value: "not-the-state"})
+		if !strings.Contains(rec2.Header().Get("Location"), "sso_error") {
+			Fail(fmt.Sprintf("mismatched binding cookie must be rejected, got %q", rec2.Header().Get("Location")))
+		}
+	})
+})

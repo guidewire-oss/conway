@@ -69,10 +69,11 @@ jobs:
       - name: wiki-lint
         run: ./scripts/hooks/wiki-lint.sh
 
-      # ginkgo-only-check is deliberately omitted: Conway's 19 test files use
-      # stdlib testing, so this gate would fail every run. Note it also fails
-      # OPEN where ripgrep is absent, reporting success while checking nothing.
-      # See specs/002-factory-adoption.md Decision 4 and Q2.
+      # ADR-0002 armed 2026-09-01: all Go behavioral tests now use
+      # Ginkgo/Gomega; testing is permitted only in RunSpecs bootstraps. The
+      # gate enumerates files via git (not ripgrep), so it fails closed.
+      - name: ginkgo-only-check
+        run: ./scripts/hooks/ginkgo-only-check.sh
 
       # internal-paths-ignored is deliberately NOT run here. Its pattern list is
       # in .git/info/exclude, which is never pushed, so a CI checkout has no list
