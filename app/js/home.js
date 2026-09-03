@@ -47,10 +47,13 @@ export async function initHome(state) {
       </div>
       <div class="panel-card" style="max-width:640px">
         <h3>No org snapshot yet</h3>
-        <p>Conway renders an <b>org network</b> — pods and the dependencies between them —
+        <p>Conway has three surfaces: <b>Measure</b> (what's happening now, mined from
+          Jira), <b>Plan</b> (what you intend to run — rosters and initiatives, priced
+          by capacity), and <b>Learn</b> (the multi-team flow game). Everything starts
+          with an <b>org network</b> — pods and the dependencies between them —
           captured as a dated <b>snapshot</b>. There isn't one yet.</p>
         ${hasRole('manager')
-        ? '<p>Capture the current state from Jira to get started:</p><button class="home-act" data-ctl="obs-import" style="max-width:280px"><b>📥 Import from Jira</b><span class="hint">build your first snapshot</span></button>'
+        ? '<p>Capture the current state from Jira to get started:</p><button class="home-act" data-ctl="obs-import" style="max-width:280px"><b>📥 Import from Jira</b><span class="hint">build your first snapshot</span></button><p class="hint" style="margin-top:8px">New here? The <b>Docs</b> tab (top right) has a 15-minute walkthrough on the demo plan.</p>'
         : '<p class="hint">Ask a manager to import a snapshot from Jira, or (facilitators) upload a scenario under Train ▸ Run games.</p>'}
       </div>`;
     el.querySelectorAll('button[data-ctl]').forEach((b) => b.addEventListener('click', () => document.getElementById(b.dataset.ctl)?.click()));

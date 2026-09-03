@@ -828,3 +828,11 @@ button.plan-back { background: none; border: 0; padding: 0; font: inherit; }
 .usage-funnel-bar > div { height: 100%; background: var(--accent); border-radius: 3px; }
 .usage-funnel-num { font-weight: 700; font-size: 13px; min-width: 30px; text-align: right; }
 #usage-users { margin-top: 14px; }
+
+/* Plan setup steps (review): numbered 1-2-3 so the order of operations —
+   roster first, initiatives second, assumptions third — is visible. */
+.plan-step { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; }
+.plan-step-num { flex: 0 0 22px; height: 22px; border-radius: 50%; background: var(--accent);
+  color: var(--bg); font-weight: 700; font-size: 12px; display: flex;
+  align-items: center; justify-content: center; margin-top: 2px; }
+.plan-step .plan-up, .plan-step > label, .plan-step > p { flex: 1; }

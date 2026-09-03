@@ -302,13 +302,15 @@ changes.</p>
 <h2 id="plan-setup">Plan setup</h2>
 <table>
   <tr><th>Control</th><th>What it means</th></tr>
-  <tr><td>roster</td><td>a frozen copy of team composition, attached when you
-      create the plan. Later roster edits don't silently change an existing
-      plan — attach the new roster explicitly.</td></tr>
-  <tr><td>initiatives matrix</td><td>one row per initiative: name, leads, and
-      a column per team with its estimate in effort-weeks. Optional columns
-      for priority, target dates, dependencies, tier and cost of
-      delay.</td></tr>
+  <tr><td>roster (step 1)</td><td>a frozen copy of team composition — <b>attach this
+      first</b>: the initiatives you upload next match their dependency cells to
+      pod names from the roster, and strict mode needs it to validate them.
+      Picking a roster in the dropdown applies it immediately. Later roster
+      edits don't silently change an existing plan — pick the new one to
+      re-apply.</td></tr>
+  <tr><td>initiatives (step 2)</td><td>upload after the roster: one row per
+      initiative, one column pair per pod (dependencies + weeks).</td></tr>
+
   <tr><td>horizon</td><td>the planning period in weeks. Nothing is scheduled
       to start past it — work that can't fit is reported, not hidden.</td></tr>
   <tr><td>capacity loss</td><td>the fraction of capacity lost to PTO, meetings
