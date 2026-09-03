@@ -52,6 +52,7 @@ and how to see, honestly, where the schedule will slip before it does.</p>
   <a href="#start">Start here — 15 minutes</a>
   <a href="#concepts">The words, in plain language</a>
   <a href="#howto">How do I…?</a>
+  <a href="#snapshots-picker">Viewing org snapshot</a>
   <a href="#flow-actions">Flow Actions</a>
   <a href="#network">Org Network</a>
   <a href="#scoreboard">Flow Scoreboard</a>
@@ -184,6 +185,24 @@ the date now, not at the end.</p>
 <div class="why"><p>If you only read one card per week, read the #1
 constraint card. Improving a non-bottleneck team improves nothing — the queue
 at the constraint sets the pace for everyone.</p></div>
+
+<h2 id="snapshots-picker">"Viewing org snapshot" (the top picker)</h2>
+<p>The <b>Measure</b> screens (Org Network, WIP Scoreboard, Data Quality,
+Feature Simulator) all render one <b>org snapshot</b> — a dated capture of
+your pods, dependencies and cycle times. The picker at the top selects
+<i>which</i> snapshot they render: flip between "this quarter" and "last
+quarter" to see the org change over time.</p>
+<ul>
+  <li><b>Where snapshots come from</b> — <b>Measure ▸ 📥 Import from Jira</b>.
+      Each import creates a new dated snapshot owned by you; the picker lists
+      yours, plus any published by others.</li>
+  <li><b>When the picker appears</b> — only when there are two or more
+      snapshots to switch between; with one there is nothing to flip.</li>
+  <li><b>Plan does not use it</b> — a plan's roster and initiatives are its
+      own inputs; the picker hides on Plan and Game views.</li>
+</ul>
+<div class="expect"><p>Switching the picker reloads the page so every Measure
+screen re-renders from the chosen snapshot. Plan and game data are untouched.</p></div>
 
 <h2 id="network">Org Network</h2>
 <p>The dependency map: which teams block which, drawn from real blocking

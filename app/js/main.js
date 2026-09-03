@@ -133,7 +133,10 @@ function wireSnapshotControls() {
 async function mountSnapshotPicker(badge) {
   if (authMode() !== 'auth' || !badge) return;
   const snaps = await listSnapshots();
-  if (!snaps.length) return;
+  // One visible snapshot = nothing to switch between: the picker is noise
+  // (review). It earns its place the moment a second dated snapshot exists —
+  // then it flips every Measure screen between "now" and "then".
+  if (snaps.length < 2) return;
   const fmt = (s) => s.source === 'baseline' ? (s.name || 'Baseline')
     : `${s.name || s.id} -- ${new Date(s.createdAt * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} -- ${s.owner}`;
   const wrap = document.createElement('span');
@@ -141,7 +144,7 @@ async function mountSnapshotPicker(badge) {
   wrap.innerHTML = '<label class="hint" for="snapshot-pick-sel">Viewing org snapshot</label>';
   const sel = document.createElement('select');
   sel.id = 'snapshot-pick-sel';
-  sel.title = 'The org snapshot every Observe screen renders';
+  sel.title = 'Flips the Measure screens between your dated org snapshots — e.g. this quarter vs last. New ones come from Import from Jira.';
   const cur = getSnapshot();
   sel.innerHTML = snaps.map((s) => `<option value="${s.id}" ${s.id === cur ? 'selected' : ''}>${fmt(s)}</option>`).join('');
   const fitWidth = () => {
