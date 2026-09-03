@@ -802,3 +802,29 @@ button.plan-back { background: none; border: 0; padding: 0; font: inherit; }
 /* The set-up card flash (spec 001 Q17): when the timeline banner demands the
    WIP model choice, the card the click lands on pulses so it is findable. */
 .setup-focus { outline: 2px solid var(--bs-primary); outline-offset: 3px; }
+
+/* Usage analytics page (spec 016): KPI cards, d3 line chart, funnel bars,
+   per-user table — one overlay, range-sliceable (7/30/90d). */
+#usage-overlay { position: fixed; inset: 0; z-index: 156; background: rgba(0,0,0,.6);
+  display: none; overflow-y: auto; }
+#usage-overlay.open { display: block; }
+#usage-modal { max-width: 980px; margin: 30px auto; background: var(--panel);
+  border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; }
+.usage-range { margin-left: auto; display: inline-flex; gap: 4px; }
+.usage-btn { background: transparent; border: 1px solid var(--border); color: var(--muted);
+  border-radius: 6px; padding: 2px 10px; cursor: pointer; font-size: 12px; }
+.usage-btn.active { color: var(--text); border-color: var(--accent); background: var(--panel2); }
+.usage-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px; margin: 14px 0; }
+.usage-kpi { background: var(--panel2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; }
+.usage-kpi-num { font-size: 22px; font-weight: 700; }
+.usage-kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.usage-chart { background: var(--panel2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px; margin-bottom: 14px; }
+.usage-funnel-row { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+.usage-funnel-label { flex: 0 0 170px; font-size: 12px; color: var(--muted); }
+.usage-funnel-bar { flex: 1; height: 16px; background: var(--panel2); border-radius: 4px; overflow: hidden; }
+.usage-funnel-bar > div { height: 100%; background: var(--accent); border-radius: 3px; }
+.usage-funnel-num { font-weight: 700; font-size: 13px; min-width: 30px; text-align: right; }
+#usage-users { margin-top: 14px; }

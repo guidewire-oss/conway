@@ -168,6 +168,7 @@ func (s *server) runImport(jobID string, cl *jira.Client, owner, name string, pr
 		return
 	}
 	s.metrics.Inc("jira_imports_done")
+	s.recordEvent(owner, "jira_import_done", "", map[string]any{"snapshot": id, "issues": len(detailed)})
 	log.Info().Str("snapshot", id).Str("owner", owner).Int("issues", len(detailed)).Msg("Jira import finished")
 	s.updateJob(jobID, func(j *importJob) { j.Status, j.Snapshot = "done", id })
 }

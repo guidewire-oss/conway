@@ -140,7 +140,7 @@ var _ = Describe("schedulePlan", func() {
 	post := func(body string) *planning.Schedule {
 		req := httptest.NewRequest("POST", "/api/plan/plan1/schedule", strings.NewReader(body))
 		rec := httptest.NewRecorder()
-		srv.schedulePlan(rec, req, plan)
+		srv.schedulePlan(rec, req, plan, auth.Claims{})
 		Expect(rec.Code).To(Equal(200), rec.Body.String())
 		var sched planning.Schedule
 		Expect(json.Unmarshal(rec.Body.Bytes(), &sched)).To(Succeed())
@@ -226,7 +226,7 @@ var _ = Describe("schedulePlan", func() {
 		req := httptest.NewRequest("POST", "/api/plan/plan1/schedule",
 			strings.NewReader(`{"params":{"periodStart":"2026-01-05"}} {"params":{"maxConcurrentInitiatives":99}}`))
 		rec := httptest.NewRecorder()
-		srv.schedulePlan(rec, req, plan)
+		srv.schedulePlan(rec, req, plan, auth.Claims{})
 		Expect(rec.Code).To(Equal(400))
 		Expect(rec.Body.String()).To(ContainSubstring("single JSON object"))
 	})
@@ -238,7 +238,7 @@ var _ = Describe("schedulePlan", func() {
 		req := httptest.NewRequest("POST", "/api/plan/plan1/schedule",
 			strings.NewReader(`{"params":{"periodStart":"2026-01-05"}}{"params":{"maxConcurrentInitiatives":99}}`))
 		rec := httptest.NewRecorder()
-		srv.schedulePlan(rec, req, plan)
+		srv.schedulePlan(rec, req, plan, auth.Claims{})
 		Expect(rec.Code).To(Equal(400))
 		Expect(rec.Body.String()).To(ContainSubstring("single JSON object"))
 	})
@@ -246,7 +246,7 @@ var _ = Describe("schedulePlan", func() {
 	It("rejects a malformed body instead of silently scheduling the saved plan", func() {
 		req := httptest.NewRequest("POST", "/api/plan/plan1/schedule", strings.NewReader(`{"params":`))
 		rec := httptest.NewRecorder()
-		srv.schedulePlan(rec, req, plan)
+		srv.schedulePlan(rec, req, plan, auth.Claims{})
 		Expect(rec.Code).To(Equal(400))
 	})
 
@@ -403,7 +403,7 @@ var _ = Describe("an uploaded sheet carrying sequencing attributes", func() {
 		Expect(err).NotTo(HaveOccurred())
 		req = httptest.NewRequest("POST", "/api/plan/plan1/schedule", bytes.NewReader(schedReq))
 		rec = httptest.NewRecorder()
-		srv.schedulePlan(rec, req, plan)
+		srv.schedulePlan(rec, req, plan, auth.Claims{})
 		Expect(rec.Code).To(Equal(200), rec.Body.String())
 
 		var sched planning.Schedule
@@ -461,13 +461,17 @@ var _ = Describe("the plan's sequencing inputs", func() {
 			Teams: teamsB, Initiatives: initsB, Scheduling: schedB}
 	})
 
-	patch := func(path, body string, h func(http.ResponseWriter, *http.Request, *db.PlanRow)) *httptest.ResponseRecorder {
+	patch := func(path, body string, h any) *httptest.ResponseRecorder {
 		req := httptest.NewRequest("PATCH", path, strings.NewReader(body))
 		rec := httptest.NewRecorder()
-		h(rec, req, plan)
+		switch hh := h.(type) {
+		case func(http.ResponseWriter, *http.Request, *db.PlanRow):
+			hh(rec, req, plan)
+		case func(http.ResponseWriter, *http.Request, *db.PlanRow, auth.Claims):
+			hh(rec, req, plan, auth.Claims{})
+		}
 		return rec
 	}
-
 	Describe("PATCH /api/plan/{id}/initiatives", func() {
 		// AC 2.4: rejected at entry, naming the period, and nothing recomputed. The
 		// handler must refuse before it reaches the database, or "no schedule is
@@ -565,7 +569,7 @@ var _ = Describe("the plan's sequencing inputs", func() {
 				strings.NewReader(`{"params":{"periodStart":"2026-01-05","calendars":[`+
 					`{"kind":"event","scope":"org","fromDate":"soon","toDate":"2026-02-02","effect":"reduce-capacity"}]}}`))
 			rec := httptest.NewRecorder()
-			srv.schedulePlan(rec, req, plan)
+			srv.schedulePlan(rec, req, plan, auth.Claims{})
 			Expect(rec.Code).To(Equal(400))
 			Expect(rec.Body.String()).To(ContainSubstring("YYYY-MM-DD"))
 		})
@@ -587,7 +591,7 @@ var _ = Describe("the plan's sequencing inputs", func() {
 		schedule := func(body string) *planning.Schedule {
 			req := httptest.NewRequest("POST", "/api/plan/plan1/schedule", strings.NewReader(body))
 			rec := httptest.NewRecorder()
-			srv.schedulePlan(rec, req, plan)
+			srv.schedulePlan(rec, req, plan, auth.Claims{})
 			Expect(rec.Code).To(Equal(200), rec.Body.String())
 			var out planning.Schedule
 			Expect(json.Unmarshal(rec.Body.Bytes(), &out)).To(Succeed())
@@ -829,7 +833,7 @@ var _ = Describe("the baseline endpoints", func() {
 		patch := func(body string) *httptest.ResponseRecorder {
 			req := httptest.NewRequest("PATCH", "/api/plan/plan1/baseline/b1", strings.NewReader(body))
 			rec := httptest.NewRecorder()
-			srv.patchBaseline(rec, req, plan, "b1")
+			srv.patchBaseline(rec, req, plan, "b1", auth.Claims{})
 			return rec
 		}
 
@@ -852,7 +856,7 @@ var _ = Describe("the baseline endpoints", func() {
 		route := func(method, rest string) int {
 			req := httptest.NewRequest(method, "/api/plan/plan1/baseline/"+rest, strings.NewReader(`{}`))
 			rec := httptest.NewRecorder()
-			srv.baselineItem(rec, req, plan, rest)
+			srv.baselineItem(rec, req, plan, rest, auth.Claims{})
 			return rec.Code
 		}
 
