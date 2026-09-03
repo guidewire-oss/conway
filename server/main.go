@@ -498,6 +498,7 @@ func main() {
 	mux.HandleFunc("/api/plan/demo", s.withAuth(s.handlePlanDemo, "manager")) // exact match wins over /api/plan/
 	mux.HandleFunc("/api/plan", s.withAuth(s.handlePlans, "manager"))
 	mux.HandleFunc("/api/admin/metrics", s.withAuth(s.handleAdminMetrics, "admin"))
+	mux.HandleFunc("/api/admin/analytics", s.withAuth(s.handleAdminAnalytics, "admin"))
 	mux.HandleFunc("/api/plan/", s.withAuth(s.handlePlanItem, "manager"))
 	// Snapshots — the org-network captures Observe renders and Train seeds from
 	mux.HandleFunc("/api/jira/status", s.withAuth(s.handleJiraStatus, "manager"))
@@ -633,11 +634,13 @@ func (s *server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	u, err := s.store.Authenticate(strings.TrimSpace(body.Username), body.Password)
 	if err != nil {
 		s.metrics.Inc("logins_failed")
+		s.recordEvent(strings.TrimSpace(body.Username), "login_failed", "", nil)
 		log.Warn().Str("user", strings.TrimSpace(body.Username)).Msg("login failed")
 		http.Error(w, "invalid credentials or expired account", 401)
 		return
 	}
 	s.metrics.Inc("logins")
+	s.recordEvent(u.Username, "login", "", nil)
 	log.Info().Str("user", u.Username).Msg("login")
 	writeJSON(w, map[string]any{
 		"token": s.store.Token(u), "roles": u.Roles, "display": u.Display, "username": u.Username,

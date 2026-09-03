@@ -169,35 +169,35 @@ func (s *server) handlePlanItem(w http.ResponseWriter, r *http.Request, c auth.C
 	}
 	switch {
 	case sub == "teams" && r.Method == http.MethodPost:
-		s.uploadPlanTeams(w, r, p)
+		s.uploadPlanTeams(w, r, p, c)
 	case sub == "teams" && r.Method == http.MethodPatch:
 		s.editPlanTeam(w, r, p)
 	case sub == "roster" && r.Method == http.MethodPost:
 		s.attachPlanRoster(w, r, p)
 	case sub == "initiatives" && r.Method == http.MethodPost:
-		s.uploadPlanInitiatives(w, r, p)
+		s.uploadPlanInitiatives(w, r, p, c)
 	case sub == "initiatives" && r.Method == http.MethodPatch:
 		s.editPlanInitiatives(w, r, p)
 	case sub == "scheduling" && r.Method == http.MethodPatch:
-		s.savePlanScheduling(w, r, p)
+		s.savePlanScheduling(w, r, p, c)
 	case sub == "initiatives/preview" && r.Method == http.MethodPost:
 		s.previewPlanInitiatives(w, r, p)
 	case sub == "simulate" && r.Method == http.MethodPost:
 		s.simulatePlan(w, r, p)
 	case sub == "schedule" && r.Method == http.MethodPost:
-		s.schedulePlan(w, r, p)
+		s.schedulePlan(w, r, p, c)
 	case sub == "schedule/remedies" && r.Method == http.MethodPost:
 		s.remediesPlan(w, r, p)
 	case sub == "sites" && r.Method == http.MethodGet:
 		s.listPlanSites(w, p)
 	case sub == "sites" && r.Method == http.MethodPatch:
-		s.patchPlanSites(w, r, p)
+		s.patchPlanSites(w, r, p, c)
 	case sub == "baseline" && r.Method == http.MethodPost:
 		s.saveBaseline(w, r, p, c)
 	case sub == "baseline" && r.Method == http.MethodGet:
 		s.listBaselines(w, p)
 	case strings.HasPrefix(sub, "baseline/"):
-		s.baselineItem(w, r, p, strings.TrimPrefix(sub, "baseline/"))
+		s.baselineItem(w, r, p, strings.TrimPrefix(sub, "baseline/"), c)
 	case sub == "" && r.Method == http.MethodGet:
 		s.metrics.Inc("plans_opened")
 		writeJSON(w, s.assemblePlan(p))
@@ -215,7 +215,7 @@ func (s *server) handlePlanItem(w http.ResponseWriter, r *http.Request, c auth.C
 	}
 }
 
-func (s *server) uploadPlanTeams(w http.ResponseWriter, r *http.Request, p *db.PlanRow) {
+func (s *server) uploadPlanTeams(w http.ResponseWriter, r *http.Request, p *db.PlanRow, c auth.Claims) {
 	data, err := readUpload(w, r)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
@@ -272,6 +272,7 @@ func (s *server) uploadPlanTeams(w http.ResponseWriter, r *http.Request, p *db.P
 	}
 	writeJSON(w, map[string]any{"teams": len(teams)})
 	s.metrics.Inc("teams_uploads")
+	s.recordEvent(c.Sub, "teams_uploaded", p.ID, map[string]any{"pods": len(teams)})
 	log.Info().Str("plan", p.ID).Int("pods", len(teams)).Msg("teams uploaded")
 }
 
@@ -310,7 +311,7 @@ func (s *server) listPlanSites(w http.ResponseWriter, p *db.PlanRow) {
 // AC 2.2). The timezone must be an IANA name the tz database knows — a fixed
 // offset would be silently wrong for half the year (Decision 2) — and the
 // change is visible to every overlap consumer on the next read.
-func (s *server) patchPlanSites(w http.ResponseWriter, r *http.Request, p *db.PlanRow) {
+func (s *server) patchPlanSites(w http.ResponseWriter, r *http.Request, p *db.PlanRow, c auth.Claims) {
 	var body struct {
 		Name      string  `json:"name"`
 		Timezone  string  `json:"timezone"`
@@ -372,6 +373,7 @@ func (s *server) patchPlanSites(w http.ResponseWriter, r *http.Request, p *db.Pl
 		return
 	}
 	s.metrics.Inc("sites_patched")
+	s.recordEvent(c.Sub, "sites_patched", p.ID, map[string]any{"site": name, "timezone": body.Timezone})
 	log.Info().Str("plan", p.ID).Str("site", name).Str("timezone", body.Timezone).Msg("site timezone set")
 	writeJSON(w, map[string]any{"sites": sites})
 }
@@ -476,7 +478,7 @@ func teamNames(teams []planning.Team) []string {
 	return names
 }
 
-func (s *server) uploadPlanInitiatives(w http.ResponseWriter, r *http.Request, p *db.PlanRow) {
+func (s *server) uploadPlanInitiatives(w http.ResponseWriter, r *http.Request, p *db.PlanRow, c auth.Claims) {
 	data, err := readUpload(w, r)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
@@ -504,6 +506,7 @@ func (s *server) uploadPlanInitiatives(w http.ResponseWriter, r *http.Request, p
 		return
 	}
 	s.metrics.Inc("initiatives_uploads")
+	s.recordEvent(c.Sub, "initiatives_uploaded", p.ID, map[string]any{"initiatives": len(plan.Initiatives)})
 	log.Info().Str("plan", p.ID).Int("initiatives", len(plan.Initiatives)).Msg("initiatives uploaded")
 	writeJSON(w, map[string]any{"initiatives": len(plan.Initiatives)})
 }
@@ -612,7 +615,7 @@ func planScheduling(p *db.PlanRow) planning.SchedulingParams {
 
 // savePlanScheduling stores the plan-level scheduling policy (§8). Unlike
 // /schedule, this one writes: it is the explicit save the planner asks for.
-func (s *server) savePlanScheduling(w http.ResponseWriter, r *http.Request, p *db.PlanRow) {
+func (s *server) savePlanScheduling(w http.ResponseWriter, r *http.Request, p *db.PlanRow, c auth.Claims) {
 	var sp planning.SchedulingParams
 	if err := json.NewDecoder(r.Body).Decode(&sp); err != nil && !errors.Is(err, io.EOF) {
 		http.Error(w, "could not read the scheduling params: "+err.Error(), 400)
@@ -647,6 +650,7 @@ func (s *server) savePlanScheduling(w http.ResponseWriter, r *http.Request, p *d
 		return
 	}
 	s.metrics.Inc("scheduling_saved")
+	s.recordEvent(c.Sub, "scheduling_saved", p.ID, nil)
 	log.Info().Str("plan", p.ID).Msg("scheduling parameters saved")
 	writeJSON(w, map[string]any{"ok": true, "scheduling": sp})
 }
@@ -712,7 +716,7 @@ func (s *server) editPlanInitiatives(w http.ResponseWriter, r *http.Request, p *
 // by design, exactly like simulatePlan: it never writes to the plan, so a planner
 // can try scheduling params and levers against an unsaved draft and see the order
 // before deciding to keep anything (FR-022).
-func (s *server) schedulePlan(w http.ResponseWriter, r *http.Request, p *db.PlanRow) {
+func (s *server) schedulePlan(w http.ResponseWriter, r *http.Request, p *db.PlanRow, c auth.Claims) {
 	var body scheduleRequest
 	// An empty body is legal — it means "schedule the saved plan with defaults" —
 	// but a malformed one must not quietly become that same request.
@@ -755,6 +759,9 @@ func (s *server) schedulePlan(w http.ResponseWriter, r *http.Request, p *db.Plan
 	}
 	held := len(sched.Initiatives) - placed
 	s.metrics.Inc("schedules_computed")
+	s.recordEvent(c.Sub, "schedules_computed", p.ID, map[string]any{
+		"rule": sched.Rule, "wipModel": sched.WipLimit.Model,
+		"placed": placed, "held": held, "durMs": time.Since(started).Milliseconds()})
 	log.Info().
 		Str("plan", p.ID).
 		Str("rule", sched.Rule).
@@ -936,6 +943,7 @@ func (s *server) saveBaseline(w http.ResponseWriter, r *http.Request, p *db.Plan
 		return
 	}
 	s.metrics.Inc("baselines_saved")
+	s.recordEvent(c.Sub, "baselines_saved", p.ID, map[string]any{"baseline": name})
 	log.Info().Str("plan", p.ID).Str("baseline", name).Str("savedBy", c.Sub).Msg("baseline saved")
 	writeJSON(w, map[string]any{"id": row.ID, "name": row.Name, "active": active})
 }
@@ -973,7 +981,7 @@ func (s *server) listBaselines(w http.ResponseWriter, p *db.PlanRow) {
 
 // baselineItem routes /baseline/{bid}, /baseline/{bid}/compare and
 // /baseline/{bid}/compare-to/{other}.
-func (s *server) baselineItem(w http.ResponseWriter, r *http.Request, p *db.PlanRow, rest string) {
+func (s *server) baselineItem(w http.ResponseWriter, r *http.Request, p *db.PlanRow, rest string, c auth.Claims) {
 	bid, action, _ := strings.Cut(rest, "/")
 	if bid == "" {
 		http.Error(w, "no baseline id", 400)
@@ -983,9 +991,9 @@ func (s *server) baselineItem(w http.ResponseWriter, r *http.Request, p *db.Plan
 	case action == "" && r.Method == http.MethodGet:
 		s.getBaseline(w, p, bid)
 	case action == "" && r.Method == http.MethodPatch:
-		s.patchBaseline(w, r, p, bid)
+		s.patchBaseline(w, r, p, bid, c)
 	case action == "" && r.Method == http.MethodDelete:
-		s.deleteBaseline(w, p, bid)
+		s.deleteBaseline(w, p, bid, c)
 	case action == "compare" && r.Method == http.MethodPost:
 		s.compareBaseline(w, r, p, bid)
 	case strings.HasPrefix(action, "compare-to/") && r.Method == http.MethodPost:
@@ -997,7 +1005,7 @@ func (s *server) baselineItem(w http.ResponseWriter, r *http.Request, p *db.Plan
 
 // deleteBaseline removes one saved baseline. Scoped by plan, so a guessed id
 // from another plan deletes nothing; a miss answers 404, not a silent ok.
-func (s *server) deleteBaseline(w http.ResponseWriter, p *db.PlanRow, bid string) {
+func (s *server) deleteBaseline(w http.ResponseWriter, p *db.PlanRow, bid string, c auth.Claims) {
 	if s.db == nil {
 		http.Error(w, "baselines require the database", http.StatusServiceUnavailable)
 		return
@@ -1015,6 +1023,8 @@ func (s *server) deleteBaseline(w http.ResponseWriter, p *db.PlanRow, bid string
 	// If the deleted one was active, the newest remaining becomes active — the
 	// chip reports the plan's latest agreement, not a surprising "none" while
 	// other agreements still exist (spec 015 Q1, resolved 2026-08-30).
+	s.metrics.Inc("baselines_deleted")
+	s.recordEvent(c.Sub, "baselines_deleted", p.ID, map[string]any{"baseline": bid})
 	remaining, err := s.db.ListBaselines(p.ID)
 	if err == nil && len(remaining) > 0 {
 		if _, aerr := s.db.SetBaselineActive(p.ID, remaining[0].ID); aerr == nil {
@@ -1097,7 +1107,7 @@ func (s *server) getBaseline(w http.ResponseWriter, p *db.PlanRow, bid string) {
 
 // patchBaseline marks a baseline active or renames it. Nothing else about a saved
 // baseline can change (FR-030).
-func (s *server) patchBaseline(w http.ResponseWriter, r *http.Request, p *db.PlanRow, bid string) {
+func (s *server) patchBaseline(w http.ResponseWriter, r *http.Request, p *db.PlanRow, bid string, c auth.Claims) {
 	var body struct {
 		Active *bool   `json:"active"`
 		Name   *string `json:"name"`
@@ -1147,6 +1157,7 @@ func (s *server) patchBaseline(w http.ResponseWriter, r *http.Request, p *db.Pla
 		}
 	}
 	s.metrics.Inc("baselines_activated")
+	s.recordEvent(c.Sub, "baselines_activated", p.ID, map[string]any{"baseline": bid})
 	log.Info().Str("plan", p.ID).Str("baseline", bid).Msg("baseline activated")
 	writeJSON(w, map[string]any{"ok": true})
 }

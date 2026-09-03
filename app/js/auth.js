@@ -206,7 +206,7 @@ function mountChip() {
     games.addEventListener('click', openGames);
     if (trainMenu) trainMenu.appendChild(games); else nav.appendChild(games);
   }
-  // Admin panel is users & roles only — admins.
+  // Admin panel is users & roles + usage analytics — admins only.
   if (hasRole('admin')) {
     const guideBtn = document.getElementById('guide-btn');
     const b = document.createElement('button');
@@ -214,7 +214,19 @@ function mountChip() {
     b.className = 'tab admin-tab';
     b.textContent = '⚙ Admin';
     b.addEventListener('click', openAdmin);
-    if (guideBtn) guideBtn.before(b); else nav.appendChild(b);
+    const u = document.createElement('button');
+    u.id = 'usage-btn';
+    u.className = 'tab admin-tab';
+    u.textContent = '📊 Usage';
+    u.title = 'Usage analytics — actives, funnel, per-user activity';
+    u.addEventListener('click', () => import('./analytics.js').then((m) => m.openUsage()));
+    if (guideBtn) {
+      guideBtn.before(b); // ⚙ Admin, then 📊 Usage right beside it
+      b.after(u);
+    } else {
+      nav.appendChild(b);
+      nav.appendChild(u);
+    }
   }
 }
 
