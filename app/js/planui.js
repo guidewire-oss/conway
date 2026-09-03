@@ -230,12 +230,20 @@ function renderPlan() {
     <details class="plan-setup"${(nTeams === 0 || nInit === 0) ? ' open' : ''}>
       <summary>Plan setup <span class="hint">${nTeams} pods · ${nInit} initiatives · ${(Math.round((p.capacityLoss || 0) * 100))}% capacity loss</span></summary>
       <div class="plan-uploads">
-        <div class="plan-up" id="plan-roster-pick"></div>
-        <div id="plan-sites"></div>
-        ${uploadField('initiatives', '⤓ Initiatives (XLSX/CSV)', nInit)}
-        <label class="hint plan-up" title="Drop any dependency cell that doesn't match a roster pod name (case/whitespace-insensitive) — free text like &quot;Requirements unknown&quot; won't become a fake node in the network.">
-          <input type="checkbox" id="plan-strict-deps" ${current.strictDeps ? 'checked' : ''}> strict: match dependencies to roster
-        </label>
+        <div class="plan-step"><span class="plan-step-num">1</span>
+          <div class="plan-up" id="plan-roster-pick"></div>
+        </div>
+        <div class="plan-step"><span class="plan-step-num">2</span>
+          <div id="plan-sites"></div>
+          ${uploadField('initiatives', '⬆ Initiatives (XLSX/CSV)', nInit)}
+          ${nTeams === 0 ? '<p class="plan-warn">Attach a roster first — dependency cells match pod names from the roster, so initiatives uploaded before one cannot resolve their deps.</p>' : ''}
+        </div>
+        <div class="plan-step"><span class="plan-step-num">3</span>
+          <label class="hint plan-up" title="Drop any dependency cell that doesn't match a roster pod name (case/whitespace-insensitive) — free text like "Requirements unknown" won't become a fake node in the network.">
+            <input type="checkbox" id="plan-strict-deps" ${current.strictDeps ? 'checked' : ''}> strict: match dependencies to roster
+          </label>
+          <p class="hint">Then set the period start and assumptions (⚙ on the Order view) and read the proposed order.</p>
+        </div>
       </div>
       <p class="hint">Need samples? <a href="/api/sample/teams.csv" download>teams.csv</a> · <a href="/api/sample/initiatives.xlsx" download>initiatives.xlsx</a></p>
     </details>
@@ -1660,7 +1668,7 @@ async function renderRosterPicker(nTeams) {
   }));
   if (!rosters.length) {
     box.innerHTML = '<span class="hint">No saved rosters yet — create one in Observe ▸ 👥 Rosters (recommended), or upload a roster file directly:</span>'
-      + uploadField('teams', '⤓ Teams roster (CSV/XLSX)', nTeams);
+      + uploadField('teams', '⬆ Teams roster (CSV/XLSX)', nTeams);
     bindUpload();
     return;
   }
