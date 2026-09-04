@@ -33,6 +33,10 @@ type NetPod struct {
 	// CapacityLoss (spec 014): the pod's own loss override, preserved so a
 	// roster carries the pod's honesty about its time through save/attach.
 	CapacityLoss float64 `json:"capacityLoss,omitempty"`
+	// Timezone (spec 003 review): the pod's site IANA zone, confirmed once per
+	// roster. A plan seeding from this roster inherits it — nobody is asked
+	// twice for the same roster.
+	Timezone string `json:"timezone,omitempty"`
 }
 
 type NetEdge struct {

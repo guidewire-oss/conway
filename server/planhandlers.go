@@ -372,10 +372,65 @@ func (s *server) patchPlanSites(w http.ResponseWriter, r *http.Request, p *db.Pl
 		http.Error(w, err.Error(), 500)
 		return
 	}
+	log.Info().Str("plan", p.ID).Str("site", name).Str("timezone", body.Timezone).Msg("site timezone set")
 	s.metrics.Inc("sites_patched")
 	s.recordEvent(c.Sub, "sites_patched", p.ID, map[string]any{"site": name, "timezone": body.Timezone})
-	log.Info().Str("plan", p.ID).Str("site", name).Str("timezone", body.Timezone).Msg("site timezone set")
+	// Spec 003 review: tie the confirmed timezone to the plan's saved roster —
+	// a plan seeding from the same roster inherits it, so nobody is asked the
+	// same question twice. Best-effort: the plan's own table (already saved)
+	// stays authoritative.
+	s.writeBackRosterTZ(p, name, body.Timezone)
 	writeJSON(w, map[string]any{"sites": sites})
+}
+
+// writeBackRosterTZ persists a confirmed site timezone onto the plan's saved
+// roster pods (spec 003 review): tied to the same roster, so every plan
+// seeding from it inherits the answer. Best-effort — a roster write failure
+// leaves the plan's own site table (already saved) authoritative.
+func (s *server) writeBackRosterTZ(p *db.PlanRow, siteName, timezone string) {
+	if s.db == nil || p.RosterID == "" || p.Teams == nil {
+		return
+	}
+	var teams []planning.Team
+	if err := json.Unmarshal(p.Teams, &teams); err != nil {
+		return
+	}
+	changed := false
+	for i := range teams {
+		if teams[i].Site == siteName && teams[i].Timezone != timezone {
+			teams[i].Timezone = timezone
+			changed = true
+		}
+	}
+	if !changed {
+		return
+	}
+	if b, err := json.Marshal(teams); err == nil {
+		_ = s.db.SavePlanTeams(p.ID, b, time.Now().Unix())
+	}
+	// Tie the answer to the ROSTER too, so every plan seeding from the same
+	// roster inherits it ("set by anybody, used as long as it is the same
+	// roster" — spec 003 review). Best-effort; the frozen plan copy is already
+	// updated above.
+	if p.RosterID != "" {
+		if row, err := s.db.GetRoster(p.RosterID); err == nil && row != nil {
+			var pods []NetPod
+			if len(row.Pods) > 0 && json.Unmarshal(row.Pods, &pods) == nil {
+				changed := false
+				for i := range pods {
+					if strings.EqualFold(strings.TrimSpace(pods[i].Name), siteName) && pods[i].Timezone != timezone {
+						pods[i].Timezone = timezone
+						changed = true
+					}
+				}
+				if changed {
+					if b, err := json.Marshal(pods); err == nil {
+						_ = s.db.UpdateRoster(p.RosterID, row.Name, b, time.Now().Unix())
+					}
+				}
+			}
+		}
+	}
 }
 
 // netPodsToTeams converts a roster's pods to planning.Team rows — the fields
@@ -383,7 +438,7 @@ func (s *server) patchPlanSites(w http.ResponseWriter, r *http.Request, p *db.Pl
 func netPodsToTeams(pods []NetPod) []planning.Team {
 	teams := make([]planning.Team, len(pods))
 	for i, p := range pods {
-		teams[i] = planning.Team{Name: p.Name, Devs: p.DevCount, Pairs: p.Pairing, Tracks: p.Streams, Site: p.Location, CapacityLoss: p.CapacityLoss}
+		teams[i] = planning.Team{Name: p.Name, Devs: p.DevCount, Pairs: p.Pairing, Tracks: p.Streams, Site: p.Location, CapacityLoss: p.CapacityLoss, Timezone: p.Timezone}
 	}
 	return teams
 }
