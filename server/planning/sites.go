@@ -10,6 +10,7 @@ package planning
 import (
 	"fmt"
 	"math"
+	"strings"
 	"time"
 )
 
@@ -31,6 +32,13 @@ type Site struct {
 	WorkEnd   float64 `json:"workEndHour,omitempty"`   // local hour; <= start means the default window
 	Defaulted bool    `json:"defaulted,omitempty"`     // working hours came from the default (AC 2.4)
 	Unknown   bool    `json:"unknown,omitempty"`       // referenced by the roster but not yet configured (AC 2.1)
+	// Spec 003 review: timezone provenance. Inferred = auto-filled from the
+	// site's location (unambiguous city), changeable. NeedsConfirm = the
+	// location is ambiguous (Birmingham: UK or Alabama) — candidates must be
+	// confirmed, never silently guessed.
+	Inferred     bool     `json:"inferred,omitempty"`
+	NeedsConfirm bool     `json:"needsConfirm,omitempty"`
+	Candidates   []string `json:"candidates,omitempty"`
 }
 
 // workWindow clamps a site's configured window to the documented default when
@@ -41,6 +49,56 @@ func (s Site) workWindow() (float64, float64, bool) {
 		return DefaultWorkStart, DefaultWorkEnd, true
 	}
 	return start, end, false
+}
+
+// Ambiguous city names: the same city string maps to real offices in
+// different timezones (Birmingham UK vs Alabama). These are flagged for
+// confirmation rather than silently guessed — a wrong zone prices every
+// handoff for that site wrongly for the whole plan.
+var ambiguousTZ = map[string][]string{
+	"birmingham": {"Europe/London", "America/Chicago"},
+	"portland":   {"America/Los_Angeles", "America/New_York"},
+	"richmond":   {"America/New_York", "America/Chicago"},
+	"cambridge":  {"Europe/London", "America/New_York"},
+	"manchester": {"Europe/London", "America/New_York"},
+	"alexandria": {"Africa/Cairo", "America/New_York"},
+	"valencia":   {"Europe/Madrid", "America/Caracas"},
+	"georgetown": {"America/Guyana", "America/Chicago"},
+	"san jose":   {"America/Los_Angeles", "America/Costa_Rica"},
+}
+
+// Unambiguous city -> IANA zone. Inferred from the site's LOCATION string
+// only — never from pod names or people (spec 003 FR-011).
+var knownTZ = map[string]string{
+	"bengaluru": "Asia/Kolkata", "bangalore": "Asia/Kolkata",
+	"krakow": "Europe/Warsaw", "kraków": "Europe/Warsaw", "warsaw": "Europe/Warsaw",
+	"dublin": "Europe/Dublin", "london": "Europe/London", "paris": "Europe/Paris",
+	"berlin": "Europe/Berlin", "madrid": "Europe/Madrid", "oslo": "Europe/Oslo",
+	"san mateo": "America/Los_Angeles", "denver": "America/Denver",
+	"new york": "America/New_York", "toronto": "America/Toronto",
+	"chicago": "America/Chicago", "singapore": "Asia/Singapore",
+	"tokyo": "Asia/Tokyo", "sydney": "Australia/Sydney",
+}
+
+// inferTimezone resolves a site's location string to a timezone. Only the
+// location string is read — never pod names or people (FR-011).
+// Returns:
+//
+//	tz          the inferred zone ("" when nothing confident)
+//	candidates  non-empty only for ambiguous names (Birmingham: UK or Alabama)
+func inferTimezone(siteName string) (string, []string) {
+	key := strings.ToLower(strings.TrimSpace(siteName))
+	key = strings.Trim(key, "*- ") // "*REMOTE - multicontinental*" style decorations
+	if key == "" || strings.Contains(key, "remote") {
+		return "", nil
+	}
+	if cands, ok := ambiguousTZ[key]; ok {
+		return "", cands
+	}
+	if tz, ok := knownTZ[key]; ok {
+		return tz, nil
+	}
+	return "", nil
 }
 
 // OverlapHours is the number of working hours two sites share on a given date,
@@ -139,8 +197,26 @@ func SitesFromTeams(teams []Team, existing []Site) []Site {
 		}
 		seen[name] = true
 		if _, ok := configured[name]; !ok {
-			out = append(out, Site{Name: name, Unknown: true})
+			out = append(out, seedSite(name, t.Timezone))
 		}
 	}
 	return out
+}
+
+// seedSite builds one site row for a freshly-seen roster location, resolving
+// its timezone by preference (spec 003 review): the roster's confirmed zone
+// first, then inference from the location name (unambiguous only — ambiguous
+// names are flagged needsConfirm with their candidates, never guessed).
+func seedSite(name, rosterTZ string) Site {
+	if rosterTZ != "" {
+		return Site{Name: name, Timezone: rosterTZ, Unknown: false}
+	}
+	tz, candidates := inferTimezone(name)
+	if tz != "" {
+		return Site{Name: name, Timezone: tz, Unknown: false, Inferred: true}
+	}
+	if len(candidates) > 0 {
+		return Site{Name: name, Unknown: true, NeedsConfirm: true, Candidates: candidates}
+	}
+	return Site{Name: name, Unknown: true}
 }

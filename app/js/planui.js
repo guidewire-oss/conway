@@ -231,20 +231,23 @@ function renderPlan() {
       <summary>Plan setup <span class="hint">${nTeams} pods · ${nInit} initiatives · ${(Math.round((p.capacityLoss || 0) * 100))}% capacity loss</span></summary>
       <div class="plan-uploads">
         <div class="plan-step"><span class="plan-step-num">1</span>
-          <div class="plan-up" id="plan-roster-pick"></div>
+          <div class="plan-step-body">
+            <div class="plan-up" id="plan-roster-pick"></div>
+            <div id="plan-sites"></div>
+          </div>
         </div>
         <div class="plan-step"><span class="plan-step-num">2</span>
-          <div id="plan-sites"></div>
-          ${uploadField('initiatives', '⬆ Initiatives (XLSX/CSV)', nInit)}
-          ${nTeams === 0 ? '<p class="plan-warn">Attach a roster first — dependency cells match pod names from the roster, so initiatives uploaded before one cannot resolve their deps.</p>' : ''}
-        </div>
-        <div class="plan-step"><span class="plan-step-num">3</span>
-          <label class="hint plan-up" title="Drop any dependency cell that doesn't match a roster pod name (case/whitespace-insensitive) — free text like "Requirements unknown" won't become a fake node in the network.">
-            <input type="checkbox" id="plan-strict-deps" ${current.strictDeps ? 'checked' : ''}> strict: match dependencies to roster
-          </label>
-          <p class="hint">Then set the period start and assumptions (⚙ on the Order view) and read the proposed order.</p>
+          <div class="plan-step-body">
+            ${uploadField('initiatives', '⬆ Initiatives (XLSX/CSV)', nInit)}
+            <label class="hint plan-up" title="Drops dependency cells that don't match roster pods">
+              <input type="checkbox" id="plan-strict-deps" ${current.strictDeps ? 'checked' : ''}> strict: match dependencies to roster
+            </label>
+            <p class="hint">strict drops dependency cells that don't match a roster pod name (case/whitespace-insensitive) — free text like "Requirements unknown" won't become a fake node in the network.</p>
+            ${nTeams === 0 ? '<p class="plan-warn">Attach a roster first — dependency cells match pod names from the roster, so initiatives uploaded before one cannot resolve their deps.</p>' : ''}
+          </div>
         </div>
       </div>
+      <p class="hint">Then set the period start and assumptions (⚙ on the Order view) and read the proposed order.</p>
       <p class="hint">Need samples? <a href="/api/sample/teams.csv" download>teams.csv</a> · <a href="/api/sample/initiatives.xlsx" download>initiatives.xlsx</a></p>
     </details>
     ${current.isDraft ? `<p class="plan-warn">✎ Previewing an unsaved initiatives upload — nothing is saved yet.
@@ -1672,13 +1675,22 @@ async function renderRosterPicker(nTeams) {
     bindUpload();
     return;
   }
-  box.innerHTML = `<label class="hint">roster
+  // Applies on selection (review): the dropdown choice IS the intent; no
+  // extra confirm button. Guard: once initiatives exist, a roster switch may
+  // orphan dependency cells — confirm only then; cancel restores the select.
+  const prevRoster = current.rosterId || '';
+  box.innerHTML = `<label class="hint">roster (applies on selection)
       <select id="plan-roster-sel">${rosters.map((r) => `<option value="${r.id}" ${r.id === current.rosterId ? 'selected' : ''}>${esc(r.name)} (${r.podCount} pods)</option>`).join('')}</select>
     </label>
-    <button id="plan-roster-use">${nTeams ? 'switch roster' : 'use roster'}</button>
     <span class="hint">${nTeams ? `${nTeams} pods loaded` : 'none yet'}</span>`;
-  box.querySelector('#plan-roster-use').addEventListener('click', async () => {
-    const rosterId = document.getElementById('plan-roster-sel').value;
+  box.querySelector('#plan-roster-sel').addEventListener('change', async (ev) => {
+    const rosterId = ev.target.value;
+    if ((current.initiatives || []).length && rosterId !== prevRoster) {
+      if (!confirm('Switching the roster replaces this plan\u2019s pods — initiatives referencing missing pods will land with warnings. Apply?')) {
+        ev.target.value = prevRoster; // revert the select
+        return;
+      }
+    }
     box.insertAdjacentHTML('beforeend', '<span class="hint" id="plan-uploading">applying…</span>');
     const r = await req('/api/plan/' + current.id + '/roster', { method: 'POST', body: JSON.stringify({ rosterId }) });
     if (!r || !r.ok) { alert('Could not attach roster: ' + (r ? await r.text() : 'network')); document.getElementById('plan-uploading')?.remove(); return; }
