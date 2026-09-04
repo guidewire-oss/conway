@@ -24,6 +24,10 @@ let root, current = null;
 // PATCHes them back. A dialog save or a second drag replaces the snapshot;
 // the undo itself is not undoable.
 let dragUndo = null;
+// The initiatives file the planner picked but has not previewed yet (review):
+// selecting a file no longer throws the plan into draft preview — the Preview
+// button does, after validating the roster and strict-mode warnings.
+let pendingInitiativesFile = null;
 // One comparison request at a time, keyed to what it is for. A bare boolean
 // stranded the table: if the plan or the order moved while a request was out, the
 // new dialog's request was skipped as "already pending" and the stale response was
@@ -238,7 +242,13 @@ function renderPlan() {
         </div>
         <div class="plan-step"><span class="plan-step-num">2</span>
           <div class="plan-step-body">
+            <div class="plan-up-init">
             ${uploadField('initiatives', '⬆ Initiatives (XLSX/CSV)', nInit)}
+            <button type="button" id="plan-init-preview" class="secondary" disabled
+              title="render the network and order from this sheet, without saving">Preview</button>
+            <span class="hint" id="plan-init-file"></span>
+            <span class="plan-warn" id="plan-preview-warn" hidden></span>
+          </div>
             <label class="hint plan-up" title="Drops dependency cells that don't match roster pods">
               <input type="checkbox" id="plan-strict-deps" ${current.strictDeps ? 'checked' : ''}> strict: match dependencies to roster
             </label>
@@ -287,11 +297,39 @@ function renderPlan() {
     if (d) d.open = true;
     document.getElementById('plan-roster-pick')?.querySelector('select, button')?.focus();
   });
+  pendingInitiativesFile = null; // a re-render clears the un-previewed pick
   root.querySelectorAll('input[type=file]').forEach((inp) => inp.addEventListener('change', () => {
     if (!inp.files[0]) return;
-    if (inp.dataset.kind === 'initiatives') previewInitiativesFile(inp.files[0]);
-    else uploadFile(inp.dataset.kind, inp.files[0]);
+    if (inp.dataset.kind === 'initiatives') {
+      // Review: selecting a file no longer drops the plan into draft preview —
+      // the Preview button runs the validations (roster attached, strict
+      // warning) and only then renders the graph.
+      pendingInitiativesFile = inp.files[0];
+      const btn = document.getElementById('plan-init-preview');
+      if (btn) btn.disabled = false;
+      const hint = document.getElementById('plan-init-file');
+      if (hint) hint.textContent = inp.files[0].name + ' selected — click Preview';
+      return;
+    }
+    uploadFile(inp.dataset.kind, inp.files[0]);
   }));
+  // Preview (review): validates before rendering the graph — a roster must be
+  // attached (step 1), and strict-off gets an explicit warning because free
+  // text dependency cells would become phantom network nodes.
+  document.getElementById('plan-init-preview')?.addEventListener('click', () => {
+    if (!pendingInitiativesFile) return;
+    const warnEl = document.getElementById('plan-preview-warn');
+    const fail = (msg) => { if (warnEl) { warnEl.textContent = msg; warnEl.hidden = false; } };
+    if (!(current.teams || []).length) {
+      if (warnEl) { warnEl.textContent = 'Attach a roster first (step 1) — dependencies cannot resolve without pod names.'; warnEl.hidden = false; }
+      return;
+    }
+    if (!current.strictDeps && !confirm('Strict matching is off: free-text dependency cells will become phantom nodes in the network. Render the preview anyway?')) {
+      return;
+    }
+    if (warnEl) warnEl.hidden = true;
+    previewInitiativesFile(pendingInitiativesFile);
+  });
   document.getElementById('plan-draft-save')?.addEventListener('click', saveDraftInitiatives);
   document.getElementById('plan-draft-discard')?.addEventListener('click', () => openPlan(current.id));
   document.getElementById('plan-strict-deps')?.addEventListener('change', (e) => { current.strictDeps = e.target.checked; });
@@ -1680,11 +1718,15 @@ async function renderRosterPicker(nTeams) {
   // orphan dependency cells — confirm only then; cancel restores the select.
   const prevRoster = current.rosterId || '';
   box.innerHTML = `<label class="hint">roster (applies on selection)
-      <select id="plan-roster-sel">${rosters.map((r) => `<option value="${r.id}" ${r.id === current.rosterId ? 'selected' : ''}>${esc(r.name)} (${r.podCount} pods)</option>`).join('')}</select>
+      <select id="plan-roster-sel">
+        <option value="" ${!current.rosterId ? 'selected' : ''}>none selected</option>
+        ${rosters.map((r) => `<option value="${r.id}" ${r.id === current.rosterId ? 'selected' : ''}>${esc(r.name)} (${r.podCount} pods)</option>`).join('')}
+      </select>
     </label>
-    <span class="hint">${nTeams ? `${nTeams} pods loaded` : 'none yet'}</span>`;
+    <span class="hint">${nTeams ? `${nTeams} pods loaded` : 'none selected'}</span>`;
   box.querySelector('#plan-roster-sel').addEventListener('change', async (ev) => {
     const rosterId = ev.target.value;
+    if (!rosterId) { ev.target.value = prevRoster; return; } // "none selected" is not a roster
     if ((current.initiatives || []).length && rosterId !== prevRoster) {
       if (!confirm('Switching the roster replaces this plan\u2019s pods — initiatives referencing missing pods will land with warnings. Apply?')) {
         ev.target.value = prevRoster; // revert the select

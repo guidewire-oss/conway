@@ -836,8 +836,17 @@ button.plan-back { background: none; border: 0; padding: 0; font: inherit; }
   color: var(--bg); font-weight: 700; font-size: 12px; display: flex;
   align-items: center; justify-content: center; margin-top: 2px; }
 .plan-step .plan-up, .plan-step > label, .plan-step > p { flex: 1; }
+/* The steps container: steps stack vertically (a row layout made step 2's
+   number sit beside step 1's — the misalignment in review). */
+.plan-uploads:has(.plan-step) { display: block; }
 
 /* Plan steps v2 (re-land): the number sits left, the step's controls stack in
    a column under it — button, count, checkbox and warnings left-aligned
    instead of spreading across the row. */
 .plan-step-body { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+
+/* Initiatives preview group (review): file picker, Preview button and the
+   validation warning stay together under step 2. */
+.plan-up-init { display: flex; flex-direction: column; gap: 6px; }
+.plan-up-init .plan-up { margin-bottom: 4px; }
+#plan-init-preview:disabled { opacity: .5; cursor: not-allowed; }
