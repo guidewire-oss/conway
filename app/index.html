@@ -25,7 +25,6 @@
 <header>
   <div class="brand">
     <h1>Conway <span class="hint" style="font-weight:400">Plan · Measure · Learn</span></h1>
-    <span id="data-badge" class="badge">loading…</span>
   </div>
   <nav aria-label="Main navigation">
     <button class="tab active" id="home-tab" data-view="home">Home</button>
@@ -75,6 +74,7 @@
 </header>
 
 <main>
+  <section id="measure-context" class="panel-card measure-context" aria-label="Measure data source" hidden></section>
   <section id="view-home" class="view active">
     <div id="home-body"></div>
   </section>
@@ -123,6 +123,7 @@
   <section id="view-simulator" class="view">
     <div class="sim-grid">
       <div class="panel-card" id="feature-editor">
+        <div id="simulator-source" class="simulator-source" aria-label="Simulator task source"></div>
         <h2>Feature definition <button type="button" class="docs-link" data-docs="simulator" title="how this page works">Help</button></h2>
         <div class="epic-import">
           <input id="epic-key" aria-label="Epic key" placeholder="PROJ-123" size="12">

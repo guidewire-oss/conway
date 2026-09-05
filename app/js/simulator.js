@@ -1,5 +1,8 @@
 import { simulateFeature, suggestDeps, fullKitCheck, relativeSize } from './sim.js';
 import { apiGet } from './data.js';
+import { simulatorSourceHTML, simulatorTeamOptionsHTML } from './measure-context.js';
+
+const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // short numeric-suffix id for display: strips any "PROJECT-" prefix, not just one org's
 const shortId = (key) => key.replace(/^[^-]+-/, '');
@@ -54,10 +57,25 @@ const EXAMPLE = {
 let state = null;
 let rhoOverride = {};
 let lastResult = null;
+let scenarioSource = { kind: 'example', edited: false, dirty: false };
+let importTicket = 0;
+
+function paintSource() {
+  const source = document.getElementById('simulator-source');
+  if (source) source.innerHTML = simulatorSourceHTML(scenarioSource);
+}
+
+function markEdited() {
+  importTicket++;
+  scenarioSource = { ...scenarioSource, edited: true, dirty: true };
+  paintSource();
+}
 
 export function initSimulator(s) {
   state = s;
-  document.getElementById('add-task').addEventListener('click', () => addRow());
+  document.getElementById('add-task').addEventListener('click', () => { addRow(); markEdited(); });
+  document.querySelector('#task-table tbody').addEventListener('input', markEdited);
+  document.querySelector('#task-table tbody').addEventListener('change', markEdited);
   document.getElementById('load-example').addEventListener('click', loadExample);
   document.getElementById('run-sim').addEventListener('click', run);
   document.getElementById('import-epic').addEventListener('click', importEpic);
@@ -69,7 +87,7 @@ export function initSimulator(s) {
 }
 
 function podOptions(selected) {
-  return state.pods.map((p) => `<option ${p.name === selected ? 'selected' : ''}>${p.name}</option>`).join('');
+  return simulatorTeamOptionsHTML(state.pods, selected);
 }
 
 function addRow(t = null) {
@@ -78,12 +96,12 @@ function addRow(t = null) {
   const tr = document.createElement('tr');
   const id = t?.id ?? `T${n}`;
   tr.innerHTML = `
-    <td><input class="t-id" value="${id}" size="3"></td>
-    <td><select class="t-pod">${podOptions(t?.pod ?? state.pods[0].name)}</select></td>
+    <td><input class="t-id" value="${esc(id)}" size="3"></td>
+    <td><select class="t-pod">${podOptions(t?.pod ?? state.pods[0]?.name ?? '')}</select></td>
     <td><select class="t-size">${Object.keys(SIZES).map((k) => `<option ${k === (t?.size ?? 'M') ? 'selected' : ''}>${k}</option>`).join('')}</select></td>
-    <td><input class="t-deps" value="${t?.deps ?? ''}" placeholder="T1,T2"></td>
+    <td><input class="t-deps" value="${esc(t?.deps ?? '')}" placeholder="T1,T2"></td>
     <td><button class="del" title="remove">✕</button></td>`;
-  tr.querySelector('.del').addEventListener('click', () => tr.remove());
+  tr.querySelector('.del').addEventListener('click', () => { tr.remove(); markEdited(); });
   tbody.appendChild(tr);
 }
 
@@ -108,7 +126,9 @@ async function importEpic() {
   const key = document.getElementById('epic-key').value.trim().toUpperCase();
   const status = document.getElementById('epic-status');
   if (!key) { status.textContent = 'enter an epic key'; return; }
+  const mine = ++importTicket;
   const epic = await apiGet(`epic/${encodeURIComponent(key)}`);
+  if (mine !== importTicket) return;
   if (!epic) {
     status.textContent = `no snapshot for ${key} — import it from Jira first`;
     return;
@@ -121,12 +141,14 @@ async function importEpic() {
     const pod = (t.pod ?? '').trim();
     addRow({
       id: shortId(t.key),
-      pod: state.pods.some((p) => p.name === pod) ? pod : state.pods[0].name,
+      pod,
       size: pointsToSize(t.points, pod),
       deps: t.blockedBy.filter((k) => keys.has(k)).map(shortId).join(','),
     });
   }
   status.textContent = `${chosen.length} open tasks imported${open.length ? '' : ' (all were closed; imported everything)'}`;
+  scenarioSource = { kind: 'epic', epic: key, edited: false, dirty: true };
+  paintSource();
   renderKit({ ...epic, tasks: chosen });
   rhoOverride = {};
   run();
@@ -159,8 +181,14 @@ function renderKit(epic) {
 }
 
 function loadExample() {
+  importTicket++;
+  scenarioSource = { kind: 'example', edited: false, dirty: true };
+  paintSource();
+  document.getElementById('epic-status').textContent = '';
+  document.getElementById('fullkit').innerHTML = '';
   document.querySelector('#task-table tbody').innerHTML = '';
-  EXAMPLE.tasks.forEach((t) => addRow(t));
+  if (!state.pods.length) return;
+  EXAMPLE.tasks.forEach((t, index) => addRow({ ...t, pod: state.pods.some(p => p.name === t.pod) ? t.pod : state.pods[index % state.pods.length].name }));
   rhoOverride = {};
   run();
 }
@@ -180,7 +208,15 @@ function readFeature() {
 
 function run() {
   const feature = readFeature();
-  if (!feature.tasks.length) return;
+  if (!feature.tasks.length) {
+    scenarioSource.dirty = true; paintSource();
+    return;
+  }
+  const unavailable = feature.tasks.filter(task => !state.stats[task.pod]);
+  if (unavailable.length) {
+    document.getElementById('stat-cards').innerHTML = '<p role="alert">Some tasks have no team statistics in this snapshot. Choose a team for each task or select a snapshot with the required roster.</p>';
+    return;
+  }
   const podStats = {};
   for (const [name, st] of Object.entries(state.stats)) {
     podStats[name] = { mu: st.mu, sigma: st.sigma, rho0: st.rho0 };
@@ -191,10 +227,12 @@ function run() {
       trials: 10000, seed: 20260611, flowEff: 0.15, rhoOverride,
     });
   } catch (e) {
-    document.getElementById('stat-cards').innerHTML = `<div class="stat"><div class="v" style="color:var(--red);font-size:14px">${e.message}</div></div>`;
+    document.getElementById('stat-cards').innerHTML = `<div class="stat"><div class="v" style="color:var(--red);font-size:14px">${esc(e.message)}</div></div>`;
     return;
   }
   lastResult = { r, feature };
+  scenarioSource.dirty = false;
+  paintSource();
   renderAll(lastResult);
 }
 
@@ -229,6 +267,7 @@ function renderSuggestions(feature) {
         if (!cur.includes(s.fromTask)) depsEl.value = [...cur, s.fromTask].join(',');
       }
     }
+    markEdited();
     run();
   }));
 }
@@ -337,6 +376,7 @@ function renderWhatIf(feature) {
       const lbl = document.getElementById(`rv-${p}`);
       lbl.textContent = rhoOverride[p].toFixed(2);
       lbl.style.color = heatColor(rhoOverride[p]);
+      markEdited();
     });
     el.addEventListener('change', run);
   });

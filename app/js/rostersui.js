@@ -4,9 +4,16 @@ import { openModal, closeModal } from './modal.js';
 // pairing, headcount, lanes). Created/uploaded once, edited anytime, and
 // associated with a Jira import. Manager-only.
 import { authFetch } from './auth.js';
+import { notifyMeasureSourcesChanged } from './measure-context.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-async function req(p, o) { try { return await authFetch(p, o); } catch { return null; } }
+async function req(p, o) {
+  try {
+    const response = await authFetch(p, o);
+    if (response.ok && ['POST', 'PATCH', 'DELETE'].includes(o?.method) && p.startsWith('/api/rosters')) notifyMeasureSourcesChanged();
+    return response;
+  } catch { return null; }
+}
 
 // Standalone "Rosters" modal — where rosters are created, uploaded, and edited.
 export async function openRosters() {

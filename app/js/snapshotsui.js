@@ -7,9 +7,16 @@ import { openModal, closeModal } from './modal.js';
 import { authFetch } from './auth.js';
 import { listSnapshots, getSnapshot } from './data.js';
 import { mountRosters } from './rostersui.js';
+import { notifyMeasureSourcesChanged } from './measure-context.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-async function req(p, o) { try { return await authFetch(p, o); } catch { return null; } }
+async function req(p, o) {
+  try {
+    const response = await authFetch(p, o);
+    if (response.ok && ['POST', 'PATCH', 'DELETE'].includes(o?.method) && p.startsWith('/api/snapshots/')) notifyMeasureSourcesChanged();
+    return response;
+  } catch { return null; }
+}
 
 export async function openSnapshots() {
   let ov = document.getElementById('snapshots-overlay');

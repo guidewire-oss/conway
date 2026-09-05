@@ -56,3 +56,25 @@ table.sortable th:focus-visible, .tl-bar[role="button"]:focus-visible, .tl-label
   .tl-edit-row input { width: 100%; }
   .tl-tick-date { font-size: .55rem; }
 }
+/* Source context travels with every snapshot-backed view. */
+.measure-context { margin-bottom: 18px; padding: 16px 20px; }
+.measure-source-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.measure-source-heading h2 { margin: 3px 0 8px; overflow-wrap: anywhere; }
+.measure-view-purpose { margin: 4px 0 14px; }
+.measure-source-details { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 20px; margin: 12px 0; }
+.measure-source-details dt { font-size: 12px; color: var(--muted); }
+.measure-source-details dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+.measure-source-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin: 16px 0 10px; }
+.measure-source-actions label { display: grid; gap: 5px; min-width: 0; flex: 1 1 320px; }
+.measure-source-actions select { width: 100%; min-width: 0; }
+.measure-association-help { margin-top: 12px; }
+.measure-association-help summary { cursor: pointer; font-weight: 600; }
+.simulator-source { display: grid; gap: 6px; padding: 12px; margin-bottom: 14px; border-left: 3px solid var(--accent); background: var(--panel); overflow-wrap: anywhere; }
+.simulator-source strong { color: var(--amber); }
+@media (max-width: 700px) {
+  .measure-context { padding: 14px; }
+  .measure-source-heading { flex-wrap: wrap; }
+  .measure-source-details { grid-template-columns: minmax(0, 1fr); }
+  .measure-source-actions { align-items: stretch; }
+  .measure-source-actions button { white-space: normal; }
+}

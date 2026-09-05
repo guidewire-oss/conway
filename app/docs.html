@@ -185,23 +185,37 @@ the date now, not at the end.</p>
 constraint card. Improving a non-bottleneck team improves nothing — the queue
 at the constraint sets the pace for everyone.</p></div>
 
-<h2 id="snapshots-picker">"Viewing org snapshot" (the top picker)</h2>
+<h2 id="snapshots-picker">Measure data source and associations</h2>
 <p>The <b>Measure</b> screens (Org Network, WIP Scoreboard, Data Quality,
 Feature Simulator) all render one <b>org snapshot</b> — a dated capture of
-your pods, dependencies and cycle times. The picker at the top selects
+your pods, dependencies and cycle times. The source panel above each view shows
+the snapshot name, capture date, Jira project scope, associated roster and whether
+the data is imported, an example, synthetic or unavailable. The picker selects
 <i>which</i> snapshot they render: flip between "this quarter" and "last
 quarter" to see the org change over time.</p>
 <ul>
   <li><b>Where snapshots come from</b> — <b>Measure ▸ Import from Jira</b>.
       Each import creates a new dated snapshot owned by you; the picker lists
       yours, plus any published by others.</li>
-  <li><b>When the picker appears</b> — only when there are two or more
-      snapshots to switch between; with one there is nothing to flip.</li>
+  <li><b>One snapshot</b> — its identity remains visible. The picker becomes
+      available for switching when a second snapshot exists.</li>
+  <li><b>Associate a roster</b> — managers can open <b>Snapshot &amp; roster
+      associations</b> directly from the source panel. Change a snapshot's
+      roster there; teams join Jira activity by name. <b>Manage rosters</b>
+      opens the reusable team definitions.</li>
   <li><b>Plan does not use it</b> — a plan's roster and initiatives are its
       own inputs; the picker hides on Plan and Game views.</li>
 </ul>
 <div class="expect"><p>Switching the picker reloads the page so every Measure
-screen re-renders from the chosen snapshot. Plan and game data are untouched.</p></div>
+screen re-renders from the chosen snapshot. This resets the Feature Simulator's
+unsaved scenario. Plan and game data are untouched.</p></div>
+<p><b>Connect evidence to a plan:</b> open the plan's <b>Execution</b> view,
+choose its <b>Execution snapshot</b>, and confirm Jira epic keys under each
+initiative's <b>Epic bindings</b>. Save an agreement to compare planned dates
+with delivery evidence. Execution has an independent snapshot selection;
+sharing a roster does not automatically bind Excel initiatives to Jira work.
+The source panel's <b>How this connects to a plan</b> section provides these
+steps and an <b>Open plans</b> action for managers.</p>
 
 <h2 id="network">Org Network</h2>
 <p>The dependency map: which teams block which, drawn from real blocking
@@ -264,6 +278,11 @@ fix to sharpen every number.</p>
 individual Jiras.</p>
 
 <h2 id="simulator">Feature Simulator</h2>
+<p>The <b>Task scenario</b> label distinguishes illustrative example tasks,
+an imported epic and an edited scenario. Its team statistics come from the
+Measure snapshot; its task graph is separate from saved plan inputs. Editing
+tasks or load assumptions marks existing results stale until the simulation
+runs again. Missing team assignments must be resolved explicitly.</p>
 <p>Answer "can we do this by then?" for one epic — before you commit. It runs
 10,000 Monte Carlo trials over the task graph using each pod's real
 cycle-time distribution, so the forecast reflects reality, not optimism.</p>
