@@ -38,7 +38,13 @@
   .sidebar a { display: block; color: var(--muted); text-decoration: none; padding: 3px 10px 3px 0; }
   .sidebar a:hover { color: var(--text); }
   @media (min-width: 1101px) { body { padding-right: 220px; } }
-  @media (max-width: 1100px) { .sidebar { display: none; } body { padding-right: 24px; } }
+  @media (max-width: 1100px) { .sidebar { position: static; width: auto; max-height: 220px; border: 1px solid var(--border); margin: 16px 0; padding: 12px; } body { padding: 20px 16px 60px; } }
+  a:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  .manual-search { display: grid; gap: 6px; margin-top: 18px; }
+  #manual-search { width: 100%; padding: 8px; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 5px; }
+  #manual-results a { display: block; margin: 6px 0; }
+  table { display: block; overflow-x: auto; }
+  h2 { scroll-margin-top: 16px; }
 </style>
 </head>
 <body>
@@ -47,16 +53,18 @@
 <p class="lede">How to plan a delivery period your org can actually commit to —
 and how to see, honestly, where the schedule will slip before it does.</p>
 
-<nav class="sidebar">
+<div class="manual-search"><label for="manual-search">Search the manual</label><input id="manual-search" type="search" placeholder="For example: baseline, estimate, execution" autocomplete="off"><div id="manual-results" aria-live="polite"></div></div>
+<nav class="sidebar" aria-label="Manual contents">
+  <strong>Contents</strong>
   <a href="#what">What Conway does</a>
   <a href="#start">Start here — 15 minutes</a>
   <a href="#concepts">The words, in plain language</a>
   <a href="#howto">How do I…?</a>
   <a href="#snapshots-picker">Viewing org snapshot</a>
-  <a href="#flow-actions">Flow Actions</a>
+  <a href="#flow-actions">Levers</a>
   <a href="#network">Org Network</a>
-  <a href="#scoreboard">Flow Scoreboard</a>
-  <a href="#hygiene">Data Hygiene</a>
+  <a href="#scoreboard">WIP Scoreboard</a>
+  <a href="#hygiene">Data Quality</a>
   <a href="#simulator">Feature Simulator</a>
   <a href="#planning-loop">Planning: the loop</a>
   <a href="#plan-setup">Plan setup</a>
@@ -66,6 +74,8 @@ and how to see, honestly, where the schedule will slip before it does.</p>
   <a href="#fever">Fever chart</a>
   <a href="#timeline">Timeline</a>
   <a href="#baselines">Baselines</a>
+  <a href="#execution">Review execution</a>
+  <a href="#learning">Run a learning session</a>
   <a href="#health-report">Health report</a>
   <a href="#sites">Sites &amp; timezones</a>
   <a href="#warnings">Warnings &amp; verdicts</a>
@@ -75,11 +85,7 @@ and how to see, honestly, where the schedule will slip before it does.</p>
 <p>Most software planning tools answer "who is doing what?" Conway answers a
 harder question: <b>"what will actually finish, by when, given the teams you
 have?"</b></p>
-<p>It does this by reading your real delivery data from Jira — how long work
-actually takes at each team, which teams block which, how much work is already
-in flight — and using that history to forecast what a new plan can realistically
-deliver. It doesn't ask you to guess durations or trust optimism. It uses what
-already happened.</p>
+<p><b>Measure</b> reads a dated Jira snapshot: delivery history, dependencies and work in progress. Its Feature Simulator samples historical cycle times. <b>Plan</b> schedules your entered roster, estimates, capacity and dependencies; its dates depend on those assumptions. <b>Execution</b> compares snapshot evidence with a saved agreement. <b>Learn</b> is a simulated game for practising decisions. These models answer different questions; a forecast is not a guarantee.</p>
 <div class="why"><p>If you plan without respecting capacity, the busy teams
 become bottlenecks. Work queues behind them, dates slip, and the slip is
 invisible until it's too late to react. Conway makes the queue visible
@@ -93,34 +99,26 @@ and sequences everything else around it.</p>
 
 <h2 id="start">Start here — your first 15 minutes</h2>
 <p>New to Conway, or to the ideas behind it? Do this once on the demo plan.
-Every step below tells you what you will see — nothing can break.</p>
+The demo uses synthetic data. Applied edits are saved to the current plan; create a scenario before experimenting.</p>
 <ol class="steps">
-  <li><b>Open a plan.</b> Plan ▸ <b>Load demo plan</b>. You land on the
-      Network view: circles are pods (teams), arrows are real dependencies
-      mined from work in flight, and the red rings are the pods closest to
-      drowning. Don't study it yet — it is the "before" picture.</li>
+  <li><b>Open a plan.</b> Plan ▸ <b>My plans</b> ▸ <b>Load demo plan</b>. A populated plan opens at Order, where the decision summary explains target risk, period fit and missing assumptions. Setup is available when you need it.</li>
   <li><b>Open the Order view</b> (the tabs above). This is the heart of
       Conway. Every row is one initiative; the columns answer four questions:
       <i>in what order</i>, <i>when can I promise it</i>, <i>what stops it
       starting sooner</i>, and <i>will the date hold</i>.</li>
   <li><b>Read the banner.</b> The coloured bar at the top is the whole plan in
-      one sentence — "19 of 27 dates at risk" is a plan that will slip, with
+      one sentence — "19 of 27 dates at risk" is a forecast that needs review, with
       the worst offender named. Everything else on the page exists to explain
       that sentence.</li>
   <li><b>Open the Timeline</b> (the tabs above). The same schedule drawn as
-      bars over weeks. Find the red-ringed pod from step 1: its row is solid —
-      it never idles. That is what a constraint looks like.</li>
-  <li><b>Grab a bar and drag it.</b> A week sideways moves its start; drop it
-      and the engine re-plans everything in about a second. Watch the Order
-      view behind you change. This is the point of Conway: every "what if" is
-      answered by the engine, not by optimism.</li>
-  <li><b>Press ⌘Z / Ctrl+Z.</b> The last drag undoes. Mistakes are cheap.</li>
-  <li><b>Open the Report</b> (⎙ beside the tabs). One printable card: what
+      bars over weeks. Switch to team grouping and inspect the busiest team. Calendar labels appear when the period has a start date; filters remain available in either grouping.</li>
+  <li><b>Create a named scenario</b> before experimenting. It copies working inputs into an independent plan without inheriting the agreed baseline. In the scenario, select a bar and edit its start or estimate in the inspector, or drag it. Applied changes autosave to that working plan; check the save status and the consequences for other initiatives.</li>
+  <li><b>Use Undo or press Ctrl+Z / Command+Z.</b> Undo reverses the last timeline edit. Use a named scenario for a multi-step experiment.</li>
+  <li><b>Open the Report</b> (beside the tabs). One printable card: what
       will not finish, what is the constraint, what the engine would change
       and what it would cost. If you read nothing else before a planning
       meeting, read this.</li>
-  <li><b>Freeze it.</b> Click the chip that says <span class="k">baseline:
-      none — save one ▸</span>, name the order, save. You have just created
+  <li><b>Save agreed baseline.</b> Open the baseline control, name the agreement and save. You have just created
       the agreement you will measure the next three months against.</li>
 </ol>
 <div class="expect"><p>Nothing you do in steps 5–7 writes to Jira or to anyone's
@@ -141,7 +139,7 @@ in the order you will meet them.</p>
   <tr><td><b>verdict</b></td><td>the scheduler's honest answer per initiative: <b>on-time</b>, <b>late</b> (by how much), <b>beyond-horizon</b> (cannot start inside the period), <b>structurally-infeasible</b> (the date is impossible however work is ordered), <b>no-date</b>, or <b>provisional</b> (rests on unestimated work).</td></tr>
   <tr><td><b>buffer</b></td><td>the lighter tail on a bar: the safety the plan carries. Dates you promise are bar-end <i>plus</i> buffer — protect the buffer, keep the promise.</td></tr>
   <tr><td><b>baseline</b></td><td>a frozen, named copy of the order and the inputs that produced it — "what we agreed". Not a backup: it is the measuring stick for every later change.</td></tr>
-  <tr><td><b>dispatch rule</b></td><td>the ordering strategy the scheduler used (critical-path-first, cheapest-cost-of-delay, stated priority…). ⚡ Optimize races all of them and shows the best.</td></tr>
+  <tr><td><b>dispatch rule</b></td><td>the ordering strategy the scheduler used (critical-path-first, cheapest-cost-of-delay, stated priority…). Optimize races all of them and shows the best.</td></tr>
   <tr><td><b>effort vs wall-clock</b></td><td>two estimate models. <i>Effort</i>: the estimate is total work, split across a pod's tracks (10 weeks on 2 tracks ≈ 5 calendar weeks). <i>Wall-clock</i>: the estimate already is calendar time. Pick with intent — the Order view explains both.</td></tr>
   <tr><td><b>site overlap</b></td><td>how many working hours two sites share per day, from their real IANA timezones on the modelled date. A handoff across zero shared hours costs more than one across eight — and Conway prices the difference.</td></tr>
   <tr><td><b>fever chart</b></td><td>a date-at-risk picture: buffer consumed vs chain progress. Green is comfortable, amber is burning fast, red has spent the buffer. Dots in red need a decision now.</td></tr>
@@ -153,18 +151,19 @@ in the order you will meet them.</p>
 full reference.</p>
 <table>
   <tr><th>I want to…</th><th>Do this</th><th>And expect</th></tr>
-  <tr><td>put my real org in</td><td>Observe ▸ <b>Import from Jira</b> (OAuth or token). Pick the project; the crawl mines pods, dependencies and cycle times.</td><td>a network that looks like your org, plus a data-hygiene list of what the crawl could not use.</td></tr>
-  <tr><td>plan a period</td><td>Plan ▸ create a plan: attach a roster, upload the initiatives matrix, set period start + horizon. <a class="usage-link" data-anchor="plan-setup">Plan setup ▾</a></td><td>the Order view computing in a few seconds; warnings naming anything the plan is missing.</td></tr>
-  <tr><td>know if the plan is any good</td><td>read the <b>verdict banner</b>, then open <b>⎙ Report</b>. <a class="usage-link" data-anchor="order">The Order view ▾</a></td><td>one sentence, then the detail: what slips, what is the constraint, what it would cost to fix.</td></tr>
-  <tr><td>try a change without committing</td><td>drag bars on the Timeline, or pull a lever in ⚙. <a class="usage-link" data-anchor="timeline">Timeline ▾</a></td><td>the whole schedule recomputed in about a second; every view moves together; ⌘Z undoes.</td></tr>
-  <tr><td>freeze what we agreed</td><td>click the <b>baseline chip</b>, name it, save. <a class="usage-link" data-anchor="baselines">Baselines ▾</a></td><td>the chip turns green with the name; the baselines drawer lists it with activate / compare / delete.</td></tr>
-  <tr><td>see if reality has drifted</td><td>glance at the chip: <span class="tag">inputs have moved</span> means the plan no longer matches the agreement.</td><td>the drawer's save row is highlighted — freeze the changed plan as a new baseline to keep the old one comparable.</td></tr>
-  <tr><td>tune a pod's real capacity</td><td>Plan setup ▸ <b>capacity loss</b> for the plan, or per pod in the <b>Sites &amp; capacity</b> table. <a class="usage-link" data-anchor="sites">Sites ▾</a></td><td>durations change for that pod only; its ρ and every date recompute.</td></tr>
-  <tr><td>price a time-zone seam</td><td>Plan setup ▸ <b>Sites</b> ▸ set each site's IANA timezone. <a class="usage-link" data-anchor="sites">Sites &amp; timezones ▾</a></td><td>cross-site handoffs price from real working-hours overlap; unset sites fall back to the pessimistic default and say so.</td></tr>
-  <tr><td>take one page to a meeting</td><td>⎙ Report ▸ Print. <a class="usage-link" data-anchor="health-report">Health report ▾</a></td><td>a single black-on-white page: the headline, the verdicts, the constraint pods, the remedies.</td></tr>
+  <tr><td>put my real org in</td><td>Measure ▸ <b>Import from Jira</b> (OAuth or token). Pick the project; the crawl mines pods, dependencies and cycle times.</td><td>a network that looks like your org, plus a data-hygiene list of what the crawl could not use.</td></tr>
+  <tr><td>plan a period</td><td>Plan ▸ create a plan: attach a roster, upload the initiatives matrix, set period start + horizon. <a class="usage-link" href="#plan-setup">Plan setup ▾</a></td><td>the Order view computing in a few seconds; warnings naming anything the plan is missing.</td></tr>
+  <tr><td>know if the plan is any good</td><td>read the <b>verdict banner</b>, then open <b>Report</b>. <a class="usage-link" href="#order">The Order view ▾</a></td><td>one sentence, then the detail: what slips, what is the constraint, what it would cost to fix.</td></tr>
+  <tr><td>try a change without committing</td><td>create a named scenario, or preview a remedy before applying it. <a class="usage-link" href="#timeline">Timeline ▾</a></td><td>the agreement stays unchanged. Applied edits autosave to the selected working plan; Undo reverses the last timeline edit.</td></tr>
+  <tr><td>freeze what we agreed</td><td>click the <b>baseline chip</b>, name it, save. <a class="usage-link" href="#baselines">Baselines ▾</a></td><td>the chip turns green with the name; the baselines drawer lists it with activate / compare / delete.</td></tr>
+  <tr><td>check execution against the agreement</td><td>open <b>Execution</b>, select a dated snapshot and inspect coverage before variance. <a href="#execution">Execution review</a></td><td>observations, inferences and data gaps stay distinct; record the next action and review date.</td></tr>
+  <tr><td>see which planning inputs changed</td><td>read <b>inputs have moved</b>, then compare the working plan with the baseline.</td><td>input drift describes a changed plan, not measured delivery. Save a new agreement only after discussing the change.</td></tr>
+  <tr><td>tune a pod's real capacity</td><td>Plan setup ▸ <b>capacity loss</b> for the plan, or per pod in the <b>Sites &amp; capacity</b> table. <a class="usage-link" href="#sites">Sites ▾</a></td><td>durations change for that pod only; its ρ and every date recompute.</td></tr>
+  <tr><td>price a time-zone seam</td><td>Plan setup ▸ <b>Sites</b> ▸ set each site's IANA timezone. <a class="usage-link" href="#sites">Sites &amp; timezones ▾</a></td><td>cross-site handoffs price from real working-hours overlap; unset sites fall back to the pessimistic default and say so.</td></tr>
+  <tr><td>take one page to a meeting</td><td>Report ▸ Print. <a class="usage-link" href="#health-report">Health report ▾</a></td><td>a single black-on-white page: the headline, the verdicts, the constraint pods, the remedies.</td></tr>
 </table>
 
-<h2 id="flow-actions">Flow Actions</h2>
+<h2 id="flow-actions">Levers</h2>
 <p>This is the triage screen. Three panels tell you, right now, what needs
 attention — and what you should stop doing.</p>
 <h3>The constraint</h3>
@@ -193,7 +192,7 @@ your pods, dependencies and cycle times. The picker at the top selects
 <i>which</i> snapshot they render: flip between "this quarter" and "last
 quarter" to see the org change over time.</p>
 <ul>
-  <li><b>Where snapshots come from</b> — <b>Measure ▸ 📥 Import from Jira</b>.
+  <li><b>Where snapshots come from</b> — <b>Measure ▸ Import from Jira</b>.
       Each import creates a new dated snapshot owned by you; the picker lists
       yours, plus any published by others.</li>
   <li><b>When the picker appears</b> — only when there are two or more
@@ -226,7 +225,7 @@ history (not opinion). Left is upstream (platform teams), right is downstream
       distribution, who it blocks and who blocks it</td></tr>
 </table>
 
-<h2 id="scoreboard">Flow Scoreboard</h2>
+<h2 id="scoreboard">WIP Scoreboard</h2>
 <p>The league table of per-pod delivery metrics, mined from the last 180 days
 of Jira data. Sort the columns to answer different questions.</p>
 <h3>Columns and how to use them</h3>
@@ -234,8 +233,7 @@ of Jira data. Sort the columns to answer different questions.</p>
   <tr><th>Column</th><th>What it tells you</th><th>Sort by it when you want to know</th></tr>
   <tr><td>Dependents</td><td>how many pods wait on this one</td><td>"who is
       everyone waiting on?"</td></tr>
-  <tr><td>Queue ρ</td><td>how close to capacity the pod is (≥ 0.85 = already
-      late)</td><td>"who is drowning?"</td></tr>
+  <tr><td>Queue ρ</td><td>how close to capacity the pod is (≥ 0.85 flags high load; ≥ 1.0 reaches capacity)</td><td>"who is drowning?"</td></tr>
   <tr><td>Cycle P85</td><td>the realistic lead time for a task at that
       pod</td><td>"how long will my ask actually take?"</td></tr>
   <tr><td>Kingman ×</td><td>the wait multiplier at current load — ∞ when a pod
@@ -246,7 +244,7 @@ of Jira data. Sort the columns to answer different questions.</p>
 high-dependents: a <b>hub under load</b>. Everyone waits on it, and it's
 already drowning.</p></div>
 
-<h2 id="hygiene">Data Hygiene</h2>
+<h2 id="hygiene">Data Quality</h2>
 <p>The quality of Conway's forecasts depends on the quality of your Jira data.
 This page shows each gap and the pod it distorts, so you know exactly what to
 fix to sharpen every number.</p>
@@ -279,8 +277,7 @@ cycle-time distribution, so the forecast reflects reality, not optimism.</p>
 <h3>Reading the forecast</h3>
 <table>
   <tr><th>Panel</th><th>What it tells you</th></tr>
-  <tr><td>stat cards</td><td>P50, P85, P95 finish dates. <b>Commit the P85</b> —
-      a P50 date is a coin flip.</td></tr>
+  <tr><td>stat cards</td><td>P50, P85, P95 finish dates. P85 means 85% of model trials finished by that point, conditional on the input data and assumptions. Check calibration against observed delivery before treating it as a commitment.</td></tr>
   <tr><td>completion probability (CDF)</td><td>the chance of finishing by any
       given date</td></tr>
   <tr><td>tornado chart</td><td>which pod, if made 25% faster, saves the most
@@ -308,14 +305,15 @@ changes.</p>
       capacity. Your stated priority order is the working plan; the engine's
       best guess appears as a suggestion (↳N) you can accept or ignore.</li>
   <li><b>Shape it</b> — pin priorities to hold them, edit estimates or dates
-      (✎ on any row), or drag bars on the timeline. Every change recomputes
+      (Edit initiative on a row), or drag bars on the timeline. Every change recomputes
       the whole schedule.</li>
-  <li><b>Freeze it</b> — save the agreed order as a <b>baseline</b>. It stores
+  <li><b>Save agreed baseline</b> — save the agreed order as a <b>baseline</b>. It stores
       the schedule and the inputs that produced it, so later re-plans are
       measured against it.</li>
   <li><b>Compare</b> — the live order against a baseline, or two baselines
       against each other. The gap between "what we agreed" and "what we now
       propose" is the decision.</li>
+  <li><b>Review execution</b> — select a recent snapshot, check coverage and inferred dates, then compare observed progress with the agreement. Record the next action, owner, review date and rationale.</li>
 </ol>
 
 <h2 id="plan-setup">Plan setup</h2>
@@ -390,7 +388,7 @@ you can promise and the reason each start is where it is.</p>
   <li>The <b>verdict banner</b> is the whole answer in one sentence: how many
       dates are at risk, and the worst one by name.</li>
   <li>Your <b>stated priority order is the working plan</b>. The engine's
-      suggestion appears as <code>↳N</code> beside the rank. ⚡ Optimize offers
+      suggestion appears as <code>↳N</code> beside the rank. Optimize offers
       its best order — accepting is always your call.</li>
   <li><b>Binds</b> names what set each start: dependency, pod capacity, WIP
       limit, freeze, kit gate, drum stagger, or a pin you placed.</li>
@@ -402,7 +400,7 @@ you can promise and the reason each start is where it is.</p>
 <table>
   <tr><th>Column / action</th><th>What it means</th></tr>
   <tr><td>#</td><td>the order's rank. <code>↳N</code> beside it is the engine's
-      suggestion (click ⚡ Optimize to see it).</td></tr>
+      suggestion (click Optimize to see it).</td></tr>
   <tr><td>Stated</td><td>your priority; <code>2 →1</code> shows the engine's
       counter-proposal. <b>pin</b> holds your rank — <b>unpin</b> releases it
       back to the engine.</td></tr>
@@ -417,7 +415,7 @@ you can promise and the reason each start is where it is.</p>
   <tr><td>✎ edit</td><td>change priority, target date, tier, cost of delay,
       earliest start, dependencies, kit %, progress, or locks — per
       initiative</td></tr>
-  <tr><td>⚡ Optimize order</td><td>runs every dispatch rule and offers its
+  <tr><td>Optimize order</td><td>runs every dispatch rule and offers its
       best order beside yours, priced. Accepting is explicit — the engine
       suggests, you decide.</td></tr>
 </table>
@@ -426,7 +424,7 @@ you can promise and the reason each start is where it is.</p>
 <p>Each dot is a dated initiative read at its target date. The x-axis is how
 much of the chain should be done by then; the y-axis is how much buffer the
 date consumes. Under the green line is comfortable, amber is burning fast, red
-has spent it. The zones match the Observe fever chart, so both views read the
+has spent it. The zones match the Measure fever chart, so both views read the
 same way.</p>
 
 <h2 id="timeline">Timeline</h2>
@@ -449,12 +447,13 @@ a lane per track. The same schedule, seen from two angles.</p>
       pod with a lane per track and per-slice bars</td></tr>
   <tr><td>26w / 52w / all</td><td>how much of the schedule to draw; the period
       end is marked when the view is wider</td></tr>
-  <tr><td>⛶ full screen</td><td>more room for lane-accurate dragging; ESC
+  <tr><td>full screen</td><td>more room for lane-accurate dragging; ESC
       exits</td></tr>
-  <tr><td>filter (by-pod)</td><td>fuzzy initiative search — matching bars
+  <tr><td>initiative and team filters</td><td>independent filters retained between groupings — matching bars
       render, others hide. Matching pods waterfall by earliest start.
       <em>hide empty pods</em> drops untouched pods. <em>show other work as
       ghosts</em> keeps the context faintly visible.</td></tr>
+  <tr><td>select a bar</td><td>opens the persistent inspector, including precise non-drag start, estimate and lane controls and Undo.</td></tr>
   <tr><td>drag a bar (the middle)</td><td>moves the slice's start week;
       vertical drag moves it between the pod's tracks. Overlapping drops are
       refused with the conflict named.</td></tr>
@@ -464,7 +463,7 @@ a lane per track. The same schedule, seen from two angles.</p>
   <tr><td>drag the <b>right edge</b></td><td>changes the estimate: wider means
       more work, narrower means less. The engine re-divides across the pod's
       tracks and every date follows.</td></tr>
-  <tr><td>⌘Z / Ctrl+Z</td><td>undoes the last drag. Not while the health
+  <tr><td>⌘Z / Ctrl+Z</td><td>undoes the last timeline edit. Not while the health
       report is open.</td></tr>
 </table>
 <div class="expect"><p>Every drag is a round-trip through the scheduler, not a
@@ -497,8 +496,7 @@ drawer</b>. It holds everything:</p>
 <div class="expect"><p>The chip is the live status: <span class="tag">matches</span>
 means the plan still agrees with the baseline; <span class="tag">inputs have
 moved</span> means the roster or estimates changed since the freeze — the
-drawer then highlights the save row, because freezing the changed plan as a
-<i>new</i> baseline (keeping the old one) is almost always the move. Nothing
+drawer then highlights the save row. Review the changes with stakeholders before deciding whether to save a new agreement. Input drift alone is not a reason to replace an agreement. Nothing
 is renamed: baselines are immutable snapshots.</p></div>
 <h3>Comparing</h3>
 <ul>
@@ -508,8 +506,16 @@ is renamed: baselines are immutable snapshots.</p></div>
       agreed order and a later proposal.</li>
 </ul>
 
+<h2 id="execution">Review execution against the agreement</h2>
+<p>Open a plan's <b>Execution</b> view after saving an agreed baseline. Select an accessible dated snapshot. Explicit epic keys bind initiatives to Jira evidence; name matches are suggestions that require your confirmation. The review shows initiative and team coverage, missing or removed work, scope changes, estimate and schedule variance, remaining-work forecasts, buffer risk and calibration.</p>
+<p>Read coverage before interpreting variance. An unbound initiative, missing start or unmapped team is an evidence gap, not zero delay. Dates inferred from snapshot fields are labelled; elapsed time is not measured engineering effort. The remaining-work forecast uses agreed duration multiplied by the unfinished child-issue fraction, starting no earlier than the snapshot or agreed start. It is a conditional calendar proxy, not measured effort or live throughput. Gaps, changed scope and completed work do not receive an invented future finish. Snapshot age tells you how current the observation is. Refreshing this view leaves working inputs and the agreement unchanged and never writes to Jira.</p>
+<ol class="steps"><li>Choose the active agreement and the snapshot you are reviewing.</li><li>Confirm epic bindings; resolve unmapped teams and stale or absent evidence.</li><li>Select a team or initiative and inspect the affected commitment.</li><li>Record the corrective action, owner, review date and rationale. Previous decisions remain available for the next review.</li></ol>
+<h2 id="learning">Run a learning session</h2>
+<p>Facilitators use <b>Learn → Run games</b>. Choose a scenario that matches the lesson, create teams and share their join links. Action points are the move budget per round; unused points do not carry over. The timer is meeting time in seconds; each round represents a simulated quarter. The year-long epilogue is simulated, not an extra year of meeting time.</p>
+<p>Use Balanced for comparing ordinary tradeoffs, Constrained for bottleneck and WIP decisions, or Crisis for recovery under pressure. Reserve introduction and debrief time beyond the round timers. Ask what changed, what tradeoff appeared and which assumption participants will test at work. Game scores are learning feedback, not individual performance ratings.</p>
+
 <h2 id="health-report">The health report</h2>
-<p>⎙ <b>Report</b> (beside the view tabs) opens one printable card — the thing
+<p><b>Report</b> (beside the view tabs) opens one printable card — the thing
 to read before a planning meeting, and the thing to bring to it.</p>
 <ul>
   <li><b>the headline</b> — "20 of 29 initiatives will not finish inside the
@@ -555,7 +561,7 @@ The game's coordination costs use the same table.</p></div>
       scheduled until then.</td></tr>
   <tr><td>no period start</td><td>target dates need week 0. Set it in ⚙
       Assumptions — every verdict on the page comes alive.</td></tr>
-  <tr><td>no target dates</td><td>add one via ✎ on any row, or upload a sheet
+  <tr><td>no target dates</td><td>add one via Edit on any row, or upload a sheet
       with a Target Date column. Until then, the order is by capacity and
       priority alone.</td></tr>
   <tr><td>beyond-horizon</td><td>cannot start inside the period. Shorten the
@@ -570,7 +576,7 @@ The game's coordination costs use the same table.</p></div>
   <tr><td>only a couple of bars render</td><td>the plan's <b>WIP model hasn't
       been chosen</b> — the scheduler is holding work behind a small
       concurrent-initiative limit until you pick one. Use the banner on the
-      timeline (or ⚙ Assumptions on the Order view) to choose; the schedule
+      timeline (or Assumptions on the Order view) to choose; the schedule
       recomputes immediately, and the dialog shows what each model costs for
       your plan. Choosing is not cosmetic: strict allows only a few concurrent
       initiatives, off allows all — pick what your org actually runs.</td></tr>
@@ -581,5 +587,20 @@ system has one constraint at a time. Protect it, feed it full-kit work, and
 let everything else wait — the dates you protect are the dates you keep. The
 <code>?</code> chips throughout the app carry these definitions in context.</p>
 
+<script>
+const manualSections = [...document.querySelectorAll('h2[id]')].map((heading) => {
+  let content = heading.textContent;
+  for (let sibling = heading.nextElementSibling; sibling && sibling.tagName !== 'H2'; sibling = sibling.nextElementSibling) content += ' ' + sibling.textContent;
+  return { id: heading.id, title: heading.textContent, content: content.toLowerCase() };
+});
+document.getElementById('manual-search').addEventListener('input', (event) => {
+  const query = event.target.value.trim().toLowerCase();
+  const results = document.getElementById('manual-results'); results.replaceChildren();
+  if (!query) return;
+  const matches = manualSections.filter((section) => section.content.includes(query));
+  const count = document.createElement('p'); count.textContent = `${matches.length} matching sections`; results.append(count);
+  matches.forEach((section) => { const link = document.createElement('a'); link.href = '#' + section.id; link.textContent = section.title; results.append(link); });
+});
+</script>
 </body>
 </html>

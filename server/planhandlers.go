@@ -168,6 +168,16 @@ func (s *server) handlePlanItem(w http.ResponseWriter, r *http.Request, c auth.C
 		return
 	}
 	switch {
+	case sub == "actuals" && r.Method == http.MethodGet:
+		s.planActuals(w, r, p, c)
+	case sub == "decisions" && (r.Method == http.MethodGet || r.Method == http.MethodPost):
+		s.planDecisions(w, r, p, c)
+	case sub == "scenario" && r.Method == http.MethodPost:
+		s.clonePlanScenario(w, r, p, c)
+	case sub == "schedule/remedies/preview" && r.Method == http.MethodPost:
+		s.previewPlanRemedy(w, r, p, c)
+	case sub == "schedule/remedies/apply" && r.Method == http.MethodPost:
+		s.applyPlanRemedy(w, r, p, c)
 	case sub == "teams" && r.Method == http.MethodPost:
 		s.uploadPlanTeams(w, r, p, c)
 	case sub == "teams" && r.Method == http.MethodPatch:
@@ -553,6 +563,27 @@ func (s *server) uploadPlanInitiatives(w http.ResponseWriter, r *http.Request, p
 	if len(plan.Initiatives) == 0 {
 		http.Error(w, "no initiatives found — expected the FullKit matrix", 400)
 		return
+	}
+	var previous []planning.Initiative
+	if len(p.Initiatives) > 0 && json.Unmarshal(p.Initiatives, &previous) != nil {
+		http.Error(w, "Saved initiative bindings are unreadable; upload was not applied.", 500)
+		return
+	}
+	for i := range plan.Initiatives {
+		if plan.Initiatives[i].EpicKeys == nil {
+			for _, old := range previous {
+				if old.Name == plan.Initiatives[i].Name {
+					plan.Initiatives[i].EpicKeys = append([]string(nil), old.EpicKeys...)
+					break
+				}
+			}
+		}
+		keys, err := planning.NormalizeEpicKeys(plan.Initiatives[i].EpicKeys)
+		if err != nil {
+			http.Error(w, plan.Initiatives[i].Name+": "+err.Error(), 400)
+			return
+		}
+		plan.Initiatives[i].EpicKeys = keys
 	}
 	b, _ := json.Marshal(plan.Initiatives)
 	if err := s.db.SavePlanInitiatives(p.ID, b, time.Now().Unix()); err != nil {

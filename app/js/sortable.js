@@ -9,7 +9,7 @@ function numeric(s) {
   return m ? parseFloat(m[0]) : null;
 }
 
-function sortTable(table, col) {
+export function sortTable(table, col) {
   const tbody = table.tBodies[0];
   if (!tbody) return;
   const prev = +(table.dataset.sortCol ?? -1);
@@ -33,15 +33,39 @@ function sortTable(table, col) {
   if (ths) [...ths].forEach((th, i) => {
     th.classList.toggle('sort-asc', i === col && dir > 0);
     th.classList.toggle('sort-desc', i === col && dir < 0);
+    th.setAttribute('aria-sort', i === col ? (dir > 0 ? 'ascending' : 'descending') : 'none');
   });
 }
 
 // register once; import for the side effect.
-document.addEventListener('click', (e) => {
+function activateSort(e) {
   if (e.target.closest('.help')) return; // clicking a ? tooltip shouldn't sort
   const th = e.target.closest('table.sortable thead th');
   if (!th || th.dataset.nosort !== undefined) return;
   const table = th.closest('table');
   const col = [...th.parentNode.children].indexOf(th);
   sortTable(table, col);
-});
+}
+
+// specs/017-planning-and-execution-usability.md:93: dynamically rendered
+// sortable headers retain table semantics and become keyboard operable.
+export function prepareSortable(root = document) {
+  root.querySelectorAll('table.sortable thead th:not([data-nosort])').forEach((th) => {
+    th.tabIndex = 0;
+    th.setAttribute('scope', 'col');
+    if (!th.hasAttribute('aria-sort')) th.setAttribute('aria-sort', 'none');
+    th.setAttribute('aria-label', `${th.textContent.trim()}. Sort with Enter or Space.`);
+  });
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('click', activateSort);
+  document.addEventListener('keydown', (e) => {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('table.sortable thead th:not([data-nosort])')) {
+      e.preventDefault();
+      activateSort(e);
+    }
+  });
+  prepareSortable();
+  new MutationObserver(() => prepareSortable()).observe(document.documentElement, { childList: true, subtree: true });
+}

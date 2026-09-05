@@ -53,6 +53,7 @@ func (w TeamWork) effortWeeks(it Initiative) float64 {
 // the entry point still to be built; §10 Q9 resolved that both exist, with an
 // uploaded sheet winning for the initiatives it names.
 type Initiative struct {
+	EpicKeys    []string            `json:"epicKeys,omitempty"` // specs/017-planning-and-execution-usability.md:89
 	Name        string              `json:"name"`
 	Description string              `json:"description,omitempty"`
 	Leads       map[string]string   `json:"leads,omitempty"`
@@ -163,6 +164,8 @@ func attrKey(h string) string {
 	switch {
 	case l == "":
 		return ""
+	case l == "epics" || l == "epic keys":
+		return "epicKeys"
 	case strings.Contains(l, "priority") && fixed:
 		return "priorityLocked"
 	case strings.Contains(l, "priority"):
@@ -495,6 +498,12 @@ func readInitiativeAttrs(init *Initiative, row []string, attrs map[string]int, a
 	}
 	init.StatedPriority = parseSheetInt(cell("statedPriority"))
 	init.PriorityLocked = truthy(cell("priorityLocked"))
+	if _, ok := attrs["epicKeys"]; ok {
+		init.EpicKeys = splitInitiativeList(cell("epicKeys"))
+		if init.EpicKeys == nil {
+			init.EpicKeys = []string{}
+		}
+	}
 	init.TargetDate = parseSheetDate(cell("targetDate"))
 	init.DateLocked = truthy(cell("dateLocked"))
 	init.Tier = parseSheetInt(cell("tier"))

@@ -13,11 +13,11 @@ import {
 
 const sched = {
   initiatives: [
-    { name: 'Alpha rollout', verdict: 'on-time' },
+    { name: 'Alpha rollout', verdict: 'on-time', commitWeek: 6 },
     { name: 'Beta migration', verdict: 'beyond-horizon', weeksLate: 12 },
     { name: 'Gamma cutover', verdict: 'beyond-horizon' },
-    { name: 'Delta portal', verdict: 'structurally-infeasible' },
-    { name: 'Epsilon ui', verdict: 'no-date' },
+    { name: 'Delta portal', verdict: 'structurally-infeasible', commitWeek: 30 },
+    { name: 'Epsilon ui', verdict: 'no-date', commitWeek: 12 },
   ],
   podWeeks: [
     { pod: 'Atlas', flatRho: 1.2, tracks: 3 },
@@ -31,9 +31,9 @@ const sched = {
 };
 
 test('the fit sentence states the headline (AC 1.2)', () => {
-  assert.equal(fitSentence(sched), '3 of 5 initiatives will not finish inside the period.');
-  const green = fitSentence({ initiatives: [{ name: 'A', verdict: 'on-time' }] });
-  assert.equal(green, 'The one initiative commits inside the period.');
+  assert.equal(fitSentence(sched), '3 of 5 initiatives will not finish inside the period. 1 initiative misses its target.');
+  const green = fitSentence({ horizonWeeks: 26, initiatives: [{ name: 'A', verdict: 'on-time', commitWeek: 6 }] });
+  assert.equal(green, 'The one initiative is forecast inside the period.');
   assert.equal(fitSentence({ initiatives: [] }), 'No initiatives are scheduled yet.');
 });
 
@@ -110,14 +110,14 @@ test('the card carries the fit sentence, rule, and generated-at (FR-003, FR-011)
   assert.match(html, /period starts 2026-09-01, horizon 26w/);
 });
 
-test('unknown verdicts render generically and count as not landing (upgrade tolerance)', () => {
+test('missing forecast evidence remains unknown and verdicts render generically (upgrade tolerance)', () => {
   // A server newer than the page may emit a verdict this page has no label
   // for — it must appear in the distribution and never read as all-green.
   const future = { initiatives: [
     { name: 'A', verdict: 'on-time' },
     { name: 'B', verdict: 'quantum-late' },
   ] };
-  assert.equal(fitSentence(future), '1 of 2 initiatives will not finish inside the period.');
+  assert.equal(fitSentence(future), 'Period fit is unknown for 2 initiatives.');
   const html = verdictSectionHTML(future);
   assert.match(html, /<b>1<\/b> quantum-late: B/, 'the unknown verdict renders generically');
   assert.match(html, /<b>1<\/b> on time/, 'and the known ones still render');

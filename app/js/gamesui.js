@@ -2,6 +2,7 @@ import { openModal, closeModal } from './modal.js';
 // Facilitator panel for multi-game: create games (with a scenario), share the
 // join code/link, open rounds, project the per-game leaderboard, reset/delete.
 import { authFetch } from './auth.js';
+import { icon } from './icons.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 async function req(p, o) { try { return await authFetch(p, o); } catch { return null; } }
@@ -12,15 +13,18 @@ export async function openGames() {
     ov = document.createElement('div');
     ov.id = 'games-overlay';
     ov.innerHTML = `<div id="games-modal">
-      <div class="guide-head"><h2>Games</h2><button id="games-close">✕</button></div>
+      <div class="guide-head"><h2>Games</h2><button id="games-close" aria-label="Close games">Close</button></div>
+      <p>Practise decisions about scope, WIP and dependencies together. Action points are a move budget that resets each round; unused points expire. One round represents a simulated quarter. The timer is meeting time.</p>
       <div class="games-create">
-        <input id="g-name" placeholder="Game name (e.g. Q3 Offsite)">
-        <label class="hint">rounds <input id="g-rounds" type="number" min="1" max="8" value="4" style="width:46px"></label>
-        <label class="hint">AP <input id="g-ap" type="number" min="2" max="6" value="5" style="width:42px"></label>
-        <label class="hint">timer s <input id="g-timer" type="number" min="0" max="3600" value="300" style="width:62px"></label>
-        <select id="g-scenario" title="Scenario / difficulty (seed)"></select>
+        <input id="g-name" aria-label="Game name" placeholder="Game name (e.g. Q3 Offsite)">
+        <label class="hint">Rounds <input id="g-rounds" type="number" min="1" max="8" value="4" style="width:46px"></label>
+        <label class="hint">Action points / round <input id="g-ap" type="number" min="2" max="6" value="5" style="width:42px"></label>
+        <label class="hint">Round timer (seconds) <input id="g-timer" type="number" min="30" max="3600" value="300" style="width:62px"></label>
+        <select id="g-scenario" aria-label="Scenario" title="Scenario / difficulty (seed)"></select>
         <button id="g-create" class="primary">Create game</button>
       </div>
+      <p id="game-duration" class="hint" aria-live="polite"></p>
+      <p class="hint">Balanced: practise ordinary tradeoffs. Constrained: higher load and less morale, to practise protecting a bottleneck. Crisis: heavier load and interruptions, to practise recovery. Default uses the Balanced difficulty. Snapshot and plan seeds start from their own inputs.</p>
       <div id="games-editor"></div>
       <div id="games-list"></div>
       <div id="games-roster"></div>
@@ -31,6 +35,14 @@ export async function openGames() {
     // shouldn't vanish on a stray click; the ✕ button is the deliberate exit.
     ov.querySelector('#games-close').addEventListener('click', () => closeModal(ov));
     ov.querySelector('#g-create').addEventListener('click', createGame);
+    const duration = () => {
+      const rounds = +ov.querySelector('#g-rounds').value;
+      const seconds = +ov.querySelector('#g-timer').value;
+      ov.querySelector('#game-duration').textContent = `${Math.ceil(rounds * seconds / 60)} minutes of round timers for ${rounds} simulated quarters. Allow extra time for introduction, results and debrief; the epilogue simulates a year.`;
+    };
+    ov.querySelector('#g-rounds').addEventListener('input', duration);
+    ov.querySelector('#g-timer').addEventListener('input', duration);
+    duration();
   }
   openModal(ov);
   refreshGames();
@@ -103,11 +115,11 @@ async function editGame(gid) {
   box.innerHTML = `
     <h3 style="margin-top:16px">Edit “${esc(g.name)}” <a class="plan-back" id="edit-close">✕ close</a></h3>
     <div class="games-create">
-      <input id="eg-name" value="${esc(g.name)}" placeholder="Game name">
-      <label class="hint">rounds <input id="eg-rounds" type="number" min="1" max="8" value="${g.rounds}" style="width:46px"></label>
-      <label class="hint">AP <input id="eg-ap" type="number" min="2" max="6" value="${g.ap}" style="width:42px"></label>
-      <label class="hint">timer s <input id="eg-timer" type="number" min="30" max="3600" value="${g.timerSecs}" style="width:62px"></label>
-      <select id="eg-scenario" title="Scenario / difficulty (seed)"></select>
+      <input id="eg-name" aria-label="Game name" value="${esc(g.name)}" placeholder="Game name">
+      <label class="hint">Rounds <input id="eg-rounds" type="number" min="1" max="8" value="${g.rounds}" style="width:46px"></label>
+      <label class="hint">Action points / round <input id="eg-ap" type="number" min="2" max="6" value="${g.ap}" style="width:42px"></label>
+      <label class="hint">Round timer (seconds) <input id="eg-timer" type="number" min="30" max="3600" value="${g.timerSecs}" style="width:62px"></label>
+      <select id="eg-scenario" aria-label="Scenario" title="Scenario / difficulty (seed)"></select>
       <button id="eg-save" class="primary">Save</button>
     </div>
     <p class="hint">Changing the scenario only re-seeds teams that begin play afterward.</p>`;
@@ -124,7 +136,7 @@ async function editGame(gid) {
       scenario: box.querySelector('#eg-scenario').value,
     };
     const rr = await req('/api/games/' + gid, { method: 'PATCH', body: JSON.stringify(body) });
-    if (rr && !rr.ok) { alert((await rr.text()).trim() || 'Could not save'); return; }
+    if (!rr || !rr.ok) { alert((rr && (await rr.text()).trim()) || 'Could not save; your edits remain here. Retry when connected.'); return; }
     box.innerHTML = '';
     refreshGames();
   });
@@ -140,7 +152,7 @@ async function renderRoster(gid, name) {
   box.innerHTML = `
     <h3 style="margin-top:16px">Teams in “${esc(name)}” <a class="plan-back" id="roster-close">✕ close</a></h3>
     <div class="games-create">
-      <input id="rt-name" placeholder="Team name (e.g. Team 1)">
+      <input id="rt-name" aria-label="Team name" placeholder="Team name (e.g. Team 1)">
       <button id="rt-add" class="primary">Add team</button>
       <span class="hint">each team gets its own join link to share</span>
     </div>
@@ -186,10 +198,10 @@ async function refreshGames() {
       <td>${g.open ? `<span style="color:var(--green)">open · round ${g.openRound}</span>` : 'closed'}</td>
       <td class="btn-row">
         <button class="g-round primary" data-id="${g.id}">open next round ▶</button>
-        <button class="g-test" data-id="${g.id}">🧪 test</button>
-        <button class="g-edit" data-id="${g.id}">✏️ edit</button>
-        <button class="g-teams" data-id="${g.id}" data-name="${esc(g.name)}">🧑 teams</button>
-        <button class="g-board" data-id="${g.id}">🏆 leaderboard</button>
+        <button class="g-test" data-id="${g.id}">${icon('play')} Test game</button>
+        <button class="g-edit" data-id="${g.id}">${icon('edit')} Edit game</button>
+        <button class="g-teams" data-id="${g.id}" data-name="${esc(g.name)}">${icon('users')} Manage teams</button>
+        <button class="g-board" data-id="${g.id}">${icon('chart')} Leaderboard</button>
         <button class="g-reset" data-id="${g.id}">reset</button>
         <button class="g-del" data-id="${g.id}">delete</button>
       </td></tr>`).join('')}</tbody></table>`;
@@ -262,8 +274,8 @@ async function renderScenarios() {
       <td>${s.mine ? vis : '<span class="hint">shared</span>'}</td>
       <td>
         <button class="sc-use" data-id="${s.id}" data-name="${esc(s.name || s.id)}">use in new game</button>
-        <button class="sc-dl" data-id="${s.id}" data-name="${esc(s.name || s.id)}">⬇ download</button>
-        <button class="sc-dup" data-id="${s.id}" data-name="${esc(s.name || s.id)}">📋 duplicate</button>
+        <button class="sc-dl" data-id="${s.id}" data-name="${esc(s.name || s.id)}">${icon('download')} Download</button>
+        <button class="sc-dup" data-id="${s.id}" data-name="${esc(s.name || s.id)}">${icon('copy')} Duplicate</button>
         ${s.mine && tmpl ? `<button class="sc-pub" data-id="${s.id}" data-pub="${s.public ? 1 : 0}">${s.public ? 'make private' : 'make public'}</button>
           <button class="sc-ren" data-id="${s.id}" data-name="${esc(s.name || '')}">rename</button>
           <button class="sc-del" data-id="${s.id}" data-name="${esc(s.name || s.id)}">delete</button>` : ''}
@@ -272,8 +284,8 @@ async function renderScenarios() {
   box.innerHTML = `
     <h3 style="margin-top:18px">Scenario library <span class="hint">— org snapshots &amp; editable templates you can seed games from</span></h3>
     <div class="games-create">
-      <button id="sc-upload">⬆ Upload network file</button>
-      <button id="sc-sample">⬇ Download sample format</button>
+      <button id="sc-upload">${icon('upload')} Upload network file</button>
+      <button id="sc-sample">${icon('download')} Download sample format</button>
       <input id="sc-file" type="file" accept="application/json,.json" hidden>
       <span class="hint">Download a network → edit the JSON → upload it as a reusable template. Pods in the file are the teams.</span>
     </div>

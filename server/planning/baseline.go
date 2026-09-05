@@ -61,6 +61,19 @@ func copyInitiatives(inits []Initiative) []Initiative {
 			}
 		}
 		c.AfterInitiatives = append([]string(nil), it.AfterInitiatives...)
+		c.EpicKeys = append([]string(nil), it.EpicKeys...)
+		if it.PinnedStarts != nil {
+			c.PinnedStarts = make(map[string]int, len(it.PinnedStarts))
+			for k, v := range it.PinnedStarts {
+				c.PinnedStarts[k] = v
+			}
+		}
+		if it.PinnedLanes != nil {
+			c.PinnedLanes = make(map[string]int, len(it.PinnedLanes))
+			for k, v := range it.PinnedLanes {
+				c.PinnedLanes[k] = v
+			}
+		}
 		out[i] = c
 	}
 	return out

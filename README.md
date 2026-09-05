@@ -16,11 +16,11 @@ coding. They are caused by waiting: a handoff across a time-zone seam, a pod at
 costs are invisible in every planning spreadsheet. Conway makes them the first
 thing you see.
 
-## Three lenses — Observe · Plan · Train
+## Three lenses — Measure · Plan · Learn
 
-One pod map and one flow engine, seen three ways:
+Related views with distinct models: snapshot analytics, a scheduler driven by entered planning inputs, and a learning simulation. Forecasts depend on their source data and assumptions.
 
-### Observe — what is actually happening
+### Measure — what is actually happening
 
 Mined from Jira (OAuth or API token): the cross-pod dependency network, WIP and
 queue time per pod, data-hygiene gaps that starve the model, Monte-Carlo
@@ -40,13 +40,15 @@ what slips, and what is the binding constraint?*
   constraint (pod capacity, a dependency, a WIP limit, a date lock, a freeze
   window), and a fit line states plainly how much of the plan the period can
   absorb.
-- **Drag-to-edit.** Grab a bar on the timeline: moving it pins the start,
+- **Working-plan edits.** Grab a bar on the timeline: moving it pins the start,
   stretching an edge changes the estimate — and the edit re-runs the whole
   engine, so every view, the Order table, the heatmap and the health report
-  agree by construction. One-level undo included.
+  agree by construction. Applied edits autosave to the current working plan with save/error feedback. Precise inspector controls and one-level Undo are also available.
 - **Baselines.** Freeze the agreed order — schedule, roster, parameters — into
   a named, immutable baseline. Compare any two later; the chip tells you when
   the plan's inputs have drifted from the agreement.
+- **Named scenarios and remedy previews.** Copy working inputs into an independent named plan without an inherited agreement, or review a proposed remedy and affected commitments before applying it.
+- **Execution review.** Compare snapshot-derived evidence with an agreed baseline. Review binding coverage, scope changes and inferred dates before interpreting variance; record the next action, owner, review date and rationale. Refreshing observations leaves agreement and working inputs unchanged.
 - **Per-pod capacity loss.** An ops-heavy pod and a greenfield pod do not lose
   the same fraction of their tracks; each pod can override the plan's global
   figure.
@@ -60,7 +62,7 @@ what slips, and what is the binding constraint?*
 - **What-if levers** priced before/after: add capacity, descope, defer, reduce
   WIP, un-pair — with the victims named.
 
-### Train — rehearse it
+### Learn — rehearse it
 
 A multi-team learning game teaching the same levers. Seed a game from a
 difficulty preset, a published org snapshot, or an editable **scenario
@@ -233,7 +235,7 @@ name, not yet by `file:line`).
   history-based dependency suggestions
 - **Flow Scoreboard** / **Data Hygiene** — per-pod flow stats and the data
   gaps starving the model, drillable to individual Jiras
-- **✦ Guide** — persona playbooks (exec / lead / PM) with live insights
+- **Help** — contextual manual, search, first-plan walkthrough, task recipes and remembered role guidance
 
 See `SPEC.md` for the model and the path to a shareable v2.
 

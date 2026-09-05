@@ -7,7 +7,9 @@ import { initHygiene } from './hygiene.js';
 import { workStreams } from './sim.js';
 import { initGameUI } from './gameui.js';
 import { initAuth, isStaff, hasRole, authMode } from './auth.js';
-import { initPlanUI } from './planui.js';
+import { initPlanUI, restorePlanLocation } from './planui.js';
+import { readRoute, writeRoute, restoringRoute } from './navigation.js';
+import { icon } from './icons.js';
 import { setSnapshot, getSnapshot, dataJson, listSnapshots } from './data.js';
 import { openImport } from './importui.js';
 import { openSnapshots } from './snapshotsui.js';
@@ -74,7 +76,7 @@ async function load() {
 
   const badge = document.getElementById('data-badge');
   if (!state.pods.length) {
-    badge.textContent = 'no org snapshot yet';
+    badge.textContent = 'No snapshot data loaded';
     badge.className = 'badge warn';
   } else if (state.mined) {
     badge.textContent = `${state.pods.length} pods · ${state.edges.length} cross-pod edges`;
@@ -105,6 +107,19 @@ async function load() {
     initHome(state); // staff landing dashboard
   }
   applyRoleGating();
+  await restoreWorkspace();
+  window.addEventListener('popstate', restoreWorkspace);
+}
+
+async function restoreWorkspace() {
+  const route=readRoute(location.href);
+  let target=route.view;
+  if(authMode() === 'auth' && !isStaff()) target='game';
+  else if(target === 'plan' && authMode() === 'auth' && !hasRole('manager')) target='home';
+  await restoringRoute(async()=>{
+    document.querySelector(`.tab[data-view="${target}"]`)?.click();
+    if(target === 'plan') await restorePlanLocation(route);
+  });
 }
 
 // Rosters, Import, and Snapshots are observation tools (capturing & comparing
@@ -217,6 +232,7 @@ document.querySelectorAll('.tab[data-view]').forEach((b) => b.addEventListener('
   document.querySelectorAll('.tab[data-view]').forEach((x) => x.classList.toggle('active', x === b));
   document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === `view-${b.dataset.view}`));
   syncSnapshotPicker();
+  writeRoute({view:b.dataset.view});
 }));
 
 // Explore ▾ dropdown: groups the analytics views under one menu so the top bar
@@ -242,9 +258,9 @@ document.getElementById('net-plan')?.addEventListener('click', () => document.ge
     const next = document.documentElement.dataset.bsTheme === 'light' ? 'dark' : 'light';
     document.documentElement.dataset.bsTheme = next;
     localStorage.setItem('conway-theme', next);
-    btn.textContent = next === 'light' ? '☀' : '☾';
+    btn.innerHTML = icon(next === 'light' ? 'sun' : 'moon') + (next === 'light' ? 'Light theme' : 'Dark theme');
   });
-  if (btn) btn.textContent = document.documentElement.dataset.bsTheme === 'light' ? '☀' : '☾';
+  if (btn) btn.innerHTML = icon(document.documentElement.dataset.bsTheme === 'light' ? 'sun' : 'moon') + (document.documentElement.dataset.bsTheme === 'light' ? 'Light theme' : 'Dark theme');
 })();
 
 // gate the app behind login when the server is present (dev/static: passes through)

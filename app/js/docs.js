@@ -27,14 +27,18 @@ function ensureOverlay() {
       </div>
     </div>`;
   document.body.appendChild(overlay);
-  // Forward Escape from inside the iframe: key events stay in the iframe's
-  // document and BS Modal never sees them (cubic P2).
-  const frm = overlay.querySelector('#docs-frame');
-  frm.addEventListener('load', () => {
-    frm.contentWindow.document.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Escape') { const m = bootstrap.Modal.getInstance(ov); if (m) m.hide(); }
+  // specs/017-planning-and-execution-usability.md:92 — iframe focus stays
+  // in its document. Reattach after each navigation, including the first load.
+  const frame = overlay.querySelector('#docs-frame');
+  frame.addEventListener('load', () => {
+    const doc = frame.contentDocument;
+    if (!doc) return;
+    if (frame.contentWindow.location.pathname.endsWith('/docs.html')) frame.dataset.loaded = '1';
+    doc.documentElement.setAttribute('data-bs-theme', document.documentElement.getAttribute('data-bs-theme') || 'dark');
+    doc.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape') { ev.preventDefault(); closeModal(overlay); }
     });
-  }, { once: true });
+  });
   return overlay;
 }
 
@@ -54,11 +58,6 @@ export function openDocs(section) {
       document.documentElement.getAttribute('data-bs-theme') || 'dark');
   } else {
     frame.src = target;
-    frame.addEventListener('load', () => {
-      frame.dataset.loaded = '1';
-      frame.contentWindow.document.documentElement.setAttribute('data-bs-theme',
-        document.documentElement.getAttribute('data-bs-theme') || 'dark');
-    }, { once: true });
   }
 }
 
@@ -68,7 +67,14 @@ export function initDocs() {
   document.addEventListener('click', (ev) => {
     const b = ev.target.closest?.('[data-docs]');
     if (!b) return;
-    const section = b.dataset.docs;
+    ev.preventDefault();
+    let section = b.dataset.docs;
+    if (section === 'context') {
+      const view = document.querySelector('main > .view.active')?.id?.replace('view-', '');
+      section = view === 'plan'
+        ? (document.querySelector('.plan-views .btn.active')?.id?.replace('view-', '') || 'planning-loop')
+        : ({ home: 'start', flow: 'flow-actions', game: 'learning' }[view] || view || 'what');
+    }
     openDocs(section === 'docs-top' ? '' : section);
   });
 }

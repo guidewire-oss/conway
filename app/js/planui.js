@@ -2,6 +2,11 @@
 // sees the directed cross-pod dependency network with per-pod utilization (ρ)
 // and the constraint pods. Levers/what-if come in a later phase.
 import { authFetch } from './auth.js';
+import { readRoute, writeRoute } from './navigation.js';
+import { icon } from './icons.js';
+import { openModal, closeModal, containFocus } from './modal.js';
+import { mountExecution } from './executionui.js';
+import { openImport } from './importui.js';
 import {
   heatColor, layoutColumns, bezierEdgePath, appendArrowMarker,
   enablePanZoom, enableNodeDrag, makeSpotlight,
@@ -12,18 +17,18 @@ import { attachDrag } from './drag.js';
 import { openDocs } from './docs.js';
 import { fuzzyMatch } from './filter.js';
 import { term } from './terms.js';
-import { baselineChipHTML, baselinesDrawerHTML, saveErrorMessage, latestOnly, activeBaseline } from './baseline.js';
+import { baselineChipHTML, baselinesDrawerHTML, saveErrorMessage, latestOnly, activeBaseline, compareTableHTML } from './baseline.js';
 import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
-import { portfolioTimelineHTML, podLensHTML, podSheetHTML, timelineControlsHTML } from './timeline.js';
+import { portfolioTimelineHTML, podLensHTML, podSheetHTML, timelineControlsHTML, timelineInspectorHTML, timelineEditsFromRows } from './timeline.js';
 import { healthReportHTML, remediesSectionHTML } from './report.js';
 
 let root, current = null;
-// Spec 008 S4: one-level undo for timeline drags. dragUndo snapshots the
-// pre-drag scheduling params of the last-dragged initiative (the full pin
-// maps — the PATCH replaces them — plus the pod's prior effort weeks); ⌘Z
-// PATCHes them back. A dialog save or a second drag replaces the snapshot;
-// the undo itself is not undoable.
+// specs/017-planning-and-execution-usability.md:86: successful timeline edits
+// retain undo history; failed saves and failed undo never consume an entry.
 let dragUndo = null;
+let dragHistory = [];
+let timelineMutationPending = false;
+let planLoadTicket = 0;
 // The initiatives file the planner picked but has not previewed yet (review):
 // selecting a file no longer throws the plan into draft preview — the Preview
 // button does, after validating the roster and strict-mode warnings.
@@ -81,7 +86,7 @@ export function initPlanUI() {
       return;
     }
     const d = document.getElementById('sched-dialog');
-    if (d && !d.hidden) { d.hidden = true; document.getElementById('sched-open')?.focus(); }
+    if (d && !d.hidden) { d.hidden = true; if(current) current.assumptionsDismissed=true; document.getElementById('sched-open')?.focus(); }
   });
   // Focus-in on open: the first field, so keyboard and screen-reader users
   // land inside the dialog that aria-modal just told them owns the page.
@@ -102,7 +107,39 @@ export function initPlanUI() {
 
 const fmtDate = (ts) => ts ? new Date(ts * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—';
 
-async function req(path, opts) { try { return await authFetch(path, opts); } catch { return null; } }
+function planNotice(message, error = false) {
+  if (current) current.saveNotice = {message, error};
+  const el = document.getElementById('plan-save-status');
+  if (el) { el.textContent = message; el.classList.toggle('plan-warn', error); el.setAttribute('role', error ? 'alert' : 'status'); }
+}
+async function req(path, opts = {}) {
+  const method = opts.method || 'GET';
+  const write = method !== 'GET' && !/\/(schedule(?:\/remedies)?|simulate|compare|preview)$/.test(path);
+  const planId = current?.id;
+  if (write) planNotice('Saving…');
+  try {
+    const response = await authFetch(path, opts);
+    if (write && current?.id === planId) {
+      const why = response.ok ? '' : (await response.clone().text()).slice(0, 240);
+      if (current?.id === planId) planNotice(response.ok ? 'Changes saved.' : `Could not save: ${why || response.status}`, !response.ok);
+    }
+    return response;
+  } catch {
+    if (write && current?.id === planId) planNotice('Could not save: the server could not be reached. Your pending input is still here.', true);
+    return null;
+  }
+}
+function rememberPlanRoute(replace = false) {
+  if (!current) return;
+  writeRoute({view:'plan', plan:current.id, planView:view(), lens:current.tlLens || 'initiative', initiative:current.tlInitiativeFilter, team:current.tlTeamFilter, selected:current.selectedInitiative}, replace);
+  try { localStorage.setItem(`conway-plan-view-${current.id}`, view()); } catch { /* optional preference */ }
+}
+export async function restorePlanLocation(route = readRoute(location.href)) {
+  if (!root) return;
+  if (!route.plan) { await renderList(); return; }
+  await openPlan(route.plan, route);
+}
+
 
 // dragNote paints the drag outcome line above the timeline (success is
 // silence; a refusal names the conflict). Module level so undoDrag — which
@@ -127,54 +164,66 @@ function snapshotDragUndo(it, pod) {
     pod,
     pinnedStarts: { ...(it.pinnedStarts || {}) },
     pinnedLanes: { ...(it.pinnedLanes || {}) },
-    weeks: it.work?.[pod]?.weeks,
+    estimateEdits: Object.fromEntries(Object.entries(it.work || {})
+      .filter(([key, work]) => (!pod || key === pod) && Number.isFinite(work.weeks) && work.weeks > 0)
+      .map(([key, work]) => [key, work.weeks])),
   };
 }
 
-// undoDrag restores the pre-drag scheduling params of the last timeline drag
-// (spec 008 S4): one level, drags only, and the undo itself is not undoable.
+// Undo restores full pin maps and the prior estimates for all affected teams.
 async function undoDrag() {
-  const u = dragUndo;
-  if (!u || !current || current.id !== u.planId || current.isDraft) return;
+  const u = dragHistory.at(-1);
+  if (timelineMutationPending || !u || !current || current.id !== u.planId || current.isDraft) return;
   const it = (current.initiatives || []).find((i) => i.name === u.name);
   if (!it) return;
   const edit = { name: u.name, pinnedStarts: u.pinnedStarts, pinnedLanes: u.pinnedLanes };
-  if (u.weeks !== undefined && u.weeks > 0) edit.estimateEdits = { [u.pod]: u.weeks };
-  dragUndo = null;
+  if (Object.keys(u.estimateEdits || {}).length) edit.estimateEdits = u.estimateEdits;
+  timelineMutationPending = true;
   const atEpoch = orderEpoch; // captured before the PATCH (cubic P1)
+  try {
   const r = await req('/api/plan/' + u.planId + '/initiatives', {
     method: 'PATCH', body: JSON.stringify({ initiatives: [edit] }),
   });
+  if (!current || current.id !== u.planId || orderEpoch !== atEpoch) return;
   if (!r || !r.ok) {
     const why = r ? await r.text() : 'the request did not reach the server';
-    dragNote(why.slice(0, 200));
+    if (current?.id === u.planId && orderEpoch === atEpoch) dragNote(why.slice(0, 200));
     return;
   }
-  if (orderEpoch !== atEpoch) return; // a recompute landed while the PATCH was away
-  dragNote('');
-  try {
-    const d = await r.json();
-    if (Array.isArray(d.initiatives)) current.initiatives = d.initiatives;
-  } catch { /* cache stays; the server is authoritative */ }
-  current.schedule = null;
+  const d = await r.json();
+  if (!current || current.id !== u.planId || orderEpoch !== atEpoch) return;
+  if (!Array.isArray(d.initiatives)) throw new Error('The saved inputs could not be read. Reload the plan before editing again.');
+  current.initiatives = d.initiatives;
+  dragHistory.pop();
+  dragUndo = dragHistory.at(-1) || null;
+  staleOrder();
   if (view() === 'order') await renderOrder(); else if (view() === 'timeline') await renderTimeline(); else await renderDash();
+  } catch (error) {
+    if (current?.id === u.planId) dragNote(error.message || 'Undo could not be saved. Try again.');
+  } finally {
+    timelineMutationPending = false;
+  }
 }
 
 async function renderList() {
+  const ticket = ++planLoadTicket;
   current = null;
+  writeRoute({view:'plan', plan:null, planView:null, selected:null, initiative:null, team:null, lens:null});
   root.innerHTML = '<p class="hint">Loading plans…</p>';
   const r = await req('/api/plan');
+  if (ticket !== planLoadTicket) return;
   if (!r || !r.ok) { root.innerHTML = '<p class="hint">Could not load plans (need the manager role).</p>'; return; }
   const plans = await r.json();
+  if (ticket !== planLoadTicket) return;
   root.innerHTML = `
     <div class="plan-head"><h2>Your plans</h2><button id="plan-new" class="primary">+ New plan</button><button id="plan-demo">Load demo plan</button></div>
     <p class="hint">Sample files to try the upload path: <a href="/api/sample/teams.csv" download>teams.csv</a> · <a href="/api/sample/initiatives.xlsx" download>initiatives.xlsx</a> (same data as the demo).</p>
     <table class="wip-table">
       <thead><tr><th>Name</th><th>Pods</th><th>Initiatives</th><th>Health</th><th>Updated</th><th></th></tr></thead>
       <tbody>${(plans || []).map((p) => `<tr>
-        <td><a class="plan-open" data-id="${p.id}">${esc(p.name)}</a></td>
+        <td><button type="button" class="plan-open" data-id="${esc(p.id)}">${esc(p.name)}</button></td>
         <td>${p.teamCount || 0}</td><td>${p.initiativeCount || 0}</td>
-        <td><span class="tag">${p.estimateModel === 'effort' ? 'effort' : 'wall-clock'}</span> ${p.periodStart ? '<span class="tag" style="color:var(--green)">dates ✓</span>' : '<span class="hint">no dates</span>'} ${p.baselineCount ? `<span class="tag">${p.baselineCount} baseline${p.baselineCount > 1 ? 's' : ''}</span>` : ''}</td>
+        <td><span class="tag">${p.estimateModel === 'effort' ? 'effort' : 'wall-clock'}</span> ${p.periodStart ? '<span class="tag" style="color:var(--green)">dates set</span>' : '<span class="hint">no dates</span>'} ${p.baselineCount ? `<span class="tag">${p.baselineCount} baseline${p.baselineCount > 1 ? 's' : ''}</span>` : ''}</td>
         <td>${fmtDate(p.updatedAt)}</td>
         <td><button class="plan-del" data-id="${p.id}">delete</button></td></tr>`).join('')
       || '<tr><td colspan="6" class="hint">No plans yet — create one to upload your teams &amp; initiatives.</td></tr>'}
@@ -188,8 +237,8 @@ async function renderList() {
   root.querySelectorAll('.plan-open').forEach((a) => a.addEventListener('click', () => openPlan(a.dataset.id)));
   root.querySelectorAll('.plan-del').forEach((b) => b.addEventListener('click', async () => {
     if (!confirm('Delete this plan?')) return;
-    await req('/api/plan/' + b.dataset.id, { method: 'DELETE' });
-    renderList();
+    const res = await req('/api/plan/' + b.dataset.id, { method: 'DELETE' });
+    if (res?.ok) renderList(); else b.after(Object.assign(document.createElement('span'), {textContent:' Could not delete the plan.'}));
   }));
 }
 
@@ -201,14 +250,28 @@ async function createPlan() {
   openPlan((await r.json()).id);
 }
 
-async function openPlan(id) {
+async function openPlan(id, route = null) {
+  const ticket = ++planLoadTicket;
+  const prior = current?.id === id ? current : null;
   staleOrder(); // any order request still in flight belongs to the plan being left
   root.innerHTML = '<p class="hint">Loading plan…</p>';
   const r = await req('/api/plan/' + id);
+  if (ticket !== planLoadTicket) return;
   if (!r || !r.ok) { root.innerHTML = '<p class="hint">Could not load plan.</p>'; return; }
-  current = await r.json();
-  current.tlFilter = ''; current.tlHideEmpty = false; // lens filter state is per-plan (spec 010 FR-004)
+  const loaded = await r.json();
+  if (ticket !== planLoadTicket) return;
+  current = loaded;
+  let remembered; try { remembered = localStorage.getItem(`conway-plan-view-${id}`); } catch { /* optional */ }
+  current.view = route?.planView || prior?.view || remembered || 'order';
+  current.tlLens = route?.lens || prior?.tlLens || 'initiative';
+  current.tlInitiativeFilter = route?.initiative ?? prior?.tlInitiativeFilter ?? '';
+  current.tlTeamFilter = route?.team ?? prior?.tlTeamFilter ?? '';
+  current.selectedInitiative = route?.selected ?? prior?.selectedInitiative ?? '';
+  current.saveNotice = prior?.saveNotice;
+  current.tlHideEmpty = prior?.tlHideEmpty || false; // lens filter state is per-plan (spec 010 FR-004)
   await loadBaselines(); // the header chip needs these before the first paint
+  if (ticket !== planLoadTicket) return;
+  if (!route) rememberPlanRoute();
   renderPlan();
 }
 
@@ -227,12 +290,17 @@ function renderPlan() {
     <div class="plan-head">
       <nav class="plan-crumbs" aria-label="You are here"><button type="button" class="plan-back">Plans</button><span class="hint">›</span><b>${esc(p.name)}</b></nav>
       <h2>${esc(p.name)}</h2>
-      <label class="hint">horizon <input id="plan-horizon" type="number" min="1" max="104" value="${p.horizonWeeks}" style="width:56px">w</label>
-      <label class="hint">capacity loss <input id="plan-loss" type="number" min="0" max="90" value="${Math.round((p.capacityLoss || 0) * 100)}" style="width:52px">%</label>
-      <button id="plan-save">Save</button>
+      <span class="hint">${esc(p.scheduling?.periodStart || 'Period start not set')} · ${p.horizonWeeks} weeks</span>
+      <button type="button" id="plan-scenario" ${p.isDraft ? 'disabled' : ''}>${icon('copy')}Create scenario copy</button>
+      <span id="plan-save-status" role="status" aria-live="polite" class="hint ${p.saveNotice?.error ? 'plan-warn' : ''}">${esc(p.saveNotice?.message || 'Working plan · saved. Edits autosave; baselines change only when you save an agreement.')}</span>
     </div>
     <details class="plan-setup"${(nTeams === 0 || nInit === 0) ? ' open' : ''}>
       <summary>Plan setup <span class="hint">${nTeams} pods · ${nInit} initiatives · ${(Math.round((p.capacityLoss || 0) * 100))}% capacity loss</span></summary>
+      <div class="row-actions">
+        <label>Period length <input id="plan-horizon" type="number" min="1" max="104" value="${p.horizonWeeks}"> weeks</label>
+        <label>Capacity loss <input id="plan-loss" type="number" min="0" max="90" value="${Math.round((p.capacityLoss || 0) * 100)}">%</label>
+        <button id="plan-save">${icon('save')}Save settings</button>
+      </div>
       <div class="plan-uploads">
         <div class="plan-step"><span class="plan-step-num">1</span>
           <div class="plan-step-body">
@@ -243,7 +311,7 @@ function renderPlan() {
         <div class="plan-step"><span class="plan-step-num">2</span>
           <div class="plan-step-body">
             <div class="plan-up-init">
-            ${uploadField('initiatives', '⬆ Initiatives (XLSX/CSV)', nInit)}
+            ${uploadField('initiatives', `${icon('upload')}Initiatives (XLSX/CSV)`, nInit)}
             <button type="button" id="plan-init-preview" class="secondary" disabled
               title="render the network and order from this sheet, without saving">Preview</button>
             <span class="hint" id="plan-init-file"></span>
@@ -257,15 +325,15 @@ function renderPlan() {
           </div>
         </div>
       </div>
-      <p class="hint">Then set the period start and assumptions (⚙ on the Order view) and read the proposed order.</p>
+      <p class="hint">Then set the period start and assumptions in Plan commitments and read the proposed order.</p>
       <p class="hint">Need samples? <a href="/api/sample/teams.csv" download>teams.csv</a> · <a href="/api/sample/initiatives.xlsx" download>initiatives.xlsx</a></p>
     </details>
-    ${current.isDraft ? `<p class="plan-warn">✎ Previewing an unsaved initiatives upload — nothing is saved yet.
+    ${current.isDraft ? `<p class="plan-warn">Previewing an unsaved initiatives upload — nothing is saved yet.
       <button id="plan-draft-save" class="primary">Save initiatives</button>
       <button id="plan-draft-discard">Discard</button></p>` : ''}
-    ${unknown.length ? `<p class="plan-warn">⚠ ${unknown.length} pod(s) referenced by initiatives but missing from the roster: ${unknown.map(esc).join(', ')} — <button type="button" id="unknown-fix" class="warn-act">switch roster</button> or fix the sheet. <button type="button" class="usage-link" data-anchor="warnings">learn more</button></p>` : ''}
+    ${unknown.length ? `<p class="plan-warn">${icon('warning')} ${unknown.length} pod(s) referenced by initiatives but missing from the roster: ${unknown.map(esc).join(', ')} — <button type="button" id="unknown-fix" class="warn-act">switch roster</button> or fix the sheet. <button type="button" class="usage-link" data-anchor="warnings">learn more</button></p>` : ''}
     ${nTeams > 0 && nInit > 0 ? `<div class="plan-views"><div class="btn-group" role="group">
-      <button class="btn ${view() === 'network' ? 'active' : ''}" id="view-network">Network</button><button class="btn ${view() === 'order' ? 'active' : ''}" id="view-order">Order</button><button class="btn ${view() === 'timeline' ? 'active' : ''}" id="view-timeline">▦ Timeline</button><button class="btn" id="view-report" title="one printable card: verdicts, capacity, conflicts, remedies (spec 013)">⎙ Report</button>
+      <button class="btn ${view() === 'order' ? 'active' : ''}" id="view-order">Plan commitments</button><button class="btn ${view() === 'network' ? 'active' : ''}" id="plan-view-network">Dependencies</button><button class="btn ${view() === 'timeline' ? 'active' : ''}" id="view-timeline">Timeline</button><button class="btn ${view() === 'execution' ? 'active' : ''}" id="view-execution">Review execution</button><button class="btn" id="view-report" title="one printable card: verdicts, capacity, conflicts, remedies (spec 013)">${icon('report')}Report</button>
     </div>${baselineChipHTML(current.baselines)}</div>` : ''}
     ${nTeams === 0 ? `
       <div class="panel-card plan-start">
@@ -291,6 +359,8 @@ function renderPlan() {
     openPlan((await r.json()).id);
   });
   root.querySelector('#plan-save').addEventListener('click', savePlanParams);
+  document.getElementById('plan-scenario')?.addEventListener('click', createScenario);
+  root.querySelectorAll('#plan-horizon,#plan-loss').forEach(el=>el.addEventListener('input',()=>planNotice('Unsaved settings — choose Save settings to apply.')));
   // The missing-pod warning's fix (spec 009 AC 3.2): open setup at the roster.
   document.getElementById('unknown-fix')?.addEventListener('click', () => {
     const d = document.querySelector('.plan-setup');
@@ -333,10 +403,11 @@ function renderPlan() {
   document.getElementById('plan-draft-save')?.addEventListener('click', saveDraftInitiatives);
   document.getElementById('plan-draft-discard')?.addEventListener('click', () => openPlan(current.id));
   document.getElementById('plan-strict-deps')?.addEventListener('change', (e) => { current.strictDeps = e.target.checked; });
-  document.getElementById('view-network')?.addEventListener('click', () => setView('network'));
+  document.getElementById('plan-view-network')?.addEventListener('click', () => setView('network'));
   document.getElementById('view-order')?.addEventListener('click', () => setView('order'));
   document.getElementById('view-timeline')?.addEventListener('click', () => setView('timeline'));
   document.getElementById('view-report')?.addEventListener('click', openHealthReport);
+  document.getElementById('view-execution')?.addEventListener('click', () => setView('execution'));
   // The chip summarises a panel that only exists in the Order view, so it has to be
   // able to get there — otherwise it is a status message with no way through. The
   // scroll happens in renderOrder once the panel actually exists: with a stale
@@ -347,11 +418,81 @@ function renderPlan() {
   if (nTeams > 0 && nInit > 0) {
     current.levers = current.levers || [];
     current.netMode = current.netMode || 'after';
-    if (view() === 'order') renderOrder(); else if (view() === 'timeline') renderTimeline(); else renderDash();
+    if (view() === 'order') renderOrder(); else if (view() === 'timeline') renderTimeline(); else if (view() === 'execution') renderExecution(); else renderDash();
   }
 }
 
-const view = () => ['order', 'timeline'].includes(current && current.view) ? current.view : 'network';
+const view = () => ['network', 'timeline', 'execution'].includes(current && current.view) ? current.view : 'order';
+
+function proposalModal(title, content) {
+  let ov = document.getElementById('plan-proposal-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'plan-proposal-overlay'; ov.className = 'modal-overlay'; document.body.appendChild(ov); }
+  ov.proposalToken = Symbol('proposal');
+  ov.innerHTML = `<div class="modal-box"><div class="modal-head"><h2 id="plan-proposal-title">${esc(title)}</h2><button type="button" class="proposal-close">${icon('close')}Close</button></div>${content}</div>`;
+  ov.setAttribute('aria-labelledby', 'plan-proposal-title');
+  ov.querySelector('.proposal-close').addEventListener('click',()=>closeModal(ov));
+  openModal(ov);
+  return ov;
+}
+
+async function createScenario() {
+  if (!current || current.isDraft) return;
+  const planId = current.id;
+  const ov = proposalModal('Create scenario copy', `<p>A scenario starts with this working plan’s saved inputs. It has its own changes and no inherited agreement.</p><form id="scenario-form"><label>Scenario name <input name="name" required maxlength="100" value="${esc(current.name.slice(0,80))} — scenario"></label><p class="proposal-status" role="status" aria-live="polite"></p><button type="submit" class="primary">Create and open scenario</button></form>`);
+  const token = ov.proposalToken;
+  ov.querySelector('form').addEventListener('submit',async ev=>{
+    ev.preventDefault(); const form=ev.currentTarget, button=form.querySelector('button'), status=form.querySelector('.proposal-status');
+    button.disabled=true; status.textContent='Creating scenario…';
+    const r = await req(`/api/plan/${encodeURIComponent(planId)}/scenario`,{method:'POST',body:JSON.stringify({name:form.elements.name.value.trim()})});
+    if (!r?.ok) { status.textContent=r ? (await r.text()).slice(0,240) : 'Could not reach the server. Try again.'; status.setAttribute('role','alert'); button.disabled=false; return; }
+    const result=await r.json();
+    if (ov.proposalToken !== token || ov.hidden || current?.id !== planId) return;
+    closeModal(ov);
+    dragUndo=null; dragHistory=[]; await openPlan(result.id);
+  });
+}
+
+async function previewRemedy(remedy) {
+  if (!current || !remedy || current.isDraft || current.levers?.length) return;
+  const planId=current.id, epoch=orderEpoch;
+  const ov=proposalModal('Preview proposed change','<p class="proposal-status" role="status">Calculating consequences…</p>');
+  const token = ov.proposalToken;
+  const live = () => current?.id === planId && orderEpoch === epoch && ov.proposalToken === token && !ov.hidden;
+  const r=await req(`/api/plan/${encodeURIComponent(planId)}/schedule/remedies/preview`,{method:'POST',body:JSON.stringify({remedy})});
+  if (!r?.ok) {
+    const message = r ? (await r.text()).slice(0,240) : 'Could not load preview. Close and try again.';
+    if (live()) ov.querySelector('.proposal-status').textContent=message;
+    return;
+  }
+  const result=await r.json();
+  if(!live()) return;
+  const status=ov.querySelector('.proposal-status');
+  status.outerHTML=`<p>${esc(remedy.note || remedy.kind)} · target ${esc(remedy.target)}</p><p class="hint">Review every affected commitment. Applying saves the working inputs; your agreed baseline stays unchanged.</p>${compareTableHTML({baseline:{name:'Current working plan'},to:{name:'Proposed change'},comparison:result.comparison})}<p class="proposal-status" role="status" aria-live="polite">Preview only. Nothing has been applied.</p><button type="button" class="primary" id="remedy-apply">Apply to working plan</button>`;
+  ov.querySelector('#remedy-apply').addEventListener('click',async ev=>{
+    const button=ev.currentTarget, note=ov.querySelector('.proposal-status');
+    if(!live()) { note.textContent='The working plan changed. Close and preview this remedy again.'; return; }
+    button.disabled=true; note.textContent='Applying change…';
+    const applied=await req(`/api/plan/${encodeURIComponent(planId)}/schedule/remedies/apply`,{method:'POST',body:JSON.stringify({remedy:result.remedy,fingerprint:result.fingerprint})});
+    if(!applied?.ok) { note.textContent=applied ? (await applied.text()).slice(0,240) : 'Could not save. Your preview is still here; try again.'; note.setAttribute('role','alert'); button.disabled=false; return; }
+    await applied.json(); if (ov.proposalToken === token && !ov.hidden) closeModal(ov);
+    if(current?.id === planId) { dragUndo=null; dragHistory=[]; await openPlan(planId); }
+  });
+}
+
+function renderExecution() {
+  const host=document.getElementById('plan-dash'), plan=current;
+  if(!host || !plan) return;
+  if(plan.isDraft) { host.innerHTML='<p class="plan-warn">Save or discard the upload preview before reviewing execution against saved inputs.</p>'; return; }
+  mountExecution(host,{plan,request:req,onImport:openImport,onAgreement:()=>setView('order'),
+    onSnapshot:id=>writeRoute({executionSnapshot:id}),
+    onTeam:team=>writeRoute({team}),
+    onBindingsSaved:result=>{
+      if(current?.id !== plan.id) return;
+      if(Array.isArray(result.initiatives)) current.initiatives=result.initiatives;
+      dragUndo=null; dragHistory=[]; staleOrder();
+      loadBaselines().then(()=>{ if(current?.id === plan.id) { const chip=document.getElementById('bl-chip'); if(chip) chip.outerHTML=baselineChipHTML(current.baselines); } });
+    }});
+}
 
 // Spec 012 FR-004: one-time callouts. Dismissal persists per session.
 function wireCallouts(host) {
@@ -435,7 +576,7 @@ async function saveScheduling() {
   }
   const saved = await r.json();
   if (!current || current.id !== forPlan || orderEpoch !== atEpoch) return; // a stale save
-  dragUndo = null; // saved assumptions supersede any drag snapshot (spec 008 S4, FR-006)
+  dragUndo = null; dragHistory = []; // saved assumptions supersede any drag snapshot (spec 008 S4, FR-006)
   current.scheduling = saved.scheduling || body;
   current.calDraft = null; // the draft is saved now; the form reads the policy
   // The carried assumptions are saved too: leaving them would make the next
@@ -474,6 +615,7 @@ function openBaselinesDrawer() {
   overlay.innerHTML = baselinesDrawerHTML(current.baselines, current.baselineCompare, { draft: current.isDraft });
   document.body.appendChild(overlay);
   overlay.querySelector('.bl-drawer-close')?.addEventListener('click', closeBaselinesDrawer);
+  containFocus(overlay,closeBaselinesDrawer);
   // Backdrop click closes; clicks inside the drawer do not.
   overlay.addEventListener('click', (ev) => { if (ev.target === overlay) closeBaselinesDrawer(); });
   overlay.querySelector('#bl-drawer-name')?.focus();
@@ -481,6 +623,7 @@ function openBaselinesDrawer() {
 
 function closeBaselinesDrawer() {
   document.querySelector('.bl-drawer-overlay')?.remove();
+  document.getElementById('bl-chip')?.focus();
 }
 
 // refreshBaselinesDrawer re-renders the open drawer's content from the current
@@ -731,6 +874,8 @@ async function toggleRemedies(btn) {
   }
   const out = await r.json();
   body.innerHTML = remediesPanelHTML(out.remedies, out.warnings);
+  body.querySelectorAll('.rem-preview').forEach(b => b.addEventListener('click', () => previewRemedy(out.remedies[Number(b.dataset.remedy)])));
+  if (current.isDraft || current.levers?.length) body.querySelectorAll('.rem-preview').forEach(b=>{b.disabled=true;b.title='Save the upload or clear temporary network levers before previewing a persisted remedy.';});
 }
 
 // staleOrder drops the cached execution order. Anything that changes the inputs —
@@ -750,6 +895,7 @@ function staleOrder() {
 function setView(v) {
   if (!current || view() === v) return;
   current.view = v;
+  rememberPlanRoute();
   renderPlan();
 }
 
@@ -792,7 +938,7 @@ function applyLiveAssumptions() {
 // renderOrder — an in-flight order can land after the view switched.
 async function renderTimeline() {
   const host = document.getElementById('plan-dash');
-  if (!host) return;
+  if (!host || !current || view() !== 'timeline') return;
   // Spec 012 FR-004: first-visit callout, dismissed once per session.
   const callout = (key, text) => {
     const k = `conway-callout-${key}`;
@@ -813,6 +959,7 @@ async function renderTimeline() {
     let payload = null;
     if (r && r.ok) { try { payload = await r.json(); } catch { /* handled below */ } }
     if (!current || current.id !== forPlan || orderEpoch !== atEpoch) return;
+    if (view() !== 'timeline') return;
     if (!payload) {
       host.innerHTML = '<p class="plan-warn">Could not compute the schedule the timeline draws.</p>';
       return;
@@ -851,10 +998,14 @@ async function renderTimeline() {
   const spanSel = current.tlSpan || 'period';
   const spanWeeks = (spans.find((sp) => sp.id === spanSel) || spans[0]).weeks;
   host.innerHTML = `
-    ${timelineControlsHTML({ lens, horizon, spans, spanSel, filter: current.tlFilter, hideEmpty: current.tlHideEmpty, ghost: current.tlGhost })}
+    ${timelineControlsHTML({ lens, horizon, spans, spanSel, initiativeFilter: current.tlInitiativeFilter, teamFilter: current.tlTeamFilter, hideEmpty: current.tlHideEmpty, ghost: current.tlGhost })}
+    <p class="hint">Edits autosave to the working plan. <button type="button" id="tl-undo" ${!dragHistory.length || current.isDraft ? 'disabled' : ''}>${icon('undo')} Undo last edit${dragHistory.length ? ` (${dragHistory.length} available)` : ''}</button></p>
+    <p id="tl-drag-note" role="status" hidden></p>
     <div id="tl-main"></div>
+    <div id="tl-inspector"></div>
     <div id="tl-pod"></div>`;
-  host.insertAdjacentHTML('afterbegin', callout('timeline', 'Drag bars to move work between weeks or tracks; the engine reschedules everything. Filter to one initiative or one pod; ⛶ for room. Waterfall order under a filter shows the chain top-to-bottom.'));
+  host.insertAdjacentHTML('afterbegin', callout('timeline', 'Select an initiative for its dates and precise editing controls. Filter by initiative and team; both filters persist when grouping changes. Changes autosave to the working plan and can be undone.'));
+  document.getElementById('tl-undo')?.addEventListener('click', undoDrag);
   host.querySelectorAll('[data-tlspan]').forEach((b) =>
     b.addEventListener('click', () => { current.tlSpan = b.dataset.tlspan; renderTimeline(); }));
   wireCallouts(host);
@@ -864,18 +1015,19 @@ async function renderTimeline() {
   // Lens filters (spec 010): view state, debounced re-render, live counts.
   // The re-render replaces the input node, so focus and caret are restored
   // after it — otherwise every keystroke kicks the planner out of the box.
-  {
-    const input = document.getElementById('tl-filter');
+  for (const [id, field] of [['tl-initiative-filter', 'tlInitiativeFilter'], ['tl-team-filter', 'tlTeamFilter']]) {
+    const input = document.getElementById(id);
     input?.addEventListener('input', () => {
+      current[field] = input.value;
+      rememberPlanRoute(true);
       clearTimeout(renderTimeline._filterT);
       renderTimeline._filterT = setTimeout(() => {
         // The timer can outlive its lens: a switch or plan change replaced
         // this input. Only act if it is still the live filter (cubic P2).
-        if (!current || document.getElementById('tl-filter') !== input) return;
-        current.tlFilter = input.value;
+        if (!current || document.getElementById(id) !== input) return;
         const caret = input.selectionStart;
         renderTimeline().then(() => {
-          const live = document.getElementById('tl-filter');
+          const live = document.getElementById(id);
           if (live && current) {
             live.focus();
             live.setSelectionRange(caret, caret);
@@ -895,19 +1047,77 @@ async function renderTimeline() {
   document.getElementById('tl-fullscreen')?.addEventListener('click', () => {
     host.classList.toggle('tl-fullscreen');
     const btn = document.getElementById('tl-fullscreen');
-    if (btn) btn.textContent = host.classList.contains('tl-fullscreen') ? '⛶ exit full screen (esc)' : '⛶ full screen';
+    if (btn) btn.textContent = host.classList.contains('tl-fullscreen') ? 'Exit full screen (Escape)' : 'Full screen';
   });
 
   // pinnedLanesByPod inverts the stored per-initiative PinnedLanes into the
   // per-pod map assignLanes consumes.
   const pinnedLanesByPod = () => {
-    const out = {};
+    const out = Object.create(null);
     for (const it of (current.initiatives || [])) {
       for (const [pod, off] of Object.entries(it.pinnedLanes || {})) {
-        (out[pod] ||= {})[it.name] = off;
+        (out[pod] ||= Object.create(null))[it.name] = off;
       }
     }
     return out;
+  };
+  const applyTimelineEdit = async (it, edit, pod) => {
+    if (timelineMutationPending || current.isDraft) return false;
+    const forPlan = current.id, atEpoch = orderEpoch;
+    const undo = snapshotDragUndo(it, pod);
+    timelineMutationPending = true;
+    try {
+      const r = await req('/api/plan/' + forPlan + '/initiatives', {
+        method: 'PATCH', body: JSON.stringify({ initiatives: [edit] }),
+      });
+      if (!current || current.id !== forPlan || orderEpoch !== atEpoch) return false;
+      if (!r?.ok) {
+        const why = r ? (await r.text()).slice(0, 200) : 'The request did not reach the server. Your inputs remain available to retry.';
+        if (current?.id === forPlan && orderEpoch === atEpoch) dragNote(why);
+        return false;
+      }
+      const d = await r.json();
+      if (!current || current.id !== forPlan || orderEpoch !== atEpoch) return false;
+      if (!Array.isArray(d.initiatives)) throw new Error('The saved inputs could not be read. Reload the plan before editing again.');
+      current.initiatives = d.initiatives;
+      dragHistory.push(undo);
+      dragUndo = undo;
+      staleOrder();
+      if (view() === 'order') await renderOrder(); else if (view() === 'timeline') await renderTimeline(); else await renderDash();
+      return true;
+    } catch (error) {
+      if (current?.id === forPlan) dragNote(error.message || 'The edit could not be saved. Your inputs remain available to retry.');
+      return false;
+    } finally {
+      timelineMutationPending = false;
+    }
+  };
+  const paintInspector = () => {
+    const holder = document.getElementById('tl-inspector');
+    if (!holder) return;
+    const si = (sched.initiatives || []).find((i) => i.name === current.selectedInitiative);
+    holder.innerHTML = timelineInspectorHTML(si, sched, { planInitiatives: current.initiatives, pinnedLanes: pinnedLanesByPod() });
+    const form = holder.querySelector('.tl-precise-edit');
+    if (current.isDraft) {
+      form?.querySelectorAll('input,button').forEach((el) => { el.disabled = true; });
+      if (form) form.insertAdjacentHTML('beforebegin', '<p class="hint">Save the imported inputs before editing the timeline.</p>');
+    }
+    form?.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      if (timelineMutationPending || current.isDraft) return;
+      const it = (current.initiatives || []).find((i) => i.name === form.dataset.init);
+      if (!it || !form.reportValidity()) return;
+      try {
+        const rows = [...form.querySelectorAll('.tl-edit-row')].map((row) => {
+          const estimate = row.querySelector('[name="estimateWeeks"]');
+          return { pod: row.dataset.pod, startWeek: row.querySelector('[name="startWeek"]').value, lane: row.querySelector('[name="lane"]').value, ...(estimate.disabled ? {} : { estimateWeeks: estimate.value }) };
+        });
+        const edit = timelineEditsFromRows(it, rows);
+        const submit = form.querySelector('[type="submit"]');
+        submit.disabled = true;
+        try { await applyTimelineEdit(it, edit); } finally { submit.disabled = false; }
+      } catch (error) { dragNote(error.message); }
+    });
   };
   // dragNote is module level (used by the drag callbacks and undoDrag).
   const paint = () => {
@@ -918,7 +1128,7 @@ async function renderTimeline() {
     // timeline, or a fresh plan renders two bars and reads as a broken filter.
     document.getElementById('tl-wip-banner')?.remove();
     if (sched.wipLimit?.model === 'unchosen') {
-      main.insertAdjacentHTML('beforebegin', `<p class="plan-warn callout" id="tl-wip-banner">⚠ The WIP model hasn't been chosen for this plan — the scheduler is holding all but ${sched.wipLimit.value} concurrent initiatives, so most bars are missing. <button type="button" class="usage-link" id="tl-choose-wip">choose it now</button></p>`);
+      main.insertAdjacentHTML('beforebegin', `<p class="plan-warn callout" id="tl-wip-banner">The WIP model hasn't been chosen for this plan — the scheduler is holding all but ${sched.wipLimit.value} concurrent initiatives, so most bars are missing. <button type="button" class="usage-link" id="tl-choose-wip">choose it now</button></p>`);
       document.getElementById('tl-choose-wip')?.addEventListener('click', () => {
         current.setupFocus = true;
         setView('order');
@@ -930,7 +1140,7 @@ async function renderTimeline() {
     }
     main.innerHTML = lens === 'pod'
       ? podLensHTML(sched, {
-        horizonWeeks: horizon, span: spanWeeks, pinnedLanes: pinnedLanesByPod(), initiativeQuery: current.tlFilter || '', hideEmptyPods: current.tlHideEmpty,
+        horizonWeeks: horizon, span: spanWeeks, pinnedLanes: pinnedLanesByPod(), initiativeQuery: current.tlInitiativeFilter || '', podQuery: current.tlTeamFilter || '', hideEmptyPods: current.tlHideEmpty,
         // Spec 010 amendment: non-matching bars render as dimmed ghosts when
         // "show other work" is on — the capacity filling the gaps (e.g., what
         // holds a pod while the filtered initiative waits) stays visible.
@@ -941,7 +1151,7 @@ async function renderTimeline() {
         planInitiatives: current.initiatives || [],
       })
       : portfolioTimelineHTML(sched, {
-        podQuery: current.tlFilter || '',
+        podQuery: current.tlTeamFilter || '', initiativeQuery: current.tlInitiativeFilter || '', selected: current.selectedInitiative,
         horizonWeeks: horizon, span: spanWeeks, todayWeek, expand: current.tlExpand,
         // AC 8.5: the bands come off the saved policy, not the schedule — the
         // schedule itself only carries the windows' effects, not their dates.
@@ -949,16 +1159,29 @@ async function renderTimeline() {
       });
     // AC 8.4: expanding a row shows its pod slices. One open row at a time, so
     // the lens stays readable — the wireframe is one expanded initiative.
-    main.querySelectorAll('.tl-row[data-expandable="1"] .tl-label').forEach((el) =>
-      el.addEventListener('click', () => {
-        const name = el.closest('.tl-row').dataset.init;
-        current.tlExpand = current.tlExpand === name ? null : name;
+    main.querySelectorAll('[data-select-init], .tl-bar[data-initiative]').forEach((el) => {
+      el.setAttribute('aria-pressed', String((el.dataset.selectInit || el.dataset.initiative) === current.selectedInitiative));
+      const select = (ev) => {
+        ev.stopPropagation();
+        const name = el.dataset.selectInit || el.dataset.initiative;
+        current.selectedInitiative = name;
+        if (el.dataset.selectInit) current.tlExpand = current.tlExpand === name ? null : name;
+        rememberPlanRoute();
         paint();
-      }));
+        const focus = [...main.querySelectorAll('[data-select-init], .tl-bar[data-initiative]')].find((item) => (item.dataset.selectInit || item.dataset.initiative) === name);
+        focus?.focus({ preventScroll: true });
+      };
+      el.addEventListener('click', select);
+      if (el.matches('.tl-bar')) el.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); select(ev); }
+      });
+    });
+    paintInspector();
     // The pod lens's pod blocks open §13.5's sheet (AC 9.1 -> AC 9.5);
     // clicking the open pod again closes it, so the grid is never stuck.
     main.querySelectorAll('.tl-pod[data-pod]').forEach((el) =>
-      el.addEventListener('click', () => {
+      el.addEventListener('click', (ev) => {
+        if (ev.target.closest('button, .tl-bar')) return;
         if (current.tlPod === el.dataset.pod) { current.tlPod = null; const h = document.getElementById('tl-pod'); if (h) h.innerHTML = ''; return; }
         current.tlPod = el.dataset.pod;
         paintPodSheet(el.dataset.pod);
@@ -966,16 +1189,9 @@ async function renderTimeline() {
     // Filter match count (spec 010 FR-005).
     const countEl = document.getElementById('tl-filter-count');
     if (countEl) {
-      const q = current.tlFilter || '';
-      if (!q) countEl.textContent = '';
-      else if (lens === 'pod') {
-        const n = new Set((sched.initiatives || []).filter((si) => fuzzyMatch(q, si.name)).map((si) => si.name)).size;
-        countEl.textContent = `${n} of ${(sched.initiatives || []).length} initiatives`;
-      } else {
-        const pods = new Set((sched.podWeeks || []).map((ps) => ps.pod));
-        const n = [...pods].filter((pd) => fuzzyMatch(q, pd)).length;
-        countEl.textContent = `${n} of ${pods.size} pods`;
-      }
+      const iq = current.tlInitiativeFilter || '', tq = current.tlTeamFilter || '';
+      const n = (sched.initiatives || []).filter((si) => (!iq || fuzzyMatch(iq, si.name)) && (!tq || (si.slices || []).some((sl) => fuzzyMatch(tq, sl.pod)))).length;
+      countEl.textContent = `${n} of ${(sched.initiatives || []).length} initiatives match`;
     }
     // Spec 008: drag-to-edit. A released drag pins the slice's start and the
     // engine recomputes; the re-render repaints every view from one schedule.
@@ -985,15 +1201,14 @@ async function renderTimeline() {
     main.dataset.horizon = String(spanWeeks);
     attachDrag(main, {
       readOnly: current.isDraft, // matchMedia('.pointer: coarse)') gate lives inside attachDrag
+      onPreview: dragNote,
 
       horizon: spanWeeks,
       // Decision 4 math: the plan's own capacity loss, not the 10% default.
       lossFactor: 1 - (Number.isFinite(current.capacityLoss) ? current.capacityLoss : 0.1),
       onPin: async (initiative, pod, { startWeek, laneDelta, effort }) => {
-        const forPlan = current.id;
         const it = (current.initiatives || []).find((i) => i.name === initiative);
         if (!it) return;
-        const undo = snapshotDragUndo(it, pod); // spec 008 S4: ⌘Z restores these params
         const edit = { name: initiative };
         if (startWeek !== null && startWeek !== undefined) {
           edit.pinnedStarts = { ...(it.pinnedStarts || {}), [pod]: startWeek };
@@ -1010,62 +1225,15 @@ async function renderTimeline() {
         if (effort !== undefined && Number.isFinite(effort)) {
           edit.estimateEdits = { [pod]: Math.max(1, effort) };
         }
-        const atEpoch = orderEpoch; // captured before the PATCH (cubic P1)
-        const r = await req('/api/plan/' + forPlan + '/initiatives', {
-          method: 'PATCH',
-          body: JSON.stringify({ initiatives: [edit] }),
-        });
-        if (!current || current.id !== forPlan) return;
-        if (!r || !r.ok) {
-          // The overlap refusal (spec 008 Decision 3) surfaces as the
-          // timeline's own note — the chart is the context for the error.
-          // A failed drag must not steal the undo slot (FR-006).
-          const why = r ? await r.text() : 'the request did not reach the server';
-          if (current && current.id === forPlan) dragNote(why.slice(0, 200));
-          return;
-        }
-        if (orderEpoch !== atEpoch) return; // a recompute landed while the PATCH was away
-        dragUndo = undo; // the drag stuck: only now does it own the undo slot
-        dragNote('');
-        try {
-          const d = await r.json();
-          if (Array.isArray(d.initiatives)) current.initiatives = d.initiatives;
-        } catch { /* cache stays; the server is authoritative */ }
-        current.schedule = null;
-        // Re-render the CURRENT view, not necessarily Timeline (cubic P2).
-        if (view() === 'order') await renderOrder(); else if (view() === 'timeline') await renderTimeline(); else await renderDash();
+        await applyTimelineEdit(it, edit, pod);
       },
       // Spec 008 S4: right-edge resize PATCHes the pod's effort weeks. The
       // server accepts estimateEdits and re-divides by lanes.
       onResize: async (initiative, pod, newEffort) => {
         if (!Number.isFinite(newEffort)) return; // a mid-render gesture, not an edit
-        const forPlan = current.id;
         const it = (current.initiatives || []).find((i) => i.name === initiative);
         if (!it) return;
-        const undo = snapshotDragUndo(it, pod); // spec 008 S4: ⌘Z restores the prior weeks
-        const atEpoch = orderEpoch; // captured before the PATCH (cubic P1)
-        const r = await req('/api/plan/' + forPlan + '/initiatives', {
-          method: 'PATCH',
-          body: JSON.stringify({ initiatives: [{
-            name: initiative,
-            estimateEdits: { [pod]: Math.max(1, newEffort) },
-          }] }),
-        });
-        if (!current || current.id !== forPlan) return;
-        if (!r || !r.ok) {
-          const why = r ? await r.text() : 'the request did not reach the server';
-          dragNote(why.slice(0, 200));
-          return;
-        }
-        if (orderEpoch !== atEpoch) return; // a recompute landed while the PATCH was away
-        dragUndo = undo;
-        dragNote('');
-        try {
-          const d = await r.json();
-          if (Array.isArray(d.initiatives)) current.initiatives = d.initiatives;
-        } catch { /* cache stays; the server is authoritative */ }
-        current.schedule = null;
-        await renderTimeline();
+        await applyTimelineEdit(it, { name: initiative, estimateEdits: { [pod]: Math.max(1, newEffort) } }, pod);
       },
     });
     // FR-043 (spec 004 Story 3): each pod block exports itself as a PNG. The
@@ -1096,14 +1264,9 @@ async function renderTimeline() {
   // second click and clear it.
   if (current.tlPod) paintPodSheet(current.tlPod);
 
-  // Lens switches clear the filter (spec 010 AC 2.2 as amended): the query
-  // means a different thing in each lens, and carrying one lens's query into the
-  // pod filter matches nothing — surprising beats persistent here.
-  // Lens switches clear ALL filter state (spec 010 AC 2.2): the query means a
-  // different thing per lens, and a carried-over hide-empty leaves pods
-  // missing with no visible cause (cubic P2).
-  document.getElementById('tl-by-initiative')?.addEventListener('click', () => { current.tlLens = 'initiative'; current.tlFilter = ''; current.tlHideEmpty = false; current.tlGhost = false; renderTimeline(); });
-  document.getElementById('tl-by-pod')?.addEventListener('click', () => { current.tlLens = 'pod'; current.tlFilter = ''; current.tlHideEmpty = false; current.tlGhost = false; renderTimeline(); });
+  // Independent filters keep their meaning across both grouping choices.
+  document.getElementById('tl-by-initiative')?.addEventListener('click', () => { current.tlLens = 'initiative'; rememberPlanRoute(); renderTimeline(); });
+  document.getElementById('tl-by-pod')?.addEventListener('click', () => { current.tlLens = 'pod'; rememberPlanRoute(); renderTimeline(); });
 }
 
 // openHealthReport renders the spec-013 health card from the CACHED schedule
@@ -1127,7 +1290,7 @@ async function openHealthReport() {
   overlay.setAttribute('aria-label', 'Plan health report');
   overlay.innerHTML = `
     <div class="report-actions no-print">
-      <button type="button" id="report-print">⎙ Print</button>
+      <button type="button" id="report-print">${icon('report')}Print</button>
       <button type="button" id="report-close">Close</button>
     </div>
     ${healthReportHTML(current.schedule, {
@@ -1140,14 +1303,7 @@ async function openHealthReport() {
   const closeBtn = overlay.querySelector('#report-close');
   closeBtn?.addEventListener('click', close);
   printBtn?.addEventListener('click', () => window.print());
-  // A two-button tab loop: the card is static content, the actions are the
-  // only tab stops, so focus cycles between Print and Close while open.
-  closeBtn?.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Tab' && !ev.shiftKey) { ev.preventDefault(); printBtn?.focus(); }
-  });
-  printBtn?.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Tab' && ev.shiftKey) { ev.preventDefault(); closeBtn?.focus(); }
-  });
+  containFocus(overlay,close);
   // The remedies link-back (AC 1.5): a row's "full options" opens the Order
   // view's priced-options panel for that initiative — the summary stays a
   // summary, the decision happens where the costs are priced.
@@ -1251,7 +1407,7 @@ async function renderOrder() {
   const schedForForm = current.calDraft
     ? { ...schedOpts, calendars: current.calDraft }
     : schedOpts;
-  host.innerHTML = callout('order', 'Your stated priority order is the working plan — ⚡ Optimize suggests, pins hold, ✎ edits. Baselines freeze what you accept.')
+  host.innerHTML = callout('order', 'Your stated priority order is the working plan. Preview optimized order to compare a suggestion; pin and edit to refine it. Saving an agreement freezes the accepted inputs.')
     + orderViewHTML(current.schedule, {
     noPin: current.isDraft, // nothing is saved to pin against on a draft
     engineRanks: current.schedule.engineRanks, // spec 006: the suggestion column
@@ -1274,6 +1430,8 @@ async function renderOrder() {
   // the click handler below never fires for it -- so the table would have sat empty
   // under a heading inviting the planner to compare three models.
   const dialog = document.getElementById('sched-dialog');
+  if(dialog && current.assumptionsDismissed) dialog.hidden=true;
+  if(dialog) containFocus(dialog,()=>{ dialog.hidden=true; current.assumptionsDismissed=true; document.getElementById('sched-open')?.focus(); });
   if (dialog && !dialog.hidden) {
     // aria-modal with focus left outside is a dialog a screen reader announces and
     // a keyboard user cannot reach. The click path focuses through the delegated
@@ -1294,6 +1452,7 @@ async function renderOrder() {
     const d = document.getElementById('sched-dialog');
     if (!d) return;
     const opening = d.hidden;
+    if(opening) current.assumptionsDismissed=false;
     d.hidden = !d.hidden;
     // The WIP-model comparison inside this dialog costs one extra full schedule per
     // model server-side (spec 001 §11 D22 as amended). It is fetched when the dialog
@@ -1332,6 +1491,7 @@ async function renderOrder() {
     renderOrder();
   }));
   document.getElementById('sched-cancel')?.addEventListener('click', () => {
+    current.assumptionsDismissed=true;
     current.calDraft = null; // cancel discards window edits, not just hides them
     current.assumptionDraft = null;
     renderOrder().then(() => {
@@ -1339,6 +1499,7 @@ async function renderOrder() {
       // auto-open it again, and a Cancel that re-opens is not a Cancel.
       const d = document.getElementById('sched-dialog');
       if (d) d.hidden = true;
+      document.getElementById('sched-open')?.focus();
     });
   });
   host.querySelectorAll('.ord-podlink').forEach((a) => a.addEventListener('click', () => {
@@ -1365,7 +1526,7 @@ async function renderOrder() {
     if (!current || current.id !== forPlan) return; // the reader moved on
     if (!r || !r.ok) {
       b.disabled = false;
-      b.title = 'the pin did not save — try again';
+      planNotice('The priority pin did not save. Try again.', true);
       return;
     }
     // The PATCH response is the full post-edit initiative list: use it as the
@@ -1376,6 +1537,7 @@ async function renderOrder() {
       if (Array.isArray(d.initiatives)) current.initiatives = d.initiatives;
     } catch { /* cache stays; the server is still authoritative */ }
     if (orderEpoch !== atEpoch) return; // a recompute already superseded this
+    dragUndo = null; dragHistory = [];
     current.schedule = null; // the order must answer the new pin, not the old one
     await renderOrder();
   }));
@@ -1412,6 +1574,7 @@ async function renderOrder() {
       return;
     }
     current.scheduling = { ...(current.scheduling || {}), ...patch };
+    dragUndo = null; dragHistory = [];
     current.schedule = null;
     await rerender();
   };
@@ -1471,20 +1634,22 @@ async function renderOrder() {
     // refused by the guards it already carries (cubic: the unchanged epoch
     // let stale responses re-render the superseded order).
     staleOrder();
+    const atEpoch = orderEpoch;
     const body = { ...((current.scheduling || {})), acceptedOrdering: ordering };
     if (ordering === 'engine') body.acceptedOrderingAt = Math.floor(Date.now() / 1000);
     else { delete body.acceptedOrderingAt; body.acceptedOrdering = 'stated'; }
     const r = await req('/api/plan/' + forPlan + '/scheduling', {
       method: 'PATCH', body: JSON.stringify(body),
     });
-    if (!current || current.id !== forPlan) return;
-    if (!r || !r.ok) return; // the assumptions dialog shows save errors; this is a header action
+    if (!current || current.id !== forPlan || orderEpoch !== atEpoch) return;
+    if (!r || !r.ok) return; // req displays the error beside the header action
     // Write the cache only when this response is still the newest word: the
     // reader may have saved assumptions (or accepted again) while it was away.
     current.scheduling = { ...(current.scheduling || {}), ...body };
+    dragUndo = null; dragHistory = [];
     current.schedule = null;
-    await renderOrder();
-    if (ordering === 'engine') {
+    if (view() === 'order') await renderOrder(); else if (view() === 'timeline') await renderTimeline(); else if (view() === 'execution') renderExecution(); else await renderDash();
+    if (ordering === 'engine' && current?.id === forPlan && orderEpoch === atEpoch && view() === 'order') {
       // Q1: ask to baseline AFTER the re-render — the drawer opens pre-filled
       // with a dated name, one click away from freezing the accepted order.
       if (!current.isDraft) {
@@ -1510,6 +1675,8 @@ async function renderOrder() {
     const dlg = document.getElementById('init-edit-dialog');
     if (!dlg) return;
     dlg.hidden = false;
+    containFocus(dlg,closeInitEditor);
+    current.initEditorName = it.name;
     document.getElementById('ie-priority')?.focus();
     document.getElementById('ie-cancel')?.addEventListener('click', closeInitEditor);
     document.getElementById('ie-save')?.addEventListener('click', async () => {
@@ -1532,7 +1699,7 @@ async function renderOrder() {
       }
       const save = document.getElementById('ie-save');
       if (save) { save.disabled = true; save.textContent = 'Saving…'; }
-      dragUndo = null; // a dialog save supersedes any drag snapshot (spec 008 S4)
+      dragUndo = null; dragHistory = []; // a dialog save supersedes any drag snapshot (spec 008 S4)
       const forPlan = current.id;
       const atEpoch = orderEpoch;
       const r = await req('/api/plan/' + forPlan + '/initiatives', {
@@ -1554,6 +1721,7 @@ async function renderOrder() {
       } catch { /* cache stays; the server is still authoritative */ }
       if (orderEpoch !== atEpoch) return; // a recompute already superseded this
       current.schedule = null;
+      closeInitEditor();
       await renderOrder();
     });
   }));
@@ -1569,7 +1737,10 @@ async function renderOrder() {
       document.getElementById('sched-open')?.click();
     }
   }
-  const closeInitEditor = () => document.getElementById('init-edit-dialog')?.remove();
+  const closeInitEditor = () => {
+    document.getElementById('init-edit-dialog')?.remove();
+    [...host.querySelectorAll('.ord-edit')].find(b=>b.dataset.edit === current?.initEditorName)?.focus();
+  };
   document.querySelector('.ord-queue')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
@@ -1708,8 +1879,8 @@ async function renderRosterPicker(nTeams) {
     if (inp.files[0]) uploadFile(inp.dataset.kind, inp.files[0]);
   }));
   if (!rosters.length) {
-    box.innerHTML = '<span class="hint">No saved rosters yet — create one in Observe ▸ 👥 Rosters (recommended), or upload a roster file directly:</span>'
-      + uploadField('teams', '⬆ Teams roster (CSV/XLSX)', nTeams);
+    box.innerHTML = '<span class="hint">No saved rosters yet — create one in Measure ▸ Rosters (recommended), or upload a roster file directly:</span>'
+      + uploadField('teams', `${icon('upload')}Teams roster (CSV/XLSX)`, nTeams);
     bindUpload();
     return;
   }
@@ -1743,8 +1914,10 @@ async function renderRosterPicker(nTeams) {
 async function savePlanParams() {
   const horizon = +document.getElementById('plan-horizon').value || 26;
   const loss = (+document.getElementById('plan-loss').value || 0) / 100;
-  await req('/api/plan/' + current.id, { method: 'PATCH', body: JSON.stringify({ horizonWeeks: horizon, capacityLoss: loss }) });
-  dragUndo = null; // saved params supersede any drag snapshot (spec 008 S4, FR-006)
+  const forPlan = current.id;
+  const res = await req('/api/plan/' + forPlan, { method: 'PATCH', body: JSON.stringify({ horizonWeeks: horizon, capacityLoss: loss }) });
+  if (!res?.ok || current?.id !== forPlan) return;
+  dragUndo = null; dragHistory = []; // saved params supersede any drag snapshot (spec 008 S4, FR-006)
   openPlan(current.id);
 }
 
@@ -1754,8 +1927,8 @@ async function uploadFile(kind, file) {
   if (kind === 'initiatives') fd.append('strict', current.strictDeps ? '1' : '0');
   root.querySelector('.plan-uploads').insertAdjacentHTML('beforeend', '<span class="hint" id="plan-uploading">uploading…</span>');
   const r = await req('/api/plan/' + current.id + '/' + kind, { method: 'POST', body: fd });
-  if (!r || !r.ok) { alert('Upload failed: ' + (r ? await r.text() : 'network')); document.getElementById('plan-uploading')?.remove(); return; }
-  dragUndo = null; // an upload replaces the initiatives wholesale (spec 008 S4, FR-006)
+  if (!r || !r.ok) { document.getElementById('plan-uploading')?.remove(); const b = document.getElementById('plan-draft-save'); if (b) {b.disabled=false;b.textContent='Save initiatives';} return; }
+  dragUndo = null; dragHistory = []; // an upload replaces the initiatives wholesale (spec 008 S4, FR-006)
   openPlan(current.id); // re-fetch assembled view
 }
 
@@ -1775,7 +1948,7 @@ const fmtLead = (weeks, horizon) => {
   return r > horizon ? `&gt;${horizon}w (${r}w) — won't fit` : `${r}w`;
 };
 
-// renderDash ensures we have a simulation result (baseline = no levers), then paints.
+// renderDash ensures we have a simulation result (current inputs = no levers), then paints.
 async function renderDash() {
   if (!current.sim) { await runSim(); return; }
   paintDash();
@@ -1844,7 +2017,7 @@ function paintDash() {
       <td><b style="color:${rhoColor(l.rho)}">${rhoTxt(l.rho)}</b></td>
       <td>${hasLevers ? `<b style="color:${rhoColor(a.rho)}">${rhoTxt(a.rho)}</b>` : '<span class="hint">—</span>'}</td>
       <td>${Math.round(l.demandWeeks)} / ${Math.round(l.capacityWeeks)}</td>
-      <td>${l.tracks}${hasLevers && a.tracks !== l.tracks ? ` → ${a.tracks}` : ''} <a class="pod-edit" data-pod="${esc(l.team)}" title="edit capacity">✎</a></td></tr>`;
+      <td>${l.tracks}${hasLevers && a.tracks !== l.tracks ? ` → ${a.tracks}` : ''} <button type="button" class="pod-edit" data-pod="${esc(l.team)}">${icon('edit')}Edit capacity</button></td></tr>`;
   }).join('');
 
   const initB = {}; sim.before.initiatives.forEach((i) => initB[i.name] = i);
@@ -1865,7 +2038,7 @@ function paintDash() {
     <div class="plan-net panel-card">
       <div class="plan-net-head"><b>Dependency network</b>
         <span>
-          <div class="btn-group" role="group"><button class="btn ${mode === 'before' ? 'active' : ''}" id="net-before">baseline</button><button class="btn ${mode === 'after' ? 'active' : ''}" id="net-after">with levers</button></div>
+          <div class="btn-group" role="group"><button class="btn ${mode === 'before' ? 'active' : ''}" id="net-before">Current inputs</button><button class="btn ${mode === 'after' ? 'active' : ''}" id="net-after">with levers</button></div>
         </span></div>
       <div class="plan-net-wrap">
         <svg id="plan-svg"></svg>
@@ -1907,7 +2080,7 @@ function paintDash() {
   document.getElementById('net-before').addEventListener('click', () => { current.netMode = 'before'; paintDash(); });
   document.getElementById('net-after').addEventListener('click', () => { current.netMode = 'after'; paintDash(); });
   document.querySelectorAll('.lever-chips .chip-x').forEach((a) => a.addEventListener('click', () => {
-    current.levers.splice(+a.dataset.lev, 1); staleOrder(); runSim();
+    current.levers.splice(+a.dataset.lev, 1); dragUndo=null; dragHistory=[]; staleOrder(); runSim();
   }));
   const typeSel = document.getElementById('lev-type');
   typeSel.addEventListener('change', renderLeverTarget);
@@ -1922,10 +2095,12 @@ function paintDash() {
 async function savePod(pod) {
   const tv = document.getElementById('pe-tracks').value;
   const pairs = document.getElementById('pe-pairs').checked;
-  await req('/api/plan/' + current.id + '/teams', {
+  const id=current.id;
+  const r=await req('/api/plan/' + id + '/teams', {
     method: 'PATCH',
     body: JSON.stringify({ name: pod, pairs, tracks: tv === '' ? 0 : (+tv) }),
   });
+  if(!r?.ok || current?.id !== id) return;
   current.editPod = null;
   reloadPlan();
 }
@@ -1934,20 +2109,17 @@ async function savePod(pod) {
 // The order is dropped rather than kept: pod capacity is the input the scheduler
 // is most sensitive to, so a retained order would be wrong about nearly everything.
 async function reloadPlan() {
-  staleOrder(); // the roster moved, so an order still in flight is already wrong
-  const levers = current.levers || [];
-  const was = view();
-  const pod = current.orderPod;
-  const r = await req('/api/plan/' + current.id);
-  if (!r || !r.ok) return;
-  current = await r.json();
-  current.tlFilter = ''; current.tlHideEmpty = false; // lens filter state is per-plan (spec 010 FR-004)
-  await loadBaselines(); // replaced wholesale above, so re-fetch rather than show none
-  current.levers = levers;
-  // Keep the reader where they were. Replacing `current` wholesale is what drops
-  // the stale order, which is wanted; bouncing them back to Network is not.
-  current.view = was;
-  current.orderPod = pod;
+  if (!current) return;
+  const prior=current, id=current.id, ticket=++planLoadTicket;
+  staleOrder();
+  const r=await req('/api/plan/' + id);
+  if(!r?.ok || ticket !== planLoadTicket || current?.id !== id) return;
+  const loaded=await r.json();
+  if(ticket !== planLoadTicket || current?.id !== id) return;
+  current={...prior,...loaded,schedule:null,sim:null};
+  dragUndo=null; dragHistory=[];
+  await loadBaselines();
+  if(ticket !== planLoadTicket || current?.id !== id) return;
   renderPlan();
 }
 
@@ -1980,6 +2152,7 @@ function addLever() {
   else if (t === 'dropPod') lv = { type: t, pod, initiative: init };
   current.levers = current.levers || [];
   current.levers.push(lv);
+  dragUndo=null; dragHistory=[];
   staleOrder();
   runSim();
 }

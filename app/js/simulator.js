@@ -29,7 +29,7 @@ h3. Readiness
 * [ ] Environments and access available for every involved pod
 * [ ] SRE / production-readiness task created under this epic
 * [ ] Drum slot: constraint pod(s) confirmed a start window
-* [ ] Forecast attached: P50 ___ / P85 ___ (from the flow model — commit the P85)
+* [ ] Forecast attached: P50 ___ / P85 ___ (from the flow model — review assumptions and calibration before committing)
 
 h3. If this epic gets frozen
 * Defrost criteria (what must be true to resume):`;
@@ -247,14 +247,14 @@ function fmtDate(days) {
 function renderStats(r) {
   const hlp = (t) => ` <span class="help" data-tip="${t.replace(/"/g, '&quot;')}">?</span>`;
   const cards = [
-    ['P50', r.p50, '', 'The completion day 50% of the 10,000 Monte-Carlo trials beat — the optimistic, coin-flip plan. Rules of Flow: do NOT commit this; you\'ll miss it half the time.'],
-    ['P85 — commit this', r.p85, 'p85', 'The day 85% of trials finished by — the date to actually promise. It already prices in per-pod cycle-time variability, queue waits, and cross-site handoff delay. Probabilistic forecasting: commit a percentile, not a point.'],
-    ['P95', r.p95, '', 'The near-worst-case day (95% of trials beat it). The gap P95−P50 is your risk/variability — wide gaps mean the plan is fragile to a bad event.'],
+    ['P50', r.p50, '', '50% of simulated trials finished by this point. This percentile is conditional on the historical data and model assumptions.'],
+    ['P85', r.p85, 'p85', '85% of simulated trials finished by this point. This is not a guaranteed commitment or measured real-world confidence; review data coverage and compare past forecasts with observed delivery.'],
+    ['P95', r.p95, '', '95% of simulated trials finished by this point. Outcomes beyond P95 remain possible, including risks absent from the input model.'],
   ];
   document.getElementById('stat-cards').innerHTML = cards.map(([l, v, cls, tip]) => `
     <div class="stat ${cls}"><div class="l">${l}${hlp(tip)}</div>
     <div class="v">${v.toFixed(0)}d</div>
-    <div class="hint">~${fmtDate(v)}</div></div>`).join('');
+    <div class="hint">~${fmtDate(v)}</div></div>`).join('') + '<p class="hint">Conditional forecast from the selected snapshot. Dates start today and convert working days using a five-day week; holidays and future changes are not included. Review data quality and calibration before agreeing a commitment.</p>';
 }
 
 function renderCdf(makespans) {

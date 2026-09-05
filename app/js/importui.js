@@ -1,3 +1,4 @@
+import { icon } from './icons.js';
 import { openModal, closeModal } from './modal.js';
 // "Import from Jira" — builds a dated org snapshot. Auth is OAuth-via-Okta when
 // the server is configured for it (a "Connect Jira" button → SSO → no token),
@@ -26,14 +27,14 @@ export async function openImport() {
     // button below is the only deliberate way out.
   }
   ov.innerHTML = `<div class="modal-box">
-      <div class="modal-head"><h2>📥 Import from Jira</h2><button id="imp-close">✕</button></div>
+      <div class="modal-head"><h2>Import from Jira</h2><button id="imp-close">${icon('close')}Close</button></div>
       <p class="hint">Fetch live activity for the projects you pick and build a dated snapshot.
         Team structure comes from a roster.</p>
       <div id="imp-auth"></div>
-      <div id="imp-err" class="login-err"></div>
+      <div id="imp-err" class="login-err" role="alert"></div>
       <div id="imp-step2" hidden>
         <div class="games-create" style="flex-wrap:wrap">
-          <input id="imp-name" placeholder="Snapshot name (e.g. Q3 2026)" style="min-width:220px">
+          <label>Snapshot name <input id="imp-name" placeholder="Snapshot name (e.g. Q3 2026)" style="min-width:220px"></label>
           <label class="hint">roster <select id="imp-plan"></select></label>
         </div>
         <p class="hint" id="imp-struct-note"></p>
@@ -47,15 +48,15 @@ export async function openImport() {
         </div>
         <p class="hint" id="imp-wipmode-note"></p>
         <div class="games-create">
-          <input id="imp-filter" placeholder="filter projects (e.g. ABC)" style="min-width:200px">
+          <label>Filter projects <input id="imp-filter" placeholder="filter projects (e.g. ABC)" style="min-width:200px"></label>
           <button id="imp-all">select all shown</button>
           <button id="imp-none">clear</button>
           <span id="imp-count" class="hint"></span>
         </div>
         <div id="imp-projects" class="imp-projects"></div>
         <div class="row-actions">
-          <button id="imp-go" class="primary">Import snapshot ▶</button>
-          <span id="imp-status" class="hint"></span>
+          <button id="imp-go" class="primary">Import snapshot</button>
+          <span id="imp-status" class="hint" role="status" aria-live="polite"></span>
         </div>
       </div>
     </div>`;
@@ -77,15 +78,15 @@ async function renderAuth(ov) {
   const box = ov.querySelector('#imp-auth');
   const st = await jiraStatus();
   if (st.connected) {
-    box.innerHTML = `<p class="hint">✅ Connected to <b>${esc(st.site || 'Jira')}</b> via SSO.
-      <a id="imp-switch">switch account</a></p>`;
+    box.innerHTML = `<p class="hint">Connected to <b>${esc(st.site || 'Jira')}</b> via SSO.
+      <button type="button" id="imp-switch">Switch account</button></p>`;
     box.querySelector('#imp-switch').addEventListener('click', () => startOAuth(ov));
     loadProjects(ov, false);
     return;
   }
   if (st.configured) {
     box.innerHTML = `<div class="games-create">
-        <button id="imp-connect" class="primary">🔗 Connect Jira (SSO)</button>
+        <button id="imp-connect" class="primary">Connect Jira (SSO)</button>
         <span class="hint">Sign in through your org's single sign-on — no token needed.</span>
       </div>`;
     box.querySelector('#imp-connect').addEventListener('click', () => startOAuth(ov));
@@ -94,10 +95,10 @@ async function renderAuth(ov) {
   // fallback: API token
   const jiraBase = await getJiraBaseUrl();
   box.innerHTML = `<div class="games-create" style="flex-wrap:wrap">
-      <input id="imp-url" placeholder="https://yourorg.atlassian.net" value="${esc(jiraBase)}" style="min-width:260px">
-      <input id="imp-email" placeholder="email" autocomplete="username" style="min-width:200px">
-      <input id="imp-token" type="password" placeholder="API token" autocomplete="off" style="min-width:200px">
-      <button id="imp-load" class="primary">Load projects ▶</button>
+      <label>Jira site URL <input id="imp-url" placeholder="https://yourorg.atlassian.net" value="${esc(jiraBase)}" style="min-width:260px"></label>
+      <label>Jira email <input id="imp-email" placeholder="email" autocomplete="username" style="min-width:200px"></label>
+      <label>Jira API token <input id="imp-token" type="password" placeholder="API token" autocomplete="off" style="min-width:200px"></label>
+      <button id="imp-load" class="primary">Load projects</button>
     </div>
     <p class="hint">Create a token at id.atlassian.com → Security → API tokens. Used for this import only — never stored.</p>`;
   box.querySelector('#imp-load').addEventListener('click', () => loadProjects(ov, true));
@@ -126,7 +127,7 @@ async function loadProjects(ov, requireCreds) {
   const btn = ov.querySelector('#imp-load');
   if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
   const r = await req('/api/jira/projects', { method: 'POST', body: JSON.stringify(c) });
-  if (btn) { btn.disabled = false; btn.textContent = 'Load projects ▶'; }
+  if (btn) { btn.disabled = false; btn.textContent = 'Load projects'; }
   if (!r || !r.ok) { err(ov, (r && (await r.text()).trim()) || 'Could not reach Jira.'); return; }
   projects = (await r.json()) || [];
   selectedKeySet = new Set();
@@ -139,14 +140,14 @@ async function loadProjects(ov, requireCreds) {
   if (!rosters.length) {
     sel.innerHTML = '';
     sel.disabled = true;
-    note.innerHTML = '⚠️ No saved rosters yet. A JIRA import needs a dated roster — team composition changes over time, '
-      + 'and a snapshot must be pinned to the roster as it stood then. Create one in Observe ▸ 👥 Rosters, then come back.';
+    note.innerHTML = 'No saved rosters yet. A JIRA import needs a dated roster — team composition changes over time, '
+      + 'and a snapshot must be pinned to the roster as it stood then. Create one in Measure ▸ Rosters, then come back.';
     goBtn.disabled = true;
   } else {
     sel.disabled = false;
     goBtn.disabled = false;
     sel.innerHTML = rosters.map((r) => `<option value="${r.id}">${esc(r.name)} (${r.podCount} pods)</option>`).join('');
-    note.innerHTML = 'Team structure (headcount, pairing, lanes) comes from this roster, joined to Jira by pod name. Manage rosters in Observe ▸ 👥 Rosters.';
+    note.innerHTML = 'Team structure (headcount, pairing, lanes) comes from this roster, joined to Jira by pod name. Manage rosters in Measure ▸ Rosters.';
   }
   const wipSel = ov.querySelector('#imp-wipmode');
   const wipNote = ov.querySelector('#imp-wipmode-note');
@@ -207,7 +208,7 @@ async function runImport(ov) {
 
 function resetGo(ov) {
   const btn = ov.querySelector('#imp-go');
-  if (btn) { btn.disabled = false; btn.textContent = 'Import snapshot ▶'; }
+  if (btn) { btn.disabled = false; btn.textContent = 'Import snapshot'; }
 }
 
 function pollImport(ov, jobId) {

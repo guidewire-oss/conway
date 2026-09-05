@@ -3,7 +3,7 @@
 One object underlies both the manager's analytics and the facilitator's games: a
 **network snapshot** — a dated, named capture of the org network (pods, the
 cross-pod dependency edges, per-pod flow stats, and hygiene). Snapshots live in
-the database; Observe renders them and Train seeds games from them. There is no
+the database; Measure renders them and Learn seeds games from them. There is no
 separate "template" store — a template is just a snapshot a facilitator owns and
 edits.
 
@@ -15,9 +15,9 @@ A snapshot has:
   see and seed from it).
 - **owner** — who created it.
 
-## Manager flow (Observe)
+## Manager flow (Measure)
 
-1. **Import from Jira** (Observe bar → 📥). Pick projects; structure is **auto from
+1. **Import from Jira** (Measure → Import from Jira). Pick projects; structure is **auto from
    Jira** by default (pods from the pod field, dev-count ≈ distinct assignees) or
    from a Plan. The result is a private snapshot.
 2. **Compare over time.** The Org Network view's *compare to* picker diffs the
@@ -28,7 +28,7 @@ A snapshot has:
 4. **Publish.** 🗂 Snapshots → *make public* shares a snapshot so facilitators can
    build games from it. *make private* unshares it.
 
-## Facilitator flow (Train → 🎮 Games)
+## Facilitator flow (Learn → Run games)
 
 The **Scenario library** in the Games panel lists every snapshot/template you can
 use — your own, anything public, plus the built-in difficulty presets.

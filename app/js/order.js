@@ -1,3 +1,4 @@
+import { icon } from './icons.js';
 // Execution-order view: the proposed order and its reconciliation (spec 001
 // §13.2), plus the per-pod weekly load heatmap (AC 4.1) and a pod's queue in
 // scheduled start order (AC 4.3).
@@ -20,7 +21,14 @@ import { term } from './terms.js';
 export const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
   (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-export const weekLabel = (w) => `w${w}`;
+export const weekLabel = (w) => Number.isFinite(w) ? `w${w}` : 'unknown';
+
+// specs/017-planning-and-execution-usability.md:85: keep calendar dates visible.
+export function weekDateHTML(week, periodStart) {
+  const label = weekLabel(week);
+  const date = Number.isFinite(week) ? weekToDate(week, periodStart) : '';
+  return date ? `<time datetime="${date}">${date}</time> <span class="hint">(${label})</span>` : label;
+}
 
 // zoneOf matches the thresholds the app already uses everywhere else (AC 4.1,
 // and rhoColor in planui.js): at or over capacity is red, 0.85 up is amber.
@@ -146,11 +154,12 @@ export function orderRows(sched) {
 
 function orderRowHTML(row, opts = {}) {
   const { si, verdict } = row;
+  const unplaced = ['beyond-horizon', 'unschedulable'].includes(si.verdict);
   const target = si.targetWeek === null || si.targetWeek === undefined
-    ? '<span class="hint">—</span>' : weekLabel(si.targetWeek);
+    ? '<span class="hint">—</span>' : weekDateHTML(si.targetWeek, opts.periodStart);
   // AC 2.1 shows both numbers: the raw finish is what the schedule says, the commit
   // is what may be promised, and Decision 9 exists because they are not one claim.
-  const raw = si.rawFinishWeek === undefined ? '' :
+  const raw = unplaced || si.rawFinishWeek === undefined ? '' :
     `<span class="hint" title="raw scheduled finish, before its buffer">${weekLabel(si.rawFinishWeek)} +${si.bufferWeeks || 0}w →</span> `;
   // Spec 004 AC 1.1/1.2: pin/unpin rides the stated-rank cell (the deviation
   // lives there), as a toggle. Locked rows offer unpin; moved rows offer pin.
@@ -160,17 +169,17 @@ function orderRowHTML(row, opts = {}) {
   // either, so no control is offered there.
   const canPin = !opts.noPin && (si.statedRank > 0 || si.priorityLocked);
   const pin = !canPin ? '' : (si.priorityLocked
-    ? `<button type="button" class="ord-pin" data-pin="${esc(si.name)}" data-locked="1" title="release this priority back to the engine">unpin</button>`
-    : `<button type="button" class="ord-pin" data-pin="${esc(si.name)}" data-locked="" title="lock this initiative to its stated rank">pin</button>`);
+    ? `<button type="button" class="ord-pin" data-pin="${esc(si.name)}" data-locked="1" title="release this priority back to the engine">Unpin priority</button>`
+    : `<button type="button" class="ord-pin" data-pin="${esc(si.name)}" data-locked="" title="lock this initiative to its stated rank">${icon('pin')} Pin priority</button>`);
   // ✎ opens the sequencing-attribute editor (spec 004: the in-app half of the
   // sheet upload). Next to the name, where the row's identity lives.
-  const edit = opts.noPin ? '' : `<button type="button" class="ord-edit" data-edit="${esc(si.name)}" title="edit priority, dates, tier, dependencies…">✎ edit</button>`;
+  const edit = opts.noPin ? '' : `<button type="button" class="ord-edit" data-edit="${esc(si.name)}" title="edit priority, dates, tier, dependencies…">${icon('edit')} Edit initiative</button>`;
   const main = `<tr class="ord-row">
     <td class="num">#${si.proposedRank}${suggestedCell(si, opts.engineRanks)}</td>
     <td>${esc(si.name)} ${edit}</td>
     <td>${statedCell(si)} ${pin}</td>
-    <td class="num">${weekLabel(si.startWeek)}</td>
-    <td class="num">${raw}<b>${weekLabel(si.commitWeek)}</b></td>
+    <td class="num">${unplaced ? 'not scheduled' : weekDateHTML(si.startWeek, opts.periodStart)}</td>
+    <td class="num">${raw}<b>${unplaced ? 'unknown' : weekDateHTML(si.commitWeek, opts.periodStart)}</b></td>
     <td class="num">${target}</td>
     <td>${verdictBadgeHTML(si)}</td>
     <td>${esc(row.binds) || '<span class="hint">—</span>'}</td>
@@ -220,7 +229,7 @@ export function orderTableHTML(sched, opts = {}) {
       <th>#</th><th>Initiative</th><th>Stated</th><th>Start</th>
       <th>${term('commit', 'Commit')}</th><th>${term('target', 'Target')}</th><th>${term('verdict', 'Verdict')}</th><th>${term('binds', 'Binds')}</th>
     </tr></thead>
-    <tbody>${rows.map((r) => orderRowHTML(r, opts)).join('')}</tbody>
+    <tbody>${rows.map((r) => orderRowHTML(r, { ...opts, periodStart: sched.periodStart || opts.periodStart })).join('')}</tbody>
   </table></div>`;
 }
 
@@ -283,7 +292,7 @@ export function feverChartHTML(sched) {
   </svg>
   <p class="hint">Fever chart (plan-time): each dot is a dated initiative read at its target date —
     how much of the chain should be done, against how much buffer the date eats.
-    Zones match the Observe fever chart: below the green line is comfortable, amber is the
+    Zones match the Measure fever chart: below the green line is comfortable, amber is the
     buffer going fast, red has spent it. ${dated.length} dated of ${(sched.initiatives || []).length}.</p>
 </div>`;
 }
@@ -451,7 +460,7 @@ export function verdictBannerHTML(sched, opts = {}) {
         <span class="verdict-icon">📅</span>
         <div class="ord-hero-body">
           <p class="ord-hero-headline">Target dates can't be read yet — the plan has no period start</p>
-          <p class="ord-hero-sub">Set the period start in ⚙ Assumptions and every verdict on this page comes alive.
+          <p class="ord-hero-sub">Set the period start in ${icon('settings')}Assumptions and every verdict on this page comes alive.
             <button type="button" class="usage-link" data-anchor="planning-loop">learn more</button></p>
         </div></div>`;
     }
@@ -555,11 +564,11 @@ export function orderHeaderHTML(sched, opts = {}) {
     <span class="hint">rule: ${esc(sched.rule || '—')}${rules ? ` (best of ${rules})` : ''}${term('objective')}</span>
     <span class="hint">${wipLimitNote(sched.wipLimit)}</span>
     ${yours ? optimizeOfferHTML(sched) : ''}
-    ${yours ? `${term('optimize')}<button type="button" class="primary" id="ord-optimize" title="Run every dispatch rule and present the best ordering beside yours, priced. Accepting it is always your call — this is an optimization, not the solution.">⚡ Optimize order</button>`
-      : `<button type="button" id="ord-unoptimize" title="Return to your stated order. The engine's proposal stays available.">↩ back to your order</button>`}
-    <button type="button" class="docs-link" data-docs="order" title="how the Order view works — every column and action">📖 docs</button>
-    <button type="button" id="sched-open" title="period start, WIP model, buffers, freezes — set once">⚙ Assumptions</button>
-    <button type="button" id="tl-open" title="open this order as a timeline (Story 8)">▦ Open timeline ▸</button>
+    ${yours ? `${term('optimize')}<button type="button" class="primary" id="ord-optimize" title="Run every dispatch rule and present the best ordering beside yours, priced. Accepting it is always your call — this is an optimization, not the solution.">${icon('play')}Preview optimized order</button>`
+      : `<button type="button" id="ord-unoptimize" title="Return to your stated order. The engine's proposal stays available.">${icon('undo')}Use stated order</button>`}
+    <button type="button" class="docs-link" data-docs="order" title="how the Order view works — every column and action">${icon('book')}Help with commitments</button>
+    <button type="button" id="sched-open" title="period start, WIP model, buffers, freezes — set once">${icon('settings')}Assumptions</button>
+    <button type="button" id="tl-open" title="open this order as a timeline (Story 8)">${icon('calendar')}Open timeline</button>
     <span class="ord-bl-head">
 
     </span>
@@ -609,8 +618,8 @@ export function initiativeEditDialogHTML(it) {
           <span class="sched-row"><input id="ie-inflight" type="checkbox" ${it.inFlight ? 'checked' : ''}></span></label>
       </div>
       <div class="sched-row" style="gap:14px; margin-top:6px">
-        <label class="hint"><input type="checkbox" id="ie-priority-locked" ${it.priorityLocked ? 'checked' : ''}> priority fixed (pin the stated rank)</label>
-        <label class="hint"><input type="checkbox" id="ie-date-locked" ${it.dateLocked ? 'checked' : ''}> date fixed (a commitment, not an aspiration)</label>
+        <label class="hint"><input type="checkbox" id="ie-priority-locked" ${it.priorityLocked ? 'checked' : ''}> Pin priority (keep the stated rank)</label>
+        <label class="hint"><input type="checkbox" id="ie-date-locked" ${it.dateLocked ? 'checked' : ''}> Lock start (hold the requested start date)</label>
       </div>
       <span id="ie-error" class="login-err"></span>
       <div class="sched-row" style="gap:8px; margin-top:8px">
@@ -739,7 +748,7 @@ export function setupCardHTML(sp = {}, dated = 0) {
   if (!items.length) return '';
   return `<div class="panel-card ord-setup-card" id="setup-card">
     <b>Set up this plan</b>
-    <p class="hint">Two choices shape every number here. Recommended defaults below — one click each, change later in ⚙ Assumptions.</p>
+    <p class="hint">Two choices shape every number here. Recommended defaults below — one click each, change later in ${icon('settings')}Assumptions.</p>
     ${items.map((it, i) => `<div class="setup-item">
       <div><b>${esc(it.field)}</b> <span class="hint">— ${esc(it.why)}</span></div>
       <div class="hint">recommended: ${esc(it.rec)}</div>

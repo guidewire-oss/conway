@@ -850,3 +850,43 @@ button.plan-back { background: none; border: 0; padding: 0; font: inherit; }
 .plan-up-init { display: flex; flex-direction: column; gap: 6px; }
 .plan-up-init .plan-up { margin-bottom: 4px; }
 #plan-init-preview:disabled { opacity: .5; cursor: not-allowed; }
+
+/* specs/017-planning-and-execution-usability.md:104 — reachable controls at narrow widths. */
+.cv-icon { width: 1em; height: 1em; vertical-align: -.12em; flex-shrink: 0; }
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+header nav { flex-wrap: wrap; align-items: center; }
+#help-menu .dropdown-item { min-height: 40px; white-space: normal; }
+.guide-personas { flex-wrap: wrap; }
+.auth-chip { overflow-wrap: anywhere; }
+@media (max-width: 900px) {
+  header { flex-wrap: wrap; gap: 8px; position: relative; }
+  header nav { width: 100%; gap: 4px; }
+  .nav-menu { max-width: calc(100vw - 24px); }
+  .nav-group .nav-menu { left: 0; right: auto; }
+  #help-group .nav-menu { left: auto; right: 0; }
+  .sim-grid, .flow-grid, .net-wrap { grid-template-columns: minmax(0, 1fr); }
+  .panel-card, .view, main { min-width: 0; }
+  .panel-card { overflow-x: auto; }
+  #netsvg { height: 55dvh; min-height: 300px; }
+  #netpanel { max-height: none; }
+  .games-create { flex-wrap: wrap; }
+}
+@media (max-width: 480px) {
+  header { padding: 10px; }
+  main { padding: 10px; }
+  header .brand h1 .hint { display: none; }
+  header nav > .tab, header nav > .nav-group > .tab { padding: 7px 9px; }
+  .chart-pair, .game-top { display: block; }
+  .home-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #guide-modal, #games-modal { padding: 14px; max-height: 90dvh; }
+}
+
+/* Snapshot labels must not force the entire header wider than the viewport. */
+header .brand { flex-wrap: wrap; min-width: 0; max-width: 100%; }
+.snapshot-pick { min-width: 0; max-width: 100%; }
+.snapshot-pick select { min-width: 0; max-width: 100%; }
+@media (max-width: 900px) {
+  header .brand { width: 100%; }
+  header .snapshot-pick { flex: 1 1 100%; display: flex; flex-wrap: wrap; }
+  header .snapshot-pick select { width: 100% !important; }
+}

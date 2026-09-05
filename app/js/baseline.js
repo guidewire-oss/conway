@@ -1,3 +1,4 @@
+import { icon } from './icons.js';
 // Baselines in the Plan UI: the agreed order for a period, frozen (spec 001
 // Story 7, §13.1's always-visible chip and §13.2's save control).
 //
@@ -60,7 +61,7 @@ export function baselineListHTML(baselines) {
   const vsSelect = (b) => {
     const others = list.filter((o) => o.id !== b.id);
     if (!others.length) return '';
-    return `<select class="bl-vs-sel" data-from="${esc(b.id)}" title="compare this baseline against another saved one">
+    return `<select aria-label="Compare ${esc(b.name)} against another baseline" class="bl-vs-sel" data-from="${esc(b.id)}" title="compare this baseline against another saved one">
       <option value="">vs…</option>
       ${others.map((o) => `<option value="${esc(o.id)}">${esc(o.name)}</option>`).join('')}
     </select>`;
@@ -151,9 +152,10 @@ export function baselinesDrawerHTML(baselines, compare, { draft = false } = {}) 
     <div class="bl-drawer-head">
       <b>Baselines${term('baseline')}</b>
       <span class="hint">the agreed order for this period, frozen with the inputs that produced it</span>
-      <button type="button" class="bl-drawer-close" title="close (ESC)">✕</button>
+      <button type="button" class="bl-drawer-close" title="close (ESC)">${icon('close')}Close</button>
     </div>
     ${cta}
+    <p class="bl-drawer-error plan-warn" role="alert" aria-live="assertive"></p>
     <div class="bl-save">
       <input id="bl-drawer-name" type="text" placeholder="name this order, e.g. v2 agreed 12 Jan" maxlength="25" ${draft ? 'disabled' : ''} aria-label="baseline name">
       <button type="button" id="bl-save" class="primary" ${draft ? 'disabled' : ''}>Save current order</button>

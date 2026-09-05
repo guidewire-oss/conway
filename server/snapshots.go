@@ -73,7 +73,25 @@ func (s *server) handleSnapshotItem(w http.ResponseWriter, r *http.Request, c au
 		http.Error(w, "no snapshot id", 400)
 		return
 	}
+	if r.Method == http.MethodGet {
+		snapshot, err := s.db.GetSnapshot(id)
+		if err != nil {
+			http.Error(w, "Could not load snapshot.", 500)
+			return
+		}
+		if !canReadExecutionSnapshot(snapshot, c) {
+			http.Error(w, "Snapshot not found or inaccessible.", 404)
+			return
+		}
+	}
 	switch {
+	case action == "hygiene-counts" && r.Method == http.MethodGet:
+		counts, err := s.db.HygieneIssueCounts(id, r.URL.Query().Get("pod"))
+		if err != nil {
+			http.Error(w, "Could not count snapshot hygiene issues.", 500)
+			return
+		}
+		writeJSON(w, counts)
 	case action == "data" && docPath != "" && r.Method == http.MethodGet:
 		body, ok := s.tableDoc(id, docPath)
 		if !ok {

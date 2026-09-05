@@ -25,22 +25,29 @@ const VERDICT_LABELS = {
 
 const byVerdict = (sched, v) => (sched.initiatives || []).filter((i) => i.verdict === v);
 
-// fitSentence is the one line the meeting needs (AC 1.2): how many of the
-// total initiatives will not finish inside the period. Anything that is not
-// a known-good verdict counts as not landing — a future server's new bad
-// verdict must never read as all-green (remedyui's upgrade-tolerance rule).
-const GOOD_VERDICTS = ['on-time', 'no-date'];
-
+// The meeting headline keeps period fit, missed targets and missing forecast
+// evidence separate. A target verdict alone cannot answer period fit.
 export function fitSentence(sched) {
   const inits = sched.initiatives || [];
-  const doomed = inits.filter((i) => !GOOD_VERDICTS.includes(i.verdict));
   if (!inits.length) return 'No initiatives are scheduled yet.';
-  if (!doomed.length) {
-    return inits.length === 1
-      ? 'The one initiative commits inside the period.'
-      : `All ${inits.length} initiatives commit inside the period.`;
-  }
-  return `${doomed.length} of ${inits.length} initiatives will not finish inside the period.`;
+  // specs/017-planning-and-execution-usability.md:78: target lateness and
+  // period fit are independent. ScheduleFit.beyondHorizon counts refused
+  // STARTS; the buffered finish must also be compared with the horizon.
+  const held = Number.isInteger(sched.fit?.beyondHorizon)
+    ? sched.fit.beyondHorizon : inits.filter((i) => i.verdict === 'beyond-horizon').length;
+  const scheduled = inits.filter((i) => i.verdict !== 'beyond-horizon');
+  const known = scheduled.filter((i) => Number.isFinite(i.commitWeek) && Number.isFinite(sched.horizonWeeks) && i.verdict !== 'unschedulable');
+  const overrun = known.filter((i) => i.commitWeek > sched.horizonWeeks).length;
+  const unknown = scheduled.length - known.length;
+  const parts = [];
+  if (held + overrun) parts.push(`${held + overrun} of ${inits.length} initiatives will not finish inside the period.`);
+  else if (!unknown) parts.push(inits.length === 1 ? 'The one initiative is forecast inside the period.' : `All ${inits.length} initiatives are forecast inside the period.`);
+  if (unknown) parts.push(`Period fit is unknown for ${unknown} initiative${unknown === 1 ? '' : 's'}.`);
+  const late = inits.filter((i) => i.verdict === 'late' || i.verdict === 'structurally-infeasible').length;
+  if (late) parts.push(`${late} initiative${late === 1 ? ' misses its target' : 's miss their targets'}.`);
+  const provisional = inits.filter((i) => i.provisional).length;
+  if (provisional) parts.push(`${provisional} forecast${provisional === 1 ? ' is' : 's are'} provisional because estimates are missing.`);
+  return parts.join(' ');
 }
 
 export function verdictSectionHTML(sched) {
@@ -83,6 +90,7 @@ export function capacitySectionHTML(sched) {
   const hot = pods.filter((p) => p.rho !== null && p.rho >= 0.85 && p.rho < 1).sort((a, b) => b.rho - a.rho);
   const line = (p) => `<li><b>${esc(p.pod)}</b> flat ρ ${p.rho.toFixed(2)} · ${p.tracks} track${p.tracks > 1 ? 's' : ''}${p.drum ? ' · <b>drum</b>' : ''}</li>`;
   if (!over.length && !hot.length) {
+    if (!pods.length || pods.some((p) => p.rho === null)) return '<h3>Capacity</h3><p class="hint">Capacity evidence is incomplete. Review team estimates and roster capacity.</p>';
     return `<h3>Capacity</h3><p class="report-ok">Every pod is comfortably inside capacity.</p>`;
   }
   return `<h3>Capacity</h3><ul class="report-list">

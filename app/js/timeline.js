@@ -1,3 +1,4 @@
+import { icon } from './icons.js';
 // timeline.js — Stories 8-9's views (spec 001 §13.3-§13.5): the portfolio
 // timeline, the pod lens, and the pod sheet.
 //
@@ -13,7 +14,7 @@
 // labelled, the target is a diamond glyph, today is an arrow, zero slack is a
 // ⚠ beside the number.
 
-import { esc, weekToDate } from './order.js';
+import { esc, weekToDate, weekDateHTML } from './order.js';
 import { fuzzyMatch } from './filter.js';
 import { term } from './terms.js';
 
@@ -77,7 +78,7 @@ function barHTML({ left, width, cls = '', label, title, initiative, pod, startWe
   // data-estimate carries the slice's effort weeks for the right-edge resize;
   // data-loss the pod's effective loss percent, so the resize converts
   // duration to effort at the rate the engine will re-apply (spec 014).
-  const drag = initiative ? ` data-initiative="${esc(initiative)}" data-pod="${esc(pod)}" data-start-week="${startWeek}"${estimate !== undefined ? ` data-estimate="${estimate}"` : ''}${lanes !== undefined ? ` data-lanes="${lanes}"` : ''}${loss !== undefined ? ` data-loss="${loss}"` : ''}${lane !== undefined ? ` data-lane="${lane}"` : ''}` : '';
+  const drag = initiative ? ` role="button" tabindex="0" aria-label="Select ${esc(initiative)} on ${esc(pod)} for precise editing" data-initiative="${esc(initiative)}" data-pod="${esc(pod)}" data-start-week="${startWeek}"${estimate !== undefined ? ` data-estimate="${estimate}"` : ''}${lanes !== undefined ? ` data-lanes="${lanes}"` : ''}${loss !== undefined ? ` data-loss="${loss}"` : ''}${lane !== undefined ? ` data-lane="${lane}"` : ''}` : '';
   return `<div class="tl-bar tl-trunc ${cls}" style="${pct(left)};width:${width.toFixed(2)}%" title="${esc(title)}"${drag}>${esc(label)}</div>`;
 }
 
@@ -156,7 +157,7 @@ export function timelineRowHTML(si, opts = {}) {
 
   const expandMark = (si.slices || []).length > 1 ? '▸ ' : '';
   return `<div class="tl-row" data-init="${esc(si.name)}" data-expandable="${(si.slices || []).length > 1 ? 1 : 0}">
-    <span class="tl-label tl-trunc" title="${esc(si.name)}">${expandMark}${esc(si.name)}</span>
+    <button type="button" class="tl-label tl-trunc" data-select-init="${esc(si.name)}" aria-pressed="${opts.selected === si.name}" aria-expanded="${!!opts.expand}" title="Select ${esc(si.name)}">${expandMark}${esc(si.name)}</button>
     <div class="tl-track${subrows ? ' tl-expanded' : ''}">${bar}${buffer}${target}${subrows}</div>
   </div>`;
 }
@@ -212,15 +213,16 @@ export function portfolioTimelineHTML(sched, opts = {}) {
   const s = axisScale(span);
   const ticks = axisTicks(span).map((t) => {
     const title = tickTitle(t.week, sched.periodStart || opts.periodStart);
-    return `<span class="tl-tick" style="${pct(s(t.week))}"${title ? ` data-bs-toggle="tooltip" data-bs-title="${esc(title)}"` : ''}>${t.label}</span>`;
+    return `<span class="tl-tick" style="${pct(s(t.week))}"${title ? ` data-bs-toggle="tooltip" data-bs-title="${esc(title)}"` : ''}>${t.label}${title ? `<small class="tl-tick-date">${weekToDate(t.week, sched.periodStart || opts.periodStart).slice(5)}</small>` : ''}</span>`;
   }).join('');
   const grid = axisTicks(span).map((t) =>
     `<div class="tl-grid" style="${pct(s(t.week))}"></div>`).join('');
   const rows = (sched.initiatives || [])
     .slice()
     .sort((a, b) => a.proposedRank - b.proposedRank)
+    .filter((si) => !opts.initiativeQuery || fuzzyMatch(opts.initiativeQuery, si.name))
     .filter((si) => !podQ || (si.slices || []).some((sl) => fuzzyMatch(podQ, sl.pod)))
-    .map((si) => timelineRowHTML(si, { ...opts, horizonWeeks: span, expand: opts.expand === si.name }))
+    .map((si) => timelineRowHTML(si, { ...opts, horizonWeeks: span, periodStart: sched.periodStart || opts.periodStart, expand: opts.expand === si.name }))
     .join('');
   const today = opts.todayWeek === undefined || opts.todayWeek === null
     ? '' : todayLineHTML(opts.todayWeek, span);
@@ -456,7 +458,7 @@ export function podLensHTML(sched, opts = {}) {
   // tracing it. Unfiltered keeps the hottest-first capacity view.
   const q = opts.initiativeQuery || '';
   const ghost = !!opts.ghostOthers;
-  let pods = (sched.podWeeks || []).slice();
+  let pods = (sched.podWeeks || []).filter((ps) => !opts.podQuery || fuzzyMatch(opts.podQuery, ps.pod));
   if (q) {
     const key = (ps) => {
       const sl = (ps.slices || []).filter((s) => fuzzyMatch(q, s.initiative));
@@ -487,14 +489,14 @@ export function podLensHTML(sched, opts = {}) {
     return `<div class="tl-pod" data-pod="${esc(ps.pod)}">
       <div class="ord-head"><b>${esc(ps.pod)}</b>
         <span class="hint">ρ ${rho.toFixed(2)} · ${ps.tracks} track${ps.tracks > 1 ? 's' : ''} · ${(ps.slices || []).length} slice${(ps.slices || []).length === 1 ? '' : 's'}${loss}</span>
-        <button type="button" class="pod-export" data-export-pod="${esc(ps.pod)}" title="download this pod's timeline as a PNG">⬇ PNG</button></div>
+        <button type="button" class="pod-export" data-export-pod="${esc(ps.pod)}" title="download this pod's timeline as a PNG">${icon('download')} Download PNG</button></div>
       ${podLanesHTML(ps, { ...opts, horizonWeeks: span, pinnedLanes: (opts.pinnedLanes || {})[ps.pod] || null })}
     </div>`;
   }).join('');
   const s = axisScale(span);
   const ticks = axisTicks(span).map((t) => {
     const title = tickTitle(t.week, sched.periodStart || opts.periodStart);
-    return `<span class="tl-tick" style="${pct(s(t.week))}"${title ? ` data-bs-toggle="tooltip" data-bs-title="${esc(title)}"` : ''}>${t.label}</span>`;
+    return `<span class="tl-tick" style="${pct(s(t.week))}"${title ? ` data-bs-toggle="tooltip" data-bs-title="${esc(title)}"` : ''}>${t.label}${title ? `<small class="tl-tick-date">${weekToDate(t.week, sched.periodStart || opts.periodStart).slice(5)}</small>` : ''}</span>`;
   }).join('');
   return `<div class="panel-card tl-card">
     <div class="ord-head"><b>Timeline — by pod</b>
@@ -524,13 +526,13 @@ export function podSheetHTML(ps, sched, opts = {}) {
       }
     }
     const slackTxt = sl.slackWeeks === 0
-      ? '<b>none ⚠</b>'
+      ? '<b>no slack</b>'
       : `${sl.slackWeeks}w`;
     return `<tr>
       <td>${esc(sl.initiative)}</td>
       <td>${sl.finishWeek - sl.startWeek}w</td>
-      <td>w${sl.startWeek}</td>
-      <td>w${sl.latestStartWeek}</td>
+      <td>${weekDateHTML(sl.startWeek, sched.periodStart || opts.periodStart)}</td>
+      <td>${weekDateHTML(sl.latestStartWeek, sched.periodStart || opts.periodStart)}</td>
       <td>${slackTxt}</td>
       <td>${waits.length ? waits.map(esc).join(', ') : '<span class="hint">—</span>'}</td>
       <td>${blocks.length ? blocks.map(esc).join(', ') : '<span class="hint">—</span>'}</td>
@@ -540,12 +542,12 @@ export function podSheetHTML(ps, sched, opts = {}) {
   return `<div class="panel-card ord-card" data-pod-sheet="${esc(ps.pod)}">
     <div class="ord-head"><b>${esc(ps.pod)} — ${ps.tracks} track${ps.tracks > 1 ? 's' : ''}</b>
       <span class="hint">${slices.length} slice${slices.length === 1 ? '' : 's'} in start order${ps.lossPct ? ` · capacity loss ${ps.lossPct}%${ps.lossOverride ? '' : ' (plan default)'}` : ''}</span>
-      <button type="button" class="pod-export" data-export-sheet="${esc(ps.pod)}" title="download this sheet as a PNG">⬇ PNG</button></div>
+      <button type="button" class="pod-export" data-export-sheet="${esc(ps.pod)}" title="download this sheet as a PNG">${icon('download')} Download PNG</button></div>
     <table class="wip-table">
       <thead><tr><th>Initiative</th><th>Weeks</th><th>Start</th><th>Start by</th><th>Slack</th><th>Waiting on</th><th>Blocks</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="7" class="hint">No scheduled work at this pod.</td></tr>'}</tbody>
     </table>
-    <p class="hint">⚠ no slack: starting later moves the initiative's commit date. "Start by" is the last week that does not.</p>
+    <p class="hint">No slack: starting later moves the initiative's commit date. "Start by" is the last week that does not.</p>
   </div>`;
 }
 
@@ -555,27 +557,73 @@ export function podSheetHTML(ps, sched, opts = {}) {
 // browser ignored the stray closers and the first .btn-group (a flex row)
 // swallowed #tl-main — every button stretched viewport-tall and the chart
 // squeezed into the leftover width. Every opener here must close.
-export function timelineControlsHTML({ lens, horizon, spans, spanSel, filter, hideEmpty, ghost }) {
-  // The ◉/○ glyph follows the active state: hardcoding it on a label made
-  // "by initiative" read as selected even when "by pod" was (spec review).
+// specs/017-planning-and-execution-usability.md:85: grouping never changes a filter's meaning.
+export function timelineControlsHTML({ lens, spans, spanSel, filter, initiativeFilter, teamFilter, hideEmpty, ghost }) {
+  const initiative = initiativeFilter ?? (lens === 'pod' ? filter : '') ?? '';
+  const team = teamFilter ?? (lens === 'initiative' ? filter : '') ?? '';
   const lensBtn = (id, on, label) =>
-    `<button class="${on ? 'active' : ''}" id="${id}">${on ? '◉' : '○'} ${label}</button>`;
-  return `
-    <div class="plan-views"><div class="btn-group" role="group">
-      ${lensBtn('tl-by-initiative', lens === 'initiative', 'by initiative')}
-      ${lensBtn('tl-by-pod', lens === 'pod', 'by pod')}
+    `<button type="button" class="${on ? 'active' : ''}" id="${id}" aria-pressed="${on}">${label}</button>`;
+  return `<div class="plan-views tl-controls">
+    <div class="btn-group" role="group" aria-label="Timeline grouping">
+      ${lensBtn('tl-by-initiative', lens === 'initiative', 'By initiative')}
+      ${lensBtn('tl-by-pod', lens === 'pod', 'By team')}
     </div>
-    <div class="btn-group" role="group" title="how much of the schedule to draw — the period end is marked when the view is wider">
-      ${spans.map((sp) => `<button class="${sp.id === spanSel ? 'active' : ''}" data-tlspan="${sp.id}">${sp.label}</button>`).join('')}
+    <div class="btn-group" role="group" aria-label="Visible time span">
+      ${spans.map((sp) => `<button type="button" class="${sp.id === spanSel ? 'active' : ''}" data-tlspan="${sp.id}" aria-pressed="${sp.id === spanSel}">${sp.label}</button>`).join('')}
     </div>
-    <div class="btn-group" role="group">
-      <button id="tl-fullscreen" title="fullscreen the timeline for lane-accurate dragging (ESC to exit)">⛶ full screen</button>
-    </div>
-    <span class="tl-filter" id="tl-filter-box">
-      <input id="tl-filter" type="search" placeholder="${lens === 'pod' ? 'filter by initiative…' : 'filter by pod…'}"
-        value="${esc(filter || '')}" aria-label="${lens === 'pod' ? 'filter initiatives' : 'filter pods'}">
-      <span class="hint" id="tl-filter-count"></span>
-      ${lens === 'pod' ? `<label class="hint" title="hide pods whose initiatives all fail the filter — the waterfall shows only the chain"><input type="checkbox" id="tl-hide-empty" ${hideEmpty ? 'checked' : ''}> hide empty pods</label>` : ''}
-      ${lens === 'pod' ? `<label class="hint" title="show non-matching bars dimmed, so the capacity that fills the gaps is visible"><input type="checkbox" id="tl-ghost" ${ghost ? 'checked' : ''}> show other work</label>` : ''}
-    </span></div>`;
+    <button type="button" id="tl-fullscreen" title="Open timeline full screen; Escape exits">${icon('expand')} Full screen</button>
+    <div class="tl-filter" id="tl-filter-box">
+      <label>Initiative <input id="tl-initiative-filter" type="search" placeholder="Find an initiative" value="${esc(initiative)}"></label>
+      <label>Team <input id="tl-team-filter" type="search" placeholder="Find a team" value="${esc(team)}"></label>
+      <span class="hint" id="tl-filter-count" role="status"></span>
+      ${lens === 'pod' ? `<label class="hint"><input type="checkbox" id="tl-hide-empty" ${hideEmpty ? 'checked' : ''}> Hide teams without matching work</label>
+      <label class="hint"><input type="checkbox" id="tl-ghost" ${ghost ? 'checked' : ''}> Show other work</label>` : ''}
+    </div></div>`;
+}
+
+// specs/017-planning-and-execution-usability.md:86: a persistent selection and
+// ordinary form controls provide the same edit path as a pointer gesture.
+export function timelineInspectorHTML(si, sched, opts = {}) {
+  if (!si) return '<aside class="tl-inspector panel-card"><h3>Initiative details</h3><p>Select an initiative to inspect its dates, dependencies and precise timeline controls.</p></aside>';
+  const unplaced = ['beyond-horizon', 'unschedulable'].includes(si.verdict);
+  const pi = (opts.planInitiatives || []).find((i) => i.name === si.name);
+  const rows = (si.slices || []).map((sl) => {
+    const team = (sched.podWeeks || []).find((p) => p.pod === sl.pod);
+    const estimate = pi?.work?.[sl.pod]?.weeks;
+    const packed = team ? assignLanes(team.slices || [], team.tracks || 0, opts.pinnedLanes?.[sl.pod]) : null;
+    const lane = (packed?.placement.find((p) => p.sl.initiative === si.name && p.lead)?.lane ?? opts.pinnedLanes?.[sl.pod]?.[si.name] ?? 0) + 1;
+    return `<fieldset class="tl-edit-row" data-pod="${esc(sl.pod)}"><legend>${esc(sl.pod)}</legend>
+      <p class="hint">${weekDateHTML(sl.startWeek, sched.periodStart)} to ${weekDateHTML(sl.finishWeek, sched.periodStart)} · ${sl.slackWeeks ?? 'unknown'}w slack${sl.dependsOn?.length ? ` · waits on ${sl.dependsOn.map(esc).join(', ')}` : ''}</p>
+      <label>Start week <input name="startWeek" type="number" min="0" step="1" required value="${sl.startWeek ?? 0}"></label>
+      <label>Estimate (weeks) <input name="estimateWeeks" type="number" min="0.1" step="any" ${pi?.inFlight || !Number.isFinite(estimate) ? 'disabled' : 'required'} value="${Number.isFinite(estimate) ? estimate : ''}"></label>
+      <label>First lane <input name="lane" type="number" min="1" max="${Math.max(1, (team?.tracks || 1) - (sl.lanesUsed || 1) + 1)}" step="1" required value="${lane}"></label>
+      ${pi?.inFlight ? '<p class="hint">In-flight effort cannot be resized from its remaining work.</p>' : ''}
+    </fieldset>`;
+  }).join('');
+  return `<aside class="tl-inspector panel-card" aria-label="Selected initiative">
+    <h3>${esc(si.name)}</h3>
+    <p>Buffered finish: ${unplaced ? 'unknown (not scheduled)' : weekDateHTML(si.commitWeek, sched.periodStart)}. Target: ${si.targetWeek == null ? 'not set' : weekDateHTML(si.targetWeek, sched.periodStart)}.</p>
+    <p>${esc(si.bindingConstraint || 'No binding constraint reported')}${si.provisional ? ' · provisional estimate' : ''}</p>
+    <p class="hint">Forecast from working inputs, staffing and calendar. Applying edits saves the working plan; the agreed baseline remains available.</p>
+    ${rows ? `<form class="tl-precise-edit" data-init="${esc(si.name)}">${rows}<button type="submit">Apply timeline edits</button></form>` : '<p>No scheduled slices to edit.</p>'}
+  </aside>`;
+}
+
+export function timelineEditsFromRows(initiative, rows) {
+  const edit = { name: initiative.name, pinnedStarts: { ...initiative.pinnedStarts }, pinnedLanes: { ...initiative.pinnedLanes }, estimateEdits: {} };
+  for (const row of rows) {
+    if (!Object.hasOwn(initiative.work || {}, row.pod)) throw new Error('Choose a team assigned to this initiative.');
+    const start = Number(row.startWeek), lane = Number(row.lane);
+    if (String(row.startWeek).trim() === '' || !Number.isInteger(start) || start < 0) throw new Error('Start week must be a whole number of zero or more.');
+    if (String(row.lane).trim() === '' || !Number.isInteger(lane) || lane < 1) throw new Error('First lane must be a whole number of one or more.');
+    edit.pinnedStarts[row.pod] = start;
+    edit.pinnedLanes[row.pod] = lane - 1;
+    if (row.estimateWeeks !== undefined && !initiative.inFlight) {
+      const estimate = Number(row.estimateWeeks);
+      if (!Number.isFinite(estimate) || estimate <= 0) throw new Error('Estimate must be greater than zero.');
+      edit.estimateEdits[row.pod] = estimate;
+    }
+  }
+  if (!Object.keys(edit.estimateEdits).length) delete edit.estimateEdits;
+  return edit;
 }

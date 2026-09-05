@@ -31,11 +31,11 @@ export const TERMS = {
   },
   buffer: {
     label: 'Buffer',
-    tip: 'Protective time added after the scheduled work, so a slip eats the buffer instead of the promise. A flat 25% of the chain by default.',
+    tip: 'Protective time added after the scheduled work, so a slip eats the buffer instead of the promise. Its size follows the plan settings and current critical chain.',
   },
   commit: {
-    label: 'Commit week',
-    tip: 'The week you can promise: scheduled finish plus buffer. Promising the raw finish date leaves nothing for reality.',
+    label: 'Buffered finish',
+    tip: 'The forecast finish including protective buffer, conditional on the current estimates, staffing, dependencies and calendar. Save an agreed baseline when the team accepts this forecast.',
   },
   target: {
     label: 'Target date',
