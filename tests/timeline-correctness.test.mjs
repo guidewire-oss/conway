@@ -7,10 +7,18 @@ const inputs = [{ name: 'Alpha', work: { Atlas: { inPath: true, weeks: 4 }, Beac
 const idle = { pod: 'Atlas', tracks: 2, slices: [], weeks: Array.from({ length: 26 }, () => ({ busy: 0 })) };
 const schedule = { horizonWeeks: 26, initiatives: [rejected], podWeeks: [idle] };
 
+test('a hard lead hold explains the policy without asking for input dates', () => {
+  const row = timelineRowHTML({ ...rejected, bindingConstraint: 'lead' });
+  assert.match(row, /hard lead-capacity limit/);
+  assert.match(row, /Input start and finish dates are not required/);
+  assert.match(row, /Use advisory lead limits in Scheduling assumptions/);
+  assert.doesNotMatch(row, /Start and finish are unknown/);
+});
+
 test('rejected assignments remain visible under input-team filters without invented week-zero bars', () => {
   const row = timelineRowHTML(rejected);
   assert.match(row, /Not scheduled within this period: wip-limit/);
-  assert.match(row, /Start and finish are unknown/);
+  assert.match(row, /No dates were calculated because this work is held/);
   assert.doesNotMatch(row, /class="tl-bar|class="tl-target|w0/);
   const filtered = portfolioTimelineHTML(schedule, { podQuery: 'Atlas', initiativeQuery: 'Alpha', planInitiatives: inputs });
   assert.match(filtered, /data-init="Alpha"/);
@@ -27,7 +35,7 @@ test('team lens and exported sheet retain rejected assignments with explicit unk
   const sheet = podSheetHTML(idle, schedule, { planInitiatives: inputs });
   assert.match(sheet, /Alpha/);
   assert.match(sheet, /1 assigned without placement/);
-  assert.match(sheet, /Start and finish are unknown/);
+  assert.match(sheet, /No dates were calculated because this work is held/);
   assert.doesNotMatch(sheet, /No scheduled work at this pod|<td>w0/);
 });
 

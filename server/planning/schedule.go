@@ -129,6 +129,7 @@ type SchedulingParams struct {
 	FeedingBufferPct         *float64         `json:"feedingBufferPct,omitempty"`         // reserved for feeding paths
 	MaxStartsPerQuarter      int              `json:"maxStartsPerQuarter,omitempty"`      // change-absorption cap; 0 = uncapped
 	LeadCapacity             map[string]int   `json:"leadCapacity,omitempty"`             // role -> concurrent initiatives
+	LeadCapacityMode         string           `json:"leadCapacityMode,omitempty"`         // advisory | hard; absent preserves explicit role limits
 	Calendars                []CalendarWindow `json:"calendars,omitempty"`                // FR-018 calendar constraints
 	AllowTransfers           bool             `json:"allowTransfers,omitempty"`           // reserved for capacity transfer
 	TransferRampWeeks        int              `json:"transferRampWeeks,omitempty"`        // reserved for capacity transfer
@@ -231,6 +232,19 @@ func (sp SchedulingParams) leadCap(role string) int {
 		return n
 	}
 	return 1
+}
+
+// specs/020-undated-capacity-scheduling.md:106: implicit workload assumptions
+// advise; explicitly configured limits retain their previous hard enforcement.
+func (sp SchedulingParams) hardLeadCapacity() bool {
+	switch sp.LeadCapacityMode {
+	case "advisory":
+		return false
+	case "hard":
+		return true
+	default:
+		return len(sp.LeadCapacity) > 0
+	}
 }
 
 // bufferWeeksFor sizes an initiative's buffer. Decision 20 asks for exactly one
@@ -1486,6 +1500,33 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 		results[in.init.Name] = &si
 	}
 
+	// specs/020-undated-capacity-scheduling.md:115: report final overlapping
+	// workload on every affected initiative, including earlier releases.
+	if !sp.hardLeadCapacity() {
+		for _, in := range seq {
+			si := results[in.init.Name]
+			if si == nil || len(si.Slices) == 0 {
+				continue
+			}
+			var warnings []string
+			for role, name := range in.init.Leads {
+				identity := leadIdentity(name)
+				if identity == "" {
+					continue
+				}
+				peak := 0
+				for w := si.StartWeek; w < si.RawFinishWeek; w++ {
+					peak = maxInt(peak, weekAt(leadBusy[role+"|"+identity], w))
+				}
+				if limit := sp.leadCap(role); peak > limit {
+					warnings = append(warnings, fmt.Sprintf("advisory: %s lead workload reaches %d concurrent initiatives (threshold %d); team work remains scheduled", role, peak, limit))
+				}
+			}
+			sort.Strings(warnings)
+			si.Assumptions = append(si.Assumptions, warnings...)
+		}
+	}
+
 	// Emit initiatives in sheet order: the rank is a field, not a row position,
 	// so the response is stable however the rules reorder the release sequence.
 	out := make([]ScheduledInitiative, 0, len(all))
@@ -1693,7 +1734,7 @@ func releaseGates(in *schedInput, sp SchedulingParams, wip WipLimit, start, fini
 			}
 		}
 	}
-	if len(leadGateAssumptions(in, sp, start, finish, leadBusy)) > 0 {
+	if sp.hardLeadCapacity() && len(leadGateAssumptions(in, sp, start, finish, leadBusy)) > 0 {
 		return bindLead, false
 	}
 	return "", true

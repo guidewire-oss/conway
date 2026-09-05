@@ -804,7 +804,7 @@ export function orderViewHTML(sched, opts = {}) {
 // simulator all consume; these only affect the order, and putting them in the
 // header would imply that moving them changes the Network view's numbers.
 //
-// Only knobs that do something are offered. leadCapacity and the transfer
+// Only knobs that do something are offered. The transfer
 // settings are in §7 but nothing consumes them yet, and a control that silently
 // does nothing is worse than an absent one. (targetUtilization joined the live
 // set when the drum stagger landed — spec 004 Story 5.)
@@ -937,7 +937,14 @@ export function schedulingFormHTML(sp = {}, wip, sched) {
     'hold releases so drum load stays under this; blank means no stagger')}
     </div>
     <fieldset><legend>Named lead capacity</legend>
-      <p class="hint">Concurrent initiatives per named lead. Blank restores the shown default; 0 prevents new releases for that role.</p>
+      <label class="hint sched-f">Lead limits
+        <select id="sched-lead-mode">
+          <option value="advisory"${leadCapacityMode(sp) === 'advisory' ? ' selected' : ''}>Advisory — schedule team work and warn</option>
+          <option value="hard"${leadCapacityMode(sp) === 'hard' ? ' selected' : ''}>Hard — hold work when a limit is reached</option>
+        </select>
+      </label>
+      <p class="hint">Work does not need input start or finish dates. Advisory limits show lead workload warnings while team capacity, dependencies, calendars and other release limits still apply. Hard limits can hold an entire initiative.</p>
+      <p class="hint">Concurrent initiatives per named lead. Blank uses the shown threshold. Zero is a warning threshold in advisory mode and prevents new releases for that role in hard mode.</p>
       <div class="sched-grid">${LEAD_ROLES.map(([role, label, limit]) => intField(`sched-lead-${role}`, label,
         sp.leadCapacity?.[role] == null ? '' : String(sp.leadCapacity[role]), String(limit), `Default: ${limit} concurrent initiatives`)).join('')}</div>
     </fieldset>
@@ -1028,9 +1035,17 @@ export function pctToFraction(raw) {
 export const LEAD_ROLES = [['pm', 'Product management', 2], ['eng', 'Engineering', 2],
   ['architect', 'Architecture', 3], ['pgm', 'Program management', 4]];
 
+// specs/020-undated-capacity-scheduling.md:106: match the server's legacy inference.
+export function leadCapacityMode(sp = {}) {
+  if (['advisory', 'hard'].includes(sp.leadCapacityMode)) return sp.leadCapacityMode;
+  return Object.keys(sp.leadCapacity || {}).length ? 'hard' : 'advisory';
+}
+
 export function schedulingFromForm(read, saved = {}) {
   const raw = (id) => String(read(id) ?? '').trim();
   const out = { ...saved };
+  const leadMode = raw('sched-lead-mode');
+  if (['advisory', 'hard'].includes(leadMode)) out.leadCapacityMode = leadMode;
   for (const key of ['periodStart', 'wipModel', 'maxConcurrentInitiatives', 'maxInitiativesPerPod',
     'maxStartsPerQuarter', 'bufferPct', 'kitGate', 'targetUtilization', 'estimateModel',
     'splitTaxWeeks', 'splitMinWeeks', 'calendars']) delete out[key];

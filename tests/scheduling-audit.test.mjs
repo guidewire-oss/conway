@@ -2,9 +2,30 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
-import { schedulingFromForm, schedulingFormHTML, compareScheduleCosts, objectiveView } from '../app/js/order.js';
+import { schedulingFromForm, schedulingFormHTML, compareScheduleCosts, objectiveView, leadCapacityMode } from '../app/js/order.js';
 import { remedyRowHTML } from '../app/js/remedyui.js';
 import { remediesSectionHTML } from '../app/js/report.js';
+
+test('lead enforcement defaults to advisory while preserving explicit legacy limits', () => {
+  assert.equal(leadCapacityMode({}), 'advisory');
+  assert.equal(leadCapacityMode({ leadCapacity: {} }), 'advisory');
+  assert.equal(leadCapacityMode({ leadCapacity: { pm: 0 } }), 'hard');
+  assert.equal(leadCapacityMode({ leadCapacityMode: 'advisory', leadCapacity: { pm: 0 } }), 'advisory');
+  assert.equal(leadCapacityMode({ leadCapacityMode: 'hard' }), 'hard');
+  assert.match(schedulingFormHTML({}), /value="advisory" selected/);
+  assert.match(schedulingFormHTML({ leadCapacity: { pm: 0 } }), /value="hard" selected/);
+});
+
+test('lead mode roundtrips with thresholds and survives unrelated form edits', () => {
+  const saved = { leadCapacityMode: 'hard', leadCapacity: { pm: 0, specialist: 3 } };
+  const values = { 'sched-lead-mode': 'advisory', 'sched-lead-pm': '0' };
+  const changed = schedulingFromForm(id => values[id], saved);
+  assert.equal(changed.leadCapacityMode, 'advisory');
+  assert.deepEqual(changed.leadCapacity, { pm: 0, specialist: 3 });
+  assert.equal(saved.leadCapacityMode, 'hard');
+  assert.equal(schedulingFromForm(() => undefined, changed).leadCapacityMode, 'advisory');
+  assert.equal(schedulingFromForm(id => id === 'sched-lead-mode' ? 'hard' : '', changed).leadCapacityMode, 'hard');
+});
 
 test('editing visible assumptions preserves hidden policy and can clear a lead override', () => {
   const saved = { leadCapacity: { pm: 7, eng: 8, specialist: 9 }, customPolicy: { retain: true }, acceptedOrdering: 'engine', bufferPct: .4 };

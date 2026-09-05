@@ -894,7 +894,7 @@ function setView(v) {
 const ASSUMPTION_FIELDS = ['sched-period-start', 'sched-wip-model', 'sched-wip', 'sched-buffer',
   'sched-kit', 'sched-pod-wip', 'sched-quarter', 'sched-estimate-model', 'sched-split-tax',
   'sched-chunking', 'sched-split-min', 'sched-stagger',
-  'sched-lead-pm', 'sched-lead-eng', 'sched-lead-architect', 'sched-lead-pgm'];
+  'sched-lead-mode', 'sched-lead-pm', 'sched-lead-eng', 'sched-lead-architect', 'sched-lead-pgm'];
 
 // Hoisted function declarations, not consts: renderOrder calls
 // applyLiveAssumptions mid-body, and a const there would still be in its

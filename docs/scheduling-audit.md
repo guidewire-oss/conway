@@ -3,6 +3,10 @@
 Audit date: 2026-09-05. Decision record:
 [Scheduling audit and Gantt integrity](../specs/019-scheduling-audit-and-gantt-integrity.md).
 
+The follow-up below records the later change to advisory lead limits. Its replay
+supersedes the original 14-unstarted result; the original audit evidence is
+retained as history.
+
 ## Scope and findings
 
 A read-only replay covered a 29-initiative, 35-team reference plan with 203
@@ -80,3 +84,31 @@ occupied work intervals. Dependency names are inspectable, but cross-row visual
 dependency connectors remain a possible future improvement. The reference replay
 cannot exercise every calendar or carryover combination; small generic regression
 fixtures cover these edge cases separately.
+
+## Follow-up: undated work and advisory lead limits
+
+The planner clarified that work should use available contiguous team capacity
+before start or finish dates have been supplied. Missing dates already allowed
+scheduling. The actual hold was implicit lead-concurrency enforcement: a generic
+three-team reproduction placed two independent assignments and rejected the third
+solely because they shared an owner.
+
+[Spec 020](../specs/020-undated-capacity-scheduling.md) changes implicit lead
+thresholds to advisory. Existing explicit role limits retain hard enforcement;
+the assumptions form offers both modes. Advisory warnings describe actual final
+overlap on all affected initiatives. Team capacity, dependencies, calendars,
+pins and other release limits still apply to dated and undated work alike.
+
+The same reference replay now starts 27 of 29 initiatives inside the period,
+compared with 15 before this policy change. Two remain held: one by team capacity
+and one by the drum release policy. A start inside the period does not imply
+completion inside the period. Of 196 placed team slices, 194 have estimates and
+two have unknown estimates; productive-effort accounting found zero undercounts.
+All 4,305 emitted team-weeks remain within physical track capacity. The browser
+again matched 910 visible cells with no lane overlaps and exported the team chart.
+
+Follow-up checks executed on 2026-09-05: `go test -race ./...` returned `ok` for
+all tested packages (server 6.975s; planning 4.367s), and
+`golangci-lint run ./...` returned `0 issues.`
+`node --test tests/*.test.mjs` returned `tests 361`, `pass 361`, `fail 0`,
+including lead-mode roundtrip and held-message regressions. No saved plan was changed.

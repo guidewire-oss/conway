@@ -28,7 +28,8 @@ export const matchesTimelineTeam = (si, query, inputs = []) => !query || assigne
 function unscheduledReason(si) {
   const state = si.verdict === 'beyond-horizon' ? 'Not scheduled within this period' : 'Not scheduled';
   const assumptions = (si.assumptions || []).filter(Boolean).map(warningText).join('; ');
-  return `${state}: ${si.bindingConstraint || 'the scheduler did not return a placement'}. Start and finish are unknown.${assumptions ? ` Assumptions: ${assumptions}` : ''}`;
+  const cause = si.bindingConstraint === 'lead' ? 'hard lead-capacity limit' : (si.bindingConstraint || 'the scheduler did not return a placement');
+  return `${state}: ${cause}. No dates were calculated because this work is held.${si.bindingConstraint === 'lead' ? ' Input start and finish dates are not required. Use advisory lead limits in Scheduling assumptions to schedule against team capacity.' : ''}${assumptions ? ` Assumptions: ${assumptions}` : ''}`;
 }
 function warningText(text) {
   return String(text).replace(/\b(pm|eng|architect|pgm)\b(?=\s+(?:lead|ownership|capacity|limit))/gi,
