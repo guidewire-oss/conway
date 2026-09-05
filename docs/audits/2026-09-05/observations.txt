@@ -1,0 +1,159 @@
+$ rtk proxy go run docs/audits/2026-09-05/reproduce.go
+estimate "TBD" work=map[]
+estimate "" work=map[]
+duplicate team columns teams=[Atlas Atlas] work=map[Atlas:{Weeks:7 Estimated:true InPath:true DependsOn:[]}]
+duplicate roster rows=[{Name:Atlas Devs:0 Pairs:false Tracks:2 Site: Timezone: CapacityLoss:0} {Name:Atlas Devs:0 Pairs:false Tracks:5 Site: Timezone: CapacityLoss:0}] err=<nil>
+eight-week period shift comparison={Initiatives:[{Name:First ProposedRank:1 BaselineRank:1 StartWeek:0 BaselineStart:0 StartDeltaWeeks:0 CommitWeek:4 BaselineCommit:4 CommitDeltaWeeks:0 Verdict:no-date BaselineVerdict:no-date VerdictChanged:false}] Added:[] Removed:[] Moved:0}
+held comparison={Initiatives:[{Name:First ProposedRank:1 BaselineRank:1 StartWeek:0 BaselineStart:0 StartDeltaWeeks:0 CommitWeek:0 BaselineCommit:4 CommitDeltaWeeks:-4 Verdict:beyond-horizon BaselineVerdict:no-date VerdictChanged:true}] Added:[] Removed:[] Moved:1}
+reassign unknown beforeProvisional=true afterProvisional=false work=map[Atlas:{Weeks:4 Estimated:true InPath:true DependsOn:[]}]
+dependency"Atlas" slices=[{Initiative:First Pod:Atlas RemainingWeeks:4 LanesUsed:1 Phases:[] StartWeek:0 FinishWeek:4 WaitWeeks:0 BindingConstraint: Estimated:true DependsOn:[] LatestStartWeek:0 SlackWeeks:0} {Initiative:First Pod:Beacon RemainingWeeks:1 LanesUsed:1 Phases:[] StartWeek:4 FinishWeek:5 WaitWeeks:0 BindingConstraint:dependency Estimated:true DependsOn:[Atlas] LatestStartWeek:4 SlackWeeks:0}] provisional=false
+dependency"ATLAS" slices=[{Initiative:First Pod:Atlas RemainingWeeks:4 LanesUsed:1 Phases:[] StartWeek:0 FinishWeek:4 WaitWeeks:0 BindingConstraint: Estimated:true DependsOn:[] LatestStartWeek:0 SlackWeeks:0} {Initiative:First Pod:Beacon RemainingWeeks:1 LanesUsed:1 Phases:[] StartWeek:0 FinishWeek:1 WaitWeeks:0 BindingConstraint: Estimated:true DependsOn:[] LatestStartWeek:3 SlackWeeks:3}] provisional=true
+TBD known plus unknown work=map[Atlas:{4 true true []}] provisional=false unestimated=[]
+duplicate roster scheduleTracks=5 fitAvailable=182 expectedForUsedTracks=130
+{
+  "coverage": {
+    "total": 1,
+    "bound": 1,
+    "tracked": 1
+  },
+  "initiatives": [
+    {
+      "issueCount": 1,
+      "doneCount": 1,
+      "unknownStatusCount": 0,
+      "name": "First",
+      "epicKeys": [
+        "PROJ-1",
+        "PROJ-9"
+      ],
+      "tracked": true,
+      "percentComplete": 100,
+      "slices": [
+        {
+          "pod": "Atlas",
+          "issueCount": 1,
+          "doneCount": 1,
+          "unknownStatusCount": 0,
+          "percentComplete": 100,
+          "actualStartWeek": 1,
+          "actualFinishWeek": 3,
+          "startInferred": true,
+          "confidence": "low",
+          "gaps": [
+            "No status-transition history; start inferred from earliest created/updated child activity.",
+            "Conditional forecast unavailable: bound epic evidence is missing."
+          ],
+          "baselineStartWeek": 0,
+          "baselineFinishWeek": 4,
+          "startVarianceWeeks": 1,
+          "finishVarianceWeeks": -1,
+          "estimateVariancePct": -50,
+          "bufferUsedPct": 0,
+          "status": "on-track",
+          "remainingWeeks": null,
+          "forecastFinishWeek": null,
+          "forecastBasis": "Conditional forecast unavailable: bound epic evidence is missing."
+        }
+      ],
+      "gaps": [
+        "Bound epic PROJ-9 is missing from this snapshot or is not an epic.",
+        "Buffer risk uses completed child-issue count as a progress proxy; starts and elapsed-time calibration are inferred, not measured effort."
+      ],
+      "addedEpics": [],
+      "removedEpics": [],
+      "unplannedPods": [],
+      "suggestions": [],
+      "originalScopeSlices": [],
+      "actualStartWeek": 1,
+      "actualFinishWeek": 3,
+      "startVarianceWeeks": 1,
+      "finishVarianceWeeks": -2,
+      "bufferUsedPct": 0,
+      "status": "on-track"
+    }
+  ],
+  "calibration": [
+    {
+      "pod": "Atlas",
+      "factor": 0.5,
+      "sampleCount": 1,
+      "inferred": true
+    }
+  ],
+  "adherence": {
+    "followed": 0,
+    "compared": 0,
+    "percent": null,
+    "inferred": true,
+    "outOfOrderPods": []
+  },
+  "gaps": []
+}
+exit=0
+
+$ rtk proxy node docs/audits/2026-09-05/planning-ui.mjs
+heldComparison { fabricatedWeekZero: true, falseGreenImprovement: true }
+compareDispatch {
+  comparisonStored: true,
+  orderPaints: 1,
+  drawerPaints: 0,
+  selectedView: 'timeline'
+}
+lateUpload { reopenedPlans: [ 'plan-b' ], clearedOtherPlanUndo: true }
+agreementAfterEdit { baselineLoads: 0, chipStillMatches: true }
+exit=0
+
+$ rtk proxy node docs/audits/2026-09-05/execution-ui.mjs
+decision { savedAction: 'Initial action', actionAfterResponse: '' }
+catalogRecovery {
+  snapshotCalls: 1,
+  status: 'Choose a snapshot, or import one to review execution.',
+  options: '<option value="">Snapshots unavailable</option>'
+}
+simulator {
+  mode: 'empty',
+  keepsPreviousResult: true,
+  cards: 'Old successful statistics'
+}
+simulator {
+  mode: 'missing-team',
+  keepsPreviousResult: true,
+  cards: '<p role="alert">Some tasks have no team statistics in this snapshot. Choose a team for each task or select a snapshot with the required roster.</p>'
+}
+simulator {
+  mode: 'invalid',
+  keepsPreviousResult: true,
+  cards: '<div class="stat"><div class="v" style="color:var(--red);font-size:14px">Cycle in task graph</div></div>'
+}
+exit=0
+
+$ rtk proxy node docs/audits/2026-09-05/measure.mjs
+{"scoreboard":{"rawNameMarkup":true,"rawSiteMarkup":true,"syntheticStats":{"mu":1.9459101490553132,"sigma":0.9,"p50":7,"p85":17,"mean":10,"wip":2,"throughputWk":1.6,"resolved180":0,"synthetic":true,"load":1,"rho0":0.97},"overCapacityFlag":true,"noDataFlag":true},"flow":{"syntheticRankedAsConstraint":true,"syntheticLabel":false,"rawNameMarkup":true,"suggestsWipCap":true}}
+exit=0
+
+$ rtk proxy node docs/audits/2026-09-05/time-basis.mjs
+calendarSamplesThroughWorkingDateConversion {
+  inputCalendarMedian: 7,
+  simulatedP50: 6.985135321498676,
+  displayedCalendarDays: 10,
+  displayedDate: 'Sep 11'
+}
+sameFrozenSnapshot {
+  snapshotDate: '2026-09-08',
+  viewedOn: '2026-09-08',
+  unchangedCompletion: 0.5,
+  elapsed: 5,
+  consumed: 0,
+  ratio: 0,
+  zone: 'green'
+}
+sameFrozenSnapshot {
+  snapshotDate: '2026-09-08',
+  viewedOn: '2026-10-06',
+  unchangedCompletion: 0.5,
+  elapsed: 25,
+  consumed: 5,
+  ratio: 10,
+  zone: 'red'
+}
+exit=0

@@ -1,0 +1,17 @@
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+import {pathToFileURL} from 'node:url';
+const base=process.cwd();
+const {constraintScores,workStreams}=await import(pathToFileURL(base+'/app/js/sim.js'));
+const source=file=>readFileSync(base+'/app/js/'+file,'utf8');
+const main=source('main.js');
+const syntheticFn=main.slice(main.indexOf('function syntheticStats('),main.indexOf('\n}',main.indexOf('function syntheticStats('))+2);
+const pod={name:'<b data-audit="probe">Atlas</b>',location:'<i data-audit="site">Remote</i>',devCount:2,pairing:true};
+const table={innerHTML:'',querySelectorAll:()=>[]};const cards={innerHTML:''};
+const document={getElementById:id=>id==='score-table'?table:id==='constraint-cards'?cards:null};
+const scope=vm.createContext({document,heatColor:()=> '#777',constraintScores,workStreams,pod});
+vm.runInContext(syntheticFn+'; pod.streams=workStreams(pod.devCount,pod.pairing);var stats=syntheticStats(pod); stats.load=stats.wip/Math.max(1,pod.streams*2); stats.rho0=Math.max(.05,Math.min(.97,stats.load));var state={pods:[pod],stats:{[pod.name]:stats},edges:[],overlap:{}};',scope);
+vm.runInContext(source('scoreboard.js').replace(/^import .*;\n/gm,'').replace('export function','function')+';initScoreboard(state);',scope);
+const flow=source('flow.js');const flowFn=flow.slice(flow.indexOf('function renderConstraints('),flow.indexOf('\nfunction renderFreeze('));
+vm.runInContext(flowFn+';renderConstraints(state);',scope);
+console.log(JSON.stringify({scoreboard:{rawNameMarkup:table.innerHTML.includes('<td><b data-audit="probe">Atlas</b></td>'),rawSiteMarkup:table.innerHTML.includes('<td><i data-audit="site">Remote</i></td>'),syntheticStats:scope.stats,overCapacityFlag:table.innerHTML.includes('over capacity'),noDataFlag:table.innerHTML.includes('no data')},flow:{syntheticRankedAsConstraint:cards.innerHTML.includes('#1 '+pod.name),syntheticLabel:cards.innerHTML.includes('synthetic')||cards.innerHTML.includes('no data'),rawNameMarkup:cards.innerHTML.includes(pod.name),suggestsWipCap:cards.innerHTML.includes('cap WIP')}}));
