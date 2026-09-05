@@ -1122,19 +1122,15 @@ var _ = Describe("lane splitting", func() {
 	}
 
 	It("starts on free lanes and grows as lanes free, charging the tax", func() {
-		// A first initiative holds 3 lanes for weeks 0-10; the big one
-		// (100 effort-weeks) is released at 0 with splitting on.
-		holder := mkInit("Holder", 30) // 30/0.9 = 34 -> ceil 34w? no: 30 effort / (1-0) = 30... use loss 0
-		holder.Work["Pod"] = TeamWork{Weeks: 30, Estimated: true, InPath: true}
-		// Holder takes min(ceil(30),5)=5 lanes — that holds ALL lanes. To hold
-		// only 3 we need a smaller holder: 3 effort -> 3 lanes for 1 week is not
-		// enough. Simplest honest scenario: holder takes 2 lanes for 1 week
-		// (2 effort-weeks), so at w0 only 3 lanes are free for Big.
-		holder.Work["Pod"] = TeamWork{Weeks: 2, Estimated: true, InPath: true}
+		// Chunking keeps Holder on two lanes for 15 weeks. Starting Big on
+		// the other three lanes buys enough time to pay both growth ramps.
+		holder := mkInit("Holder", 30)
+		holder.StatedPriority = 1
 		big := mkInit("Big", 100)
+		big.StatedPriority = 2
 
 		sp := SchedulingParams{PeriodStart: specPeriodStart, BufferPct: pctOf(0),
-			EstimateModel: EstimateEffort, SplitTaxWeeks: 2}
+			EstimateModel: EstimateEffort, SplitTaxWeeks: 2, SplitMinWeeks: 20, WipModel: WipOff}
 		sched := ComputeSchedule(teams, []Initiative{holder, big},
 			Params{HorizonWeeks: 60, CapacityLoss: 0}, sp)
 
@@ -1142,10 +1138,9 @@ var _ = Describe("lane splitting", func() {
 		Expect(sBig.Slices).To(HaveLen(1))
 		sl := sBig.Slices[0]
 		Expect(sl.Phases).NotTo(BeEmpty(), "the split slice carries phases")
-		// w0: 3 lanes free (holder has 2); from w1: 5 lanes. Tax of 2 weeks
-		// ramps first: consume nothing w0-w1, then 3 lanes at w1?? The walk
-		// below must match the implementation's exact phase boundaries; assert
-		// the shape, not the day: phases grow and total consumption fits.
+		// A legal contiguous run would finish at week 35. The split must earn
+		// its overhead, not be selected merely because capacity was busy at zero.
+		Expect(sl.FinishWeek).To(BeNumerically("<", 35))
 		lanes := []int{}
 		for _, ph := range sl.Phases {
 			lanes = append(lanes, ph.Lanes)
@@ -1160,7 +1155,7 @@ var _ = Describe("lane splitting", func() {
 		noTax := ComputeSchedule(teams, []Initiative{holder, big},
 			Params{HorizonWeeks: 60, CapacityLoss: 0}, spNoTax)
 		// tax=0 disables splitting (FR-001): all-or-nothing. Big waits for all
-		// 5 lanes and runs 100/5 = 20 weeks from w1 -> finish w21.
+		// 5 lanes and runs 100/5 = 20 weeks after Holder finishes.
 		sNoTax := scheduledFor(noTax, "Big")
 		Expect(sNoTax.Slices[0].Phases).To(BeEmpty())
 	})

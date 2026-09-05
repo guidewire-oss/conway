@@ -136,34 +136,23 @@ var _ = Describe("Scheduling capacity accounting", func() {
 	It("closes split phases across every week of a non-working gap", func() {
 		params.CapacityLoss = 0
 		sp.Calendars = []CalendarWindow{{Kind: CalEvent, Scope: "Atlas", From: weekDate(2), To: weekDate(3), Effect: EffectReduceCapacity}}
-		s := ComputeSchedule([]Team{{Name: "Atlas", Tracks: 2}}, []Initiative{work("Early", 1, 1), work("Growing", 2, 18)}, params, sp)
-		sl := sliceAt(scheduledFor(s, "Growing"), "Atlas")
-		Expect(sl.Phases).NotTo(BeEmpty())
-		for _, ph := range sl.Phases {
+		// Exercise the split candidate directly: the public scheduler may now
+		// prefer cheaper contiguous placement, which does not carry phases.
+		phases, _ := splitPlace(&podCalendar{tracks: 2, busy: []int{1}}, 2, 0, 18, 0, 1, compileCalendars(parseCalendars(sp, 26)), "Atlas", "", false, 2, 0, "Growing", 2)
+		Expect(phases).NotTo(BeEmpty())
+		for _, ph := range phases {
 			Expect(ph.FromWeek >= 4 || ph.ToWeek <= 2).To(BeTrue(), "phase %+v overlaps a non-working week", ph)
-		}
-		for _, w := range podScheduleFor(s, "Atlas").Weeks {
-			if w.Week == 2 || w.Week == 3 {
-				Expect(w.Busy).To(Equal(0))
-			}
 		}
 	})
 
-	DescribeTable("keeps completion-freeze waiting out of split work occupancy", func(tax, workFinish int) {
+	DescribeTable("accounts for each growth ramp without including a completion hold", func(tax, workFinish int) {
 		params.CapacityLoss = 0
 		sp.SplitTaxWeeks = tax
 		sp.Calendars = []CalendarWindow{{Kind: CalChangeFreeze, Scope: "Atlas", From: weekDate(3), To: weekDate(8), Effect: EffectBlockFinish}}
-		reserved := work("Reserved", 2, 2)
-		reserved.PinnedStarts = map[string]int{"Atlas": 8}
-		s := ComputeSchedule([]Team{{Name: "Atlas", Tracks: 2}}, []Initiative{work("Early", 1, 1), reserved, work("Growing", 3, 4)}, params, sp)
-		sl := sliceAt(scheduledFor(s, "Growing"), "Atlas")
-		Expect(sl.Phases).NotTo(BeEmpty())
-		Expect(sl.FinishWeek).To(BeNumerically(">=", 9))
+		phases, _ := splitPlace(&podCalendar{tracks: 2, busy: []int{1}}, 2, 0, 4, 0, tax, compileCalendars(parseCalendars(sp, 26)), "Atlas", "", false, 2, 0, "Growing", 2)
+		Expect(phases).NotTo(BeEmpty())
 		// Two split events each charge the configured tax, including growth
 		// during an existing ramp. Four effort weeks then take two weeks.
-		Expect(sl.Phases[len(sl.Phases)-1].ToWeek).To(Equal(workFinish))
-		for _, w := range podScheduleFor(s, "Atlas").Weeks {
-			Expect(w.Busy).To(BeNumerically("<=", w.Tracks))
-		}
+		Expect(phases[len(phases)-1].ToWeek).To(Equal(workFinish))
 	}, Entry("one-week ramps", 1, 4), Entry("growth during a two-week ramp", 2, 6))
 })

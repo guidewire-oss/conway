@@ -63,7 +63,10 @@ export function attachDrag(root, { onPin, onResize, onPreview, span, horizon, pe
     // before release. Preview and persistence share the same rounded values.
     const valuesFor = (dx, dy) => {
       const laneDelta = Math.round(dy / rowHeight(root));
-      const weekDelta = Math.round(dx / weekWidth(root));
+      // specs/019-scheduling-audit-and-gantt-integrity.md:172: a left edge
+      // stops at week zero; effort must use that same effective movement.
+      const rounded = Math.round(dx / weekWidth(root));
+      const weekDelta = mode === 'resize-w' ? Math.max(-Number(bar.dataset.startWeek || 0), rounded) : rounded;
       const estimate = Number(bar.dataset.estimate);
       const lanes = Number(bar.dataset.lanes || 1);
       const lossPct = Number(bar.dataset.loss);
@@ -118,8 +121,9 @@ export function attachDrag(root, { onPin, onResize, onPreview, span, horizon, pe
       if (mode === 'resize-e') {
         bar.style.width = `${Math.max(2, startW + dx)}px`;
       } else if (mode === 'resize-w') {
-        bar.style.transform = `translateX(${Math.max(-startW + 2, dx)}px)`;
-        bar.style.width = `${Math.max(2, startW - dx)}px`;
+        const movement = Math.min(startW - 2, Math.max(-Number(bar.dataset.startWeek || 0) * weekWidth(root), dx));
+        bar.style.transform = `translateX(${movement}px)`;
+        bar.style.width = `${Math.max(2, startW - movement)}px`;
       } else {
         const rowH = rowHeight(root);
         bar.style.transform = `translate(${dx}px, ${Math.round(dy / rowH) * rowH}px)`;

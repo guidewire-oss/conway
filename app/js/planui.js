@@ -11,7 +11,7 @@ import {
   heatColor, layoutColumns, bezierEdgePath, appendArrowMarker,
   enablePanZoom, enableNodeDrag, makeSpotlight,
 } from './netgraph.js';
-import { esc, orderViewHTML, schedulingFromForm, initiativeEditDialogHTML, initiativeEditFromBody, wipModelsTableHTML } from './order.js';
+import { esc, compareScheduleCosts, orderViewHTML, schedulingFromForm, initiativeEditDialogHTML, initiativeEditFromBody, wipModelsTableHTML } from './order.js';
 import { exportBlockPNG } from './exportpng.js';
 import { attachDrag } from './drag.js';
 import { openDocs } from './docs.js';
@@ -540,18 +540,7 @@ async function loadWipModels() {
 // become weeks and every initiative reads as "no date".
 async function saveScheduling() {
   const btn = document.getElementById('sched-save');
-  const body = schedulingFromForm((id) => document.getElementById(id)?.value);
-  // The accepted-ordering marker is not a form field; carry it or every
-  // assumptions save silently returns the plan to the stated order (cubic:
-  // the marker must survive an unrelated save).
-  if (current.scheduling?.acceptedOrdering === 'engine') {
-    body.acceptedOrdering = 'engine';
-    body.acceptedOrderingAt = current.scheduling.acceptedOrderingAt;
-  }
-  // The setup-card dismissal rides the same blob (spec 009): an unrelated
-  // assumptions save must not resurrect the card.
-  if (current.scheduling?.setupAcknowledged) body.setupAcknowledged = true;
-  if (current.scheduling?.estimateAck) body.estimateAck = true;
+  const body = schedulingFromForm((id) => document.getElementById(id)?.value, current.scheduling);
   // Same guard as renderOrder, and it matters more here: this response is written
   // into current.scheduling, so a late answer would not just display the wrong
   // assumptions, it would be the ones the next save sends.
@@ -904,7 +893,8 @@ function setView(v) {
 // including a cleared field, which is an edit, not a reversion.
 const ASSUMPTION_FIELDS = ['sched-period-start', 'sched-wip-model', 'sched-wip', 'sched-buffer',
   'sched-kit', 'sched-pod-wip', 'sched-quarter', 'sched-estimate-model', 'sched-split-tax',
-  'sched-chunking', 'sched-split-min', 'sched-stagger'];
+  'sched-chunking', 'sched-split-min', 'sched-stagger',
+  'sched-lead-pm', 'sched-lead-eng', 'sched-lead-architect', 'sched-lead-pgm'];
 
 // Hoisted function declarations, not consts: renderOrder calls
 // applyLiveAssumptions mid-body, and a const there would still be in its
@@ -1141,6 +1131,7 @@ async function renderTimeline() {
     main.innerHTML = lens === 'pod'
       ? podLensHTML(sched, {
         horizonWeeks: horizon, span: spanWeeks, pinnedLanes: pinnedLanesByPod(), initiativeQuery: current.tlInitiativeFilter || '', podQuery: current.tlTeamFilter || '', hideEmptyPods: current.tlHideEmpty,
+        todayWeek, calendars: (current.scheduling || {}).calendars || [],
         // Spec 010 amendment: non-matching bars render as dimmed ghosts when
         // "show other work" is on — the capacity filling the gaps (e.g., what
         // holds a pod while the filtered initiative waits) stays visible.
@@ -1187,6 +1178,13 @@ async function renderTimeline() {
         current.tlPod = el.dataset.pod;
         paintPodSheet(el.dataset.pod);
       }));
+    main.querySelectorAll('[data-open-pod]').forEach((button) => button.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      current.tlPod = button.dataset.openPod;
+      paintPodSheet(current.tlPod);
+      const sheet = document.querySelector('[data-pod-sheet]');
+      sheet?.focus();
+    }));
     // Filter match count (spec 010 FR-005).
     const countEl = document.getElementById('tl-filter-count');
     if (countEl) {
@@ -1242,7 +1240,9 @@ async function renderTimeline() {
       b.addEventListener('click', (ev) => {
         ev.stopPropagation();
         const pod = b.dataset.exportPod;
-        exportBlockPNG(b.closest('.tl-pod'), `conway-${pod.replace(/\W+/g, '-').toLowerCase()}-timeline.png`);
+        exportBlockPNG(b.closest('.tl-pod'), `conway-${pod.replace(/\W+/g, '-').toLowerCase()}-timeline.png`).then((ok) => {
+          if (!ok) dragNote('The timeline image could not be downloaded. Try again.');
+        });
       }));
   };
   // The pod toggle (open/close) and the lens-switch redraw share ONE renderer —
@@ -1255,7 +1255,9 @@ async function renderTimeline() {
     holder.innerHTML = ps ? podSheetHTML(ps, sched, { horizonWeeks: horizon, span: spanWeeks, planInitiatives: current.initiatives || [] }) : '';
     holder.querySelectorAll('.pod-export[data-export-sheet]').forEach((b) =>
       b.addEventListener('click', () => {
-        exportBlockPNG(b.closest('[data-pod-sheet]'), `conway-${pod.replace(/\W+/g, '-').toLowerCase()}-sheet.png`);
+        exportBlockPNG(b.closest('[data-pod-sheet]'), `conway-${pod.replace(/\W+/g, '-').toLowerCase()}-sheet.png`).then((ok) => {
+          if (!ok) dragNote('The team sheet image could not be downloaded. Try again.');
+        });
       }));
   };
   paint();
@@ -1603,7 +1605,7 @@ async function renderOrder() {
     if (p) { p.hidden = !p.hidden; return; }
     const best = (current.schedule.rulesTried || [])
       .filter((r) => r.rule !== current.schedule.rule)
-      .reduce((m, r) => (r.objective < (m?.objective ?? Infinity) ? r : m), null);
+      .reduce((m, r) => (!m || compareScheduleCosts(r, m) < 0 ? r : m), null);
     const moves = (current.schedule.initiatives || [])
       .map((si) => {
         const sug = (current.schedule.engineRanks || {})[si.name];
@@ -1614,7 +1616,7 @@ async function renderOrder() {
     host.querySelector('.ord-card')?.insertAdjacentHTML('afterbegin', `
       <div class="ord-optimize-panel" id="ord-optimize-panel">
         <b>⚡ The engine suggests: ${esc(best ? best.rule : '—')}</b>
-        <span class="hint">this order costs ${esc(String(best ? best.objective : '—'))} weighted lateness versus ${esc(String(current.schedule.objectiveScore))} for yours — an optimization, not a solution</span>
+        <span class="hint">Weighted unstarted work: yours ${esc(String(current.schedule.unscheduledWeight ?? 'unknown'))} → proposed ${esc(String(best?.unscheduledWeight ?? 'unknown'))}. Weighted lateness: yours ${esc(String(current.schedule.objectiveScore))} → proposed ${esc(String(best?.objective ?? 'unknown'))}. Lower unstarted work takes priority; lateness breaks ties.</span>
         ${moves ? `<ul class="hint">${moves}</ul>` : '<p class="hint">no moves — your order already matches the best rule found</p>'}
         <div class="sched-row" style="gap:8px">
           <button type="button" class="primary" id="ord-accept">Accept the engine's order</button>
@@ -1748,15 +1750,28 @@ async function renderOrder() {
 // resulting network/constraints WITHOUT saving — the sheet may still be a
 // work in progress. "Save initiatives" (saveDraftInitiatives) persists it;
 // closing the plan or picking a different file without saving discards it.
+// specs/019-scheduling-audit-and-gantt-integrity.md:150: responses belong to
+// the requesting plan and input revision, and only its newest request may apply.
+let previewTicket = 0;
 async function previewInitiativesFile(file) {
+  if (!current) return;
+  const forPlan = current.id, atEpoch = orderEpoch, ticket = ++previewTicket;
+  const ownsResponse = () => current?.id === forPlan && orderEpoch === atEpoch && ticket === previewTicket;
   const fd = new FormData();
   fd.append('file', file);
   fd.append('strict', current.strictDeps ? '1' : '0');
-  root.querySelector('.plan-uploads').insertAdjacentHTML('beforeend', '<span class="hint" id="plan-uploading">reading…</span>');
-  const r = await req('/api/plan/' + current.id + '/initiatives/preview', { method: 'POST', body: fd });
   document.getElementById('plan-uploading')?.remove();
-  if (!r || !r.ok) { alert('Could not read file: ' + (r ? await r.text() : 'network')); return; }
+  root.querySelector('.plan-uploads').insertAdjacentHTML('beforeend', '<span class="hint" id="plan-uploading">reading…</span>');
+  const r = await req('/api/plan/' + forPlan + '/initiatives/preview', { method: 'POST', body: fd });
+  if (!ownsResponse()) return;
+  document.getElementById('plan-uploading')?.remove();
+  if (!r || !r.ok) {
+    const why = r ? await r.text() : 'network';
+    if (ownsResponse()) alert('Could not read file: ' + why);
+    return;
+  }
   const draft = await r.json();
+  if (!ownsResponse()) return;
   current.initiatives = draft.initiatives;
   current.network = draft.network;
   current.unknownTeams = draft.unknownTeams;
@@ -1772,6 +1787,7 @@ async function previewInitiativesFile(file) {
   // view has settled (renderOrder is async; the timeout covers its schedule
   // fetch without coupling to its internals).
   setTimeout(() => {
+    if (current?.id !== forPlan || previewTicket !== ticket || current.draftFile !== file) return;
     document.getElementById('plan-draft-save')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, 600);
 }
@@ -1954,13 +1970,25 @@ async function renderDash() {
   paintDash();
 }
 
+// specs/019-scheduling-audit-and-gantt-integrity.md:150: discard stale what-if results.
+let simulationTicket = 0;
 async function runSim() {
+  if (!current) return;
+  const forPlan = current.id, atEpoch = orderEpoch, ticket = ++simulationTicket;
+  const ownsResponse = () => current?.id === forPlan && orderEpoch === atEpoch && ticket === simulationTicket;
   const body = { levers: current.levers || [] };
   // draft preview mode: simulate against the unsaved sheet, not the stale saved one
   if (current.isDraft) body.initiatives = current.initiatives;
-  const r = await req('/api/plan/' + current.id + '/simulate', { method: 'POST', body: JSON.stringify(body) });
-  if (!r || !r.ok) { document.getElementById('plan-dash').innerHTML = '<p class="hint">Could not run simulation.</p>'; return; }
-  current.sim = await r.json();
+  const r = await req('/api/plan/' + forPlan + '/simulate', { method: 'POST', body: JSON.stringify(body) });
+  if (!ownsResponse()) return;
+  if (!r || !r.ok) {
+    const host = document.getElementById('plan-dash');
+    if (host) host.innerHTML = '<p class="hint">Could not run simulation.</p>';
+    return;
+  }
+  const sim = await r.json();
+  if (!ownsResponse()) return;
+  current.sim = sim;
   paintDash();
 }
 

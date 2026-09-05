@@ -43,7 +43,7 @@ export const TERMS = {
   },
   'weighted-late': {
     label: 'Weighted weeks late',
-    tip: 'The plan\u2019s total lateness, where a week late on an important initiative counts more. The engine picks the order that minimises this number.',
+    tip: 'The plan\u2019s total lateness, where a week late on an important initiative counts more. The engine first minimizes weighted unstarted work, then uses weighted lateness to break ties.',
   },
   verdict: {
     label: 'Verdict',
@@ -107,8 +107,8 @@ export const TERMS = {
     tip: 'How many working hours two sites share per day, from their real IANA timezones on the modelled date — daylight saving included. A handoff across zero shared hours costs more than one across eight.',
   },
   objective: {
-    label: 'Objective (weighted lateness)',
-    tip: 'The plan\u2019s price tag: weeks missed by dated initiatives, weighted by cost of delay. Lower is better. Zero means every dated initiative holds \u2014 on a plan with no dates, zero carries no information.',
+    label: 'Objective (coverage, then lateness)',
+    tip: 'The engine compares weighted unstarted work first, then weighted weeks late. Zero lateness does not prove that all work is scheduled: held initiatives have no completion dates. The two costs stay separate.',
   },
   optimize: {
     label: 'Optimize order',

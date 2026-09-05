@@ -67,6 +67,16 @@ test('dragging a later phase preserves the initial phase lane as the pin origin'
   assert.equal(pin.origin.lane + pin.edit.laneDelta, 2, 'move up one from the initial phase lane');
 });
 
+test('a left resize clamped at week zero preserves the original finish', async () => {
+  const bar = makeBar({ initiative: 'Alpha', pod: 'Atlas', startWeek: '2', estimate: '10', lanes: '1' });
+  let edit;
+  attachDrag(makeRoot([bar]), { lossFactor: 1, onPin: (_i, _p, value) => { edit = value; }, onResize() {} });
+  await drag(bar, 2, 5, -58, 5);
+  assert.equal(edit.startWeek, 0);
+  assert.equal(edit.effort, 12);
+  assert.equal(edit.startWeek + edit.effort, 12);
+});
+
 // Decision 4 math: the engine's forward direction is
 // duration = effort / ((1-loss) x lanes), so the inverse is
 // deffort = dduration x lanes x (1-loss). The loss comes from the plan.

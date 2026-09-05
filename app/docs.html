@@ -354,6 +354,7 @@ so change them with intent.</p>
       org. <b>strict</b>: every initiative counts. <b>drum-gated</b>: only
       work touching the drum counts. <b>off</b>: no org limit. The Order view
       prices all three side by side.</td></tr>
+  <tr><td>named lead capacity</td><td>concurrent initiatives per named lead: PM 2, engineering 2, architecture 3, and program management 4 by default. Blank restores the role's default; 0 prevents new releases requiring that role. Existing in-flight work remains in flight. Blank, TBD, None, N/A, NA, Not Required, Unknown and - are missing ownership evidence, not shared people. Saving other assumptions preserves settings outside the form.</td></tr>
   <tr><td>org WIP limit</td><td>the number of initiatives in flight at once.
       Blank derives it from the drum pod's track count.</td></tr>
   <tr><td>estimate model</td><td><b>effort</b>: the estimate is total work,
@@ -394,6 +395,7 @@ you can promise and the reason each start is where it is.</p>
   <li>Your <b>stated priority order is the working plan</b>. The engine's
       suggestion appears as <code>↳N</code> beside the rank. Optimize offers
       its best order — accepting is always your call.</li>
+  <li><b>Compare coverage before lateness.</b> The engine first minimizes weighted unstarted work, then weighted weeks late. Unstarted work includes initiatives held beyond the horizon or unable to be scheduled; its weight uses the existing priority and delay weights, not a count of initiatives. A partial schedule with lateness 0 can be worse than a fuller schedule with lateness 1. The two costs stay separate, and held work does not receive invented dates.</li>
   <li><b>Binds</b> names what set each start: dependency, pod capacity, WIP
       limit, freeze, kit gate, drum stagger, or a pin you placed.</li>
   <li><b>Unscheduled work</b> remains assigned to its teams. A hold reason

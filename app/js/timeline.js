@@ -14,7 +14,7 @@ import { icon } from './icons.js';
 // labelled, the target is a diamond glyph, today is an arrow, zero slack is a
 // ⚠ beside the number.
 
-import { esc, weekToDate, weekDateHTML } from './order.js';
+import { esc, weekToDate, weekDateHTML, LEAD_ROLES } from './order.js';
 import { fuzzyMatch } from './filter.js';
 import { term } from './terms.js';
 
@@ -27,7 +27,16 @@ const assignedPods = (si, inputs = []) => {
 export const matchesTimelineTeam = (si, query, inputs = []) => !query || assignedPods(si, inputs).some((pod) => fuzzyMatch(query, pod));
 function unscheduledReason(si) {
   const state = si.verdict === 'beyond-horizon' ? 'Not scheduled within this period' : 'Not scheduled';
-  return `${state}: ${si.bindingConstraint || 'the scheduler did not return a placement'}. Start and finish are unknown.`;
+  const assumptions = (si.assumptions || []).filter(Boolean).map(warningText).join('; ');
+  return `${state}: ${si.bindingConstraint || 'the scheduler did not return a placement'}. Start and finish are unknown.${assumptions ? ` Assumptions: ${assumptions}` : ''}`;
+}
+function warningText(text) {
+  return String(text).replace(/\b(pm|eng|architect|pgm)\b(?=\s+(?:lead|ownership|capacity|limit))/gi,
+    (role) => LEAD_ROLES.find(([key]) => key === role.toLowerCase())?.[1] || role);
+}
+function assumptionsHTML(si) {
+  const assumptions = [...new Set((si?.assumptions || []).filter(Boolean))];
+  return assumptions.length ? `<div class="tl-assumptions"><b>Forecast assumptions</b><ul>${assumptions.map((item) => `<li>${esc(warningText(item))}</li>`).join('')}</ul></div>` : '';
 }
 function unscheduledTeamHTML(items) {
   if (!items.length) return '';
@@ -56,6 +65,38 @@ export function axisTicks(horizon) {
   const out = [];
   for (let w = 0; w <= h; w += step) out.push({ week: w, label: `w${w}` });
   return out;
+}
+
+// specs/019-scheduling-audit-and-gantt-integrity.md:166: the same axis travels
+// with each team and its export. Compact labels retain both ends of the scale.
+function timeAxisHTML(span, periodStart) {
+  const scale = axisScale(span), ticks = axisTicks(span);
+  if (ticks.at(-1)?.week !== span) ticks.push({ week: span, label: `w${span}` });
+  const compactIndices = new Set(Array.from({ length: Math.min(5, ticks.length) }, (_, index) =>
+    Math.round(index * (ticks.length - 1) / Math.min(4, ticks.length - 1))));
+  return `<div class="tl-axis">${ticks.map((t, index) => {
+    const title = tickTitle(t.week, periodStart);
+    const compact = compactIndices.has(index);
+    return `<span class="tl-tick${compact ? ' tl-tick-compact' : ''}" style="${pct(scale(t.week))}"${title ? ` title="${esc(title)}"` : ''}>${t.label}${title ? `<small class="tl-tick-date">${weekToDate(t.week, periodStart).slice(5)}</small>` : ''}</span>`;
+  }).join('')}</div>`;
+}
+
+function contextHTML(sched, opts, horizon, span) {
+  const grid = axisTicks(span).map((t) => `<div class="tl-grid" style="${pct(axisScale(span)(t.week))}"></div>`).join('');
+  const today = opts.todayWeek == null ? '' : todayLineHTML(opts.todayWeek, span);
+  const bands = (opts.calendars || []).map((win) => bandHTML(win, { ...sched, periodStart: sched.periodStart || opts.periodStart }, span)).join('');
+  return `<div class="tl-overlay">${grid}${bands}${today}${periodEndHTML(horizon, span)}</div>`;
+}
+
+function calendarContextHTML(sched, opts, span) {
+  const context = { ...sched, periodStart: sched.periodStart || opts.periodStart };
+  const windows = (opts.calendars || []).filter((win) => bandHTML(win, context, span));
+  if (!windows.length) return '';
+  return `<div class="tl-calendar-context" aria-label="Calendar context">${windows.map((win) => {
+    const label = win.kind === 'change-freeze' ? 'Change freeze'
+      : win.kind === 'site-nonworking' ? `${win.scope || 'Site'} non-working` : win.scope || win.kind || 'Calendar window';
+    return `<span>${esc(label)}: ${esc(win.fromDate)}–${esc(win.toDate)}</span>`;
+  }).join('')}</div>`;
 }
 
 // tickTitle is the hover date for a week label: the calendar day the week
@@ -117,6 +158,7 @@ function barGeom(startWeek, endWeek, horizon) {
 // even before the sub-row's text names it.
 function sliceBar(sl, horizon) {
   const { left, width, overrun } = barGeom(sl.startWeek, sl.finishWeek, horizon);
+  if (!width && sl.startWeek >= horizon) return `<span class="tl-outside">Outside this view: w${sl.startWeek}–w${sl.finishWeek}</span>`;
   const deps = (sl.dependsOn || []).length ? '→ ' : '';
   return barHTML({
     left, width,
@@ -203,13 +245,12 @@ function bandHTML(win, sched, horizon) {
   const label = win.kind === 'change-freeze' ? '░freeze░'
     : win.kind === 'site-nonworking' ? `▒ ${win.scope} non-working ▒`
     : `▒ ${win.scope} ▒`;
-  // The dates render as visible text beside the label: bands sit in the
-  // pointer-events:none overlay, so a title would never fire, and a data
-  // attribute is inert — the dates must be readable for a narrow band too.
+  // Full labels and dates render in the separate calendar context below the
+  // tracks. Decorative overlay text is hidden so it cannot cover a work bar.
   const dates = `${esc(win.fromDate)}–${esc(win.toDate)}`;
   return `<div class="tl-band tl-trunc ${win.kind === 'change-freeze' ? 'tl-band-freeze' : ''}"
     style="${pct(s(left))};width:${width.toFixed(2)}%">
-    <span class="tl-band-label">${dates} ${esc(label)}</span>
+    <span class="tl-band-label" aria-hidden="true">${dates} ${esc(label)}</span>
   </div>`;
 }
 
@@ -234,13 +275,6 @@ export function portfolioTimelineHTML(sched, opts = {}) {
   const podQ = opts.podQuery || '';
   const horizon = opts.horizonWeeks || sched.horizonWeeks || 26;
   const span = opts.span || horizon; // the drawn span can exceed the period
-  const s = axisScale(span);
-  const ticks = axisTicks(span).map((t) => {
-    const title = tickTitle(t.week, sched.periodStart || opts.periodStart);
-    return `<span class="tl-tick" style="${pct(s(t.week))}"${title ? ` data-bs-toggle="tooltip" data-bs-title="${esc(title)}"` : ''}>${t.label}${title ? `<small class="tl-tick-date">${weekToDate(t.week, sched.periodStart || opts.periodStart).slice(5)}</small>` : ''}</span>`;
-  }).join('');
-  const grid = axisTicks(span).map((t) =>
-    `<div class="tl-grid" style="${pct(s(t.week))}"></div>`).join('');
   const rows = (sched.initiatives || [])
     .slice()
     .sort((a, b) => a.proposedRank - b.proposedRank)
@@ -248,17 +282,14 @@ export function portfolioTimelineHTML(sched, opts = {}) {
     .filter((si) => matchesTimelineTeam(si, podQ, opts.planInitiatives))
     .map((si) => timelineRowHTML(si, { ...opts, horizonWeeks: span, periodStart: sched.periodStart || opts.periodStart, expand: opts.expand === si.name }))
     .join('');
-  const today = opts.todayWeek === undefined || opts.todayWeek === null
-    ? '' : todayLineHTML(opts.todayWeek, span);
-  const bands = (opts.calendars || [])
-    .map((win) => bandHTML(win, sched, span))
-    .join('');
+  const bands = (opts.calendars || []).length;
   const periodEnd = periodEndHTML(horizon, span);
   return `<div class="panel-card tl-card">
     <div class="ord-head"><b>Timeline</b>
       <span class="hint">one row per initiative · the lighter tail is the ${term('buffer', 'buffer')} · ◆ is the ${term('target', 'target')}</span></div>
-    <div class="tl-axis">${ticks}</div>
-    <div class="tl-body">${rows}<div class="tl-overlay">${grid}${bands}${today}${periodEnd}</div></div>
+    ${timeAxisHTML(span, sched.periodStart || opts.periodStart)}
+    <div class="tl-body">${rows}${contextHTML(sched, opts, horizon, span)}</div>
+    ${calendarContextHTML(sched, opts, span)}
     <div class="hint">█ scheduled · ░ buffer · ◆ target · → waits on another pod · ↑ today${bands ? ' · ░freeze░ change freeze · ▒ non-working' : ''}${periodEnd ? ' · │ period end' : ''}</div>
   </div>`;
 }
@@ -270,7 +301,7 @@ function assignLanes(slices, cap = 0, pinnedLanes = null) {
   // reserve their actual intervals. Assign chronological phases to free
   // physical lanes, retaining the prior phase's lanes whenever possible.
   const segments = slices.flatMap((sl, index) => {
-    const phases = sl.phases?.length ? sl.phases : [{ fromWeek: sl.startWeek, toWeek: sl.finishWeek, lanes: sl.lanesUsed || 1 }];
+    const phases = sl.displayPhases ?? (sl.phases?.length ? sl.phases : [{ fromWeek: sl.startWeek, toWeek: sl.finishWeek, lanes: sl.lanesUsed || 1 }]);
     return phases.map((phase) => ({ sl, phase, index }));
   }).sort((a, b) =>
     // Saved offsets reserve their future intervals before flexible work. An
@@ -278,7 +309,7 @@ function assignLanes(slices, cap = 0, pinnedLanes = null) {
     (Number.isInteger(pinnedLanes?.[b.sl.initiative]) ? 1 : 0) - (Number.isInteger(pinnedLanes?.[a.sl.initiative]) ? 1 : 0) ||
     a.phase.fromWeek - b.phase.fromWeek || a.index - b.index);
   const reserved = [], previous = new Map(), placement = [];
-  for (const { sl, phase } of segments) {
+  const place = (sl, phase, maySplit = true) => {
     const width = Math.min(Math.max(1, phase.lanes || 1), cap || Infinity);
     const limit = cap || reserved.length + width;
     const off = pinnedLanes?.[sl.initiative];
@@ -286,6 +317,18 @@ function assignLanes(slices, cap = 0, pinnedLanes = null) {
     const candidates = [...new Set([...pinned, ...(previous.get(sl) || []), ...Array.from({ length: limit }, (_, i) => i)])];
     const free = candidates.filter((lane) => lane < limit && !(reserved[lane] || []).some((span) =>
       span.fromWeek < phase.toWeek && phase.fromWeek < span.toWeek));
+    // specs/019-scheduling-audit-and-gantt-integrity.md:174: fixed future
+    // reservations can require flexible work to change physical lanes.
+    // Split only when no continuous lane assignment exists; dates and total
+    // occupied lane-weeks still come from the original server interval.
+    if (maySplit && !Number.isInteger(off) && free.length < width) {
+      const boundaries = [...new Set([phase.fromWeek, phase.toWeek, ...reserved.flat().flatMap((p) => [p.fromWeek, p.toWeek])])]
+        .filter((week) => week >= phase.fromWeek && week <= phase.toWeek).sort((a, b) => a - b);
+      if (boundaries.length > 2) {
+        for (let i = 1; i < boundaries.length; i++) place(sl, { ...phase, fromWeek: boundaries[i - 1], toWeek: boundaries[i], layoutSplit: true }, false);
+        return;
+      }
+    }
     const chosen = free.slice(0, width);
     const collapsed = chosen.length < width;
     // Inconsistent server occupancy must not invent a physical track or hide
@@ -296,8 +339,38 @@ function assignLanes(slices, cap = 0, pinnedLanes = null) {
       placement.push({ sl, phase, lane, lead: i === 0, collapsed });
     });
     previous.set(sl, chosen);
-  }
+  };
+  for (const { sl, phase } of segments) place(sl, phase);
   return { placement, lanes: reserved.length };
+}
+
+// specs/019-scheduling-audit-and-gantt-integrity.md:177: weekly occupancy is
+// authoritative for flat slices whose elapsed duration includes calendar gaps.
+// Require evidence for every week; older snapshots retain their interval fallback.
+function displaySlices(ps) {
+  const weeks = new Map((ps.weeks || []).map((week) => [week.week, week]));
+  return (ps.slices || []).map((sl) => {
+    if (sl.phases?.length || !Number.isInteger(sl.startWeek) || !Number.isInteger(sl.finishWeek)) return sl;
+    const phases = [];
+    for (let week = sl.startWeek; week < sl.finishWeek; week++) {
+      const occupancy = weeks.get(week);
+      if (!occupancy || !(Array.isArray(occupancy.initiatives) || (occupancy.initiatives == null && occupancy.busy === 0))) return sl;
+      if (!(occupancy.initiatives || []).includes(sl.initiative)) continue;
+      const previous = phases.at(-1);
+      if (previous?.toWeek === week) previous.toWeek = week + 1;
+      else phases.push({ fromWeek: week, toWeek: week + 1, lanes: sl.lanesUsed || 1, layoutSplit: true });
+    }
+    if (phases.length === 1 && phases[0].fromWeek === sl.startWeek && phases[0].toWeek === sl.finishWeek) return sl;
+    return { ...sl, displayPhases: phases };
+  });
+}
+
+function outsideWorkHTML(ps, opts) {
+  const horizon = opts.horizonWeeks || 26, query = opts.initiativeQuery || '';
+  const outside = displaySlices(ps).filter((sl) => (!query || fuzzyMatch(query, sl.initiative)) &&
+    (sl.startWeek >= horizon || (sl.displayPhases || sl.phases)?.some((phase) => phase.fromWeek >= horizon)));
+  return outside.length ? `<div class="tl-outside-list"><b>Work outside this view</b>${outside.map((sl) =>
+    `<p><button type="button" data-select-init="${esc(sl.initiative)}">${esc(sl.initiative)}</button> ${esc(ps.pod)}: w${sl.startWeek}–w${sl.finishWeek}. Widen the time span to see the remaining work.</p>`).join('')}</div>` : '';
 }
 
 // podLanesHTML is one pod's track lanes (§13.4): every slice in start order,
@@ -305,22 +378,25 @@ function assignLanes(slices, cap = 0, pinnedLanes = null) {
 // non-constraint pods is the point, not noise.
 export function podLanesHTML(ps, opts = {}) {
   const horizon = opts.horizonWeeks || 26;
+  const q = opts.initiativeQuery || '';
+  const ghost = !!opts.ghostOthers;
+  const outsideHTML = opts.includeOutside === false ? '' : outsideWorkHTML(ps, opts);
   // A pod with work but no tracks is not a lane puzzle — it is the unknown/
   // zero-capacity case, and giving it a track lane would claim capacity that
   // does not exist. Named for what it is instead.
   if (!ps.tracks) {
     const bars = (ps.slices || []).map((sl) => {
       const { left, width } = barGeom(sl.startWeek, sl.finishWeek, horizon);
+      const matched = !q || fuzzyMatch(q, sl.initiative);
+      if (!width || (!matched && !ghost)) return '';
       return barHTML({
-        left, width, cls: 'tl-nocap', label: `${sl.initiative}`,
+        left, width, cls: `tl-nocap${matched ? '' : ' tl-ghost'}`, label: matched ? sl.initiative : '',
         title: `${sl.initiative}: w${sl.startWeek}–w${sl.finishWeek} — this pod has no tracks in the roster`,
       });
     }).join('');
-    return `<div class="tl-lane"><span class="hint">no capacity</span><div class="tl-track">${bars || '<span class="hint">—</span>'}</div></div>`;
+    return `<div class="tl-lane"><span class="hint">no capacity</span><div class="tl-track">${bars || '<span class="hint">—</span>'}</div></div>${outsideHTML}`;
   }
-  const q = opts.initiativeQuery || '';
-  const ghost = !!opts.ghostOthers;
-  const { placement, lanes } = assignLanes(ps.slices || [], ps.tracks || 0, opts.pinnedLanes || null);
+  const { placement, lanes } = assignLanes(displaySlices(ps), ps.tracks || 0, opts.pinnedLanes || null);
   const laneOrigins = new Map();
   for (const p of placement) if (p.lead && !laneOrigins.has(p.sl)) laneOrigins.set(p.sl, p.lane);
   // Spec 008 S4: bars carry the initiative's ABSOLUTE effort weeks for the
@@ -345,6 +421,7 @@ export function podLanesHTML(ps, opts = {}) {
       const pStart = phase.fromWeek;
       const pEnd = phase.toWeek;
       const { left, width, overrun } = barGeom(pStart, pEnd, horizon);
+      if (!width) return '';
       const wTag = (sl.lanesUsed || 1) > 1 ? ` ×${sl.lanesUsed}` : '';
       // Continuation rows carry the label too (dimmed): a track with an
       // unlabelled bar reads as empty space. The lead row keeps the fuller
@@ -369,13 +446,13 @@ export function podLanesHTML(ps, opts = {}) {
         initiative: sl.initiative, pod: sl.pod, startWeek: sl.startWeek, lane, laneOrigin: laneOrigins.get(sl),
         // A phase width is not the whole slice's duration. Keep move gestures
         // but route split-estimate changes through the precise inspector.
-        estimate: sl.phases?.length > 1 ? undefined : effortWeeks(sl), lanes: sl.lanesUsed || 1,
+        estimate: sl.phases?.length > 1 || phase.layoutSplit ? undefined : effortWeeks(sl), lanes: sl.lanesUsed || 1,
         // Spec 014: the pod's effective loss rides the bar, so the resize
         // gesture converts duration to effort at the same rate the engine
         // will — a 30%-loss pod's drag is not a 10%-loss drag.
         loss: ps.lossPct,
         title: `${sl.initiative}: w${sl.startWeek}–w${sl.finishWeek} · start by w${sl.latestStartWeek}` +
-          (sl.phases?.length ? ` · this phase w${pStart}–w${pEnd}, ${phase.lanes} lanes · use precise controls to edit the total estimate` : '') +
+          (sl.phases?.length || sl.displayPhases ? ` · this phase w${pStart}–w${pEnd}, ${phase.lanes} lanes · use precise controls to edit the total estimate` : '') +
           (sl.slackWeeks === 0 ? ' · no slack' : ` · ${sl.slackWeeks}w slack`) +
           (overrun > 0 ? ` · ${overrun}w past the horizon` : '') +
           // Split slices (spec 007): the phase ladder is the honest shape of
@@ -392,7 +469,7 @@ export function podLanesHTML(ps, opts = {}) {
   for (let lane = lanes; lane < ps.tracks; lane++) {
     idle.push(`<div class="tl-lane"><span class="hint">track ${lane + 1}</span><div class="tl-track"><span class="hint">· idle ·</span></div></div>`);
   }
-  return rows.join('') + idle.join('');
+  return rows.join('') + idle.join('') + outsideHTML;
 }
 
 // podRho is the mean weekly utilization over the configured horizon — every
@@ -451,21 +528,18 @@ export function podLensHTML(sched, opts = {}) {
     return `<div class="tl-pod" data-pod="${esc(ps.pod)}">
       <div class="ord-head"><b>${esc(ps.pod)}</b>
         <span class="hint">ρ ${rho.toFixed(2)} · ${ps.tracks} track${ps.tracks > 1 ? 's' : ''} · ${(ps.slices || []).length} slice${(ps.slices || []).length === 1 ? '' : 's'}${loss}</span>
+        <button type="button" data-open-pod="${esc(ps.pod)}">View team sheet</button>
         <button type="button" class="pod-export" data-export-pod="${esc(ps.pod)}" title="download this pod's timeline as a PNG">${icon('download')} Download PNG</button></div>
-      ${podLanesHTML(ps, { ...opts, horizonWeeks: span, pinnedLanes: (opts.pinnedLanes || {})[ps.pod] || null })}
+      ${timeAxisHTML(span, sched.periodStart || opts.periodStart)}
+      <div class="tl-body">${podLanesHTML(ps, { ...opts, horizonWeeks: span, includeOutside: false, pinnedLanes: (opts.pinnedLanes || {})[ps.pod] || null })}${contextHTML(sched, opts, horizon, span)}</div>
+      ${calendarContextHTML(sched, opts, span)}
+      ${outsideWorkHTML(ps, { ...opts, horizonWeeks: span })}
       ${unscheduledTeamHTML(rejectedAt(ps.pod))}
     </div>`;
-  }).join('');
-  const s = axisScale(span);
-  const ticks = axisTicks(span).map((t) => {
-    const title = tickTitle(t.week, sched.periodStart || opts.periodStart);
-    return `<span class="tl-tick" style="${pct(s(t.week))}"${title ? ` data-bs-toggle="tooltip" data-bs-title="${esc(title)}"` : ''}>${t.label}${title ? `<small class="tl-tick-date">${weekToDate(t.week, sched.periodStart || opts.periodStart).slice(5)}</small>` : ''}</span>`;
   }).join('');
   return `<div class="panel-card tl-card">
     <div class="ord-head"><b>Timeline — by pod</b>
       <span class="hint">one lane per track · idle lanes are slack, shown on purpose · ${q ? 'waterfall: earliest matching start first' : 'hottest first'}</span></div>
-    <div class="tl-axis">${ticks}</div>
-    <div class="tl-body"><div class="tl-overlay">${periodEndHTML(horizon, span)}</div></div>
     ${blocks}
   </div>`;
 }
@@ -493,7 +567,7 @@ export function podSheetHTML(ps, sched, opts = {}) {
       ? '<b>no slack</b>'
       : `${sl.slackWeeks}w`;
     return `<tr>
-      <td>${esc(sl.initiative)}</td>
+      <td>${esc(sl.initiative)}${assumptionsHTML(byInit[sl.initiative])}</td>
       <td>${sl.finishWeek - sl.startWeek}w</td>
       <td>${weekDateHTML(sl.startWeek, sched.periodStart || opts.periodStart)}</td>
       <td>${weekDateHTML(sl.latestStartWeek, sched.periodStart || opts.periodStart)}</td>
@@ -503,7 +577,7 @@ export function podSheetHTML(ps, sched, opts = {}) {
     </tr>`;
   }).join('') + rejected.map((si) => `<tr class="tl-unplaced-sheet"><td>${esc(si.name)}</td><td colspan="6">${esc(unscheduledReason(si))}</td></tr>`).join('');
 
-  return `<div class="panel-card ord-card" data-pod-sheet="${esc(ps.pod)}">
+  return `<div class="panel-card ord-card" data-pod-sheet="${esc(ps.pod)}" tabindex="-1" role="region" aria-label="${esc(ps.pod)} team sheet">
     <div class="ord-head"><b>${esc(ps.pod)} — ${ps.tracks} track${ps.tracks > 1 ? 's' : ''}</b>
       <span class="hint">${slices.length} slice${slices.length === 1 ? '' : 's'} in start order${rejected.length ? ` · ${rejected.length} assigned without placement` : ''}${ps.lossPct ? ` · capacity loss ${ps.lossPct}%${ps.lossOverride ? '' : ' (plan default)'}` : ''}</span>
       <button type="button" class="pod-export" data-export-sheet="${esc(ps.pod)}" title="download this sheet as a PNG">${icon('download')} Download PNG</button></div>
@@ -554,7 +628,7 @@ export function timelineInspectorHTML(si, sched, opts = {}) {
   const rows = (si.slices || []).map((sl) => {
     const team = (sched.podWeeks || []).find((p) => p.pod === sl.pod);
     const estimate = pi?.work?.[sl.pod]?.weeks;
-    const packed = team ? assignLanes(team.slices || [], team.tracks || 0, opts.pinnedLanes?.[sl.pod]) : null;
+    const packed = team ? assignLanes(displaySlices(team), team.tracks || 0, opts.pinnedLanes?.[sl.pod]) : null;
     const lane = (packed?.placement.find((p) => p.sl.initiative === si.name && p.lead)?.lane ?? opts.pinnedLanes?.[sl.pod]?.[si.name] ?? 0) + 1;
     return `<fieldset class="tl-edit-row" data-pod="${esc(sl.pod)}"><legend>${esc(sl.pod)}</legend>
       <p class="hint">${weekDateHTML(sl.startWeek, sched.periodStart)} to ${weekDateHTML(sl.finishWeek, sched.periodStart)} · ${sl.slackWeeks ?? 'unknown'}w slack${sl.dependsOn?.length ? ` · waits on ${sl.dependsOn.map(esc).join(', ')}` : ''}</p>
@@ -568,6 +642,7 @@ export function timelineInspectorHTML(si, sched, opts = {}) {
     <h3>${esc(si.name)}</h3>
     <p>Buffered finish: ${unplaced ? 'unknown (not scheduled)' : weekDateHTML(si.commitWeek, sched.periodStart)}. Target: ${si.targetWeek == null ? 'not set' : weekDateHTML(si.targetWeek, sched.periodStart)}.</p>
     <p>${esc(si.bindingConstraint || 'No binding constraint reported')}${si.provisional ? ' · provisional estimate' : ''}</p>
+    ${assumptionsHTML(si)}
     <p class="hint">Forecast from working inputs, staffing and calendar. Applying edits saves the working plan; the agreed baseline remains available.</p>
     ${rows ? `<form class="tl-precise-edit" data-init="${esc(si.name)}">${rows}<button type="submit">Apply timeline edits</button></form>` : '<p>No scheduled slices to edit.</p>'}
   </aside>`;

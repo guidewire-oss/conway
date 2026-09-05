@@ -83,7 +83,7 @@ test('top remedies sort by portfolio improvement, cap at 3, name their cost (AC 
   assert.ok(idx.every((i) => i > -1) && idx[0] < idx[1] && idx[1] < idx[2], 'best improvement first');
   assert.ok(!html.includes('Epsilon ui') && !html.includes('Zeta'), 'capped at the top 3');
   assert.match(html, /moves 2 other initiatives/, 'the victims are named as a count');
-  assert.match(html, /portfolio −99/);
+  assert.match(html, /weighted lateness −99/);
 });
 
 test('a failed remedies fetch degrades to a named note (NFR-003)', () => {
@@ -105,7 +105,7 @@ test('the card names the active baseline, or the lack of one (AC 2.2)', () => {
 test('the card carries the fit sentence, rule, and generated-at (FR-003, FR-011)', () => {
   const html = healthReportHTML(sched, { planName: 'Portfolio', generatedAt: '2026-08-30 10:00' });
   assert.match(html, /3 of 5 initiatives will not finish inside the period\./);
-  assert.match(html, /Dispatch rule: critical-path-first · portfolio objective 430/);
+  assert.match(html, /Dispatch rule: critical-path-first · weighted unstarted work unknown · weighted lateness 430/);
   assert.match(html, /generated 2026-08-30 10:00/);
   assert.match(html, /period starts 2026-09-01, horizon 26w/);
 });

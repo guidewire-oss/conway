@@ -99,6 +99,10 @@ export function objectiveView(sched) {
   const stated = sched.statedOrderObjectiveScore || 0;
   const proposed = sched.objectiveScore || 0;
   const delta = Math.round((proposed - stated) * 10) / 10;
+  const coverageKnown = Number.isFinite(sched.unscheduledWeight) && Number.isFinite(sched.statedOrderUnscheduledWeight);
+  const statedUnstarted = coverageKnown ? sched.statedOrderUnscheduledWeight : 0;
+  const proposedUnstarted = coverageKnown ? sched.unscheduledWeight : 0;
+  const coverageDelta = proposedUnstarted - statedUnstarted;
   const inits = sched.initiatives || [];
   // Comparability comes from the inputs, not the scores. The objective is weighted
   // lateness, so a plan where every date holds scores 0 on both runs — reading that
@@ -107,15 +111,15 @@ export function objectiveView(sched) {
   const dated = inits.filter(isDated);
   const ranked = inits.some((si) => si.statedRank > 0);
   return {
-    stated, proposed, delta,
-    comparable: dated.length > 0 || ranked,
+    stated, proposed, delta, coverageKnown, statedUnstarted, proposedUnstarted, coverageDelta,
+    comparable: dated.length > 0 || ranked || (coverageKnown && (statedUnstarted > 0 || proposedUnstarted > 0)),
     // "Every date holds" is an absolute claim, so all three have to be true: there
     // are dates, every one of them came back on-time — weeksLate is 0 for an
     // unschedulable row too, so the verdict is what counts — and neither order
     // costs anything, since a stated order that was late is still a miss.
     allOnTime: dated.length > 0 && dated.every((si) => si.verdict === 'on-time') &&
-      stated === 0 && proposed === 0,
-    better: delta < 0,
+      stated === 0 && proposed === 0 && statedUnstarted === 0 && proposedUnstarted === 0,
+    better: coverageDelta < 0 || (coverageDelta === 0 && delta < 0),
   };
 }
 
@@ -504,25 +508,27 @@ export function verdictBannerHTML(sched, opts = {}) {
 // computed). Numbers ride on the bars — length never carries meaning alone
 // (WCAG 1.4.1).
 export function comparisonBarsHTML(obj) {
+  // specs/019-scheduling-audit-and-gantt-integrity.md:157: coverage precedes lateness.
+  const coverage = obj.coverageKnown ? `<p class="hint">Weighted unstarted work: yours <b>${esc(String(obj.statedUnstarted))}</b> · proposed <b>${esc(String(obj.proposedUnstarted))}</b>. Lower unstarted work takes priority; weighted lateness breaks ties. This is weighted work, not an initiative count.</p>` : '';
   if (!obj.comparable) {
     return '<span class="hint">no dates or priorities set yet, so there is no order to argue with</span>';
   }
   if (obj.stated === 0 && obj.proposed === 0) {
     // "Every date holds" is only true when there ARE dates; a priority-only
     // plan scores zero because no date can be missed, not because all held.
-    return '<span class="hint">neither order costs any weighted lateness</span>';
+    return `${coverage}<span class="hint">neither order costs any weighted lateness</span>`;
   }
   const max = Math.max(obj.stated, obj.proposed, 1);
   const pctOf = (v) => Math.max(2, Math.round((v / max) * 100)); // 2% floor: a bar must be visible
   const yours = pctOf(obj.stated), prop = pctOf(obj.proposed);
-  return `<div class="ord-bars" title="weighted weeks late under each order — lower is better">
+  return `${coverage}<div class="ord-bars" title="weighted weeks late under each order — compare unstarted work first">
     <div class="ord-bar-row"><span class="ord-bar-lbl">yours</span>
       <span class="ord-bar-track"><span class="ord-bar-fill ord-yours" style="width:${yours}%"></span></span>
       <span class="ord-bar-val">${obj.stated}</span></div>
     <div class="ord-bar-row"><span class="ord-bar-lbl">proposed</span>
       <span class="ord-bar-track"><span class="ord-bar-fill ord-prop" style="width:${prop}%"></span></span>
       <span class="ord-bar-val">${obj.proposed}</span></div>
-    <span class="hint">weighted weeks late${term('weighted-late')} — lower is better${obj.delta !== 0 ? ` · the proposed order ${obj.better ? 'saves' : 'costs'} <b>${Math.abs(obj.delta)}</b>` : ''}</span>
+    <span class="hint">weighted weeks late${term('weighted-late')} — lower is better${obj.delta !== 0 ? ` · the proposed order ${obj.delta < 0 ? 'saves' : 'costs'} <b>${Math.abs(obj.delta)}</b>` : ''}</span>
   </div>`;
 }
 
@@ -542,13 +548,26 @@ export function orderingBadge(sp = {}) {
 
 // optimizeDeltaHTML prices the engine's best run against the working order, so
 // the Optimize button can carry its offer on its face (spec 006 AC 3.1).
+export function compareScheduleCosts(a, b) {
+  const coverage = Number.isFinite(a.unscheduledWeight) && Number.isFinite(b.unscheduledWeight)
+    ? a.unscheduledWeight - b.unscheduledWeight : 0;
+  return coverage || a.objective - b.objective;
+}
+
 export function optimizeOfferHTML(sched) {
-  const best = (sched.rulesTried || [])
-    .filter((r) => r.rule !== sched.rule)
-    .reduce((m, r) => (r.objective < m.objective ? r : m), { rule: '', objective: Infinity });
-  if (best.rule === '' || !Number.isFinite(best.objective)) return '';
+  const coverageKnown = Number.isFinite(sched.unscheduledWeight);
+  const candidates = (sched.rulesTried || []).filter((r) => r.rule !== sched.rule &&
+    Number.isFinite(r.objective) && (!coverageKnown || Number.isFinite(r.unscheduledWeight)));
+  candidates.sort(compareScheduleCosts);
+  const best = candidates[0];
+  if (!best) return '';
   const cur = sched.objectiveScore || 0;
   const save = Math.round((cur - best.objective) * 10) / 10;
+  if (coverageKnown) {
+    const coverageSave = sched.unscheduledWeight - best.unscheduledWeight;
+    if (coverageSave < 0 || (coverageSave === 0 && save <= 0)) return '';
+    return `<span class="hint">suggestion: ${esc(best.rule)} · weighted unstarted work ${esc(String(sched.unscheduledWeight))} → ${esc(String(best.unscheduledWeight))}; weighted lateness ${esc(String(cur))} → ${esc(String(best.objective))}. Coverage takes priority over lateness.</span>`;
+  }
   if (save <= 0) return '';
   return `<span class="hint" title="The best dispatch rule scores ${best.objective} weighted lateness versus this order's ${cur}. A suggestion, not an answer — the sequencing problem has no single solution.">suggestion: ${esc(best.rule)} would cost ${save} less</span>`;
 }
@@ -917,6 +936,11 @@ export function schedulingFormHTML(sp = {}, wip, sched) {
       ${pctField('sched-stagger', 'drum target utilization', asPct(sp.targetUtilization), 'off',
     'hold releases so drum load stays under this; blank means no stagger')}
     </div>
+    <fieldset><legend>Named lead capacity</legend>
+      <p class="hint">Concurrent initiatives per named lead. Blank restores the shown default; 0 prevents new releases for that role.</p>
+      <div class="sched-grid">${LEAD_ROLES.map(([role, label, limit]) => intField(`sched-lead-${role}`, label,
+        sp.leadCapacity?.[role] == null ? '' : String(sp.leadCapacity[role]), String(limit), `Default: ${limit} concurrent initiatives`)).join('')}</div>
+    </fieldset>
     ${calendarWindowsHTML(sp.calendars || [])}
     <button type="button" id="sched-save" class="primary">Save assumptions</button>
     <button type="button" id="sched-cancel">Cancel</button>
@@ -957,6 +981,7 @@ export function wipModelsTableHTML(sched) {
       <td>${weekLabel(o.lastCommitWeek)}</td>
       <td>${o.datesMissed}${o.infeasible ? ` <span class="hint">(${o.infeasible} cannot fit)</span>` : ''}</td>
       <td>${o.podsIdleAllPeriod}</td>
+      <td>${Number.isFinite(o.unscheduledWeight) ? esc(String(o.unscheduledWeight)) : 'unknown'}</td>
       <td>${o.objective}</td>
     </tr>`;
   }).join('');
@@ -967,7 +992,7 @@ export function wipModelsTableHTML(sched) {
   const sameMisses = missed.size === 1 && rows.length > 1;
 
   return `<table class="wip-table ord-models"><thead><tr>
-      <th>model${term('wip-model')}</th><th>limit</th><th>ends</th><th>dates missed</th><th>pods idle all period</th><th>cost${term('weighted-late')}</th>
+      <th>model${term('wip-model')}</th><th>limit</th><th>ends</th><th>dates missed</th><th>pods idle all period</th><th>weighted unstarted work</th><th>weighted lateness${term('weighted-late')}</th>
     </tr></thead><tbody>${body}</tbody></table>
     <ul class="hint ord-models-why">
       ${WIP_MODELS.map((m) => `<li><b>${esc(m.label)}</b> — ${esc(m.blurb)}</li>`).join('')}
@@ -976,7 +1001,8 @@ export function wipModelsTableHTML(sched) {
       (${rows[0].datesMissed}) — though not necessarily the same ones. What changes is what the
       misses cost and how much of the org sits idle: a model buys cheaper misses and busier pods,
       not fewer misses.</p>` : ''}
-    <p class="hint">Cost is weighted weeks late. It favours <b>off</b> by construction: the schedule
+    <p class="hint">Compare weighted unstarted work first, then weighted lateness. A partial schedule can have zero lateness because held work has no dates; this does not make it better. Unstarted weight includes work held beyond the horizon and work that cannot be scheduled.</p>
+    <p class="hint">Lateness cost is weighted weeks late. Among schedules with equal coverage it favours <b>off</b> by construction: the schedule
       makes waiting explicit but charges nothing for multitasking, so it cannot price what a WIP limit
       is for. That is why this is a choice and not a calculation.</p>`;
 }
@@ -997,9 +1023,26 @@ export function pctToFraction(raw) {
 // those mean different things — absent is 25% of the chain, an explicit 0 is
 // "commit on the raw finish" — and collapsing them would take away a choice
 // Decision 20 deliberately left open.
-export function schedulingFromForm(read) {
+// specs/019-scheduling-audit-and-gantt-integrity.md:147: preserve policy
+// outside this form while allowing deliberately blank controls to restore defaults.
+export const LEAD_ROLES = [['pm', 'Product management', 2], ['eng', 'Engineering', 2],
+  ['architect', 'Architecture', 3], ['pgm', 'Program management', 4]];
+
+export function schedulingFromForm(read, saved = {}) {
   const raw = (id) => String(read(id) ?? '').trim();
-  const out = {};
+  const out = { ...saved };
+  for (const key of ['periodStart', 'wipModel', 'maxConcurrentInitiatives', 'maxInitiativesPerPod',
+    'maxStartsPerQuarter', 'bufferPct', 'kitGate', 'targetUtilization', 'estimateModel',
+    'splitTaxWeeks', 'splitMinWeeks', 'calendars']) delete out[key];
+  const leads = { ...(saved.leadCapacity || {}) };
+  for (const [role] of LEAD_ROLES) {
+    delete leads[role];
+    const value = raw(`sched-lead-${role}`);
+    const n = Number(value);
+    if (value !== '' && Number.isFinite(n) && n >= 0) leads[role] = Math.round(n);
+  }
+  if (Object.keys(leads).length) out.leadCapacity = leads;
+  else delete out.leadCapacity;
 
   const start = raw('sched-period-start');
   if (start) out.periodStart = start;

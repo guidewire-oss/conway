@@ -118,13 +118,13 @@ export function remediesSectionHTML(data) {
   if (data.error) return `<p class="plan-warn">${esc(data.error)}</p>`;
   const remedies = [...(data.remedies || [])]
     .filter((r) => typeof r.objectiveDelta === 'number')
-    .sort((a, b) => a.objectiveDelta - b.objectiveDelta)
+    .sort((a, b) => ((a.unscheduledWeightDelta ?? 0) - (b.unscheduledWeightDelta ?? 0)) || a.objectiveDelta - b.objectiveDelta)
     .slice(0, 3);
   const warnings = (data.warnings || []).map((w) => `<p class="hint">${esc(w)}</p>`).join('');
   if (!remedies.length) return `${warnings || ''}<p class="report-ok">No remedies — the engine sees nothing worth pulling.</p>`;
   return `<ul class="report-list">${remedies.map((r) => {
     const victims = (r.affectedInitiatives || []).length;
-    return `<li><b>${esc(remedyKindLabel(r.kind))}</b> — ${esc(r.target)} → ${esc(remedyLabelOf(r.resultingVerdict))}, portfolio ${fmtDelta(r.objectiveDelta)}${victims ? `, moves ${victims} other initiative${victims > 1 ? 's' : ''}` : ''} <button type="button" class="report-remedy-link" data-target="${esc(r.target)}">full options</button></li>`;
+    return `<li><b>${esc(remedyKindLabel(r.kind))}</b> — ${esc(r.target)} → ${esc(remedyLabelOf(r.resultingVerdict))}, ${Number.isFinite(r.unscheduledWeightDelta) ? `weighted unstarted work ${fmtDelta(r.unscheduledWeightDelta)}, ` : ''}weighted lateness ${fmtDelta(r.objectiveDelta)}${victims ? `, moves ${victims} other initiative${victims > 1 ? 's' : ''}` : ''} <button type="button" class="report-remedy-link" data-target="${esc(r.target)}">full options</button></li>`;
   }).join('')}</ul>${warnings}`;
 }
 
@@ -159,7 +159,7 @@ export function healthReportHTML(sched, opts = {}) {
       <p>${active
         ? `Baseline: <b>${esc(active.name)}</b>, saved ${fmtWhen(active.createdAt)}.`
         : 'No baseline saved — save one to compare future re-plans against.'}</p>
-      <p class="hint">Dispatch rule: ${esc(sched.rule || '?')} · portfolio objective ${esc(String(sched.objectiveScore ?? '?'))} · generated ${esc(opts.generatedAt || '')}</p>
+      <p class="hint">Dispatch rule: ${esc(sched.rule || '?')} · weighted unstarted work ${esc(String(sched.unscheduledWeight ?? 'unknown'))} · weighted lateness ${esc(String(sched.objectiveScore ?? '?'))} · generated ${esc(opts.generatedAt || '')}</p>
     </div>
   </div>`;
 }

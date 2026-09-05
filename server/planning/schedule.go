@@ -20,6 +20,7 @@ package planning
 import (
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -408,12 +409,14 @@ type WipModelOutcome struct {
 	Infeasible        int     `json:"infeasible"`
 	PodsIdleAllPeriod int     `json:"podsIdleAllPeriod"`
 	Objective         float64 `json:"objective"`
+	UnscheduledWeight float64 `json:"unscheduledWeight"`
 }
 
 // RuleScore is one dispatch rule's objective, so the UI can say "best of 5".
 type RuleScore struct {
-	Rule      string  `json:"rule"`
-	Objective float64 `json:"objective"`
+	Rule              string  `json:"rule"`
+	Objective         float64 `json:"objective"`
+	UnscheduledWeight float64 `json:"unscheduledWeight"`
 }
 
 // ScheduleFit is the arithmetic behind Decision 28: how much work the plan asks
@@ -472,17 +475,19 @@ func (f ScheduleFit) LoadPct() float64 {
 
 // Schedule is the whole computed order (§7).
 type Schedule struct {
-	Initiatives               []ScheduledInitiative `json:"initiatives"`
-	Fit                       *ScheduleFit          `json:"fit"`
-	PodWeeks                  []PodSchedule         `json:"podWeeks"`
-	DrumPods                  []string              `json:"drumPods"`
-	WipLimit                  WipLimit              `json:"wipLimit"`
-	Rule                      string                `json:"rule"`
-	RulesTried                []RuleScore           `json:"rulesTried"`
-	ObjectiveScore            float64               `json:"objectiveScore"`
-	StatedOrderObjectiveScore float64               `json:"statedOrderObjectiveScore"`
-	WipModels                 []WipModelOutcome     `json:"wipModels,omitempty"`
-	Reconciliation            []RankDeviation       `json:"reconciliation,omitempty"`
+	Initiatives                  []ScheduledInitiative `json:"initiatives"`
+	Fit                          *ScheduleFit          `json:"fit"`
+	PodWeeks                     []PodSchedule         `json:"podWeeks"`
+	DrumPods                     []string              `json:"drumPods"`
+	WipLimit                     WipLimit              `json:"wipLimit"`
+	Rule                         string                `json:"rule"`
+	RulesTried                   []RuleScore           `json:"rulesTried"`
+	ObjectiveScore               float64               `json:"objectiveScore"`
+	StatedOrderObjectiveScore    float64               `json:"statedOrderObjectiveScore"`
+	UnscheduledWeight            float64               `json:"unscheduledWeight"`
+	StatedOrderUnscheduledWeight float64               `json:"statedOrderUnscheduledWeight"`
+	WipModels                    []WipModelOutcome     `json:"wipModels,omitempty"`
+	Reconciliation               []RankDeviation       `json:"reconciliation,omitempty"`
 	// EngineRanks is the best dispatch rule's per-initiative rank when the
 	// working order is the planner's (spec 006): the suggestion column. Empty
 	// when the engine's order is in force — it IS the spine then.
@@ -515,6 +520,7 @@ type schedInput struct {
 	unestimated []string
 	unknownPods []string
 	assumptions []string
+	provisional bool
 }
 
 // ScheduleOptions turns on work that is not needed to answer "what is the order".
@@ -546,6 +552,22 @@ func ComputeSchedule(teams []Team, inits []Initiative, params Params, sp Schedul
 // cost of every /schedule request.
 func ComputeScheduleWith(teams []Team, inits []Initiative, params Params, sp SchedulingParams,
 	opts ScheduleOptions) *Schedule {
+	if err := ValidateInitiativeNames(inits); err != nil {
+		// Preserve one explicit invalid result per input row; do not let maps
+		// overwrite work. specs/019-scheduling-audit-and-gantt-integrity.md:135
+		rows := make([]ScheduledInitiative, 0, len(inits))
+		unstarted := 0.0
+		for _, it := range inits {
+			weight := initiativeWeight(it)
+			if it.DateLocked {
+				weight *= lockDominance
+			}
+			unstarted += weight
+			rows = append(rows, ScheduledInitiative{Name: it.Name, Verdict: verdictUnschedulable,
+				Provisional: true, BindingConstraint: "invalid-input", Assumptions: []string{err.Error()}, Slices: []WorkSlice{}})
+		}
+		return &Schedule{Initiatives: rows, Assumptions: []string{err.Error()}, UnscheduledWeight: unstarted, StatedOrderUnscheduledWeight: unstarted}
+	}
 	sched := computeOne(teams, inits, params, sp)
 	if opts.CompareWipModels {
 		sched.WipModels = compareWipModels(teams, inits, params, sp)
@@ -564,7 +586,7 @@ func compareWipModels(teams []Team, inits []Initiative, params Params, sp Schedu
 		alt.WipModel = model
 		run := computeOne(teams, inits, params, alt)
 
-		o := WipModelOutcome{Model: model, Limit: run.WipLimit.Value, Objective: run.ObjectiveScore}
+		o := WipModelOutcome{Model: model, Limit: run.WipLimit.Value, Objective: run.ObjectiveScore, UnscheduledWeight: run.UnscheduledWeight}
 		for _, si := range run.Initiatives {
 			if si.CommitWeek > o.LastCommitWeek {
 				o.LastCommitWeek = si.CommitWeek
@@ -616,6 +638,18 @@ func computeOne(teams []Team, inits []Initiative, params Params, sp SchedulingPa
 	for i, it := range inits {
 		prepared = append(prepared, prepareInitiative(i, it, byName, tracks, params, sp))
 	}
+	initiativeNames := map[string]bool{}
+	for _, it := range inits {
+		initiativeNames[it.Name] = true
+	}
+	for _, in := range prepared {
+		for _, pred := range in.init.AfterInitiatives {
+			if !initiativeNames[pred] || pred == in.init.Name {
+				in.assumptions = append(in.assumptions, "unresolved initiative dependency "+pred+"; dates are provisional")
+				in.provisional = true
+			}
+		}
+	}
 	drumPods, drum := drumsOf(residualLoads(prepared, tracks, params))
 	wip := deriveWipLimit(sp, tracks, drum)
 	for _, in := range prepared {
@@ -631,17 +665,19 @@ func computeOne(teams []Team, inits []Initiative, params Params, sp SchedulingPa
 	var bestRule string
 	var statedRun *runResult
 	statedObjective := 0.0
+	statedUnscheduled := 0.0
 	var tried []RuleScore
 	for _, rule := range dispatchRules {
 		run := generate(prepared, rankOrder(rule, prepared, sp, pBar), byName, tracks, sp, wip, horizon, pBar, rules, params.CapacityLoss, rule)
-		tried = append(tried, RuleScore{Rule: rule, Objective: run.objective})
+		tried = append(tried, RuleScore{Rule: rule, Objective: run.objective, UnscheduledWeight: run.unscheduledWeight})
 		if rule == ruleStatedPriority {
 			statedObjective = run.objective
+			statedUnscheduled = run.unscheduledWeight
 			statedRun = run
 		}
 		// Strictly better only, so a tie keeps the earlier rule and the winner
 		// never depends on map or float ordering.
-		if best == nil || run.objective < best.objective-1e-9 {
+		if best == nil || scheduleCostsBetter(run.unscheduledWeight, run.objective, best.unscheduledWeight, best.objective) {
 			best, bestRule = run, rule
 		}
 	}
@@ -662,17 +698,19 @@ func computeOne(teams []Team, inits []Initiative, params Params, sp SchedulingPa
 	}
 
 	sched := &Schedule{
-		Initiatives:               best.initiatives,
-		PodWeeks:                  best.pods,
-		DrumPods:                  drumPods,
-		WipLimit:                  wip,
-		Rule:                      bestRule,
-		RulesTried:                tried,
-		ObjectiveScore:            best.objective,
-		StatedOrderObjectiveScore: statedObjective,
-		EngineRanks:               engineRanks,
-		HorizonWeeks:              horizon,
-		PeriodStart:               sp.PeriodStart,
+		Initiatives:                  best.initiatives,
+		PodWeeks:                     best.pods,
+		DrumPods:                     drumPods,
+		WipLimit:                     wip,
+		Rule:                         bestRule,
+		RulesTried:                   tried,
+		ObjectiveScore:               best.objective,
+		StatedOrderObjectiveScore:    statedObjective,
+		UnscheduledWeight:            best.unscheduledWeight,
+		StatedOrderUnscheduledWeight: statedUnscheduled,
+		EngineRanks:                  engineRanks,
+		HorizonWeeks:                 horizon,
+		PeriodStart:                  sp.PeriodStart,
 	}
 	for i := range sched.Initiatives {
 		sched.Initiatives[i].RankingTerms.Rule = bestRule
@@ -822,6 +860,17 @@ func prepareInitiative(idx int, it Initiative, teams map[string]Team, tracks map
 		}
 	}
 	in.order, in.deps, in.assumptions = podOrder(it.Work, inPath)
+	in.provisional = len(in.assumptions) > 0
+	roles := make([]string, 0, len(it.Leads))
+	for role := range it.Leads {
+		roles = append(roles, role)
+	}
+	sort.Strings(roles)
+	for _, role := range roles {
+		if leadIdentity(it.Leads[role]) == "" {
+			in.assumptions = append(in.assumptions, role+" ownership is unspecified; no named lead capacity is assumed")
+		}
+	}
 
 	for _, pod := range in.order {
 		w := it.Work[pod]
@@ -919,6 +968,7 @@ func podOrder(work map[string]TeamWork, inPath map[string]bool) ([]string, map[s
 		sort.Strings(upstream)
 		for _, d := range upstream {
 			if !inPath[d] || d == pod {
+				broken = append(broken, "unresolved team dependency "+d+" -> "+pod+"; dates are provisional")
 				continue
 			}
 			if state[d] == visiting {
@@ -1194,10 +1244,11 @@ func meanProcessing(ins []*schedInput) float64 {
 
 // runResult is one dispatch rule's completed schedule.
 type runResult struct {
-	initiatives []ScheduledInitiative
-	pods        []PodSchedule
-	objective   float64
-	assumptions []string // precedence edges this run had to break
+	initiatives       []ScheduledInitiative
+	pods              []PodSchedule
+	objective         float64
+	unscheduledWeight float64
+	assumptions       []string // precedence edges this run had to break
 }
 
 // podCalendar tracks one pod's occupancy week by week.
@@ -1255,7 +1306,16 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 	seq, brokenPrecedence := releaseSequence(order)
 
 	results := map[string]*ScheduledInitiative{}
-	for _, in := range seq {
+	for _, source := range seq {
+		local := *source
+		local.assumptions = append([]string(nil), source.assumptions...)
+		in := &local
+		for _, pred := range in.init.AfterInitiatives {
+			if previous := results[pred]; previous != nil && previous.Provisional {
+				in.provisional = true
+				in.assumptions = append(in.assumptions, "predecessor "+pred+" has provisional evidence; dates are provisional")
+			}
+		}
 		rank := ranks[in.init.Name]
 		release, reason := releaseFloor(in, sp, commitOf, horizon)
 
@@ -1271,7 +1331,19 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 			gate, ok := releaseGates(in, sp, wip, start, finish, inFlight, leadBusy, quarterStarts)
 			if !ok {
 				// A release gate refused: hold one week and name it.
+				if gate == bindLead {
+					for _, explanation := range leadGateAssumptions(in, sp, start, finish, leadBusy) {
+						if !slices.Contains(in.assumptions, explanation) {
+							in.assumptions = append(in.assumptions, explanation)
+						}
+					}
+				}
 				release, reason = release+1, gate
+				if release >= horizon || release > maxWeek {
+					start = maxInt(start, horizon)
+					finish = maxInt(finish, start)
+					break
+				}
 				continue
 			}
 			// Decision 28: the release search stops at the period. maxWeek is the
@@ -1393,7 +1465,11 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 			}
 		}
 		for role, name := range in.init.Leads {
-			key := role + "|" + name
+			identity := leadIdentity(name)
+			if identity == "" {
+				continue
+			}
+			key := role + "|" + identity
 			slot := leadBusy[key]
 			for w := start; w < finish; w++ {
 				bumpInt(&slot, w, 1)
@@ -1404,6 +1480,9 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 
 		si := summarise(in, rank, start, finish, placed, reason, sp, pBar, rule)
 		commitOf[in.init.Name] = si.CommitWeek
+		if si.Verdict == verdictUnschedulable {
+			commitOf[in.init.Name] = horizon
+		}
 		results[in.init.Name] = &si
 	}
 
@@ -1418,7 +1497,7 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 		}
 	}
 	return &runResult{initiatives: out, pods: podSchedules(cal, tracks, out, horizon),
-		objective: objectiveOf(out, weights), assumptions: brokenPrecedence}
+		objective: objectiveOf(out, weights), unscheduledWeight: unscheduledWeightOf(out, weights), assumptions: brokenPrecedence}
 }
 
 // releaseSequence is the order releases are actually processed in, which is not
@@ -1614,16 +1693,29 @@ func releaseGates(in *schedInput, sp SchedulingParams, wip WipLimit, start, fini
 			}
 		}
 	}
+	if len(leadGateAssumptions(in, sp, start, finish, leadBusy)) > 0 {
+		return bindLead, false
+	}
+	return "", true
+}
+
+func leadGateAssumptions(in *schedInput, sp SchedulingParams, start, finish int, leadBusy map[string][]int) []string {
+	var reasons []string
 	for role, name := range in.init.Leads {
+		identity := leadIdentity(name)
+		if identity == "" {
+			continue
+		}
 		limit := sp.leadCap(role)
-		slot := leadBusy[role+"|"+name]
 		for w := start; w < finish; w++ {
-			if weekAt(slot, w) >= limit {
-				return bindLead, false
+			if weekAt(leadBusy[role+"|"+identity], w) >= limit {
+				reasons = append(reasons, fmt.Sprintf("%s lead capacity limits concurrent initiatives to %d; no slot was available", role, limit))
+				break
 			}
 		}
 	}
-	return "", true
+	sort.Strings(reasons)
+	return reasons
 }
 
 // planSlices places one initiative's slices without committing them, so a
@@ -1670,6 +1762,10 @@ func splitPlace(c *podCalendar, tracks, ready int, effort float64, loss float64,
 	taxLeft := tax
 	bound := ready + int(total) + tax + horizonBound // a pod cannot free lanes it never had
 	for w <= bound {
+		if len(phases) == 0 && rules != nil && !inFlight && rules.startBlocked(pod, site, w) {
+			w++
+			continue
+		}
 		weekTracks := tracks
 		if rules != nil {
 			weekTracks = rules.reducedTracks(pod, site, tracks, w)
@@ -1717,7 +1813,7 @@ func splitPlace(c *podCalendar, tracks, ready int, effort float64, loss float64,
 			prev = phases[n-1].Lanes
 			contiguous = phases[n-1].ToWeek == w
 		}
-		grew := len(phases) > 0 && contiguous && free > prev
+		grew := len(phases) > 0 && free > prev
 		switch {
 		case len(phases) == 0 || prev != free || !contiguous:
 			phases = append(phases, LanePhase{FromWeek: w, ToWeek: w + 1, Lanes: free})
@@ -1796,6 +1892,8 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 			}
 		}
 		sliceFinish := begin + d
+		flatStart, flatFinish, flatReason := contiguousPlacement(cal[pod], tracks[pod], begin, d, lanes,
+			in.init.Name, perPodCap, rules, pod, site, in.init.InFlight, laneBudget, reason)
 		// Spec 007: when splitting is on (tax > 0, effort model), try the
 		// growth placement first — start on the free lanes, absorb the rest
 		// as they free, tax charged up front. Fall back to all-or-nothing
@@ -1845,60 +1943,29 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 							}
 						}
 					}
-					slices = append(slices, WorkSlice{
-						Initiative: in.init.Name, Pod: pod,
-						RemainingWeeks: float64(workFinish - phases[0].FromWeek),
-						LanesUsed:      phases[0].Lanes, Phases: phases,
-						StartWeek: phases[0].FromWeek, FinishWeek: completion,
-						WaitWeeks:         float64(phases[0].FromWeek - ready),
-						BindingConstraint: reason, Estimated: in.init.Work[pod].Estimated && in.init.Work[pod].Weeks > 0,
-						DependsOn: append([]string(nil), in.deps[pod]...),
-					})
-					if completion > finish {
-						finish = completion
+					if completion < flatFinish {
+						slices = append(slices, WorkSlice{
+							Initiative: in.init.Name, Pod: pod,
+							RemainingWeeks: float64(workFinish - phases[0].FromWeek),
+							LanesUsed:      phases[0].Lanes, Phases: phases,
+							StartWeek: phases[0].FromWeek, FinishWeek: completion,
+							WaitWeeks:         float64(phases[0].FromWeek - ready),
+							BindingConstraint: reason, Estimated: in.init.Work[pod].Estimated && in.init.Work[pod].Weeks > 0,
+							DependsOn: append([]string(nil), in.deps[pod]...),
+						})
+						if completion > finish {
+							finish = completion
+						}
+						if phases[0].FromWeek < start || i == 0 {
+							start = phases[0].FromWeek
+						}
+						finishOf[pod] = completion
+						continue
 					}
-					if phases[0].FromWeek < start || i == 0 {
-						start = phases[0].FromWeek
-					}
-					finishOf[pod] = completion
-					continue
 				}
 			}
 		}
-		if rules != nil && d > 0 {
-			// FR-018: no slice may begin in a frozen week — unless it is
-			// carryover, which began before the period and cannot be
-			// un-started (AC X.4). The freeze is the binding constraint only
-			// when it moved the slice; otherwise whatever else delayed it
-			// keeps the blame.
-			if !in.init.InFlight {
-				if s, moved := rules.firstStartFrom(pod, site, ready); moved {
-					begin, reason = s, bindFreeze
-				}
-			}
-			if d > 0 && tracks[pod] > 0 {
-				// Returns both ends: a reduce-capacity window stretches the
-				// span, so the finish is not simply begin + d any more. The
-				// block-start rule is re-applied to every candidate inside —
-				// capacity can otherwise push a start into a frozen week the
-				// pre-check never saw.
-				if s, f, why := firstFreeWeek(cal[pod], tracks[pod], begin, d, lanes, in.init.Name, perPodCap, rules, pod, site, in.init.InFlight, laneBudget); s > begin || f > sliceFinish {
-					begin, sliceFinish = s, f
-					if why != "" {
-						reason = why
-					}
-				}
-			}
-			// FR-018: no completion inside a freeze. The finish moves to the
-			// first legal week; the WORK does not grow — RemainingWeeks stays
-			// the estimate, and the frozen weeks are waiting.
-			if f, moved := rules.firstFinishFrom(pod, site, sliceFinish); moved {
-				sliceFinish = f
-				if reason == "" {
-					reason = bindFreeze
-				}
-			}
-		}
+		begin, sliceFinish, reason = flatStart, flatFinish, flatReason
 		w := in.init.Work[pod]
 		slices = append(slices, WorkSlice{
 			Initiative: in.init.Name, Pod: pod, RemainingWeeks: float64(d), LanesUsed: lanes,
@@ -1921,6 +1988,37 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 		return slices, release, release
 	}
 	return slices, start, finish
+}
+
+// contiguousPlacement keeps readiness and pins as lower bounds and provides a
+// legal comparison for split costs. specs/019-scheduling-audit-and-gantt-integrity.md:130
+func contiguousPlacement(c *podCalendar, tracks, begin, duration, lanes int, initiative string, perPodCap int,
+	rules *calendarRules, pod, site string, inFlight bool, laneBudget int, reason string) (int, int, string) {
+	if duration <= 0 {
+		return begin, begin, reason
+	}
+	if rules != nil && !inFlight {
+		if s, moved := rules.firstStartFrom(pod, site, begin); moved {
+			begin, reason = s, bindFreeze
+		}
+	}
+	finish := begin + duration
+	if tracks > 0 {
+		var why string
+		begin, finish, why = firstFreeWeek(c, tracks, begin, duration, lanes, initiative, perPodCap, rules, pod, site, inFlight, laneBudget)
+		if why != "" {
+			reason = why
+		}
+	}
+	if rules != nil {
+		if f, moved := rules.firstFinishFrom(pod, site, finish); moved {
+			finish = f
+			if reason == "" {
+				reason = bindFreeze
+			}
+		}
+	}
+	return begin, finish, reason
 }
 
 // firstFreeWeek is the earliest week at or after from where the pod can take the
@@ -2092,7 +2190,7 @@ func summarise(in *schedInput, rank, start, finish int, slices []WorkSlice, rele
 		StartWeek: start, RawFinishWeek: finish,
 		PriorityLocked: in.init.PriorityLocked, DateLocked: in.init.DateLocked,
 		TargetWeek: in.targetWeek, Slices: slices,
-		UnestimatedPods: in.unestimated, Provisional: len(in.unestimated) > 0,
+		UnestimatedPods: in.unestimated, Provisional: len(in.unestimated) > 0 || in.provisional,
 		Assumptions: in.assumptions,
 	}
 	si.BufferWeeks = bufferWeeksFor(finish-start, sp)
@@ -2175,6 +2273,34 @@ func verdictFor(in *schedInput, si ScheduledInitiative, sp SchedulingParams) (st
 		return verdictInfeasible, late
 	}
 	return verdictLate, late
+}
+
+// ScheduleIsBetter compares coverage before lateness, without inventing dates
+// for omitted work. specs/019-scheduling-audit-and-gantt-integrity.md:157
+func ScheduleIsBetter(candidate, current *Schedule) bool {
+	return scheduleCostsBetter(candidate.UnscheduledWeight, candidate.ObjectiveScore, current.UnscheduledWeight, current.ObjectiveScore)
+}
+
+func scheduleCostsBetter(unstarted, late, currentUnstarted, currentLate float64) bool {
+	if math.Abs(unstarted-currentUnstarted) > 1e-9 {
+		return unstarted < currentUnstarted
+	}
+	return late < currentLate-1e-9
+}
+
+func unscheduledWeightOf(sis []ScheduledInitiative, weights map[string]float64) float64 {
+	total := 0.0
+	for _, si := range sis {
+		if si.Verdict != verdictBeyondHorizon && si.Verdict != verdictUnschedulable {
+			continue
+		}
+		weight := weights[si.Name]
+		if si.DateLocked {
+			weight *= lockDominance
+		}
+		total += weight
+	}
+	return total
 }
 
 // objectiveOf is the weighted-lateness score (FR-011). Date-locked commitments

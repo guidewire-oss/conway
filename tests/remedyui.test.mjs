@@ -61,7 +61,7 @@ test('one priced option shows what it costs and what it lands', () => {
   const html = remedyRowHTML(r);
   assert.match(html, new RegExp(escRe(r.target)));
   assert.match(html, new RegExp(escRe(remedyKindLabel(r.kind))));
-  assert.match(html, /objective/);
+  assert.match(html, /weighted lateness/);
   // A cheaper portfolio is a saving, and the sign must survive the render.
   const signed = r.objectiveDelta < 0 ? `−${Math.abs(r.objectiveDelta)}` : `+${r.objectiveDelta}`;
   assert.ok(html.includes(signed), `the objective delta ${signed} must appear`);

@@ -95,3 +95,58 @@ test('a later saved lane pin reserves its interval before flexible earlier work'
   assert.equal(spans.find((s) => s.name === 'Pinned').lane, 0);
   assert.equal(spans.find((s) => s.name === 'Earlier').lane, 1);
 });
+
+test('flexible work can cross complementary pinned reservations without overlapping', () => {
+  const slices = [
+    { initiative: 'Early', pod: 'Atlas', startWeek: 0, finishWeek: 2, lanesUsed: 1 },
+    { initiative: 'Late', pod: 'Atlas', startWeek: 2, finishWeek: 4, lanesUsed: 1 },
+    { initiative: 'Flexible', pod: 'Atlas', startWeek: 0, finishWeek: 4, lanesUsed: 1 },
+  ];
+  const spans = intervals(podLanesHTML({ pod: 'Atlas', tracks: 2, slices }, { pinnedLanes: { Early: 0, Late: 1 } }));
+  for (let week = 0; week < 4; week++) {
+    const active = spans.filter((s) => s.start <= week && s.finish > week);
+    assert.equal(active.length, 2);
+    assert.equal(new Set(active.map((s) => s.lane)).size, 2);
+    const fixed = active.find((s) => s.name !== 'Flexible');
+    assert.equal(fixed.lane, week < 2 ? 0 : 1);
+  }
+});
+
+test('team cards carry an axis, calendar context and a keyboard sheet control', () => {
+  const html = podLensHTML({ ...schedule, periodStart: '2026-09-01' }, {
+    planInitiatives: inputs, span: 52, todayWeek: 4,
+    calendars: [{ kind: 'change-freeze', scope: 'Atlas', fromDate: '2026-09-08', toDate: '2026-09-15', effect: 'block-start' }],
+  });
+  assert.match(html, /data-pod="Atlas"[\s\S]*class="tl-axis"/);
+  assert.match(html, /tl-band-freeze/);
+  assert.match(html, /tl-today/);
+  assert.match(html, /tl-period-end/);
+  assert.match(html, /<button[^>]*data-open-pod="Atlas"/);
+});
+
+test('future work outside the selected span gets a label instead of a zero-width bar', () => {
+  const ps = { pod: 'Atlas', tracks: 2, slices: [{ initiative: 'Later', pod: 'Atlas', startWeek: 30, finishWeek: 35, lanesUsed: 1 }] };
+  const html = podLanesHTML(ps, { horizonWeeks: 26 });
+  assert.match(html, /Later/);
+  assert.match(html, /outside this view/i);
+  assert.doesNotMatch(html, /class="tl-bar/);
+  assert.doesNotMatch(html, /width:0/);
+});
+
+test('zero-capacity rows honor the work filter and optional ghost context', () => {
+  const ps = { pod: 'Atlas', tracks: 0, slices: [{ initiative: 'Other', pod: 'Atlas', startWeek: 0, finishWeek: 4, lanesUsed: 1 }] };
+  const hidden = podLanesHTML(ps, { initiativeQuery: 'Selected' });
+  assert.doesNotMatch(hidden, /Other/);
+  assert.doesNotMatch(hidden, /class="tl-bar/);
+  assert.match(podLanesHTML(ps, { initiativeQuery: 'Selected', ghostOthers: true }), /tl-ghost/);
+});
+
+test('flat calendar gaps render only authoritative occupied weeks', () => {
+  const ps = { pod: 'Atlas', tracks: 1, slices: [{ initiative: 'Alpha', pod: 'Atlas', startWeek: 0, finishWeek: 4, remainingWeeks: 2, lanesUsed: 1 }],
+    // The API omits initiatives on idle weeks rather than returning an empty array.
+    weeks: [0,1,2,3].map((week) => week === 0 || week === 3 ? { week, busy: 1, initiatives: ['Alpha'] } : { week, busy: 0 }) };
+  const spans = intervals(podLanesHTML(ps));
+  for (let week = 0; week < 4; week++) {
+    assert.equal(spans.filter((s) => s.start <= week && s.finish > week).length, ps.weeks[week].busy, `week ${week}`);
+  }
+});

@@ -60,8 +60,11 @@ export function remedyRowHTML(r, index = 0) {
   const verdict = esc(verdictLabel(r.resultingVerdict));
   const stillLate = r.targetWeeksLate > 0
     ? ` <span class="hint">(${r.targetWeeksLate}w late)</span>` : '';
+  const coverageKnown = Number.isFinite(r.unscheduledWeightDelta);
+  const worse = coverageKnown && r.unscheduledWeightDelta !== 0
+    ? r.unscheduledWeightDelta > 0 : r.objectiveDelta > 0;
   const delta = typeof r.objectiveDelta === 'number'
-    ? `<span class="${r.objectiveDelta <= 0 ? 'ord-green' : 'ord-red'}">${signed(r.objectiveDelta)}</span>` : '';
+    ? `<span class="${worse ? 'ord-red' : 'ord-green'}">${coverageKnown ? `weighted unstarted work ${signed(r.unscheduledWeightDelta)}; ` : ''}weighted lateness ${signed(r.objectiveDelta)}</span>` : '';
   const victims = (r.affectedInitiatives || []).map((v) =>
     `${esc(v.initiative)} ${signed(v.commitDeltaWeeks || v.startDeltaWeeks || 0)}w`).join(', ');
   const victimsLine = victims
@@ -74,7 +77,7 @@ export function remedyRowHTML(r, index = 0) {
   return `<div class="rem-row">
     ${whose}<b>${label}</b> ${r.note ? `<span class="hint">${esc(r.note)}</span>` : ''}
     → ${verdict}${stillLate}
-    <span class="hint">objective ${delta}</span>
+    <span class="hint">${delta}${coverageKnown ? ' · coverage takes priority' : ''}</span>
     ${victimsLine}
     <button type="button" class="rem-preview" data-remedy="${index}" data-kind="${esc(r.kind)}" data-target="${esc(r.target || '')}">${icon('search')} Preview this change</button>
   </div>`;
