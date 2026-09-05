@@ -15,7 +15,7 @@ import { icon } from './icons.js';
 // ⚠ beside the number.
 
 import { esc, weekToDate, weekDateHTML, LEAD_ROLES } from './order.js';
-import { fuzzyMatch } from './filter.js';
+import { fuzzyMatch, initiativeMatch } from './filter.js';
 import { term } from './terms.js';
 
 const unplaced = (si) => ['beyond-horizon', 'unschedulable'].includes(si.verdict) && !(si.slices || []).length;
@@ -279,7 +279,7 @@ export function portfolioTimelineHTML(sched, opts = {}) {
   const rows = (sched.initiatives || [])
     .slice()
     .sort((a, b) => a.proposedRank - b.proposedRank)
-    .filter((si) => !opts.initiativeQuery || fuzzyMatch(opts.initiativeQuery, si.name))
+    .filter((si) => !opts.initiativeQuery || initiativeMatch(opts.initiativeQuery, si.name))
     .filter((si) => matchesTimelineTeam(si, podQ, opts.planInitiatives))
     .map((si) => timelineRowHTML(si, { ...opts, horizonWeeks: span, periodStart: sched.periodStart || opts.periodStart, expand: opts.expand === si.name }))
     .join('');
@@ -368,7 +368,7 @@ function displaySlices(ps) {
 
 function outsideWorkHTML(ps, opts) {
   const horizon = opts.horizonWeeks || 26, query = opts.initiativeQuery || '';
-  const outside = displaySlices(ps).filter((sl) => (!query || fuzzyMatch(query, sl.initiative)) &&
+  const outside = displaySlices(ps).filter((sl) => (!query || initiativeMatch(query, sl.initiative)) &&
     (sl.startWeek >= horizon || (sl.displayPhases || sl.phases)?.some((phase) => phase.fromWeek >= horizon)));
   return outside.length ? `<div class="tl-outside-list"><b>Work outside this view</b>${outside.map((sl) =>
     `<p><button type="button" data-select-init="${esc(sl.initiative)}">${esc(sl.initiative)}</button> ${esc(ps.pod)}: w${sl.startWeek}–w${sl.finishWeek}. Widen the time span to see the remaining work.</p>`).join('')}</div>` : '';
@@ -388,7 +388,7 @@ export function podLanesHTML(ps, opts = {}) {
   if (!ps.tracks) {
     const bars = (ps.slices || []).map((sl) => {
       const { left, width } = barGeom(sl.startWeek, sl.finishWeek, horizon);
-      const matched = !q || fuzzyMatch(q, sl.initiative);
+      const matched = !q || initiativeMatch(q, sl.initiative);
       if (!width || (!matched && !ghost)) return '';
       return barHTML({
         left, width, cls: `tl-nocap${matched ? '' : ' tl-ghost'}`, label: matched ? sl.initiative : '',
@@ -435,7 +435,7 @@ export function podLanesHTML(ps, opts = {}) {
       // context (what else held the lanes during the gaps) is visible without
       // stealing focus. Ghosts are context, not editable plan — no drag
       // contract attached.
-      const matched = !q || fuzzyMatch(q, sl.initiative);
+      const matched = !q || initiativeMatch(q, sl.initiative);
       if (!matched && !ghost) return '';
       if (!matched) {
         return `<div class="tl-bar tl-trunc tl-ghost" style="${pct(left)};width:${width.toFixed(2)}%" title="${esc(`${sl.initiative} (other work): w${sl.startWeek}–w${sl.finishWeek}`)}"></div>`;
@@ -496,12 +496,12 @@ export function podLensHTML(sched, opts = {}) {
   // tracing it. Unfiltered keeps the hottest-first capacity view.
   const q = opts.initiativeQuery || '';
   const ghost = !!opts.ghostOthers;
-  const rejected = (sched.initiatives || []).filter((si) => unplaced(si) && (!q || fuzzyMatch(q, si.name)));
+  const rejected = (sched.initiatives || []).filter((si) => unplaced(si) && (!q || initiativeMatch(q, si.name)));
   const rejectedAt = (pod) => rejected.filter((si) => assignedPods(si, opts.planInitiatives).includes(pod));
   let pods = (sched.podWeeks || []).filter((ps) => !opts.podQuery || fuzzyMatch(opts.podQuery, ps.pod));
   if (q) {
     const key = (ps) => {
-      const sl = (ps.slices || []).filter((s) => fuzzyMatch(q, s.initiative));
+      const sl = (ps.slices || []).filter((s) => initiativeMatch(q, s.initiative));
       if (!sl.length) return rejectedAt(ps.pod).length ? [Infinity, Infinity] : null;
       const start = Math.min(...sl.map((s) => s.startWeek));
       const finish = Math.min(...sl.filter((s) => s.startWeek === start).map((s) => s.finishWeek));

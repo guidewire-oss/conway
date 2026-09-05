@@ -15,7 +15,7 @@ import { esc, compareScheduleCosts, orderViewHTML, schedulingFromForm, initiativ
 import { exportBlockPNG } from './exportpng.js';
 import { attachDrag } from './drag.js';
 import { openDocs } from './docs.js';
-import { fuzzyMatch } from './filter.js';
+import { initiativeMatch } from './filter.js';
 import { term } from './terms.js';
 import { baselineChipHTML, baselinesDrawerHTML, saveErrorMessage, latestOnly, activeBaseline, compareTableHTML } from './baseline.js';
 import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
@@ -1189,7 +1189,7 @@ async function renderTimeline() {
     const countEl = document.getElementById('tl-filter-count');
     if (countEl) {
       const iq = current.tlInitiativeFilter || '', tq = current.tlTeamFilter || '';
-      const n = (sched.initiatives || []).filter((si) => (!iq || fuzzyMatch(iq, si.name)) && matchesTimelineTeam(si, tq, current.initiatives)).length;
+      const n = (sched.initiatives || []).filter((si) => (!iq || initiativeMatch(iq, si.name)) && matchesTimelineTeam(si, tq, current.initiatives)).length;
       countEl.textContent = `${n} of ${(sched.initiatives || []).length} initiatives match`;
     }
     // Spec 008: drag-to-edit. A released drag pins the slice's start and the

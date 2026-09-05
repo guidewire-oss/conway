@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fuzzyMatch } from '../app/js/filter.js';
+import { fuzzyMatch, initiativeMatch } from '../app/js/filter.js';
 import { podLensHTML, portfolioTimelineHTML } from '../app/js/timeline.js';
 
 const name = 'Credential secrets rotation';
@@ -8,24 +8,27 @@ const slice = (pod, startWeek) => ({ initiative: name, pod, startWeek, finishWee
 const work = [{ name, work: { Atlas: { inPath: true }, Beacon: { inPath: true } } }];
 const schedule = {
   horizonWeeks: 26,
-  initiatives: [{ name, startWeek: 0, rawFinishWeek: 32, commitWeek: 32, slices: [slice('Atlas', 0), slice('Beacon', 30)] }],
+  initiatives: [{ name, startWeek: 0, rawFinishWeek: 32, commitWeek: 32, slices: [slice('Atlas', 0), slice('Beacon', 30)] },
+    { name: 'Reporting automation readiness', startWeek: 0, rawFinishWeek: 2, commitWeek: 2, slices: [{ ...slice('Cedar', 0), initiative: 'Reporting automation readiness' }] }],
   podWeeks: [
     { pod: 'Atlas', tracks: 1, slices: [slice('Atlas', 0)], weeks: [] },
     { pod: 'Beacon', tracks: 1, slices: [slice('Beacon', 30)], weeks: [] },
-    { pod: 'Cedar', tracks: 1, slices: [{ ...slice('Cedar', 0), initiative: 'Billing dashboard' }], weeks: [] },
+    { pod: 'Cedar', tracks: 1, slices: [{ ...slice('Cedar', 0), initiative: 'Reporting automation readiness' }], weeks: [] },
   ],
 };
 
 test('initiative search recognizes common word endings without matching unrelated names', () => {
   for (const query of ['rotate', 'ROTATE', 'rotated', 'rotating', 'rotations', 'rotate credential']) {
-    assert.equal(fuzzyMatch(query, name), true, query);
-    assert.equal(fuzzyMatch(query, 'Billing dashboard'), false, query);
+    assert.equal(initiativeMatch(query, name), true, query);
+    assert.equal(initiativeMatch(query, 'Billing dashboard'), false, query);
   }
-  assert.equal(fuzzyMatch('rotation', 'Rotate credentials'), true);
-  assert.equal(fuzzyMatch('xyz rotate', name), false, 'every query word must match');
-  assert.equal(fuzzyMatch('rate', 'Rating'), false, 'short roots are not inferred');
+  assert.equal(initiativeMatch('rotation', 'Rotate credentials'), true);
+  assert.equal(initiativeMatch('xyz rotate', name), false, 'every query word must match');
+  assert.equal(initiativeMatch('rate', 'Rating'), false, 'short roots are not inferred');
+  assert.equal(initiativeMatch('rotate', 'Reporting automation readiness'), false, 'scattered letters are not initiative matches');
+  assert.equal(initiativeMatch('aplat', 'Apollo/App Platform'), false, 'initiative search requires text');
   assert.equal(fuzzyMatch('aplat', 'Apollo/App Platform'), true, 'existing shorthand');
-  assert.equal(fuzzyMatch('', name), true);
+  assert.equal(initiativeMatch('', name), true);
 });
 
 test('by-pod search shows matching bars and outside-view work on every assigned team', () => {
@@ -35,8 +38,8 @@ test('by-pod search shows matching bars and outside-view work on every assigned 
   assert.match(html, /data-pod="Beacon"/);
   assert.match(html, /Work outside this view/);
   assert.match(html, /data-select-init="Credential secrets rotation"/);
-  assert.doesNotMatch(html, /data-pod="Cedar"|Billing dashboard/);
-  assert.equal(schedule.initiatives.filter(i => fuzzyMatch('rotate', i.name)).length, 1, 'live count uses the same matcher');
+  assert.doesNotMatch(html, /data-pod="Cedar"|Billing dashboard|Reporting automation readiness/);
+  assert.equal(schedule.initiatives.filter(i => initiativeMatch('rotate', i.name)).length, 1, 'live count uses the same matcher');
 });
 
 test('word-ending search finds held assignments and agrees with portfolio grouping', () => {

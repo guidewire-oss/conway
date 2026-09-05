@@ -19,20 +19,28 @@ function wordRoot(word) {
   return root;
 }
 
-// fuzzyMatch reports whether query matches target. Empty query matches all.
-export function fuzzyMatch(query, target) {
+// Initiative names require literal text or matching word roots. Empty matches all.
+export function initiativeMatch(query, target) {
   const q = String(query || '').toLowerCase().replace(/\s+/g, ' ').trim();
   if (!q) return true;
   const t = String(target || '').toLowerCase().replace(/\s+/g, ' ');
   if (t.includes(q)) return true;
-  // subsequence: each query char appears in order (classic fuzzy find)
+  const queryWords = q.match(/[\p{L}\p{N}]+/gu) || [];
+  const targetWords = t.match(/[\p{L}\p{N}]+/gu) || [];
+  return queryWords.length > 0 && queryWords.every((word) =>
+    targetWords.some((candidate) => candidate.includes(word) || wordRoot(word) === wordRoot(candidate)));
+}
+
+// Team names retain their established shorthand matching. Initiative queries
+// require matching text: specs/010-timeline-lens-filters.md:187.
+export function fuzzyMatch(query, target) {
+  if (initiativeMatch(query, target)) return true;
+  const q = String(query || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const t = String(target || '').toLowerCase().replace(/\s+/g, ' ');
   let i = 0;
   for (const ch of t) {
     if (ch === q[i]) i++;
     if (i === q.length) return true;
   }
-  const queryWords = q.match(/[\p{L}\p{N}]+/gu) || [];
-  const targetWords = t.match(/[\p{L}\p{N}]+/gu) || [];
-  return queryWords.length > 0 && queryWords.every((word) =>
-    targetWords.some((candidate) => candidate.includes(word) || wordRoot(word) === wordRoot(candidate)));
+  return false;
 }
