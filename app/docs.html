@@ -374,8 +374,12 @@ so change them with intent.</p>
   <tr><td>chunk size</td><td>work above this many weeks divides across lanes;
       no track carries more. 45 weeks chunks as 20+20+5 at a 20-week
       cap.</td></tr>
-  <tr><td>drum target utilization</td><td>holds releases so drum load stays
-      under the ceiling, keeping headroom for escapes</td></tr>
+  <tr><td>drum target utilization</td><td>reserves headroom on constraint
+      teams. Effort work uses fewer lanes and takes longer when needed to fit
+      the ceiling. Lanes are indivisible: a 90% target on four lanes allows
+      three busy lanes; on two lanes it allows one. If the target allows less
+      than one lane, the scheduler leaves that team's capacity unchanged and
+      reports an assumption. Blank or 100% adds no ceiling.</td></tr>
   <tr><td>calendar windows</td><td>freezes, site holidays and reduced-capacity
       spans — drawn on the timeline and enforced by the scheduler</td></tr>
 </table>
@@ -392,6 +396,10 @@ you can promise and the reason each start is where it is.</p>
       its best order — accepting is always your call.</li>
   <li><b>Binds</b> names what set each start: dependency, pod capacity, WIP
       limit, freeze, kit gate, drum stagger, or a pin you placed.</li>
+  <li><b>Unscheduled work</b> remains assigned to its teams. A hold reason
+      explains why it has no dates in this period; an empty lane does not
+      mean the team has no assigned work. Check lead limits, dependencies and
+      readiness as well as team capacity.</li>
   <li><b>Expand a row</b> (▸) to see the per-pod slices: start, finish, latest
       safe start and slack per pod.</li>
 </ul>

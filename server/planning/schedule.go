@@ -18,6 +18,7 @@ package planning
 // applying it too would count the same delay twice (Decision 4).
 
 import (
+	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -504,6 +505,8 @@ type schedInput struct {
 	durations   map[string]int
 	drumWeeks   float64         // consumption of the drum pods
 	drumSet     map[string]bool // which of its pods are drums (the stagger gate reads this)
+	lanes       map[string]int  // identical allocation divisor for preparation and placement
+	laneBudgets map[string]int  // physical tracks, narrowed only for new work on a drum
 	totalWeeks  float64
 	chainAlone  int // critical chain at unlimited capacity
 	weight      float64
@@ -617,6 +620,8 @@ func computeOne(teams []Team, inits []Initiative, params Params, sp SchedulingPa
 	wip := deriveWipLimit(sp, tracks, drum)
 	for _, in := range prepared {
 		in.setDrumWeeks(drumPods)
+		in.configureLanes(byName, tracks, params, sp)
+		in.setDrumWeeks(drumPods)
 	}
 
 	pBar := meanProcessing(prepared)
@@ -691,6 +696,16 @@ func computeOne(teams []Team, inits []Initiative, params Params, sp SchedulingPa
 	// cause the schedule can actually see.
 	annotateIdle(sched, rules, byName, residualLoads(prepared, tracks, params), horizon)
 	sched.Assumptions, sched.Warnings = notices(prepared)
+	if sp.TargetUtilization > 0 && sp.TargetUtilization < 1 {
+		for _, pod := range drumPods {
+			budget, limited := drumLaneBudget(tracks[pod], sp.TargetUtilization)
+			if !limited {
+				sched.Assumptions = append(sched.Assumptions, fmt.Sprintf("%s: the %.0f%% drum target is below one whole lane; this indivisible-lane model ignores that target for this team and keeps its physical capacity", pod, sp.TargetUtilization*100))
+			} else {
+				sched.Assumptions = append(sched.Assumptions, fmt.Sprintf("%s: the %.0f%% drum target permits %d of %d whole lanes for new work; integer rounding may reserve more capacity than the requested fraction", pod, sp.TargetUtilization*100, budget, tracks[pod]))
+			}
+		}
+	}
 	// From the winning run, not from a fresh walk of the plan: which edge closes a
 	// cycle depends on the traversal, so a sheet-order detector would name an edge
 	// this schedule did not break, and blame the wrong initiative for skipping it.
@@ -746,6 +761,57 @@ func deriveWipLimit(sp SchedulingParams, tracks map[string]int, drum string) Wip
 	return WipLimit{Value: n, Derived: true, FromPod: drum, Model: model}
 }
 
+// drumLaneBudget keeps a fractional target enforceable without forbidding the
+// last indivisible lane. specs/018-scheduling-capacity-and-timeline-correctness.md:112
+func drumLaneBudget(physical int, target float64) (int, bool) {
+	if physical <= 0 || target <= 0 || target >= 1 {
+		return physical, false
+	}
+	budget := int(math.Floor(target*float64(physical) + 1e-9))
+	if budget < 1 {
+		return physical, false
+	}
+	return budget, true
+}
+
+// selectedSliceLanes is shared by duration and placement, including work below
+// the chunk threshold. specs/018-scheduling-capacity-and-timeline-correctness.md:130
+func selectedSliceLanes(w TeamWork, it Initiative, sp SchedulingParams, available int) int {
+	if sp.estimateModel() != EstimateEffort {
+		return 1
+	}
+	effort := w.effortWeeks(it)
+	need := int(math.Ceil(effort))
+	if sp.SplitMinWeeks > 0 && sp.SplitTaxWeeks > 0 {
+		if effort < float64(sp.SplitMinWeeks) {
+			need = 1
+		} else {
+			need = int(math.Ceil(effort / float64(sp.SplitMinWeeks)))
+		}
+	}
+	if available > 0 && need > available {
+		need = available
+	}
+	return maxInt(1, need)
+}
+
+func (in *schedInput) configureLanes(teams map[string]Team, tracks map[string]int, params Params, sp SchedulingParams) {
+	in.lanes = map[string]int{}
+	in.laneBudgets = map[string]int{}
+	in.totalWeeks = 0
+	for _, pod := range in.order {
+		budget := tracks[pod]
+		if !in.init.InFlight && in.drumSet[pod] {
+			budget, _ = drumLaneBudget(budget, sp.TargetUtilization)
+		}
+		in.laneBudgets[pod] = budget
+		in.lanes[pod] = selectedSliceLanes(in.init.Work[pod], in.init, sp, budget)
+		in.durations[pod] = sliceWeeks(in.init.Work[pod], in.init, teams[pod].EffectiveLoss(params.CapacityLoss), in.lanes[pod])
+		in.totalWeeks += float64(in.durations[pod])
+	}
+	in.chainAlone = chainLength(in)
+}
+
 func prepareInitiative(idx int, it Initiative, teams map[string]Team, tracks map[string]int, params Params, sp SchedulingParams) *schedInput {
 	in := &schedInput{idx: idx, init: it, durations: map[string]int{}, weight: initiativeWeight(it)}
 
@@ -757,36 +823,8 @@ func prepareInitiative(idx int, it Initiative, teams map[string]Team, tracks map
 	}
 	in.order, in.deps, in.assumptions = podOrder(it.Work, inPath)
 
-	effort := sp.estimateModel() == EstimateEffort
 	for _, pod := range in.order {
 		w := it.Work[pod]
-		// Lanes only divide under the effort model (spec 006 Decision 2);
-		// wall-clock passes 1 so the arithmetic is untouched. The chunk
-		// threshold (spec 007 amendment) shrinks the divisor to the lanes
-		// the work will actually take, so the duration and the occupancy
-		// agree (cubic: a thresholded slice cannot keep the all-tracks
-		// duration).
-		laneDiv := 1
-		if effort {
-			laneDiv = tracks[pod]
-			if sp.SplitMinWeeks > 0 && sp.SplitTaxWeeks > 0 && w.Estimated && w.Weeks > 0 {
-				eff := w.effortWeeks(it)
-				if eff >= float64(sp.SplitMinWeeks) {
-					chunked := int(math.Ceil(eff / float64(sp.SplitMinWeeks)))
-					if chunked < laneDiv {
-						laneDiv = chunked
-					}
-				}
-			}
-		}
-		// The pod's own loss (spec 014): an overridden pod converts effort to
-		// duration at its own rate; every other pod uses the plan global. One
-		// definition — EffectiveLoss — so ranking and placement agree.
-		in.durations[pod] = sliceWeeks(w, it, teams[pod].EffectiveLoss(params.CapacityLoss), laneDiv)
-		// Rank on the capacity still to be consumed, not the original estimate: an
-		// initiative that is 80% done occupies two more weeks of the drum, not ten,
-		// and ranking it as though it were whole starves work that has more left.
-		in.totalWeeks += float64(in.durations[pod])
 		if !w.Estimated || w.Weeks <= 0 {
 			in.unestimated = append(in.unestimated, pod)
 		}
@@ -794,7 +832,7 @@ func prepareInitiative(idx int, it Initiative, teams map[string]Team, tracks map
 			in.unknownPods = append(in.unknownPods, pod)
 		}
 	}
-	in.chainAlone = chainLength(in)
+	in.configureLanes(teams, tracks, params, sp)
 	in.targetWeek = weekOf(sp.PeriodStart, it.TargetDate)
 	if w := weekOf(sp.PeriodStart, it.EarliestStart); w != nil && *w > 0 {
 		in.earliest = *w
@@ -1250,7 +1288,7 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 			// each drum slice's actual start week (the placement already found
 			// where the work would run), against the occupancy the earlier
 			// releases created there.
-			if stagger, why := drumStagger(in, sp, cal, placed); stagger {
+			if stagger, why := drumStagger(in, sp, cal, placed, rules, teams); stagger {
 				release, reason = release+1, why
 				continue
 			}
@@ -1338,7 +1376,11 @@ func generate(all []*schedInput, order []*schedInput, teams map[string]Team, tra
 				if rules != nil && rules.reducedTracks(s.Pod, siteOf(teams, s.Pod), c.tracks, w) <= 0 {
 					continue
 				}
-				bumpInt(&c.busy, w, weekLanes(w))
+				lanes := weekLanes(w)
+				if lanes <= 0 {
+					continue
+				}
+				bumpInt(&c.busy, w, lanes)
 				markWeek(&c.byWeek, w, in.init.Name)
 			}
 		}
@@ -1484,7 +1526,7 @@ func releaseFloor(in *schedInput, sp SchedulingParams, commitOf map[string]int, 
 // placed (the cal map mutates as initiatives are placed, so this sees exactly
 // the load the earlier releases created). 0 or absent targetUtilization means
 // no stagger — the inherited behaviour is unchanged.
-func drumStagger(in *schedInput, sp SchedulingParams, cal map[string]*podCalendar, placed []WorkSlice) (bool, string) {
+func drumStagger(in *schedInput, sp SchedulingParams, cal map[string]*podCalendar, placed []WorkSlice, rules *calendarRules, teams map[string]Team) (bool, string) {
 	if sp.TargetUtilization <= 0 || sp.TargetUtilization >= 1 || in.drumSet == nil {
 		return false, ""
 	}
@@ -1493,7 +1535,8 @@ func drumStagger(in *schedInput, sp SchedulingParams, cal map[string]*podCalenda
 			continue
 		}
 		c := cal[s.Pod]
-		if c == nil || c.tracks <= 0 {
+		budget := in.laneBudgets[s.Pod]
+		if budget <= 0 {
 			continue
 		}
 		// The bound is on OCCUPANCY, not start rate: this slice adds its
@@ -1501,13 +1544,8 @@ func drumStagger(in *schedInput, sp SchedulingParams, cal map[string]*podCalenda
 		// week would then sit above the target. That makes the schedule's
 		// actual drum load respect the target — a start-rate check cannot,
 		// because slices from different releases overlap.
-		// A target that admits less than one track would refuse every
-		// placement forever, and the retry bound would then commit a slice that
-		// violates it anyway — a silent violation is worse than no stagger, so
-		// such a target is ignored for this pod rather than "enforced".
-		if int(math.Ceil(sp.TargetUtilization*float64(c.tracks)-1e-9)) < 1 {
-			continue
-		}
+		// The precomputed budget already carries the explicit sub-lane
+		// fallback. Check the same capacity on the first and later releases.
 		// Per-week lanes: a split slice's occupancy is its PHASE ladder, not
 		// the first phase's count (cubic P1) — the initial phase might fit
 		// under the target while a growth phase blows past it.
@@ -1522,12 +1560,26 @@ func drumStagger(in *schedInput, sp SchedulingParams, cal map[string]*podCalenda
 			}
 			return 0
 		}
+		worked := 0
 		for w := s.StartWeek; w < s.FinishWeek; w++ {
+			if rules != nil && rules.reducedTracks(s.Pod, siteOf(teams, s.Pod), in.laneBudgets[s.Pod], w) <= 0 {
+				continue
+			}
+			if len(s.Phases) == 0 {
+				if worked >= int(s.RemainingWeeks) {
+					continue
+				}
+				worked++
+			}
 			lanes := lanesAt(w)
 			if lanes < 1 {
 				continue
 			}
-			if float64(weekAt(c.busy, w)+lanes) > sp.TargetUtilization*float64(c.tracks)+1e-9 {
+			busy := 0
+			if c != nil {
+				busy = weekAt(c.busy, w)
+			}
+			if busy+lanes > budget {
 				return true, bindStagger
 			}
 		}
@@ -1585,7 +1637,7 @@ func releaseGates(in *schedInput, sp SchedulingParams, wip WipLimit, start, fini
 // finish when Σ(lanes×weeks) over phases >= ceil(effort÷(1−loss)).
 // Growth only, never preemption (Decision 1): weeks already claimed by this
 // slice keep their lanes; the phase list is monotone non-decreasing.
-func splitPlace(c *podCalendar, tracks, ready int, effort float64, loss float64, tax int, rules *calendarRules, pod, site string, inFlight bool, lanesNeeded, perPodCap int, initiative string) ([]LanePhase, string) {
+func splitPlace(c *podCalendar, tracks, ready int, effort float64, loss float64, tax int, rules *calendarRules, pod, site string, inFlight bool, lanesNeeded, perPodCap int, initiative string, laneBudget int) ([]LanePhase, string) {
 	if c == nil || tracks <= 0 {
 		return nil, "" // unknown-capacity pods cannot split; the caller falls back
 	}
@@ -1599,6 +1651,11 @@ func splitPlace(c *podCalendar, tracks, ready int, effort float64, loss float64,
 		lanesNeeded = tracks // no explicit cap: the work may take what is free
 	}
 	phases := []LanePhase{}
+	closePhaseAt := func(week int) {
+		if n := len(phases); n > 0 && phases[n-1].ToWeek > week {
+			phases[n-1].ToWeek = week
+		}
+	}
 	// A split slice may not BEGIN in a blocked week (FR-018 parity with the
 	// flat path): walk the ready week forward first.
 	w := ready
@@ -1617,16 +1674,18 @@ func splitPlace(c *podCalendar, tracks, ready int, effort float64, loss float64,
 		if rules != nil {
 			weekTracks = rules.reducedTracks(pod, site, tracks, w)
 		}
+		if laneBudget > 0 {
+			weekTracks = minInt(weekTracks, laneBudget)
+		}
 		if weekTracks <= 0 {
+			closePhaseAt(w)
 			w++
 			continue // non-working week: no consumption, no occupancy
 		}
 		if perPodCap > 0 && c != nil && podWeekInitiatives(c, w, initiative) >= perPodCap {
 			// The per-pod WIP cap applies to split work too (cubic P1): this
 			// week already carries the cap's initiatives.
-			if len(phases) > 0 {
-				phases[len(phases)-1].ToWeek = w
-			}
+			closePhaseAt(w)
 			w++
 			continue
 		}
@@ -1642,18 +1701,15 @@ func splitPlace(c *podCalendar, tracks, ready int, effort float64, loss float64,
 			// Busy week with nothing held: CLOSE any open phase here — the gap
 			// is not ours to claim, and leaving the phase open would swallow
 			// it (and later double-book the pod when occupancy is booked).
-			if len(phases) > 0 {
-				phases[len(phases)-1].ToWeek = w
-			}
+			closePhaseAt(w)
 			w++
 			continue
 		}
 		if free < held {
-			// Availability DROPPED below what this slice holds (a later
-			// previously-placed slice took lanes). Growth-only (Decision 1):
-			// keep the lanes we hold for THIS week — never emit a decreasing
-			// phase — and let the next busy-free transition close it.
-			free = held
+			// A future reservation or reduced calendar takes these lanes.
+			// Growth-only splitting cannot shrink across it or double-book it;
+			// let the caller find a legal contiguous all-or-nothing placement.
+			return nil, bindPodCapacity
 		}
 		prev := -1
 		contiguous := false
@@ -1668,29 +1724,22 @@ func splitPlace(c *podCalendar, tracks, ready int, effort float64, loss float64,
 		default:
 			phases[len(phases)-1].ToWeek = w + 1
 		}
+		if grew {
+			// Every growth event adds its configured ramp, including growth
+			// during an earlier ramp. The current week consumes one tax week
+			// below (specs/018-scheduling-capacity-and-timeline-correctness.md:136).
+			taxLeft += tax
+		}
 		if taxLeft > 0 {
 			taxLeft--
 			w++
 			continue // occupying, ramping, not yet consuming
 		}
-		if grew {
-			// Every growth event re-pays the ramp (cubic P2): dividing MORE
-			// work across MORE lanes is another split.
-			taxLeft = tax
-			w++
-			continue
-		}
 		done += float64(free)
 		w++
 		if done >= total {
-			finish := w
-			// No completion inside a block-finish window (FR-018 parity).
-			if rules != nil {
-				if f, moved := rules.firstFinishFrom(pod, site, finish); moved {
-					finish = f
-				}
-			}
-			phases[len(phases)-1].ToWeek = finish
+			// Phases describe occupied capacity. A block-finish hold changes
+			// the completion date in the caller, never the final work phase.
 			return phases, ""
 		}
 	}
@@ -1720,30 +1769,8 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 		// Lanes (spec 006 Decision 2): computed before placement — the
 		// capacity walk and the drum stagger both need to know how many
 		// tracks this slice occupies, not just its duration.
-		lanes := 1
-		if sp.estimateModel() == EstimateEffort {
-			effort := in.init.Work[pod].effortWeeks(in.init)
-			need := int(math.Ceil(effort))
-			// SplitMinWeeks caps the per-track load: 45 weeks with a 20-week
-			// minimum chunks as 20+20+5 across 3 tracks, not 15×3.
-			if sp.SplitMinWeeks > 0 && sp.SplitTaxWeeks > 0 {
-				// The threshold only means anything while splitting is on:
-				// with the tax off, behaviour must stay exactly the
-				// all-or-nothing/effort default (cubic: gate on the tax).
-				if effort < float64(sp.SplitMinWeeks) {
-					need = 1 // below the threshold, work stays whole on one track
-				} else {
-					need = int(math.Ceil(effort / float64(sp.SplitMinWeeks)))
-				}
-			}
-			if need > tracks[pod] && tracks[pod] > 0 {
-				need = tracks[pod]
-			}
-			if need < 1 {
-				need = 1
-			}
-			lanes = need
-		}
+		lanes := in.lanes[pod]
+		laneBudget := in.laneBudgets[pod]
 		begin := ready
 		// Spec 008: a hand-placed pin (timeline drag) holds the slice's start
 		// at the pinned week when the constraints allow — never earlier than
@@ -1777,12 +1804,12 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 		// at ready, the flat path is strictly better (no tax, no phase noise).
 		// Splitting an unstarved slice buys nothing and costs the tax.
 		needsSplit := false
-		if sp.SplitTaxWeeks > 0 && d > 0 {
+		if sp.SplitTaxWeeks > 0 && d > 0 && (sp.estimateModel() != EstimateEffort || lanes > 1) {
 			effortForGate := in.init.Work[pod].effortWeeks(in.init)
 			minOK := sp.SplitMinWeeks <= 0 || effortForGate >= float64(sp.SplitMinWeeks)
 			if minOK {
 				if c0 := cal[pod]; c0 != nil && tracks[pod] > 0 {
-					freeAtReady := tracks[pod] - weekAt(c0.busy, begin)
+					freeAtReady := laneBudget - weekAt(c0.busy, begin)
 					if lanes > freeAtReady {
 						needsSplit = true
 					}
@@ -1796,7 +1823,7 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 			// lanes is exactly the split the planner asked for (225 single-lane
 			// weeks onto a free track halves the time, plus tax).
 			if effort := in.init.Work[pod].effortWeeks(in.init); effort > 0 {
-				if ph, _ := splitPlace(cal[pod], tracks[pod], begin, effort, teams[pod].EffectiveLoss(capacityLoss), sp.SplitTaxWeeks, rules, pod, site, in.init.InFlight, lanes, perPodCap, in.init.Name); ph != nil {
+				if ph, _ := splitPlace(cal[pod], tracks[pod], begin, effort, teams[pod].EffectiveLoss(capacityLoss), sp.SplitTaxWeeks, rules, pod, site, in.init.InFlight, lanes, perPodCap, in.init.Name, laneBudget); ph != nil {
 					// Collapse adjacent equal-lane phases (a tax ramp that
 					// never changes occupancy is one phase, not two).
 					phases := ph[:1]
@@ -1808,22 +1835,32 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 							phases = append(phases, p)
 						}
 					}
+					workFinish := phases[len(phases)-1].ToWeek
+					completion := workFinish
+					if rules != nil {
+						if f, moved := rules.firstFinishFrom(pod, site, completion); moved {
+							completion = f
+							if reason == "" {
+								reason = bindFreeze
+							}
+						}
+					}
 					slices = append(slices, WorkSlice{
 						Initiative: in.init.Name, Pod: pod,
-						RemainingWeeks: float64(phases[len(phases)-1].ToWeek - phases[0].FromWeek),
+						RemainingWeeks: float64(workFinish - phases[0].FromWeek),
 						LanesUsed:      phases[0].Lanes, Phases: phases,
-						StartWeek: phases[0].FromWeek, FinishWeek: phases[len(phases)-1].ToWeek,
+						StartWeek: phases[0].FromWeek, FinishWeek: completion,
 						WaitWeeks:         float64(phases[0].FromWeek - ready),
 						BindingConstraint: reason, Estimated: in.init.Work[pod].Estimated && in.init.Work[pod].Weeks > 0,
 						DependsOn: append([]string(nil), in.deps[pod]...),
 					})
-					if phases[len(phases)-1].ToWeek > finish {
-						finish = phases[len(phases)-1].ToWeek
+					if completion > finish {
+						finish = completion
 					}
 					if phases[0].FromWeek < start || i == 0 {
 						start = phases[0].FromWeek
 					}
-					finishOf[pod] = phases[len(phases)-1].ToWeek
+					finishOf[pod] = completion
 					continue
 				}
 			}
@@ -1845,7 +1882,7 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 				// block-start rule is re-applied to every candidate inside —
 				// capacity can otherwise push a start into a frozen week the
 				// pre-check never saw.
-				if s, f, why := firstFreeWeek(cal[pod], tracks[pod], begin, d, lanes, in.init.Name, perPodCap, rules, pod, site, in.init.InFlight); s > begin || f > sliceFinish {
+				if s, f, why := firstFreeWeek(cal[pod], tracks[pod], begin, d, lanes, in.init.Name, perPodCap, rules, pod, site, in.init.InFlight, laneBudget); s > begin || f > sliceFinish {
 					begin, sliceFinish = s, f
 					if why != "" {
 						reason = why
@@ -1895,7 +1932,7 @@ func planSlices(in *schedInput, release int, cal map[string]*podCalendar,
 // remedies differ: no free track is pod capacity, answered by tracks or descope;
 // too many initiatives at once is the pod's own WIP cap, answered by sequencing.
 func firstFreeWeek(c *podCalendar, tracks, from, d, lanes int, initiative string, perPodCap int,
-	rules *calendarRules, pod, site string, inFlight bool) (start int, finish int, reason string) {
+	rules *calendarRules, pod, site string, inFlight bool, laneBudget int) (start int, finish int, reason string) {
 	if lanes < 1 {
 		lanes = 1
 	}
@@ -1931,6 +1968,10 @@ func firstFreeWeek(c *podCalendar, tracks, from, d, lanes int, initiative string
 			if rules != nil {
 				weekTracks = rules.reducedTracks(pod, site, tracks, w)
 			}
+			physicalWeekTracks := weekTracks
+			if laneBudget > 0 {
+				weekTracks = minInt(weekTracks, laneBudget)
+			}
 			if weekTracks <= 0 {
 				// A non-working week stretches the span but adds no work —
 				// the team is on holiday, not re-scoping (FR-018).
@@ -1939,9 +1980,15 @@ func firstFreeWeek(c *podCalendar, tracks, from, d, lanes int, initiative string
 			}
 			// Multi-lane slices (spec 006) need `lanes` free tracks, not one:
 			// an effort slice that occupies 3 lanes must find 3 free or wait.
-			if c != nil && weekAt(c.busy, w)+lanes > weekTracks {
+			busy := 0
+			if c != nil {
+				busy = weekAt(c.busy, w)
+			}
+			if busy+lanes > weekTracks {
 				fits, why = false, bindPodCapacity
-				if weekTracks < tracks {
+				if busy+lanes <= physicalWeekTracks {
+					why = bindStagger
+				} else if physicalWeekTracks < tracks {
 					why = bindFreeze
 				}
 				break
@@ -2230,11 +2277,19 @@ func podSchedules(cal map[string]*podCalendar, tracks map[string]int, sis []Sche
 		}
 	}
 	names := make([]string, 0, len(byPod))
+	seen := map[string]bool{}
 	for pod := range byPod {
 		names = append(names, pod)
+		seen[pod] = true
 	}
 	for pod := range cal {
-		if _, ok := byPod[pod]; !ok {
+		if !seen[pod] {
+			names = append(names, pod)
+			seen[pod] = true
+		}
+	}
+	for pod := range tracks {
+		if !seen[pod] {
 			names = append(names, pod)
 		}
 	}

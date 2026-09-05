@@ -55,6 +55,18 @@ test('a body drag pins the start week (the pre-S4 contract still holds)', async 
   assert.equal(pins[0][2].effort, undefined, 'a move never edits the estimate');
 });
 
+test('dragging a later phase preserves the initial phase lane as the pin origin', async () => {
+  const bar = makeBar({ initiative: 'Growth', pod: 'Atlas', startWeek: '2', lane: '0', laneOrigin: '3' });
+  let pin;
+  attachDrag(makeRoot([bar]), {
+    onPin: (initiative, pod, edit, origin) => { pin = { initiative, pod, edit, origin }; },
+  });
+  await drag(bar, 60, 27, 60, 5);
+  assert.equal(pin.edit.laneDelta, -1);
+  assert.equal(pin.origin.lane, 3);
+  assert.equal(pin.origin.lane + pin.edit.laneDelta, 2, 'move up one from the initial phase lane');
+});
+
 // Decision 4 math: the engine's forward direction is
 // duration = effort / ((1-loss) x lanes), so the inverse is
 // deffort = dduration x lanes x (1-loss). The loss comes from the plan.

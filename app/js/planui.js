@@ -19,7 +19,7 @@ import { fuzzyMatch } from './filter.js';
 import { term } from './terms.js';
 import { baselineChipHTML, baselinesDrawerHTML, saveErrorMessage, latestOnly, activeBaseline, compareTableHTML } from './baseline.js';
 import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
-import { portfolioTimelineHTML, podLensHTML, podSheetHTML, timelineControlsHTML, timelineInspectorHTML, timelineEditsFromRows } from './timeline.js';
+import { portfolioTimelineHTML, podLensHTML, podSheetHTML, timelineControlsHTML, timelineInspectorHTML, timelineEditsFromRows, matchesTimelineTeam } from './timeline.js';
 import { healthReportHTML, remediesSectionHTML } from './report.js';
 
 let root, current = null;
@@ -1152,6 +1152,7 @@ async function renderTimeline() {
       })
       : portfolioTimelineHTML(sched, {
         podQuery: current.tlTeamFilter || '', initiativeQuery: current.tlInitiativeFilter || '', selected: current.selectedInitiative,
+        planInitiatives: current.initiatives || [],
         horizonWeeks: horizon, span: spanWeeks, todayWeek, expand: current.tlExpand,
         // AC 8.5: the bands come off the saved policy, not the schedule — the
         // schedule itself only carries the windows' effects, not their dates.
@@ -1190,7 +1191,7 @@ async function renderTimeline() {
     const countEl = document.getElementById('tl-filter-count');
     if (countEl) {
       const iq = current.tlInitiativeFilter || '', tq = current.tlTeamFilter || '';
-      const n = (sched.initiatives || []).filter((si) => (!iq || fuzzyMatch(iq, si.name)) && (!tq || (si.slices || []).some((sl) => fuzzyMatch(tq, sl.pod)))).length;
+      const n = (sched.initiatives || []).filter((si) => (!iq || fuzzyMatch(iq, si.name)) && matchesTimelineTeam(si, tq, current.initiatives)).length;
       countEl.textContent = `${n} of ${(sched.initiatives || []).length} initiatives match`;
     }
     // Spec 008: drag-to-edit. A released drag pins the slice's start and the
@@ -1206,7 +1207,7 @@ async function renderTimeline() {
       horizon: spanWeeks,
       // Decision 4 math: the plan's own capacity loss, not the 10% default.
       lossFactor: 1 - (Number.isFinite(current.capacityLoss) ? current.capacityLoss : 0.1),
-      onPin: async (initiative, pod, { startWeek, laneDelta, effort }) => {
+      onPin: async (initiative, pod, { startWeek, laneDelta, effort }, origin) => {
         const it = (current.initiatives || []).find((i) => i.name === initiative);
         if (!it) return;
         const edit = { name: initiative };
@@ -1216,8 +1217,7 @@ async function renderTimeline() {
         if (laneDelta) {
           // The new pod-relative offset: current packed lane + delta, floored
           // at 0. The server refuses drops that overlap other work (409).
-          const bar = [...document.querySelectorAll(`.tl-bar[data-initiative="${CSS.escape(initiative)}"][data-pod="${CSS.escape(pod)}"]`)][0];
-          const curLane = Number(bar?.dataset.lane || 0);
+          const curLane = Number(origin?.lane ?? 0);
           const offset = Math.max(0, curLane + laneDelta);
           edit.pinnedLanes = { ...(it.pinnedLanes || {}), [pod]: offset };
         }
@@ -1252,7 +1252,7 @@ async function renderTimeline() {
     const holder = document.getElementById('tl-pod');
     if (!holder) return;
     const ps = (sched.podWeeks || []).find((p) => p.pod === pod);
-    holder.innerHTML = ps ? podSheetHTML(ps, sched, { horizonWeeks: horizon, span: spanWeeks }) : '';
+    holder.innerHTML = ps ? podSheetHTML(ps, sched, { horizonWeeks: horizon, span: spanWeeks, planInitiatives: current.initiatives || [] }) : '';
     holder.querySelectorAll('.pod-export[data-export-sheet]').forEach((b) =>
       b.addEventListener('click', () => {
         exportBlockPNG(b.closest('[data-pod-sheet]'), `conway-${pod.replace(/\W+/g, '-').toLowerCase()}-sheet.png`);

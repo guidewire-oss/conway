@@ -22,6 +22,10 @@
 .rem-preview { margin-top: .4rem; }
 table.sortable th:focus-visible, .tl-bar[role="button"]:focus-visible, .tl-label:focus-visible { outline: 3px solid var(--bs-primary, #3766ba); outline-offset: 2px; }
 .tl-bar[role="button"] { cursor: pointer; }
+.tl-unplaced .tl-track { padding: .35rem .5rem; border-left: 3px solid var(--bs-warning, #b67b00); }
+.tl-unplaced .tl-track p { margin: 0; font-size: .8rem; }
+.tl-unplaced-list { margin: .5rem 0 .75rem; padding: .65rem; border: 1px solid var(--bs-warning, #b67b00); }
+.tl-unplaced-list p { margin: .35rem 0 0; font-size: .85rem; }
 @media (max-width: 600px) {
   .plan-views > .btn-group { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
   .plan-views > .btn-group > .btn { margin: 0; border-radius: .3rem; }

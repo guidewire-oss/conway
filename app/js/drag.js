@@ -17,9 +17,11 @@
 const WEEK_PX_HINT = 12; // px around an edge that counts as the resize zone
 
 // attachDrag makes every bar in `root` draggable. callbacks:
-//   onPin(initiative, pod, { startWeek, laneDelta, effort }) — async PATCH +
+//   onPin(initiative, pod, { startWeek, laneDelta, effort }, { lane }) — async PATCH +
 //   recompute. startWeek null = time unchanged; laneDelta 0 = lane unchanged;
 //   effort (weeks, optional) = the new estimate when the gesture resized.
+//   lane is the slice's original first-lane offset, independent of which
+//   phase or continuation row was grabbed.
 //   onResize(initiative, pod, newEffortWeeks) — async PATCH estimateEdits.
 //   onPreview(message) — transient text before release; empty clears it.
 //   lossFactor = 1 − capacityLoss of the plan (default 0.9).
@@ -34,6 +36,7 @@ export function attachDrag(root, { onPin, onResize, onPreview, span, horizon, pe
     const initiative = bar.dataset.initiative;
     const pod = bar.dataset.pod;
     if (!initiative || !pod) return; // continuation bars carry the same data attrs
+    const laneOrigin = Number(bar.dataset.laneOrigin ?? bar.dataset.lane ?? 0);
 
     let startX = 0;
     let startY = 0;
@@ -72,7 +75,7 @@ export function attachDrag(root, { onPin, onResize, onPreview, span, horizon, pe
       const { laneDelta, weekDelta, estimate, delta } = valuesFor(dx, dy);
       if ((Math.abs(dx) < 3 && Math.abs(dy) < 3) || (!weekDelta && !laneDelta)) return '';
       const start = Number(bar.dataset.startWeek || 0);
-      const lane = Number(bar.dataset.lane || 0) + 1;
+      const lane = laneOrigin + 1;
       let change;
       if (mode === 'resize-w' || (mode === 'resize-e' && onResize && bar.dataset.estimate !== undefined)) {
         if (!weekDelta) return '';
@@ -148,7 +151,7 @@ export function attachDrag(root, { onPin, onResize, onPreview, span, horizon, pe
         const curStart = Number(bar.dataset.startWeek || 0);
         await onPin(initiative, pod, {
           startWeek: Math.max(0, curStart + weekDelta), laneDelta: 0, effort: estimate - delta,
-        });
+        }, { lane: laneOrigin });
       } else if (mode === 'resize-e' && onResize && bar.dataset.estimate !== undefined) {
         // Right edge: more/less duration = more/less effort; the engine
         // re-divides by lanes on the server. In-flight bars carry no
@@ -161,7 +164,7 @@ export function attachDrag(root, { onPin, onResize, onPreview, span, horizon, pe
         await onPin(initiative, pod, {
           startWeek: weekDelta ? Math.max(0, Number(bar.dataset.startWeek || 0) + weekDelta) : null,
           laneDelta,
-        });
+        }, { lane: laneOrigin });
       }
     };
     bar.addEventListener('pointerup', release);
