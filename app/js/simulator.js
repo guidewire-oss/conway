@@ -101,7 +101,7 @@ function addRow(t = null) {
     <td><select class="form-select t-pod">${podOptions(t?.pod ?? state.pods[0]?.name ?? '')}</select></td>
     <td><select class="form-select t-size">${Object.keys(SIZES).map((k) => `<option ${k === (t?.size ?? 'M') ? 'selected' : ''}>${k}</option>`).join('')}</select></td>
     <td><input class="form-control t-deps" value="${esc(t?.deps ?? '')}" placeholder="T1,T2"></td>
-    <td><button class="btn btn-secondary del" title="remove">✕</button></td>`;
+    <td><button type="button" class="btn btn-secondary del" title="remove">✕</button></td>`;
   tr.querySelector('.del').addEventListener('click', () => { tr.remove(); markEdited(); });
   tbody.appendChild(tr);
 }
@@ -164,8 +164,8 @@ function renderKit(epic) {
     <div class="kit-head">
       <span class="kit-score ${cls}">kit ${(kit.score * 100).toFixed(0)}%</span>
       <b>Full-kit check — ${esc(epic.epic)}</b>
-      <button type="button" class="btn btn-secondary btn-sm p-0 rounded-circle d-inline-flex align-items-center justify-content-center ms-1 help" aria-label="Explain the full-kit check" data-tip="Machine-checkable half of the full kit. The human half (business case, contracts, defrost criteria) is the template below — paste it into the epic description. Rule of thumb: don't start below 80%; a started epic without its kit becomes a stop-start zombie and burns buffer before progress (see the fever chart's top-left cluster).">?</button>
-      <button class="btn btn-secondary" id="kit-tmpl-btn">Jira template</button>
+      <button type="button" class="btn btn-secondary btn-sm p-0 rounded-circle d-inline-flex align-items-center justify-content-center ms-1 help lh-1" aria-label="Explain the full-kit check" data-tip="Machine-checkable half of the full kit. The human half (business case, contracts, defrost criteria) is the template below — paste it into the epic description. Rule of thumb: don't start below 80%; a started epic without its kit becomes a stop-start zombie and burns buffer before progress (see the fever chart's top-left cluster).">?</button>
+      <button type="button" class="btn btn-secondary" id="kit-tmpl-btn">Jira template</button>
     </div>
     ${kit.items.map((i) => `<div class="kit-item ${i.status}">
       <span class="ki">${ICON[i.status]}</span><span>${esc(i.label)}</span>
@@ -271,7 +271,7 @@ function renderSuggestions(feature) {
     <div class="suggestion">
       <span><b>${esc(s.fromPod)}</b> has blocked <b>${esc(s.toPod)}</b> ×${s.count} in the past 12 months,
       but no dependency is declared here.</span>
-      <button class="btn btn-secondary" data-i="${i}">add</button>
+      <button type="button" class="btn btn-secondary" data-i="${i}">add</button>
     </div>`).join('');
   div.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
     const s = sugg[+b.dataset.i];

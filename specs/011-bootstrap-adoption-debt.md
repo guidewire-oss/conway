@@ -178,6 +178,27 @@ This decision expands the original four-component migration scope.
 must still pass. Component guidance and durable agent instructions change in
 the same increment. No library version change is required.
 
+### Decision 3: Preserve contextual sizing and readable evidence
+
+**Context:** Framework defaults can override compact selectors, status text,
+and the guide's editorial spacing even when controls adopt the right classes.
+
+**Decision:** Keep calendar and inline metric selectors intrinsically sized
+using Bootstrap utilities. Status buttons retain readable body foregrounds in
+normal, hover and active states, and button focus rings use the theme primary
+color. Fixed-size help controls use a one-line-height utility. Non-submit
+actions declare their button type; block-level provenance text needs no extra
+blank line. Guide table cells retain 12px desktop padding and 10px by 14px
+mobile padding through scoped table styling. Keep browser acceptance in a
+standalone module executed by the existing Ginkgo host.
+
+**Alternatives considered:** Accepting all framework defaults would change
+reading density and domain layout; restoring generic custom component styles
+would duplicate Bootstrap. Both are rejected.
+
+**Consequences:** Test computed geometry, contrast and focus in rendered views.
+The existing theme and state owners remain authoritative; no version changes.
+
 ## 12. Success Metrics
 
 | Metric | Current | Target | How to Measure |

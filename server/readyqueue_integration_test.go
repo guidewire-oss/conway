@@ -153,6 +153,40 @@ var _ = Describe("team ready-work queue persistence", Label("database"), func() 
 		Expect(result["confirmations"].([]any)[0].(map[string]any)["eventOrder"]).To(Equal(float64(orders[0])))
 		Expect(result["decisions"].([]any)[0].(map[string]any)["eventOrder"]).To(Equal(float64(orders[1])))
 	})
+	// specs/025-team-ready-work-queue.md:353: callers cannot supply persisted order.
+	It("ignores caller event sequences for confirmations and decisions", func() {
+		ctx := context.Background()
+		guarded, err := database.GetPlan(plan.ID)
+		Expect(err).NotTo(HaveOccurred())
+		confirmation := planning.ReadyConfirmation{ID: newID(), PlanID: plan.ID, Team: "Team A", Initiative: "Atlas", EventOrder: -99}
+		appended, err := database.AppendReadyQueueEvent(ctx, &confirmation, nil, db.ReadyQueueGuard{Plan: guarded})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(appended).To(BeTrue())
+		Expect(confirmation.EventOrder).To(BeNumerically(">", 0))
+		decision := planning.ReleaseDecision{ID: newID(), PlanID: plan.ID, Team: "Team A", Initiative: "Atlas", Decision: "release", EventOrder: -100}
+		appended, err = database.AppendReadyQueueEvent(ctx, nil, &decision, db.ReadyQueueGuard{Plan: guarded, Order: confirmation.EventOrder})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(appended).To(BeTrue())
+		Expect(decision.EventOrder).To(BeNumerically(">", confirmation.EventOrder))
+		pool, err := pgxpool.New(ctx, os.Getenv("CONWAY_TEST_DATABASE_URL"))
+		Expect(err).NotTo(HaveOccurred())
+		defer pool.Close()
+		for id, expectedOrder := range map[string]int64{confirmation.ID: confirmation.EventOrder, decision.ID: decision.EventOrder} {
+			var order int64
+			var raw []byte
+			Expect(pool.QueryRow(ctx, `SELECT event_order,data FROM plan_ready_queue_events WHERE id=$1 AND plan_id=$2`, id, plan.ID).Scan(&order, &raw)).To(Succeed())
+			Expect(order).To(Equal(expectedOrder))
+			var stored map[string]any
+			Expect(json.Unmarshal(raw, &stored)).To(Succeed())
+			Expect(stored).NotTo(HaveKey("eventOrder"))
+		}
+		saved, err := database.ReadyQueueHistory(ctx, plan.ID, "Team A", "Atlas")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(saved.Confirmations).To(HaveLen(1))
+		Expect(saved.Decisions).To(HaveLen(1))
+		Expect(saved.Confirmations[0].EventOrder).To(Equal(confirmation.EventOrder))
+		Expect(saved.Decisions[0].EventOrder).To(Equal(decision.EventOrder))
+	})
 	It("appends current checklist and release evidence without changing source inputs or agreement", func() {
 		before, err := database.GetPlan(plan.ID)
 		Expect(err).NotTo(HaveOccurred())

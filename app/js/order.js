@@ -846,7 +846,7 @@ const CAL_EFFECTS = [
 ];
 
 function calendarWindowsHTML(windows) {
-  const sel = (id, opts, val, label) => `<select class="form-select cal-sel" id="${id}" aria-label="${esc(label)}">${opts.map(([v, l]) =>
+  const sel = (id, opts, val, label) => `<select class="form-select form-select-sm w-auto cal-sel" id="${id}" aria-label="${esc(label)}">${opts.map(([v, l]) =>
     `<option value="${v}"${v === val ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
   const row = (w, i) => `<div class="cal-win" data-row="${i}">
     ${sel(`cal-kind-${i}`, CAL_KINDS, w.kind || 'change-freeze', `window ${i + 1} kind`)}
