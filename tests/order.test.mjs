@@ -772,7 +772,7 @@ test('the badge escapes hostile verdict text', () => {
 test('order rows right-align the week columns', () => {
   const row = orderRows(sched).find((r) => r.si.targetWeek !== null);
   const html = orderTableHTML(sched);
-  assert.match(html, /<td class="num">w\d+/);
+  assert.match(html, /<td class="num"><time datetime="[0-9-]+"/);
   assert.ok(html.includes('class="num"'), 'numeric cells are marked');
 });
 
@@ -785,7 +785,7 @@ test('the order table offers a pin toggle per row, suppressed on drafts', () => 
   const locked = sched.initiatives.find((si) => si.priorityLocked);
   if (locked) {
     assert.match(html, new RegExp(`data-pin="${locked.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}" data-locked="1"`));
-    assert.match(html, /title="release this priority back to the engine">unpin</);
+    assert.match(html, /title="release this priority back to the engine">Unpin priority</);
   }
   const draft = orderTableHTML(sched, { noPin: true });
   assert.doesNotMatch(draft, /ord-pin/);
@@ -808,7 +808,7 @@ test('fever chart renders one dot per dated initiative and none without dates', 
   assert.equal((html.match(/<circle /g) || []).length, dated.length);
   assert.match(html, /aria-label="buffer fever chart/);
   assert.match(html, /fever-dot fever-/);
-  assert.ok(html.includes('Zones match the Observe fever chart'), 'caption names the zones');
+  assert.ok(html.includes('Zones match the Measure fever chart'), 'caption names the zones');
 
   const undated = { initiatives: [{ name: 'A', targetWeek: null }] };
   assert.equal(feverChartHTML(undated), '');
@@ -1146,7 +1146,7 @@ test('estimateAck suppresses the estimate item like an explicit effort choice', 
 test('the banner names the period start when the sheet has dates', () => {
   const html = verdictBannerHTML({ initiatives: [{ verdict: 'no-date' }] }, { sheetHasDates: true });
   assert.match(html, /no period start/);
-  assert.match(html, /⚙ Assumptions/);
+  assert.match(html, /Assumptions/);
   assert.doesNotMatch(html, /✎/);
   // and the plain no-dates copy is unchanged
   const plain = verdictBannerHTML({ initiatives: [{ verdict: 'no-date' }] });

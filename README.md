@@ -16,15 +16,28 @@ coding. They are caused by waiting: a handoff across a time-zone seam, a pod at
 costs are invisible in every planning spreadsheet. Conway makes them the first
 thing you see.
 
-## Three lenses — Observe · Plan · Train
+## Documentation
 
-One pod map and one flow engine, seen three ways:
+Read the **[Planning and execution guide](app/docs.html)** through **Help** in
+the app, or open the HTML file in a browser. It introduces concepts, provides a
+first-plan tutorial and weekly review workflow, and explains setting choices,
+calculations, worked examples and current limitations. The
+[documentation index](docs/README.md) links to each topic and administrator guides.
 
-### Observe — what is actually happening
+Conway draws inspiration from *The Goal*, *Critical Chain*, *Goldratt's Rules of
+Flow*, *The Phoenix Project* and *The Unicorn Project*. The guide credits their
+authors and connects the ideas to decisions in Conway, while distinguishing
+those principles from the tool's own formulas and assumptions.
+
+## Three lenses — Measure · Plan · Learn
+
+Related views with distinct models: snapshot analytics, a scheduler driven by entered planning inputs, and a learning simulation. Forecasts depend on their source data and assumptions.
+
+### Measure — what is actually happening
 
 Mined from Jira (OAuth or API token): the cross-pod dependency network, WIP and
 queue time per pod, data-hygiene gaps that starve the model, Monte-Carlo
-feature forecasts (P50/P85), and a CCPM buffer fever chart. Dated **snapshots**
+feature forecasts (P50/P85), and a modeled buffer fever chart. Dated **snapshots**
 can be captured, **compared** over time, and **published** so facilitators can
 build games from them. See
 [docs/snapshots-and-scenarios.md](docs/snapshots-and-scenarios.md).
@@ -40,19 +53,21 @@ what slips, and what is the binding constraint?*
   constraint (pod capacity, a dependency, a WIP limit, a date lock, a freeze
   window), and a fit line states plainly how much of the plan the period can
   absorb.
-- **Drag-to-edit.** Grab a bar on the timeline: moving it pins the start,
-  stretching an edge changes the estimate — and the edit re-runs the whole
-  engine, so every view, the Order table, the heatmap and the health report
-  agree by construction. One-level undo included.
+- **Working-plan edits.** Move supported timeline bars to pin starts and resize
+  eligible estimate edges to change work. Split and in-flight bars have different
+  editing limits; use the inspector for precise changes. Applied edits autosave
+  and recompute the schedule, with save/error feedback and session undo history.
 - **Baselines.** Freeze the agreed order — schedule, roster, parameters — into
   a named, immutable baseline. Compare any two later; the chip tells you when
   the plan's inputs have drifted from the agreement.
+- **Named scenarios and remedy previews.** Copy working inputs into an independent named plan without an inherited agreement, or review a proposed remedy and affected commitments before applying it.
+- **Execution review.** Compare snapshot-derived evidence with an agreed baseline. Review binding coverage, scope changes and inferred dates before interpreting variance; record the next action, owner, review date and rationale. Refreshing observations leaves agreement and working inputs unchanged.
 - **Per-pod capacity loss.** An ops-heavy pod and a greenfield pod do not lose
   the same fraction of their tracks; each pod can override the plan's global
   figure.
-- **Site timezone overlap.** Cross-site handoff cost is computed from the real
-  working-hours overlap between two sites' IANA timezones on the modelled date
-  — daylight saving included — instead of same-site-or-not string matching.
+- **Site timezone information.** Record IANA timezones and working hours for
+  site analysis. The finite scheduler currently adds no timezone handoff delay;
+  represent material coordination work explicitly when planning commitments.
 - **A health report.** One printable card: how many initiatives will not
   finish inside the period, which pods are the constraint, which date-locked
   initiatives contend, and the remedies the engine priced — each with its cost
@@ -60,7 +75,7 @@ what slips, and what is the binding constraint?*
 - **What-if levers** priced before/after: add capacity, descope, defer, reduce
   WIP, un-pair — with the victims named.
 
-### Train — rehearse it
+### Learn — rehearse it
 
 A multi-team learning game teaching the same levers. Seed a game from a
 difficulty preset, a published org snapshot, or an editable **scenario
@@ -131,6 +146,10 @@ would give you a page calling endpoints the server does not have.
 For your own org's data, use **Import from Jira** in the app. Sign-in gates
 everything: the admin panel creates/extends/revokes expiring team accounts and
 shows a live board.
+
+To maintain plan rosters and initiatives in a shared spreadsheet, configure
+[linked Google Sheets](docs/linked-google-sheets.md), then link the source
+inside a saved plan. This requires a server restart after configuration.
 
 ## Authentication
 
@@ -217,11 +236,10 @@ What will block you:
   working files in. It runs locally only, for that reason: a CI checkout has no
   list and no internal files.
 
-Two gates are deliberately not armed, both recorded in
-[specs/002-factory-adoption.md](specs/002-factory-adoption.md): the Go pack's
-Ginkgo dialect check (the planning suite has since adopted Ginkgo; the rest of
-the Go tests are stdlib `testing`) and citation linting (specs are cited by
-name, not yet by `file:line`).
+The Go pack's Ginkgo dialect check is armed; behavioral Go tests use
+Ginkgo/Gomega. Citation lint remains disabled through the empty citation prefix
+in [factory.yaml](factory.yaml); source citations still require manual checking.
+See [specs/002-factory-adoption.md](specs/002-factory-adoption.md) for adoption decisions.
 
 ## Views
 
@@ -233,7 +251,7 @@ name, not yet by `file:line`).
   history-based dependency suggestions
 - **Flow Scoreboard** / **Data Hygiene** — per-pod flow stats and the data
   gaps starving the model, drillable to individual Jiras
-- **✦ Guide** — persona playbooks (exec / lead / PM) with live insights
+- **Help** — contextual manual, search, first-plan walkthrough, task recipes and remembered role guidance
 
 See `SPEC.md` for the model and the path to a shareable v2.
 

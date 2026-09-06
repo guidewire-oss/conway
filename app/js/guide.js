@@ -1,7 +1,9 @@
 import { constraintScores } from './sim.js';
-import { isStaff, authMode } from './auth.js';
+import { isStaff, authMode, hasRole } from './auth.js';
 import { apiGet } from './data.js';
 import { openModal, closeModal } from './modal.js';
+import { openDocs } from './docs.js';
+import { openPlanDestination } from './planui.js';
 
 // Players get a rules-only guide (how the game is played + what it's about), with
 // no strategy. The full leader/analytics guide is admin-only.
@@ -91,33 +93,23 @@ function renderGameGuide() {
         by the system you leave behind, not the snapshot on your last day.</i></li>
     </ul>
 
-    <h3>What it takes to win — the ideas behind the game</h3>
-    <p>The game rewards running the organisation the way these books argue real ones should be run.
-      Winning is less about doing more and more about making the system <i>flow</i>.</p>
+    <h3>The ideas behind the game</h3>
+    <p>Conway draws inspiration from five books. The game applies their ideas through its own
+      simulation rules; its scores are not formulas prescribed by the authors.</p>
     <ul class="guide-path">
-      <li><b>Manage the system, not the parts.</b> An hour lost at the bottleneck is lost for everyone;
-        an hour saved anywhere else is a mirage. Find what constrains the whole and work there.
-        — <i>The Goal</i> (Goldratt)</li>
-      <li><b>Start less, finish more.</b> Piling on work-in-progress doesn't finish things faster — it
-        makes everything wait. Flow time = WIP ÷ throughput. — <i>Goldratt's Rules of Flow</i> · Little's law</li>
-      <li><b>Beware local optima.</b> A team that looks busy and "efficient" can still be starving the
-        whole. Optimise the end-to-end flow of value, not each corner. — <i>The Goal</i></li>
-      <li><b>Cut coupling and handoffs.</b> Every cross-team dependency — especially across timezones —
-        adds delay. Clean interfaces and well-placed work beat constant coordination.
-        — Conway's law · Team Topologies · <i>The Unicorn Project</i> (Locality)</li>
-      <li><b>Protect planned work from the unplanned.</b> Firefighting and interruptions are the most
-        expensive work there is; shield teams from them. — <i>The Phoenix Project</i> (Gene Kim)</li>
-      <li><b>Full kit before you start.</b> Beginning before the prerequisites are ready guarantees
-        stop-start delay. — <i>Goldratt's Rules of Flow</i></li>
-      <li><b>Sustainable pace wins the long game.</b> Burned-out teams slow down and break; healthy teams
-        flow — joy and flow are the same problem. — <i>The Unicorn Project</i></li>
-      <li><b>Promises and readiness compound.</b> Dates you keep build trust; work that's genuinely
-        production-ready creates delight — and both still pay off in the year-2 epilogue after you stop
-        steering. — <i>Rules of Flow</i> · <i>Phoenix / Unicorn</i></li>
+      <li><b>The Goal</b> (Eliyahu M. Goldratt and Jeff Cox): investigate the constraint and improve
+        delivery through the whole system. A busier team does not necessarily mean more value delivered.</li>
+      <li><b>Critical Chain</b> (Eliyahu M. Goldratt): consider dependencies, shared resources and
+        uncertainty together. Protect a delivery chain and review its progress.</li>
+      <li><b>Goldratt's Rules of Flow</b> (Efrat Goldratt-Ashlag): triage work, reduce harmful
+        multitasking and prepare the full kit before releasing work.</li>
+      <li><b>The Phoenix Project</b> (Gene Kim, Kevin Behr and George Spafford): make operational work
+        visible, strengthen feedback and learn from interruptions.</li>
+      <li><b>The Unicorn Project</b> (Gene Kim): improve locality and simplicity, support learning
+        and create conditions for teams to deliver customer value.</li>
     </ul>
-    <p class="hint">There's no single winning move and no formula to game — the score blends goals that
-      pull against each other. The teams that do best treat it as a system to balance over time, not a
-      number to spike in one round.</p>
+    <p class="hint">Use the full manual for the book references, model calculations and limitations.
+      In the debrief, identify an assumption to test with real evidence.</p>
 
     <h3>Reading the board</h3>
     <p>The <b>Pods</b> view lists each team's current state; the <b>Network</b> view is your dependency
@@ -140,39 +132,40 @@ function renderGameGuide() {
 // Live, persona-targeted insights: Observation -> Action -> Why (book principle).
 
 const BOOKS = {
-  goal: '<i>The Goal</i> (Goldratt)',
-  phoenix: '<i>The Phoenix Project</i> (Kim)',
+  goal: '<i>The Goal</i> (Goldratt and Cox)',
+  phoenix: '<i>The Phoenix Project</i> (Kim, Behr and Spafford)',
   unicorn: '<i>The Unicorn Project</i> (Kim)',
-  flow: "<i>Goldratt's Rules of Flow</i>",
+  flow: "<i>Goldratt's Rules of Flow</i> (Goldratt-Ashlag)",
 };
 
 function computeInsights(state, wipSummary) {
   const real = Object.fromEntries(
-    Object.entries(state.stats).filter(([n]) => state.pods.some((p) => p.name === n)),
+    Object.entries(state.stats || {}).filter(([n, stats]) => !stats.synthetic && (state.pods || []).some((p) => p.name === n)),
   );
   const ranked = constraintScores(real, state.edges);
   const top = ranked[0];
+  if (!top) return [{ who: Object.keys(PERSONAS), obs: 'No measured team-flow evidence is loaded.', act: 'Use the task guidance above. Import or select a dated snapshot to obtain data-specific insights; planning can begin independently from a roster and initiatives.', why: 'Missing or synthetic evidence cannot establish a delivery constraint.' }];
   const topPod = state.pods.find((p) => p.name === top.pod);
   const downstream = state.edges.filter((e) => e.from === top.pod)
     .sort((a, b) => b.count - a.count).map((e) => e.to);
 
   const zeroOverlap = state.edges
-    .filter((e) => (state.overlap[e.from]?.[e.to] ?? 0) <= 0 && e.count >= 2)
+    .filter((e) => Number.isFinite(state.overlap?.[e.from]?.[e.to]) && state.overlap[e.from][e.to] <= 0 && e.count >= 2)
     .sort((a, b) => b.count - a.count);
 
   const freezable = { length: wipSummary.freezable ?? 0 };
   const totalWip = wipSummary.total ?? 0;
 
-  const noData = state.pods.filter((p) => state.stats[p.name].synthetic).map((p) => p.name);
+  const noData = state.pods.filter((p) => state.stats[p.name]?.synthetic).map((p) => p.name);
   const highVar = state.pods
-    .filter((p) => !state.stats[p.name].synthetic && state.stats[p.name].sigma > 1.2)
+    .filter((p) => !state.stats[p.name]?.synthetic && state.stats[p.name]?.sigma > 1.2)
     .map((p) => p.name);
   const srePods = state.pods.filter((p) => p.sre).map((p) => p.name);
 
   const ins = [];
   ins.push({
     who: ['exec', 'lead'],
-    obs: `<b>${top.pod}</b> (${topPod.location}, ${topPod.devCount} devs) is the system constraint: `
+    obs: `<b>${top.pod}</b> (${topPod.location}, ${topPod.devCount} devs) ranks highest in the selected snapshot’s constraint model: `
       + `queue factor ×${top.queueFactor.toFixed(1)}, blocking ${top.dependents} pods`
       + `${downstream.length ? ` (${downstream.slice(0, 4).join(', ')})` : ''}.`,
     act: `This quarter, judge ${top.pod} by flow, not output: cap its WIP, route every new ask through one `
@@ -181,10 +174,10 @@ function computeInsights(state, wipSummary) {
       + `saved anywhere else is a mirage. Exploit and subordinate before you elevate; capacity added to an `
       + `unmanaged constraint is absorbed by the same chaos that created the queue.`,
   });
-  ins.push({
+  if (Number.isFinite(wipSummary.freezable) && Number.isFinite(wipSummary.total)) ins.push({
     who: ['exec'],
     obs: `${freezable.length} of ${totalWip} in-progress items org-wide are stale or unassigned with nothing `
-      + `depending on them (Flow Actions → click any pod's bar to see its list).`,
+      + `depending on them (Levers → click any pod's bar to see its list).`,
     act: `Mandate a one-week WIP triage: each pod lead sorts their red list into finish / freeze / kill. `
       + `Track the count down. Expect resistance — freezing feels like failure; reframe it as admitting reality.`,
     why: `${BOOKS.flow}: bad multitasking is the #1 destroyer of flow in multi-project organisations. `
@@ -206,8 +199,8 @@ function computeInsights(state, wipSummary) {
   if (srePods.length) {
     ins.push({
       who: ['exec', 'pm'],
-      obs: `SRE pods (${srePods.join(', ')}) have almost no presence in Jira — operational `
-        + `work lives in separate SRE projects, invisible to feature planning.`,
+      obs: `SRE teams (${srePods.join(', ')}) are identified in the roster. Check whether operational `
+        + `work is represented in the selected snapshot before using feature forecasts.`,
       act: `Make production-readiness a first-class task in every epic (the import button will then forecast it). `
         + `Review the fever chart weekly; epics that go yellow get help, not blame.`,
       why: `${BOOKS.phoenix}: unplanned work is the most expensive kind — and ops work that surfaces after GA `
@@ -218,7 +211,7 @@ function computeInsights(state, wipSummary) {
     ins.push({
       who: ['lead'],
       obs: `High-variability pods (cycle-time σ > 1.2): ${highVar.slice(0, 6).join(', ')}. Their forecasts are `
-        + `wide because task sizes are wildly uneven.`,
+        + `wide in the historical sample; review task mix and interruptions to understand why.`,
       act: `Slice work smaller and more uniformly; separate interrupt work from planned work explicitly `
         + `(two lanes). Variability — not just load — drives the queue.`,
       why: `${BOOKS.goal} / Kingman: wait time scales with utilisation AND variability. Halving variability `
@@ -242,7 +235,7 @@ function computeInsights(state, wipSummary) {
     obs: `The simulator's suggested-dependency panel cross-checks every feature plan against 12 months of `
       + `actual blocking history (e.g. it flags SRE work that plans habitually omit).`,
     act: `Before committing any roadmap date: import the epic, accept/reject each suggested dependency, then `
-      + `commit the P85 — never the P50 — and say "85% confident" out loud when you do.`,
+      + `review the P50/P85 range and its assumptions; compare recent forecasts with actual delivery before committing.`,
     why: `${BOOKS.flow}: full-kit — starting without everything you need guarantees stop-start delay. `
       + `Single-date commitments hide risk; percentile commitments price it honestly.`,
   });
@@ -250,16 +243,26 @@ function computeInsights(state, wipSummary) {
 }
 
 const PERSONAS = {
+  facilitator: {
+    label: 'Facilitator',
+    intro: 'Use a shared game to practise scope, WIP and dependency decisions. Game scores are learning feedback, not a measure of individual performance.',
+    path: [
+      ['Prepare a session', 'Open Run games. Choose a scenario and explain the tradeoff participants will practise.', 'games'],
+      ['Explain the round', 'Action points are a move budget that resets each round. The timer is real meeting time; one round represents a simulated quarter.', 'learning'],
+      ['Debrief', 'Ask what improved, what got worse and which assumption to test at work. Compare choices, not individual ability.', 'learning'],
+    ],
+  },
   planner: {
     label: 'Planning Manager',
-    intro: 'You turn a roster and an initiative list into an execution order the org can commit to. The loop: set up, review the order, shape it, freeze it, compare.',
+    intro: 'Build a plan with explicit assumptions, agree its tradeoffs, and review delivery against dated evidence.',
     path: [
-      ['Plan setup', 'Open your plan. The setup disclosure holds the roster, the initiatives matrix and the capacity loss; the ⚙ Assumptions dialog holds the period start, WIP model, estimate model, buffers and freezes. The Set-up card offers recommended defaults until every choice is made.', 'plan'],
-      ['The Order', 'The verdict banner is the answer ("N of M dates at risk"). Your stated priority order is the working plan; the engine\u2019s suggestion shows as ↳N. Pin, edit with ✎, or press ⚡ Optimize — accepting a proposal is always your call.', 'order'],
-      ['Baseline it', 'Freeze the agreed order with Save as baseline (Order header). It stores the schedule and the inputs that produced it, so later re-plans are measured against it.', 'baseline'],
-      ['Compare', 'Compare the live order against a baseline, or two baselines against each other: rank, start and commit deltas per initiative. The gap between agreed and proposed is the decision.', 'order'],
-      ['Timeline', 'By initiative or by pod. Drag bars to move work between weeks or tracks, filter to one initiative across all pods, full-screen for room. ESC exits.', 'timeline'],
-      ['Usage guide', 'The full manual — models, verdicts, interactions, warnings — ships in-app. Open it from the link below whenever a term or a warning is unclear.', 'usage'],
+      ['Plan setup', 'Open your plan and review its roster and initiatives. Use Assumptions to choose the period, estimate interpretation, WIP policy and buffer.', 'plan'],
+      ['Plan commitments', 'Read coverage and unstarted work alongside date risk. Compare the proposed order and affected initiatives before accepting a change.', 'order'],
+      ['Save an agreement', 'Open Plan commitments, then the agreement chip. Enter a name and choose Save current order to preserve the inputs and schedule.', 'baseline'],
+      ['Review execution', 'Choose the Execution snapshot and confirm epic bindings. Check coverage before interpreting variance, then record an action, owner and review date.', 'execution'],
+      ['Compare', 'Compare the working plan with an agreement, or two stored agreements. Reconcile scope, unplaced work and actual calendar dates before accepting a delta.', 'order'],
+      ['Timeline', 'Group by initiative or team. Inspect lane occupancy and unscheduled reasons; use the inspector for precise edits. Create a scenario before experimenting.', 'timeline'],
+      ['Usage guide', 'Read the concepts, book-inspired principles, worked calculations, setting choices and current limitations.', 'usage'],
     ],
   },
   exec: {
@@ -267,9 +270,9 @@ const PERSONAS = {
     intro: 'You manage the system, not the tasks. Your levers: where attention goes, what gets frozen, '
       + 'how teams are shaped, and what "done" means.',
     path: [
-      ['Flow Actions', 'One screen: the constraint, the freeze list, and at-risk epics. If you read nothing else, read the #1 card weekly and watch whether it MOVES — a constraint that never moves means the org is not acting on it.'],
+      ['Levers', 'One screen: the constraint, the freeze list, and at-risk epics. If you read nothing else, read the #1 card weekly and watch whether it MOVES — a constraint that never moves means the org is not acting on it.'],
       ['Network', 'The shape of your org as it actually behaves. Left = upstream platform, right = consumers. Look for loud halos (constraints) and edges that cross oceans.'],
-      ['Flow Scoreboard', 'Sort by Dependents for "who is everyone waiting on", by Queue ρ for "who is drowning". The dangerous cell is both: <i>hub under load</i>.'],
+      ['WIP Scoreboard', 'Sort by Dependents for "who is everyone waiting on", by Queue ρ for "who is drowning". The dangerous cell is both: <i>hub under load</i>.'],
       ['Feature Simulator', 'When a team asks for headcount or a date slips: import the epic and test the claim. The tornado chart shows where a week of help actually buys calendar time.'],
     ],
   },
@@ -277,8 +280,8 @@ const PERSONAS = {
     label: 'Engineering Lead',
     intro: 'You own a queue. Your levers: what enters it, what order it drains, and what you refuse to start.',
     path: [
-      ['Flow Scoreboard', 'Find your pod. Queue ρ ≥ 0.85 means your promises are already late — Kingman makes the wait explode before the work does.'],
-      ['Flow Actions → your freeze bar', 'Click it. The red rows are your triage list: finish, freeze, or kill. The "keep" rows are sacred — others wait on them; finish those first.'],
+      ['WIP Scoreboard', 'Find your pod. Queue ρ ≥ 0.85 flags high load and rising queue risk; it does not establish whether a promise is late.'],
+      ['Levers → your freeze bar', 'Click it. The red rows are your triage list: finish, freeze, or kill. The "keep" rows are sacred — others wait on them; finish those first.'],
       ['Network → click your pod', 'Your real upstream/downstream contracts. Anything you are blocked on with low overlap hours: switch from ad-hoc questions to batched, written, full-kit requests.'],
       ['Feature Simulator', 'Sketch your next quarter as tasks and see whose queues you will sit in. Negotiate sequence with those pods NOW, not at handover time.'],
     ],
@@ -287,32 +290,17 @@ const PERSONAS = {
     label: 'PM / Delivery',
     intro: 'You sell dates. Your levers: scope, sequence, and which promises you make.',
     path: [
-      ['Feature Simulator', 'Import your epic. Accept/reject the suggested dependencies (they come from real blocking history). Commit the P85.'],
-      ['Flow Actions → fever chart', 'Your in-flight epics as dots. Green: say nothing. Yellow: descope or unblock. Red: the buffer is gone — renegotiate the date this week, not at the end.'],
+      ['Feature Simulator', 'Import your epic. Accept/reject the suggested dependencies (they come from real blocking history). Use P85 as a conditional forecast; check data coverage and calibration before agreeing a date.'],
+      ['Levers → fever chart', 'Read modeled buffer use relative to progress. Check snapshot age, scope and assumptions before choosing an action; red does not always mean the whole buffer is consumed.'],
       ['Network', 'Before planning, check the pods on your critical path. A plan through two red halos is a plan to slip.'],
-      ['Flow Scoreboard', 'Cycle P85 per pod is your unit of planning. A "small ask" to a pod with P85=70d is not small.'],
+      ['WIP Scoreboard', 'Review historical Cycle P85 and sample coverage before agreeing a date. Compare similar work; a single-item percentile does not establish an initiative commitment.'],
     ],
   },
 };
 
 // openUsage shows the offline manual (app/docs.html) in the guide overlay's
 // iframe slot; `anchor` scrolls it to a section (spec 012 FR-003).
-export function openUsage(anchor) {
-  const overlay = document.getElementById('guide-overlay');
-  if (!overlay) return;
-  openModal(overlay);
-  const t = document.getElementById('guide-title'); if (t) t.textContent = 'Usage guide';
-  document.getElementById('guide-personas').innerHTML = '';
-  document.getElementById('guide-body').innerHTML =
-    '<iframe class="briefing-frame" src="docs.html" title="Conway in-app manual"></iframe>';
-  if (anchor) {
-    const frame = document.querySelector('#guide-body iframe');
-    frame?.addEventListener('load', () => {
-      try { frame.contentWindow.document.getElementById(anchor)?.scrollIntoView({ block: 'start' }); }
-      catch { /* cross-origin guard; same-origin in practice */ }
-    }, { once: true });
-  }
-}
+export function openUsage(anchor) { openDocs(anchor); }
 
 export function initGuide(state) {
   let wipSummary = {};
@@ -327,15 +315,23 @@ export function initGuide(state) {
       document.getElementById('guide-personas').innerHTML = '';
       document.getElementById('guide-body').innerHTML =
         '<iframe class="briefing-frame" src="briefing.html" title="How to play"></iframe>';
+      document.querySelector('#guide-body iframe')?.addEventListener('load', (event) => {
+        event.target.contentDocument?.addEventListener('keydown', (key) => {
+          if (key.key === 'Escape') { key.preventDefault(); closeModal(overlay); }
+        });
+      });
       return;
     }
     const title = document.getElementById('guide-title');
     if (title) title.textContent = 'How to use this — pick your seat';
-    renderGuide('exec');
+    let remembered;
+    try { remembered = localStorage.getItem('conway-guide-persona'); } catch {}
+    renderGuide(PERSONAS[remembered] ? remembered : hasRole('manager') ? 'planner' : hasRole('facilitator') ? 'facilitator' : 'lead');
   });
   document.getElementById('guide-close').addEventListener('click', () => closeModal(overlay));
 
   function renderGuide(who) {
+    try { localStorage.setItem('conway-guide-persona', who); } catch {}
     const p = PERSONAS[who];
     document.getElementById('guide-personas').innerHTML = Object.entries(PERSONAS)
       .map(([k, v]) => `<button class="tab ${k === who ? 'active' : ''}" data-p="${k}">${v.label}</button>`).join('');
@@ -344,9 +340,9 @@ export function initGuide(state) {
 
     const insights = computeInsights(state, wipSummary).filter((i) => i.who.includes(who));
     document.getElementById('guide-body').innerHTML = `
-      <div class="insight"><b>Three lenses.</b> <b>Observe</b> — current state from Jira (this app's analytics).
+      <div class="insight"><b>Three lenses.</b> <b>Measure</b> — current state from Jira (this app's analytics).
         <b>Plan</b> — upload a period's roster + initiatives to get a directed dependency network, per-pod
-        utilization (ρ), and what-if levers shown before → after (manager-owned). <b>Train</b> — the learning
+        utilization (ρ), and what-if levers shown before → after (manager-owned). <b>Learn</b> — the learning
         game. ρ is the primary signal; lead time is directional, not a date.</div>
       <div class="insight"><b>Snapshots &amp; scenarios.</b> Managers can <b>Import from Jira</b> to capture a
         dated org <b>snapshot</b>, <b>compare</b> snapshots over time, and <b>publish</b> one for facilitators.
@@ -355,8 +351,8 @@ export function initGuide(state) {
         docs/snapshots-and-scenarios.md.</div>
       <p class="guide-intro">${p.intro}</p>
       <h3>Where to look, in order</h3>
-      <ol class="guide-path">${p.path.map(([t, d, nav]) => `<li><b>${t}</b> — ${d}${nav ? ` <button type="button" class="guide-go" data-nav="${nav}">go ›</button>` : ''}</li>`).join('')}</ol>
-      <p><button type="button" class="primary" id="usage-open">📖 Open the usage guide</button></p>
+      <ol class="guide-path">${p.path.map(([t, d, nav]) => `<li><b>${t}</b> — ${d}${(nav = nav || (t.includes('Scoreboard') ? 'scoreboard' : t.includes('Network') ? 'network' : t.includes('Simulator') ? 'simulator' : t.includes('Levers') ? 'flow' : '')) ? ` <button type="button" class="guide-go" data-nav="${nav}">go ›</button>` : ''}</li>`).join('')}</ol>
+      <p><button type="button" class="primary" id="usage-open">Open the manual</button></p>
       <h3>Today's insights from your data</h3>
       ${insights.map((i) => `
         <div class="insight">
@@ -373,15 +369,12 @@ export function initGuide(state) {
       b.addEventListener('click', () => {
         closeModal(overlay);
         if (b.dataset.nav === 'usage') { openUsage(); return; }
-        document.querySelector('.tab[data-view="plan"]')?.click();
-        setTimeout(() => {
-          const dest = b.dataset.nav;
-          if (dest === 'plan') {
-            document.querySelector('.plan-setup')?.setAttribute('open', '');
-          } else {
-            document.getElementById(`view-${dest === 'baseline' ? 'order' : dest}`)?.click();
-          }
-        }, 350);
+        if (b.dataset.nav === 'learning') { openDocs('learning'); return; }
+        if (b.dataset.nav === 'games') { document.getElementById('run-games-btn')?.click(); return; }
+        if (['network', 'scoreboard', 'simulator', 'flow'].includes(b.dataset.nav)) {
+          document.querySelector(`.tab[data-view="${b.dataset.nav}"]`)?.click(); return;
+        }
+        void openPlanDestination(b.dataset.nav === 'plan' ? 'setup' : b.dataset.nav === 'baseline' ? 'order' : b.dataset.nav);
       }));
     document.getElementById('usage-open')?.addEventListener('click', () => {
       closeModal(overlay);

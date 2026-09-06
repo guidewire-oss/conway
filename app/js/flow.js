@@ -33,16 +33,16 @@ function renderConstraints(state) {
     const cap = Math.max(2, Math.round((p.streams ?? p.devCount) * 1.5));
     return `
     <div class="constraint-card ${i > 0 ? 'rank2' : ''}">
-      <h3>#${i + 1} ${c.pod} <span class="hint">· ${p.location} · ${p.devCount} devs</span></h3>
+      <h3>#${i + 1} ${esc(c.pod)} <span class="hint">· ${esc(p.location)} · ${p.devCount} devs</span></h3>
       <div class="metrics">load ${((s.load ?? s.rho0)).toFixed(1)}× ${(s.load ?? s.rho0) >= 1 ? '(queue unstable — grows until WIP drops below 1)' : `(wait ×${c.queueFactor.toFixed(1)})`}
         · blocks ${c.dependents} pods (×${c.demand} links) · WIP ${s.wip} · P85 ${s.p85.toFixed(0)}d</div>
       <ul>
         <li><b>Exploit:</b> cap WIP at ~${cap} (now ${s.wip}); shield from interrupts;
             finish before starting. Every hour lost here is lost for ${c.dependents} pods.</li>
-        <li><b>Subordinate:</b> ${downstream.join(', ') || 'downstream pods'} sequence requests
-            to ${c.pod}'s cadence — batch asks, stop drive-by tickets, full-kit before handing over.</li>
+        <li><b>Subordinate:</b> ${downstream.map(esc).join(', ') || 'downstream pods'} sequence requests
+            to ${esc(c.pod)}'s cadence — batch asks, stop drive-by tickets, full-kit before handing over.</li>
         <li><b>Elevate</b> (only after the above): add capacity, or split the
-            ${p.area ? `"${p.area}"` : 'domain'} fracture plane so demand divides.</li>
+            ${p.area ? `"${esc(p.area)}"` : 'domain'} fracture plane so demand divides.</li>
       </ul>
     </div>`;
   }).join('');
@@ -70,15 +70,15 @@ function renderFreeze(state, capPerDev) {
     } else {
       gain = '<span class="hint">no throughput data</span>';
     }
-    return `<div class="freeze-row" data-pod="${p.name}" title="click to inspect WIP issues">
-      <span>▸ ${p.name} <span class="hint">${s.wip} wip</span></span>
+    return `<div class="freeze-row" data-pod="${esc(p.name)}" title="click to inspect WIP issues">
+      <span>▸ ${esc(p.name)} <span class="hint">${s.wip} wip</span></span>
       <div class="freeze-track">
         <span class="healthy" style="width:${healthyW}%"></span>
         <span class="excess" style="left:${healthyW}%;width:${excessW}%"></span>
       </div>
       <span>${gain}</span>
     </div>
-    <div class="wip-drill" id="drill-${p.name}" hidden></div>`;
+    <div class="wip-drill" id="drill-${esc(p.name)}" hidden></div>`;
   }).join('');
   document.querySelectorAll('.freeze-row').forEach((row) => {
     row.addEventListener('click', () => toggleDrill(row.dataset.pod));
@@ -93,7 +93,7 @@ function renderFreeze(state, capPerDev) {
 // '' until getJiraBaseUrl() resolves, or if CONWAY_JIRA_BASE_URL is unset —
 // jiraLink() below falls back to plain (unlinked) text in that case.
 let JIRA = '';
-const jiraLink = (key) => (JIRA ? `<a href="${JIRA}${key}" target="_blank">${key}</a>` : key);
+const jiraLink = (key) => (JIRA ? `<a href="${esc(JIRA)}${encodeURIComponent(key)}" target="_blank" rel="noopener">${esc(key)}</a>` : esc(key));
 const VERDICT_BADGE = {
   freeze: '<span class="flag red">freeze candidate</span>',
   review: '<span class="flag amber">review</span>',
@@ -110,10 +110,10 @@ function toggleDrill(pod) {
   if (!div) return;
   if (!div.hidden) { div.hidden = true; return; }
   const rowHtml = (i) => `
-    <tr class="v-${i.verdict}">
+    <tr class="v-${esc(i.verdict)}">
       <td>${jiraLink(i.key)}</td>
-      <td>${i.summary}</td>
-      <td>${i.assignee || '<span class="flag amber">unassigned</span>'}</td>
+      <td>${esc(i.summary)}</td>
+      <td>${i.assignee ? esc(i.assignee) : '<span class="flag amber">unassigned</span>'}</td>
       <td>${i.ageDays?.toFixed(0) ?? '?'}d</td>
       <td>${i.staleDays?.toFixed(0) ?? '?'}d</td>
       <td>${i.blocksKeys?.length ? `${i.blocksKeys.length} issue(s)` : '—'}</td>
@@ -133,9 +133,9 @@ function toggleDrill(pod) {
         <thead><tr><th>Issue</th><th>Summary</th><th>Assignee</th><th>Age</th><th>Stale</th><th>Blocks</th><th>Verdict</th></tr></thead>
         <tbody>${items.map(rowHtml).join('')}</tbody></table>
         ${pages > 1 ? `<div class="row-actions">
-          <button id="drill-prev-${pod}" ${page === 0 ? 'disabled' : ''}>‹ Prev</button>
+          <button id="drill-prev-${esc(pod)}" ${page === 0 ? 'disabled' : ''}>‹ Prev</button>
           <span class="hint">page ${page + 1} of ${pages} · showing ${page * DRILL_PER_PAGE + 1}–${shown} of ${total}</span>
-          <button id="drill-next-${pod}" ${page >= pages - 1 ? 'disabled' : ''}>Next ›</button></div>` : ''}`
+          <button id="drill-next-${esc(pod)}" ${page >= pages - 1 ? 'disabled' : ''}>Next ›</button></div>` : ''}`
       : '<p class="hint">No in-progress issues for this pod in the snapshot.</p>'}`;
     if (pages > 1) {
       document.getElementById(`drill-prev-${pod}`)?.addEventListener('click', () => renderPage(page - 1));
@@ -213,7 +213,9 @@ async function renderFever(state) {
     const createds = epic.tasks.map((t) => t.created).filter(Boolean).map((d) => new Date(d));
     if (!createds.length) continue;
     const start = new Date(Math.min(...createds));
-    const elapsed = ((Date.now() - start) / 86400000) * (5 / 7); // working days
+    // specs/017-planning-and-execution-usability.md:194: compare elapsed time
+    // and remaining time to the model's calendar-day cycle samples.
+    const elapsed = (Date.now() - start) / 86400000;
 
     const keys = new Set(tasks.map((t) => t.key));
     const feature = {
@@ -231,10 +233,10 @@ async function renderFever(state) {
     // date risk vs the COMMITTED date (epic due date), not just the forecast
     let dateRisk = null;
     if (epic.duedate) {
-      const wdToDue = ((new Date(epic.duedate) - Date.now()) / 86400000) * (5 / 7);
+      const daysToDue = (new Date(epic.duedate) - Date.now()) / 86400000;
       const remainingP85 = Math.max(0, sim.p85 * (1 - pct));
-      if (wdToDue < 0) dateRisk = 'overdue';
-      else if (remainingP85 > wdToDue) dateRisk = 'at risk';
+      if (daysToDue < 0) dateRisk = 'overdue';
+      else if (remainingP85 > daysToDue) dateRisk = 'at risk';
     }
     points.push({
       epic: epic.epic, name: epic.name ?? '', pct, elapsed, fp,
@@ -255,7 +257,7 @@ async function renderFever(state) {
     dot.append('title').text(
       `${p.epic} ${p.name}\n${(p.pct * 100).toFixed(0)}% complete · `
       + `${(p.fp.consumed * 100).toFixed(0)}% buffer consumed (${p.fp.zone})\n`
-      + `elapsed ${p.elapsed.toFixed(0)}wd · forecast P50 ${p.p50.toFixed(0)}d / P85 ${p.p85.toFixed(0)}d`
+      + `elapsed ${p.elapsed.toFixed(0)} calendar days · forecast P50 ${p.p50.toFixed(0)}d / P85 ${p.p85.toFixed(0)}d`
       + (p.duedate ? `\ndue ${p.duedate}${p.dateRisk ? ` — ${p.dateRisk.toUpperCase()} (remaining P85 vs due, approx)` : ''}` : '\nno due date set'),
     );
   });
@@ -268,11 +270,11 @@ async function renderFever(state) {
     <th>Complete</th><th>Buffer burned</th><th>Zone</th><th>Due</th><th>Outcome?</th></tr></thead><tbody>
     ${hot.map((p) => `<tr>
       <td>${jiraLink(p.epic)}</td>
-      <td>${p.name || '—'}</td>
+      <td>${esc(p.name || '—')}</td>
       <td>${(p.pct * 100).toFixed(0)}%</td>
       <td>${(Math.min(p.fp.consumed, 9.99) * 100).toFixed(0)}%</td>
       <td><span class="flag ${p.fp.zone === 'red' ? 'red' : 'amber'}">${p.fp.zone}</span></td>
-      <td>${p.duedate ?? '<span class="hint">none</span>'} ${p.dateRisk ? DATE_BADGE[p.dateRisk] : ''}</td>
+      <td>${p.duedate == null ? '<span class="hint">none</span>' : esc(p.duedate)} ${p.dateRisk ? DATE_BADGE[p.dateRisk] : ''}</td>
       <td>${p.hasOutcome === true ? '✓' : p.hasOutcome === false ? '<span class="flag red">missing</span>' : '<span class="hint">?</span>'}</td>
     </tr>`).join('')}</tbody></table>` : '<p class="hint">All in-flight epics are in the green zone.</p>';
 }
@@ -305,7 +307,7 @@ function showFeverEpicModal(p) {
       <div class="modal-head"><h2>${jiraLink(p.epic)} — ${esc(p.name || '(no title)')}</h2><button id="fever-epic-close">✕</button></div>
       <p class="hint">${(p.pct * 100).toFixed(0)}% complete · ${(p.fp.consumed * 100).toFixed(0)}% buffer consumed
         ${zoneBadge}</p>
-      <p class="hint">Elapsed ${p.elapsed.toFixed(0)} working days · forecast P50 ${p.p50.toFixed(0)}d / P85 ${p.p85.toFixed(0)}d</p>
+      <p class="hint">Elapsed ${p.elapsed.toFixed(0)} calendar days · forecast P50 ${p.p50.toFixed(0)}d / P85 ${p.p85.toFixed(0)}d</p>
       <p class="hint">${p.duedate ? `Due ${esc(p.duedate)} ${p.dateRisk ? DATE_BADGE[p.dateRisk] : ''}` : 'No due date set'}</p>
     </div>`;
   openModal(ov);

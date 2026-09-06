@@ -4,6 +4,7 @@ import { openModal, closeModal } from './modal.js';
 // - server present, valid token        -> proceed, expose role
 // - no server (plain static hosting)   -> dev mode, no auth (same files either way)
 import { openGames } from './gamesui.js';
+import { icon } from './icons.js';
 
 const TOKEN_KEY = 'conway_token';
 let roles = ['player'];
@@ -111,14 +112,14 @@ function showLogin(cfg = {}) {
           <p class="hint">Facilitators, managers &amp; admins.</p>
           ${cfg.oidc ? `<button type="button" id="login-sso" class="primary sso-btn">Sign in with SSO</button>
           <div class="sso-divider"><span>or</span></div>` : ''}
-          <input id="login-user" placeholder="username" autocomplete="username">
-          <input id="login-pass" type="password" placeholder="password" autocomplete="current-password">
+          <input id="login-user" aria-label="Username" placeholder="username" autocomplete="username">
+          <input id="login-pass" aria-label="Password" type="password" placeholder="password" autocomplete="current-password">
           <button type="submit" class="primary">Sign in</button>
         </form>
         <form id="join-form" ${joinFirst ? '' : 'hidden'}>
           <p class="hint">Enter your join code. A team name is only needed for a shared game code.</p>
-          <input id="join-code" placeholder="join code" value="${safeCode}" style="text-transform:uppercase">
-          <input id="join-team" placeholder="team name (optional)">
+          <input id="join-code" aria-label="Join code" placeholder="join code" value="${safeCode}" style="text-transform:uppercase">
+          <input id="join-team" aria-label="Team name (optional)" placeholder="team name (optional)">
           <button type="submit" class="primary">Join</button>
         </form>
         <div id="login-err" class="login-err"></div>
@@ -191,7 +192,7 @@ function mountChip() {
   const chip = document.createElement('span');
   chip.className = 'auth-chip';
   const label = testToken ? `testing as ${username.replace(/^__test__:/, '')}` : username;
-  chip.innerHTML = `${esc(label)} · <a id="auth-logout">sign out</a>`;
+  chip.innerHTML = `${esc(label)} · <button type="button" id="auth-logout">Sign out</button>`;
   nav.appendChild(chip);
   chip.querySelector('#auth-logout').addEventListener('click', logout);
   // facilitators (and admins, as superusers) get the game-ops console, grouped
@@ -201,23 +202,23 @@ function mountChip() {
     const games = document.createElement('button');
     games.id = 'run-games-btn';
     games.className = 'tab dropdown-item';
-    games.textContent = '🎮 Run games';
+    games.innerHTML = `${icon('play')} Run games`;
     games.title = 'Create and run games — scenarios, join codes, rounds, leaderboard';
     games.addEventListener('click', openGames);
     if (trainMenu) trainMenu.appendChild(games); else nav.appendChild(games);
   }
   // Admin panel is users & roles + usage analytics — admins only.
   if (hasRole('admin')) {
-    const guideBtn = document.getElementById('guide-btn');
+    const guideBtn = document.getElementById('help-group');
     const b = document.createElement('button');
     b.id = 'admin-btn';
     b.className = 'tab admin-tab';
-    b.textContent = '⚙ Admin';
+    b.innerHTML = `${icon('settings')} Admin`;
     b.addEventListener('click', openAdmin);
     const u = document.createElement('button');
     u.id = 'usage-btn';
     u.className = 'tab admin-tab';
-    u.textContent = '📊 Usage';
+    u.innerHTML = `${icon('chart')} Usage`;
     u.title = 'Usage analytics — actives, funnel, per-user activity';
     u.addEventListener('click', () => import('./analytics.js').then((m) => m.openUsage()));
     if (guideBtn) {
@@ -242,7 +243,7 @@ function openAdmin() {
         <div class="guide-head"><h2>Admin — users &amp; roles</h2><button id="admin-close">✕</button></div>
         <div id="admin-accounts">
           <div class="admin-create">
-            <input id="admin-disp" placeholder="Name (person or team)">
+            <input id="admin-disp" aria-label="Name (person or team)" placeholder="Name (person or team)">
             <span class="role-pick" title="A user can hold several roles">
               <label><input type="checkbox" class="role-cb" value="facilitator" checked> Facilitator</label>
               <label><input type="checkbox" class="role-cb" value="manager"> Manager</label>
@@ -370,7 +371,7 @@ async function refreshUsers() {
       <td>${esc(u.display)}</td><td>${roleBadges(u.roles)}</td><td>${u.sso ? '<span class="hint">via IdP</span>' : fmt(u.expiresAt)}</td>
       <td>${u.expired ? '<span class="flag red">expired</span>' : '<span class="flag" style="color:var(--green)">active</span>'}
           ${u.hasState ? '<span class="hint">playing</span>' : ''}</td>
-      <td>${u.sso ? '' : `<span class="admin-ext"><input type="date" class="admin-ext-date" data-ext="${esc(u.username)}" value="${extDefault(u)}" title="new expiry date"><button data-extbtn="${esc(u.username)}">extend</button></span>`}${u.username === 'admin' ? '' : ` <button data-del="${esc(u.username)}">revoke</button>`}</td>
+      <td>${u.sso ? '' : `<span class="admin-ext"><input type="date" class="admin-ext-date" aria-label="New expiry date" data-ext="${esc(u.username)}" value="${extDefault(u)}" title="new expiry date"><button data-extbtn="${esc(u.username)}">extend</button></span>`}${u.username === 'admin' ? '' : ` <button data-del="${esc(u.username)}">revoke</button>`}</td>
     </tr>`).join('') || '<tr><td colspan="6" class="hint">No accounts yet.</td></tr>'}`;
   document.querySelectorAll('#admin-users [data-extbtn]').forEach((b) => b.addEventListener('click', async () => {
     const u = users.find((x) => x.username === b.dataset.extbtn);

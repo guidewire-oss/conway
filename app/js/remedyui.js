@@ -1,3 +1,4 @@
+import { icon } from './icons.js';
 // remedyui.js — the Order view's priced-remedies expander (spec 001 §13.2,
 // Story 5 / AC 5.1): pure functions returning HTML strings, exactly like
 // baseline.js. The fetch and DOM side lives in planui.js.
@@ -54,13 +55,16 @@ const signed = (n) => `${n < 0 ? '−' : '+'}${Math.abs(n)}`;
 // costs the portfolio, and who pays. Every field is optional except the kind
 // and the verdict — the Go type says more, but a page that required the whole
 // shape would break the day the server adds a field and an older page meets it.
-export function remedyRowHTML(r) {
+export function remedyRowHTML(r, index = 0) {
   const label = esc(remedyKindLabel(r.kind));
   const verdict = esc(verdictLabel(r.resultingVerdict));
   const stillLate = r.targetWeeksLate > 0
     ? ` <span class="hint">(${r.targetWeeksLate}w late)</span>` : '';
+  const coverageKnown = Number.isFinite(r.unscheduledWeightDelta);
+  const worse = coverageKnown && r.unscheduledWeightDelta !== 0
+    ? r.unscheduledWeightDelta > 0 : r.objectiveDelta > 0;
   const delta = typeof r.objectiveDelta === 'number'
-    ? `<span class="${r.objectiveDelta <= 0 ? 'ord-green' : 'ord-red'}">${signed(r.objectiveDelta)}</span>` : '';
+    ? `<span class="${worse ? 'ord-red' : 'ord-green'}">${coverageKnown ? `weighted unstarted work ${signed(r.unscheduledWeightDelta)}; ` : ''}weighted lateness ${signed(r.objectiveDelta)}</span>` : '';
   const victims = (r.affectedInitiatives || []).map((v) =>
     `${esc(v.initiative)} ${signed(v.commitDeltaWeeks || v.startDeltaWeeks || 0)}w`).join(', ');
   const victimsLine = victims
@@ -73,8 +77,9 @@ export function remedyRowHTML(r) {
   return `<div class="rem-row">
     ${whose}<b>${label}</b> ${r.note ? `<span class="hint">${esc(r.note)}</span>` : ''}
     → ${verdict}${stillLate}
-    <span class="hint">objective ${delta}</span>
+    <span class="hint">${delta}${coverageKnown ? ' · coverage takes priority' : ''}</span>
     ${victimsLine}
+    <button type="button" class="rem-preview" data-remedy="${index}" data-kind="${esc(r.kind)}" data-target="${esc(r.target || '')}">${icon('search')} Preview this change</button>
   </div>`;
 }
 
@@ -97,8 +102,8 @@ export function remediesPanelHTML(remedies, warnings) {
 // no-date is not a miss. The name rides along as data so the wiring in
 // planui.js never has to parse it back out of rendered markup.
 export function optionsExpanderHTML(si) {
-  if (si.verdict !== 'late' && si.verdict !== 'structurally-infeasible') return '';
-  return ` <button type="button" class="ord-options" data-init="${esc(si.name)}">options ▾</button>`;
+  if (!['late', 'structurally-infeasible', 'beyond-horizon'].includes(si.verdict)) return '';
+  return ` <button type="button" class="ord-options" data-init="${esc(si.name)}" aria-expanded="false" aria-label="Review options for ${esc(si.name)}">Review options</button>`;
 }
 
 // remediesErrorMessage turns a failed remedies fetch into something a planner

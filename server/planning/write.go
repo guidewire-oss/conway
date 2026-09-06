@@ -89,7 +89,7 @@ func WriteInitiativesXLSX(teams []Team, inits []Initiative) []byte {
 	// out the columns exist at all.
 	hdr := []string{"S. No", "Initiative ", "PM Lead", "Engg Lead", "Architect lead", "PgM Lead",
 		"Priority", "Priority Fixed", "Target Date", "Date Fixed", "Tier", "Cost of Delay",
-		"Earliest Start", "Depends on Initiative", "Kit %", "In Flight", "% Complete",
+		"Earliest Start", "Depends on Initiative", "Kit %", "In Flight", "% Complete", "Epics",
 		"Estimate in Weeks across teams required for Full Kit"}
 	teamCols := len(hdr) // team columns begin right after the derived total
 	for _, n := range names {
@@ -114,7 +114,8 @@ func WriteInitiativesXLSX(teams []Team, inits []Initiative) []byte {
 		row[14] = numCell(it.KitPct)
 		row[15] = boolCell(it.InFlight)
 		row[16] = numCell(it.ProgressPct)
-		row[17] = "0" // derived total in the real sheet
+		row[17] = strings.Join(it.EpicKeys, ", ")
+		row[18] = "0" // derived total in the real sheet
 		for j, n := range names {
 			seq, est := teamCols+j*2, teamCols+j*2+1
 			if wk, ok := it.Work[n]; ok && wk.InPath {

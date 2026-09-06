@@ -1,14 +1,22 @@
+import { icon } from './icons.js';
 import { openModal, closeModal } from './modal.js';
 // Snapshots: a single page to see everything captured/uploaded — rosters
-// (from Observe ▸ 👥 Rosters) and dated Jira snapshots (from Observe ▸ 📥
+// (from Measure ▸ Rosters) and dated Jira snapshots (from Measure ▸ 📥
 // Import from Jira) — as two sections. Rename/delete the Jira snapshots you
 // own; the baseline (mined seed) is protected from deletion. Manager/admin only.
 import { authFetch } from './auth.js';
 import { listSnapshots, getSnapshot } from './data.js';
 import { mountRosters } from './rostersui.js';
+import { notifyMeasureSourcesChanged } from './measure-context.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-async function req(p, o) { try { return await authFetch(p, o); } catch { return null; } }
+async function req(p, o) {
+  try {
+    const response = await authFetch(p, o);
+    if (response.ok && ['POST', 'PATCH', 'DELETE'].includes(o?.method) && p.startsWith('/api/snapshots/')) notifyMeasureSourcesChanged();
+    return response;
+  } catch { return null; }
+}
 
 export async function openSnapshots() {
   let ov = document.getElementById('snapshots-overlay');
@@ -20,20 +28,22 @@ export async function openSnapshots() {
     // no click-outside-to-close — the ✕ button is the deliberate exit.
   }
   ov.innerHTML = `<div class="modal-box">
-      <div class="modal-head"><h2>🗂 Snapshots</h2><button id="snap-close">✕</button></div>
-      <h3>👥 Rosters</h3>
-      <p class="hint">Team structure — headcount, pairing, site and work-lanes — uploaded via Observe ▸ 👥 Rosters.</p>
+      <div class="modal-head"><h2>Snapshots</h2><button id="snap-close">${icon('close')}Close</button></div>
+      <h3>Rosters</h3>
+      <p class="hint">Team structure — headcount, pairing, site and work-lanes — uploaded via Measure ▸ Rosters.</p>
       <div id="snap-rosters"></div>
-      <h3 style="margin-top:20px">📥 Jira snapshots</h3>
-      <p class="hint">Dated captures Observe renders and Train seeds from, built via Observe ▸ 📥 Import from Jira.
+      <h3 style="margin-top:20px">Jira snapshots</h3>
+      <p class="hint">Dated captures Measure renders and Learn seeds from, built via Measure ▸ Import from Jira.
         Rename or delete the ones you own; the baseline (mined seed) is kept.</p>
-      <div id="snap-list"></div>
+      <p id="snap-status" role="status" aria-live="polite"></p><div id="snap-list"></div>
     </div>`;
   openModal(ov);
   ov.querySelector('#snap-close').addEventListener('click', () => closeModal(ov));
   mountRosters(ov.querySelector('#snap-rosters'));
   renderList(ov);
 }
+
+function showError(ov,message) { const el=ov.querySelector('#snap-status'); if(el) { el.textContent=message.trim().slice(0,250); el.setAttribute('role','alert'); } }
 
 const scopeText = (s) => (Array.isArray(s.scope) && s.scope.length ? s.scope.join(', ') : '');
 
@@ -48,9 +58,9 @@ async function renderList(ov) {
   if (!snaps.length) { box.innerHTML = '<p class="hint">No snapshots yet.</p>'; return; }
   const rosters = await fetchRosters();
   const rosterCell = (s) => {
-    if (s.source !== 'jira' || !s.mine) return rosters.find((r) => r.id === s.rosterId)?.name || '—';
+    if (s.source !== 'jira' || !s.mine) return esc(rosters.find((r) => r.id === s.rosterId)?.name || '—');
     const opts = `<option value="">— roster —</option>` + rosters.map((r) => `<option value="${r.id}" ${r.id === s.rosterId ? 'selected' : ''}>${esc(r.name)}</option>`).join('');
-    return `<select class="snap-roster" data-id="${s.id}">${opts}</select>`;
+    return `<select aria-label="Roster for ${esc(s.name || s.id)}" class="snap-roster" data-id="${s.id}">${opts}</select>`;
   };
   const fmtDate = (ts) => (ts ? new Date(ts * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '');
   box.innerHTML = `<table class="wip-table">
@@ -78,13 +88,13 @@ async function renderList(ov) {
   box.querySelectorAll('.snap-roster').forEach((sel) => sel.addEventListener('change', async () => {
     if (!sel.value) return; // structure must come from some roster — ignore the blank option
     const r = await req('/api/snapshots/' + sel.dataset.id, { method: 'PATCH', body: JSON.stringify({ rosterId: sel.value }) });
-    if (r && !r.ok) { alert((await r.text()).trim() || 'Could not re-associate'); return; }
-    // structure changed — if viewing this snapshot, reload so Observe re-reads it
+    if (!r || !r.ok) { showError(ov, (r ? await r.text() : '').trim() || 'Could not re-associate. Check the connection and retry.'); return; }
+    // structure changed — if viewing this snapshot, reload so Measure re-reads it
     if (sel.dataset.id === getSnapshot()) location.reload(); else renderList(ov);
   }));
   box.querySelectorAll('.snap-pub').forEach((b) => b.addEventListener('click', async () => {
     const r = await req('/api/snapshots/' + b.dataset.id, { method: 'PATCH', body: JSON.stringify({ public: b.dataset.pub !== '1' }) });
-    if (r && !r.ok) { alert((await r.text()).trim() || 'Could not change visibility'); return; }
+    if (!r || !r.ok) { showError(ov, (r ? await r.text() : '').trim() || 'Could not change visibility. Try again.'); return; }
     renderList(ov);
   }));
   box.querySelectorAll('.snap-rename').forEach((b) => b.addEventListener('click', async () => {
@@ -93,13 +103,13 @@ async function renderList(ov) {
     const trimmed = name.trim();
     if (!trimmed) return;
     const r = await req('/api/snapshots/' + b.dataset.id, { method: 'PATCH', body: JSON.stringify({ name: trimmed }) });
-    if (r && !r.ok) { alert((await r.text()).trim() || 'Rename failed'); return; }
+    if (!r || !r.ok) { alert((r ? await r.text() : '').trim() || 'Rename failed'); return; }
     renderList(ov);
   }));
   box.querySelectorAll('.snap-del').forEach((b) => b.addEventListener('click', async () => {
     if (!confirm(`Delete snapshot "${b.dataset.name}"? Games already seeded from it keep playing; this only removes the stored capture.`)) return;
     const r = await req('/api/snapshots/' + b.dataset.id, { method: 'DELETE' });
-    if (r && !r.ok) { alert((await r.text()).trim() || 'Delete failed'); return; }
+    if (!r || !r.ok) { alert((r ? await r.text() : '').trim() || 'Delete failed'); return; }
     // if we deleted the snapshot currently being viewed, drop back to baseline
     if (b.dataset.id === getSnapshot()) {
       const u = new URL(location.href); u.searchParams.delete('snapshot'); location.assign(u); return;

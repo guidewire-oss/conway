@@ -45,7 +45,8 @@ export function kingmanScale(rho, rho0) {
   return f(rho) / f(rho0);
 }
 
-// Handoff delay in working days for one cross-pod dependency edge.
+// Handoff allowance in elapsed model/calendar days for one cross-pod edge.
+// This heuristic does not model weekends or a working-day calendar.
 export function handoffDays(overlapHours, roundtrips) {
   let perTrip;
   if (overlapHours >= 4) perTrip = 0.25;

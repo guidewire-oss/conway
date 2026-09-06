@@ -739,6 +739,9 @@ critical paths at once.
 - assumptions, warnings
 
 **ScheduleFit** _(derived; Decision 28)_
+- unavailableReason: optional string — explains why invalid inputs prevent fit
+  arithmetic. When present, numeric fit totals are null and no fit verdict is
+  implied (specs/017-planning-and-execution-usability.md Decision 6).
 - podWeeksDemanded: number — every initiative's in-path work, whether or not it
   fitted. Counting only placed work would report a plan that fits
 - trackWeeksAvailable: number — the per-pod sum of tracks x horizon, less each
@@ -1824,3 +1827,14 @@ Reached from `[bind ▾]`, or as a bulk step after a snapshot import.
 - [ ] Open questions are marked, owned, and time-bound — owners assigned, target dates pending
 - [x] No implementation details in the requirements (algorithms confined to the Decision Record)
 - [x] AI can read this spec (markdown, in the repo)
+
+
+### Implementation update — 2026-09-05
+
+The snapshot-based execution workspace and its capability limits are implemented
+under `specs/017-planning-and-execution-usability.md`. Its section 8 supersedes
+this document's proposed per-baseline actuals endpoints: execution is derived
+read-only on demand for the active agreement and selected accessible snapshot,
+not stored as a second mutable copy. Baseline comparison and the printable
+health report remain planning views. Missing transition history is labeled as
+inferred or unknown; conditional remaining-work forecasts state their basis.

@@ -23,6 +23,40 @@ const instances = new Map();
 // Per-overlay listener cleanup, so the dispose-and-rebuild path (a reused
 // overlay replacing innerHTML) never stacks a second set of handlers.
 const cleanups = new Map();
+const invokers = new WeakMap();
+const fallbackKeys = new WeakMap();
+const fallbackOverlays = new Set();
+const pendingClose = new WeakSet();
+const generatedLabels = new WeakMap();
+
+// Read current controls on every keypress: asynchronous dialog content may
+// add actions after opening (for example, a report's remedy links).
+export function containFocus(ov, close) {
+  const handler = ev => {
+    if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); close?.(); return; }
+    if (ev.key !== 'Tab') return;
+    const controls = [...ov.querySelectorAll('button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex="0"]')].filter(el => !el.closest('[hidden]') && el.getClientRects().length);
+    const first=controls[0], last=controls.at(-1);
+    if(!first) { ev.preventDefault(); ov.focus(); return; }
+    if(ev.shiftKey && (document.activeElement === first || !controls.includes(document.activeElement))) { ev.preventDefault(); last.focus(); }
+    else if(!ev.shiftKey && (document.activeElement === last || !controls.includes(document.activeElement))) { ev.preventDefault(); first.focus(); }
+  };
+  ov.addEventListener('keydown',handler);
+  return ()=>ov.removeEventListener('keydown',handler);
+}
+function visibleInvoker(el) {
+  return el?.isConnected && !el.closest?.('[hidden]') &&
+    (!el.getClientRects || el.getClientRects().length > 0) &&
+    window.getComputedStyle?.(el)?.visibility !== 'hidden';
+}
+function restoreFocus(ov) {
+  const invoker = invokers.get(ov);
+  const anotherOpen = [...instances.keys()].some((el) => el !== ov && el.classList.contains('show')) ||
+    [...fallbackOverlays].some(el => el !== ov && !el.hidden);
+  if (visibleInvoker(invoker) && !anotherOpen) invoker.focus?.();
+  invokers.delete(ov);
+}
+
 
 function bsModal() {
   return window.bootstrap?.Modal;
@@ -68,8 +102,11 @@ function modalFor(ov) {
   // One document listener per instance, alive for the instance's life —
   // NOT once-per-show, which any other keydown would consume.
   const onKey = (ev) => { if (ev.key === 'Escape' && ov.classList.contains('show')) m.hide(); };
-  const onShown = () => document.addEventListener('keydown', onKey);
-  const onHidden = () => { document.removeEventListener('keydown', onKey); ov.hidden = true; };
+  const onShown = () => {
+    document.addEventListener('keydown', onKey);
+    if (pendingClose.has(ov)) { pendingClose.delete(ov); m.hide(); }
+  };
+  const onHidden = () => { pendingClose.delete(ov); document.removeEventListener('keydown', onKey); ov.hidden = true; restoreFocus(ov); };
   ov.addEventListener('shown.bs.modal', onShown);
   // onHidden both detaches the ESC listener and syncs the legacy `hidden`
   // attr — every hide path (✕, ESC, programmatic) leaves callers' state
@@ -108,6 +145,23 @@ function wrapDialog(ov) {
 // hosting), falls back to plain display so the modal still opens.
 export function openModal(ov) {
   if (!ov) return;
+  ov.tabIndex = -1;
+  ov.setAttribute('role','dialog');
+  ov.setAttribute('aria-modal','true');
+  const heading=ov.querySelector('h1,h2,h3,h4,h5,h6');
+  if(heading && !ov.hasAttribute('aria-label') && (!ov.hasAttribute('aria-labelledby') || generatedLabels.has(ov))) {
+    if(!heading.id) heading.id=`${ov.id || 'conway-dialog'}-title`;
+    ov.setAttribute('aria-labelledby',heading.id);
+    generatedLabels.set(ov,heading.id);
+  }
+  if (!ov.contains(document.activeElement)) {
+    const active = document.activeElement;
+    const dropdownToggle = active?.closest?.('.dropdown')?.querySelector('[data-bs-toggle="dropdown"]');
+    // specs/017-planning-and-execution-usability.md:197: a modal handoff keeps
+    // the visible original trigger, not a control about to become hidden.
+    const parent = [...instances.keys(), ...fallbackOverlays].find(el => el !== ov && el.contains(active));
+    invokers.set(ov, (parent && invokers.get(parent)) || dropdownToggle || active);
+  }
   // One modal at a time: opening a second (e.g. the halt modal over an open
   // admin panel) while the first is shown leaves the first visible with a
   // stolen backdrop. Dispose of any shown instance first — same cleanup the
@@ -115,11 +169,21 @@ export function openModal(ov) {
   for (const [el, inst] of instances) {
     if (el !== ov && el.classList.contains('show')) { inst.hide(); }
   }
+  for (const el of [...fallbackOverlays]) {
+    if (el !== ov) closeModal(el);
+  }
   document.querySelectorAll('.modal-backdrop').forEach((b) => b.remove());
   document.body.classList.remove('modal-open');
   const m = modalFor(ov);
-  if (m) { ov.hidden = false; m.show(); return; }
+  if (m) {
+    fallbackKeys.get(ov)?.(); fallbackKeys.delete(ov); fallbackOverlays.delete(ov);
+    ov.hidden = false; m.show(); return;
+  }
   ov.hidden = false;
+  fallbackOverlays.add(ov);
+  fallbackKeys.get(ov)?.();
+  fallbackKeys.set(ov,containFocus(ov,()=>closeModal(ov)));
+  ov.focus();
 }
 
 // closeModal hides through the framework so focus returns to the invoker —
@@ -127,6 +191,16 @@ export function openModal(ov) {
 export function closeModal(ov) {
   if (!ov) return;
   const m = instances.get(ov);
-  if (m) { m.hide(); return; }
+  if (m) {
+    // Bootstrap ignores hide during its opening animation. Retain Escape or
+    // Close intent and finish it as soon as shown fires.
+    if (!ov.hidden) pendingClose.add(ov);
+    m.hide();
+    return;
+  }
+  fallbackKeys.get(ov)?.();
+  fallbackKeys.delete(ov);
+  fallbackOverlays.delete(ov);
   ov.hidden = true;
+  restoreFocus(ov);
 }

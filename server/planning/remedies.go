@@ -33,12 +33,13 @@ type Remedy struct {
 	// Plausibility is carried for transfer-capacity only (Decision 7). No remedy
 	// in this file sets it; the field exists so the §7 shape is complete and a
 	// future transfer remedy does not break the response contract.
-	Plausibility        float64        `json:"plausibility,omitempty"`
-	ResultingVerdict    string         `json:"resultingVerdict"`              // the target's verdict under the remedy
-	TargetWeeksLate     int            `json:"targetWeeksLate"`               // ...and its remaining lateness
-	ObjectiveDelta      float64        `json:"objectiveDelta"`                // what it does to the whole portfolio (FR-015)
-	AffectedInitiatives []RemedyEffect `json:"affectedInitiatives,omitempty"` // the victims, with week deltas
-	Note                string         `json:"note,omitempty"`
+	Plausibility           float64        `json:"plausibility,omitempty"`
+	ResultingVerdict       string         `json:"resultingVerdict"`              // the target's verdict under the remedy
+	TargetWeeksLate        int            `json:"targetWeeksLate"`               // ...and its remaining lateness
+	UnscheduledWeightDelta float64        `json:"unscheduledWeightDelta"`        // weighted unstarted work; compare before lateness
+	ObjectiveDelta         float64        `json:"objectiveDelta"`                // what it does to the whole portfolio (FR-015)
+	AffectedInitiatives    []RemedyEffect `json:"affectedInitiatives,omitempty"` // the victims, with week deltas
+	Note                   string         `json:"note,omitempty"`
 }
 
 // RemedyEffect is one other initiative's movement under a remedy. Only the
@@ -108,7 +109,9 @@ func ComputeRemedies(teams []Team, inits []Initiative, params Params, sp Schedul
 		out = append(out, remediesFor(teams, inits, params, sp, base, si)...)
 	}
 	sort.SliceStable(out, func(i, j int) bool {
-		return out[i].ObjectiveDelta < out[j].ObjectiveDelta
+		return ScheduleIsBetter(
+			&Schedule{UnscheduledWeight: out[i].UnscheduledWeightDelta, ObjectiveScore: out[i].ObjectiveDelta},
+			&Schedule{UnscheduledWeight: out[j].UnscheduledWeightDelta, ObjectiveScore: out[j].ObjectiveDelta})
 	})
 	return out
 }
@@ -165,8 +168,9 @@ func remediesFor(teams []Team, inits []Initiative, params Params, sp SchedulingP
 		return Remedy{
 			Kind: kind, Target: target.Name, Magnitude: mag, Pod: remedyPod(kind, pod),
 			ResultingVerdict: after.Verdict, TargetWeeksLate: after.WeeksLate,
-			ObjectiveDelta:      round1(s.ObjectiveScore - base.ObjectiveScore),
-			AffectedInitiatives: moved, Note: note,
+			ObjectiveDelta:         round1(s.ObjectiveScore - base.ObjectiveScore),
+			UnscheduledWeightDelta: s.UnscheduledWeight - base.UnscheduledWeight,
+			AffectedInitiatives:    moved, Note: note,
 		}
 	}
 

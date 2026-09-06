@@ -1,11 +1,19 @@
+import { icon } from './icons.js';
 import { openModal, closeModal } from './modal.js';
 // Rosters: reusable, editable team-structure definitions (pods: name, site,
 // pairing, headcount, lanes). Created/uploaded once, edited anytime, and
 // associated with a Jira import. Manager-only.
 import { authFetch } from './auth.js';
+import { notifyMeasureSourcesChanged } from './measure-context.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-async function req(p, o) { try { return await authFetch(p, o); } catch { return null; } }
+async function req(p, o) {
+  try {
+    const response = await authFetch(p, o);
+    if (response.ok && ['POST', 'PATCH', 'DELETE'].includes(o?.method) && p.startsWith('/api/rosters')) notifyMeasureSourcesChanged();
+    return response;
+  } catch { return null; }
+}
 
 // Standalone "Rosters" modal — where rosters are created, uploaded, and edited.
 export async function openRosters() {
@@ -18,10 +26,10 @@ export async function openRosters() {
     // no click-outside-to-close — the ✕ button is the deliberate exit.
   }
   ov.innerHTML = `<div class="modal-box">
-      <div class="modal-head"><h2>👥 Team rosters</h2><button id="rosters-close">✕</button></div>
+      <div class="modal-head"><h2>Team rosters</h2><button id="rosters-close">${icon('close')}Close</button></div>
       <p class="hint">Reusable team structure — headcount, pairing, site and work-lanes. A Jira import
-        joins a roster to live activity by pod name. Edit anytime; re-associate a snapshot from Observe ▸ 🗂 Snapshots.</p>
-      <div id="rosters-body"></div>
+        joins a roster to live activity by pod name. Edit anytime; re-associate a snapshot from Measure ▸ Snapshots.</p>
+      <p class="rosters-status" role="status" aria-live="polite"></p><div id="rosters-body"></div>
     </div>`;
   openModal(ov);
   ov.querySelector('#rosters-close').addEventListener('click', () => closeModal(ov));
@@ -32,20 +40,23 @@ export async function openRosters() {
 // and by snapshotsui.js's combined "Snapshots" view (Rosters + Jira snapshots
 // are both "things captured/uploaded"; Snapshots is where you see both at once).
 export async function mountRosters(container) {
-  container.innerHTML = `<div id="rosters-body"></div>`;
+  container.innerHTML = `<p class="rosters-status" role="status" aria-live="polite"></p><div id="rosters-body"></div>`;
   renderList(container);
 }
+
+function showError(ov,message) { const el=ov.querySelector('.rosters-status'); if(el) { el.textContent=message.trim().slice(0,250); el.setAttribute('role','alert'); } }
 
 async function renderList(ov) {
   const box = ov.querySelector('#rosters-body');
   const r = await req('/api/rosters');
-  const rosters = (r && r.ok) ? (await r.json()) || [] : [];
+  if(!r?.ok) { showError(ov,'Could not load rosters. Reopen Rosters to retry.'); return; }
+  const rosters = (await r.json()) || [];
   const fmt = (ts) => (ts ? new Date(ts * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }) : '');
   box.innerHTML = `
     <div class="games-create">
       <button id="ros-new" class="primary">+ New roster</button>
-      <button id="ros-upload">⬆ New from CSV/XLSX</button>
-      <a class="hint" href="/api/sample/roster.csv">⬇ sample format</a>
+      <button id="ros-upload">${icon('upload')}New from CSV/XLSX</button>
+      <a class="hint" href="/api/sample/roster.csv">Download sample format</a>
       <input id="ros-file" type="file" accept=".csv,.xlsx" hidden>
     </div>
     <table class="wip-table"><thead><tr><th>Name</th><th>Pods</th><th>Visibility</th><th>Updated</th><th></th></tr></thead>
@@ -75,7 +86,8 @@ async function renderList(ov) {
     editRoster(ov, { name: file.files[0]?.name?.replace(/\.\w+$/, '') || 'Roster', pods: d.teams });
   });
   box.querySelectorAll('.ros-pub').forEach((b) => b.addEventListener('click', async () => {
-    await req('/api/rosters/' + b.dataset.id, { method: 'PATCH', body: JSON.stringify({ public: b.dataset.pub !== '1' }) });
+    const r=await req('/api/rosters/' + b.dataset.id, { method: 'PATCH', body: JSON.stringify({ public: b.dataset.pub !== '1' }) });
+    if(!r?.ok) { showError(ov,r ? await r.text() : 'Could not change visibility. Try again.'); return; }
     renderList(ov);
   }));
   box.querySelectorAll('.ros-edit').forEach((b) => b.addEventListener('click', async () => {
@@ -85,19 +97,20 @@ async function renderList(ov) {
   }));
   box.querySelectorAll('.ros-del').forEach((b) => b.addEventListener('click', async () => {
     if (!confirm(`Delete roster "${b.dataset.name}"?`)) return;
-    await req('/api/rosters/' + b.dataset.id, { method: 'DELETE' });
+    const r=await req('/api/rosters/' + b.dataset.id, { method: 'DELETE' });
+    if(!r?.ok) { showError(ov,r ? await r.text() : 'Could not delete roster. Try again.'); return; }
     renderList(ov);
   }));
 }
 
 function podRow(p) {
   return `<tr>
-    <td><input class="rp-name" value="${esc(p.name)}" placeholder="Pod name"></td>
-    <td><input class="rp-loc" value="${esc(p.location || '')}" placeholder="Site"></td>
-    <td style="text-align:center"><input class="rp-pair" type="checkbox" ${p.pairing ? 'checked' : ''}></td>
-    <td><input class="rp-dev" type="number" min="0" value="${p.devCount || 0}" style="width:56px"></td>
-    <td><input class="rp-lane" type="number" min="0" value="${p.streams || ''}" placeholder="auto" style="width:60px"></td>
-    <td><button class="rp-del">✕</button></td></tr>`;
+    <td><input class="rp-name" aria-label="Pod name" value="${esc(p.name)}" placeholder="Pod name"></td>
+    <td><input class="rp-loc" aria-label="Site" value="${esc(p.location || '')}" placeholder="Site"></td>
+    <td style="text-align:center"><input class="rp-pair" aria-label="Pairing enabled" type="checkbox" ${p.pairing ? 'checked' : ''}></td>
+    <td><input class="rp-dev" aria-label="Developer count" type="number" min="0" value="${p.devCount || 0}" style="width:56px"></td>
+    <td><input class="rp-lane" aria-label="Parallel work lanes" type="number" min="0" value="${p.streams || ''}" placeholder="auto" style="width:60px"></td>
+    <td><button type="button" class="rp-del">Remove pod</button></td></tr>`;
 }
 
 function editRoster(ov, roster) {
@@ -105,10 +118,10 @@ function editRoster(ov, roster) {
   const readOnly = roster.id && roster.mine === false; // a shared roster owned by someone else
   box.innerHTML = `
     <div class="games-create">
-      <input id="ros-name" value="${esc(roster.name || '')}" placeholder="Roster name" style="min-width:220px" ${readOnly ? 'disabled' : ''}>
+      <label>Roster name <input id="ros-name" value="${esc(roster.name || '')}" placeholder="Roster name" style="min-width:220px" ${readOnly ? 'disabled' : ''}></label>
       ${readOnly ? '' : '<button id="ros-add">+ Add pod</button> <button id="ros-save" class="primary">Save roster</button>'}
-      <a class="plan-back" id="ros-back">✕ back to list</a>
-      <span id="ros-status" class="hint">${readOnly ? `read-only — shared by ${roster.owner ? 'another manager' : 'system'}` : ''}</span>
+      <button type="button" class="plan-back" id="ros-back">Back to rosters</button>
+      <span id="ros-status" class="hint" role="status" aria-live="polite">${readOnly ? `read-only — shared by ${roster.owner ? 'another manager' : 'system'}` : ''}</span>
     </div>
     <table class="wip-table"><thead><tr><th>Pod</th><th>Site</th><th>Pairing</th><th>Devs</th><th>Lanes</th><th></th></tr></thead>
       <tbody id="ros-rows">${(roster.pods && roster.pods.length ? roster.pods : [{}]).map(podRow).join('')}</tbody></table>
@@ -132,8 +145,8 @@ function editRoster(ov, roster) {
     const r = roster.id
       ? await req('/api/rosters/' + roster.id, { method: 'PATCH', body })
       : await req('/api/rosters', { method: 'POST', body });
-    if (!r || !r.ok) { alert((r && (await r.text()).trim()) || 'Save failed'); return; }
-    box.querySelector('#ros-status').innerHTML = `<span style="color:var(--green)">✓ saved ${pods.length} pods</span>`;
+    if (!r || !r.ok) { const status=box.querySelector('#ros-status'); status.textContent=(r ? (await r.text()).trim() : '') || 'Save failed. Your edits are still here; try again.'; status.setAttribute('role','alert'); return; }
+    box.querySelector('#ros-status').innerHTML = `<span style="color:var(--green)">Saved ${pods.length} pods</span>`;
     setTimeout(() => renderList(ov), 600);
   });
 }

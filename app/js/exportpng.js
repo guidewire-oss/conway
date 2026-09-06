@@ -32,8 +32,16 @@ export async function exportBlockPNG(block, filename) {
   if (!block) return false;
   try {
     const clone = block.cloneNode(true);
-    // Buttons and interactive affordances are not part of the artefact.
-    clone.querySelectorAll('button').forEach((b) => b.remove());
+    // specs/019-scheduling-audit-and-gantt-integrity.md:170: initiative names
+    // remain evidence even when their selection affordance becomes plain text.
+    clone.querySelectorAll('button').forEach((b) => {
+      if (b.hasAttribute('data-select-init')) {
+        const label = document.createElement('span');
+        label.className = b.className;
+        label.textContent = b.textContent;
+        b.replaceWith(label);
+      } else b.remove();
+    });
     const cs = getComputedStyle(block);
     // The clone renders under <foreignObject>, not the page <body>, so the
     // inherited color and typography it would have gotten from the cascade are
@@ -43,7 +51,9 @@ export async function exportBlockPNG(block, filename) {
     const inherit = [
       'color', 'font-family', 'font-size', 'line-height', 'font-weight',
       'letter-spacing', 'text-transform',
-    ].map((k) => cs[k]).join(' ');
+    ].map((k) => `${k}:${cs.getPropertyValue(k)};`).join('');
+    const variables = Array.from(cs).filter((key) => key.startsWith('--'))
+      .map((key) => `${key}:${cs.getPropertyValue(key)};`).join('');
     const pad = 12; // mirrored into the SVG's dimensions below, not just the style
     const w = Math.max(1, Math.ceil(block.getBoundingClientRect().width) + pad * 2 || 600);
     const h = Math.max(1, Math.ceil(block.getBoundingClientRect().height) + pad * 2 || 200);
@@ -55,7 +65,7 @@ export async function exportBlockPNG(block, filename) {
     const inner = document.createElementNS('http://www.w3.org/1999/xhtml', 'div');
     // padding counts against the declared width so nothing crops; the width is
     // already block-width + 2*pad above.
-    inner.setAttribute('style', `width:${w}px;box-sizing:border-box;background:${bg};padding:${pad}px;${inherit}`);
+    inner.setAttribute('style', `width:${w}px;box-sizing:border-box;background:${bg};padding:${pad}px;${inherit}${variables}`);
     inner.appendChild(style);
     inner.appendChild(clone);
 

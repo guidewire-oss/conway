@@ -161,6 +161,48 @@ sides.
 
 ---
 
+### Decision 3: Recognize common word endings in search (2026-09-05)
+
+**Context:** Searching for `rotate` omitted an initiative named `Credential
+rotation`. Literal substring and subsequence matching cannot connect those
+forms, so scheduled, held and outside-view work can all appear missing.
+
+**Decision:** Preserve existing literal and subsequence matches. Also compare
+whole word tokens after conservatively removing common English endings (`s`,
+`ed`, `ing`, `ion`, and terminal `e`), retaining a root of at least four letters.
+Every query token must match a target token literally or by the same root.
+This supports `rotate`, `rotated`, `rotating` and `rotation` without introducing
+a dependency or changing stored names. Multiple search words can appear in
+either order. Reuse the shared matcher for both timeline groupings, their match
+counts, team filtering, held assignments and outside-view notices.
+
+**Acceptance:** A `rotate` search shows a generic credential-rotation initiative
+on every assigned team, including slices beyond the current span and assignments
+held without dates. Unrelated work stays filtered out; existing shorthand,
+case-insensitive and empty-query matching continue to work.
+
+**Limits:** This is a small word-ending convenience, not semantic search or a
+complete linguistic stemmer. Do not infer synonyms or alter initiative identity.
+
+### Decision 4: Initiative queries require matching text (2026-09-05)
+
+**Context:** The inherited scattered-letter search matches `rotate` against
+`Reporting automation readiness`, despite none of its words containing the
+requested text or a related word form. This makes initiative isolation unreliable.
+
+**Decision:** Initiative filters use literal substring or common word-root
+matching, with every query word required. They do not use scattered-letter
+subsequences. Team filters retain their existing shorthand behavior, without
+initiative word-root matching; this supersedes Decision 3's inclusion of teams
+in the shared word-root matcher. Apply the
+initiative matcher consistently to bars, team-card selection, held work,
+outside-view notices, portfolio rows and counts. This supersedes Decision 3's
+preservation of subsequence matching for initiative names only.
+
+**Acceptance:** `rotate` matches `Rotate credentials` and `Credential rotation`,
+but not `Reporting automation readiness` or unrelated dashboard work. Nonmatches
+stay hidden unless explicitly requested as other-work ghosts.
+
 ## 12. Success Metrics
 
 | Metric | Current | Target | How to Measure |

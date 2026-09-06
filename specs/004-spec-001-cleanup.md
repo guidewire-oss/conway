@@ -279,3 +279,11 @@ Story 10's to add.
 | Spec 001 open gaps | 5 | 0 | this spec's stories done |
 | Dead knobs in assumptions form | 1 (targetUtilization) | 0 | order.js:419 comment retired |
 | Reconciliation rows with an action | 0 | all | in-browser |
+
+
+### Follow-up — 2026-09-05
+
+Story 10's execution review, historically excluded from this cleanup, is now
+implemented in spec 017 using imported snapshot evidence. This cleanup's
+plan-time fever chart remains distinct from observed execution and its explicit
+inference/data-gap labels. See `specs/017-planning-and-execution-usability.md`.

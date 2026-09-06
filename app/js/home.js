@@ -15,22 +15,28 @@ export async function initHome(state) {
   const pods = state.pods || [];
   const stats = state.stats || {};
   const edges = state.edges || [];
-  const totWip = pods.reduce((s, p) => s + (stats[p.name]?.wip || 0), 0);
-  const hot = pods.filter((p) => (stats[p.name]?.rho0 || 0) >= 0.85).length;
-  const hygVals = pods.map((p) => state.hygiene?.[p.name]?.score).filter((v) => v != null);
+  const observed = pod => stats[pod.name]?.synthetic !== true;
+  const loadFor = pod => Number.isFinite(stats[pod.name]?.load) ? stats[pod.name].load : stats[pod.name]?.rho0;
+  const measuredWip = pods.filter((p) => observed(p) && Number.isFinite(stats[p.name]?.wip));
+  const totWip = measuredWip.reduce((s, p) => s + stats[p.name].wip, 0);
+  const measuredLoad = pods.filter((p) => observed(p) && Number.isFinite(loadFor(p)));
+  const hot = measuredLoad.filter((p) => loadFor(p) >= 0.85).length;
+  const overloaded = measuredLoad.filter((p) => loadFor(p) >= 1).length;
+  const hygVals = pods.map((p) => state.hygiene?.[p.name]?.score).filter((v) => Number.isFinite(v));
   const dq = hygVals.length ? hygVals.reduce((a, b) => a + b, 0) / hygVals.length : null;
-  const constraints = constraintScores(stats, edges).filter((c) => pods.some((p) => p.name === c.pod)).slice(0, 3);
+  const constraints = constraintScores(stats, edges).filter((c) => measuredLoad.some((p) => p.name === c.pod)).slice(0, 3);
   const topEdges = [...edges].sort((a, b) => b.count - a.count).slice(0, 3);
 
   // which snapshot are we looking at?
-  let snapNote = '';
+  let snapNote = `Snapshot: <b>${esc(getSnapshot())}</b> · capture date unavailable; freshness unknown.`;
   if (authMode() === 'auth') {
     const snaps = await listSnapshots();
     const cur = snaps.find((s) => s.id === getSnapshot()) || snaps.find((s) => s.id === 'baseline');
     if (cur) {
-      const when = cur.id === 'baseline' ? 'mined baseline'
+      const when = cur.source === 'baseline' || cur.source === 'template' ? 'synthetic example snapshot'
         : new Date(cur.createdAt * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-      snapNote = `Showing <b>${esc(cur.name || cur.id)}</b> <span class="hint">· ${when}</span>`;
+      const age = cur.createdAt ? Math.max(0, Math.floor((Date.now() / 1000 - cur.createdAt) / 86400)) : null;
+      snapNote = `Showing <b>${esc(cur.name || cur.id)}</b> <span class="hint">· captured ${when}${age == null ? ' · freshness unknown' : ` · ${age} days old${age > 14 ? ' · refresh before making current delivery decisions' : ''}`}</span>`;
     }
   }
 
@@ -46,16 +52,16 @@ export async function initHome(state) {
         <p class="home-sub">${who}. ${roleBadges}</p>
       </div>
       <div class="panel-card" style="max-width:640px">
-        <h3>No org snapshot yet</h3>
+        <h3>No snapshot data loaded</h3>
         <p>Conway has three surfaces: <b>Measure</b> (what's happening now, mined from
           Jira), <b>Plan</b> (what you intend to run — rosters and initiatives, priced
-          by capacity), and <b>Learn</b> (the multi-team flow game). Everything starts
-          with an <b>org network</b> — pods and the dependencies between them —
-          captured as a dated <b>snapshot</b>. There isn't one yet.</p>
+          by capacity), and <b>Learn</b> (the multi-team flow game). Measure uses an <b>org network</b> — teams and dependencies — captured as a dated <b>snapshot</b>. No teams were loaded; the selected snapshot may be empty or unavailable. Reload to retry, or select another snapshot.</p>
         ${hasRole('manager')
-        ? '<p>Capture the current state from Jira to get started — each import creates a <b>dated snapshot</b> that is yours, and the Measure screens render whichever one you pick at the top:</p><button class="home-act" data-ctl="obs-import" style="max-width:280px"><b>📥 Import from Jira</b><span class="hint">build your first snapshot</span></button><p class="hint" style="margin-top:8px">New here? The <b>Docs</b> tab (top right) has a 15-minute walkthrough on the demo plan.</p>'
-        : '<p class="hint">Ask a manager to import a snapshot from Jira, or (facilitators) upload a scenario under Train ▸ Run games.</p>'}
+        ? '<p>Capture the current state from Jira to get started — each import creates a <b>dated snapshot</b> that is yours, and the Measure screens render whichever one you pick at the top:</p><button class="home-act" data-ctl="obs-import" style="max-width:280px"><b>Import from Jira</b><span class="hint">build your first snapshot</span></button><p class="hint" style="margin-top:8px">New here? The <b>Help</b> menu has a 15-minute walkthrough on the demo plan.</p>'
+        : '<p class="hint">Ask a manager to import a snapshot from Jira, or (facilitators) upload a scenario under Learn ▸ Run games.</p>'}
+        ${hasRole('manager') ? '<p>You can plan without importing Jira. Start with a roster and initiatives, or try the demo.</p><button class="home-act" data-go="plan"><b>Create or open a plan</b><span class="hint">My plans includes Load demo plan</span></button>' : ''}
       </div>`;
+    el.querySelectorAll('[data-go]').forEach((button) => button.addEventListener('click', () => document.querySelector('.tab[data-view="plan"]')?.click()));
     el.querySelectorAll('button[data-ctl]').forEach((b) => b.addEventListener('click', () => document.getElementById(b.dataset.ctl)?.click()));
     return;
   }
@@ -66,10 +72,16 @@ export async function initHome(state) {
   // recently updated plan with a schedule. Cards deep-link to the views.
   const alertCard = (level, title, sub, go) =>
     `<button class="home-alert home-alert-${level}" data-go="${go}">
-      <b>${title}</b><span class="hint">${sub}</span></button>`;
+      <b>${esc(title)}</b><span class="hint">${esc(sub)}</span></button>`;
 
   let planAlert = '';
+  let checkedPlanID = '';
+  let checkedPlanName = '';
+  let checkedPlanDate = '';
+  let checkedAt = '';
+  const unavailablePlan = () => alertCard('warn', 'Plan dates not checked', 'The plan or schedule could not be loaded. Open My plans to retry.', 'plan');
   if (hasRole('manager')) {
+    planAlert = unavailablePlan();
     try {
       const r = await authFetch('/api/plan');
       if (r && r.ok) {
@@ -79,35 +91,45 @@ export async function initHome(state) {
         // its "no dates" state would swallow the card.
         const latest = [...plans].filter((p) => (p.initiativeCount || 0) > 0)
           .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+        if (!latest) planAlert = alertCard('warn', 'No populated plan to check', 'Create a plan and add initiatives before reviewing dates.', 'plan');
         if (latest) {
+          checkedPlanID = latest.id; checkedPlanName = latest.name || 'your latest plan';
+          checkedPlanDate = latest.updatedAt ? new Date(latest.updatedAt * 1000).toLocaleDateString() : 'unknown';
           const sr = await authFetch(`/api/plan/${encodeURIComponent(latest.id)}/schedule`, { method: 'POST', body: '{}' });
           if (sr && sr.ok) {
             const sched = await sr.json();
+            checkedAt = new Date().toLocaleString();
             const dated = (sched.initiatives || []).filter((i) => i.targetWeek !== null && i.targetWeek !== undefined);
             const missing = dated.filter((i) => i.verdict !== 'on-time');
             if (missing.length) {
               planAlert = alertCard('miss',
                 `${missing.length} of ${dated.length} dates at risk`,
-                `in ${latest.name || 'your latest plan'} under the best order found`, 'plan');
+                `in ${latest.name || 'your latest plan'} under its current working order`, 'plan');
             } else if (dated.length) {
-              planAlert = alertCard('ok', 'Every dated initiative holds',
-                `in ${latest.name || 'your latest plan'}`, 'plan');
+              planAlert = alertCard('ok', 'Every dated initiative is forecast on time',
+                `in ${latest.name || 'your latest plan'} under current assumptions; not observed execution`, 'plan');
+            } else {
+              planAlert = alertCard('warn', 'No target dates to check', `in ${latest.name || 'your latest plan'}; add target dates to review date risk`, 'plan');
             }
           }
         }
       }
-    } catch { /* the plan pillar is optional; no alert rather than a broken home */ }
+    } catch { planAlert = unavailablePlan(); }
   }
 
   const alerts = [];
-  if (hot > 0) alerts.push(alertCard('miss', `${hot} pod${hot > 1 ? 's' : ''} over capacity`,
-    'load ρ ≥ 0.85 — where flow chokes first', 'scoreboard'));
-  if (dq != null && dq < 0.4) alerts.push(alertCard('warn', 'Data quality is low',
-    'decisions on this data inherit its gaps', 'hygiene'));
+  if (hot > 0) alerts.push(alertCard('warn', `${hot} team${hot > 1 ? 's' : ''} under high load`,
+    `Load ≥ 0.85 raises queue risk; ${overloaded} at or above capacity (≥ 1.0). This is not a delivery verdict.`, 'scoreboard'));
+  if (measuredLoad.length < pods.length) alerts.push(alertCard('warn', 'Load evidence incomplete',
+    `${measuredLoad.length} of ${pods.length} teams have a measured load.`, 'scoreboard'));
+  if (dq == null || hygVals.length < pods.length) alerts.push(alertCard('warn', 'Data quality not fully checked',
+    `${hygVals.length} of ${pods.length} teams have a quality score; missing evidence is unknown.`, 'hygiene'));
+  if (dq != null && dq < 0.66) alerts.push(alertCard('warn', 'Review data quality',
+    'Forecasts inherit gaps in estimates, board freshness and ownership.', 'hygiene'));
   if (planAlert) alerts.push(planAlert);
-  const alertsHTML = alerts.length
-    ? `<div class="home-alerts">${alerts.join('')}</div>`
-    : `<div class="home-alerts">${alertCard('ok', 'Nothing needs attention', 'pods under load, dates holding, data usable', 'network')}</div>`;
+  if (!hot && measuredLoad.length === pods.length) alerts.push(alertCard('ok', 'Measured teams below high-load threshold',
+    'Snapshot load only; this does not establish delivery health.', 'scoreboard'));
+  const alertsHTML = `<div class="home-alerts">${alerts.join('')}</div>`;
 
   const tile = (label, value, sub, color) => `
     <div class="home-tile">
@@ -134,13 +156,14 @@ export async function initHome(state) {
     </div>
 
     ${alertsHTML}
+    <p class="hint">Measure cards use the selected snapshot. ${hasRole('manager') ? `Plan check: ${esc(checkedPlanName || 'unavailable')} · last edited ${esc(checkedPlanDate || 'unknown')} · date check ${esc(checkedAt || 'unavailable')}. Only the most recently updated populated plan is checked.` : 'Plan checks require manager access.'}</p>
 
     <div class="home-stats">
       ${tile('Pods', pods.length, 'teams in the network')}
       ${tile('Dependencies', edges.length, 'cross-pod blocking links')}
-      ${tile('Open WIP', Math.round(totWip), 'items in flight')}
-      ${tile('Hot pods', hot, 'load ρ ≥ 0.85', hot ? 'var(--amber)' : 'var(--green)')}
-      ${tile('Data quality', dq == null ? '—' : pct(dq), 'avg pod hygiene', dqColor)}
+      ${tile('Open WIP', measuredWip.length ? Math.round(totWip) : 'Unknown', `${measuredWip.length}/${pods.length} teams measured`)}
+      ${tile('High-load teams', measuredLoad.length ? hot : 'Unknown', `${measuredLoad.length}/${pods.length} teams measured; high load ≥ 0.85`, hot ? 'var(--amber)' : measuredLoad.length === pods.length ? 'var(--green)' : '')}
+      ${tile('Data quality', dq == null ? '—' : pct(dq), `${hygVals.length}/${pods.length} teams measured`, dqColor)}
     </div>
 
     <div class="home-cols">
@@ -173,7 +196,13 @@ export async function initHome(state) {
     </div>
     ${hasRole('manager') ? `<p class="hint" style="margin-top:10px">Data tools: <a href="#" data-ctl="obs-rosters">rosters</a> · <a href="#" data-ctl="obs-import">import from Jira</a> · <a href="#" data-ctl="obs-snapshots">snapshots</a>${hasRole('admin') ? ' · <a href="#" data-ctl="admin-btn">admin</a>' : ''}</p>` : ''}`;
 
-  el.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => document.querySelector(`.tab[data-view="${b.dataset.go}"]`)?.click()));
+  el.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => {
+    if (b.dataset.go === 'plan' && checkedPlanID && b.classList.contains('home-alert')) {
+      const url = new URL(location.href); url.searchParams.set('plan', checkedPlanID); url.searchParams.set('view', 'plan'); url.searchParams.set('planView', 'order');
+      history.pushState({}, '', url); window.dispatchEvent(new PopStateEvent('popstate')); return;
+    }
+    document.querySelector(`.tab[data-view="${b.dataset.go}"]`)?.click();
+  }));
   el.querySelectorAll('a[data-ctl]').forEach((a) => a.addEventListener('click', (ev) => { ev.preventDefault(); document.getElementById(a.dataset.ctl)?.click(); }));
   el.querySelectorAll('button[data-ctl]').forEach((b) => b.addEventListener('click', () => document.getElementById(b.dataset.ctl)?.click()));
 }

@@ -55,6 +55,28 @@ test('a body drag pins the start week (the pre-S4 contract still holds)', async 
   assert.equal(pins[0][2].effort, undefined, 'a move never edits the estimate');
 });
 
+test('dragging a later phase preserves the initial phase lane as the pin origin', async () => {
+  const bar = makeBar({ initiative: 'Growth', pod: 'Atlas', startWeek: '2', lane: '0', laneOrigin: '3' });
+  let pin;
+  attachDrag(makeRoot([bar]), {
+    onPin: (initiative, pod, edit, origin) => { pin = { initiative, pod, edit, origin }; },
+  });
+  await drag(bar, 60, 27, 60, 5);
+  assert.equal(pin.edit.laneDelta, -1);
+  assert.equal(pin.origin.lane, 3);
+  assert.equal(pin.origin.lane + pin.edit.laneDelta, 2, 'move up one from the initial phase lane');
+});
+
+test('a left resize clamped at week zero preserves the original finish', async () => {
+  const bar = makeBar({ initiative: 'Alpha', pod: 'Atlas', startWeek: '2', estimate: '10', lanes: '1' });
+  let edit;
+  attachDrag(makeRoot([bar]), { lossFactor: 1, onPin: (_i, _p, value) => { edit = value; }, onResize() {} });
+  await drag(bar, 2, 5, -58, 5);
+  assert.equal(edit.startWeek, 0);
+  assert.equal(edit.effort, 12);
+  assert.equal(edit.startWeek + edit.effort, 12);
+});
+
 // Decision 4 math: the engine's forward direction is
 // duration = effort / ((1-loss) x lanes), so the inverse is
 // deffort = dduration x lanes x (1-loss). The loss comes from the plan.
@@ -234,4 +256,52 @@ test('in-flight initiatives carry no estimate attribute', () => {
   });
   assert.ok(!/data-estimate=/.test(html), 'the resize gesture is withheld');
   assert.match(html, /data-lanes="2"/, 'lane geometry still present');
+});
+
+test('drag previews name the pending start and lane before any save, then clear on release', async () => {
+  const bar = makeBar({ initiative: 'Alpha', pod: 'Atlas', startWeek: '2', lane: '0', estimate: '10', lanes: '1' });
+  const previews = [], pins = [];
+  attachDrag(makeRoot([bar]), { onPreview: message => previews.push(message), onPin: (_i,_p,edit) => pins.push(edit) });
+  bar.listeners.pointerdown({ button: 0, pointerType: 'mouse', pointerId: 1, clientX: 60, clientY: 5, preventDefault() {} });
+  bar.listeners.pointermove({ clientX: 73, clientY: 27 });
+  assert.match(previews.at(-1), /Start week 2 → 3; lane 1 → 2/);
+  assert.match(previews.at(-1), /Release to save the working plan/);
+  assert.equal(pins.length, 0, 'preview does not write');
+  await bar.listeners.pointerup({ clientX: 73, clientY: 27 });
+  assert.equal(previews.at(-1), '');
+  assert.equal(pins[0].startWeek, 3);
+  assert.equal(pins[0].laneDelta, 1);
+});
+
+test('resize preview uses the same team loss and effort rounding as the released edit', async () => {
+  const bar = makeBar({ initiative: 'Alpha', pod: 'Atlas', startWeek: '2', estimate: '8', lanes: '2', loss: '30' });
+  const previews = [], resizes = [];
+  attachDrag(makeRoot([bar]), { onPreview: message => previews.push(message), onPin() {}, onResize: (_i,_p,weeks) => resizes.push(weeks) });
+  bar.listeners.pointerdown({ button: 0, pointerType: 'mouse', pointerId: 1, clientX: 116, clientY: 5, preventDefault() {} });
+  bar.listeners.pointermove({ clientX: 140, clientY: 5 });
+  assert.match(previews.at(-1), /Estimate 8 → 11 weeks/);
+  assert.equal(resizes.length, 0);
+  await bar.listeners.pointerup({ clientX: 140, clientY: 5 });
+  assert.deepEqual(resizes, [11]);
+  assert.equal(previews.at(-1), '');
+});
+
+test('a cancelled or invalid preview never saves and an in-flight left edge previews a move', async () => {
+  const bar = makeBar({ initiative: 'Alpha', pod: 'Atlas', startWeek: '2', lanes: '2' });
+  const previews = [], pins = [];
+  attachDrag(makeRoot([bar]), { onPreview: message => previews.push(message), onPin: (_i,_p,edit) => pins.push(edit) });
+  bar.listeners.pointerdown({ button: 0, pointerType: 'mouse', pointerId: 1, clientX: 2, clientY: 5, preventDefault() {} });
+  bar.listeners.pointermove({ clientX: 14, clientY: 5 });
+  assert.match(previews.at(-1), /Start week 2 → 3/);
+  bar.listeners.pointercancel();
+  assert.equal(previews.at(-1), '');
+  assert.equal(pins.length, 0);
+
+  const resize = makeBar({ initiative: 'Alpha', pod: 'Atlas', startWeek: '2', estimate: '2', lanes: '2' });
+  attachDrag(makeRoot([resize]), { onPreview: message => previews.push(message), onPin: () => assert.fail('invalid resize must not pin'), onResize: () => assert.fail('invalid resize must not save') });
+  resize.listeners.pointerdown({ button: 0, pointerType: 'mouse', pointerId: 1, clientX: 116, clientY: 5, preventDefault() {} });
+  resize.listeners.pointermove({ clientX: 80, clientY: 5 });
+  assert.match(previews.at(-1), /cannot resize below one estimate week/);
+  await resize.listeners.pointerup({ clientX: 80, clientY: 5 });
+  assert.equal(previews.at(-1), '');
 });

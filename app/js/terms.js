@@ -31,11 +31,11 @@ export const TERMS = {
   },
   buffer: {
     label: 'Buffer',
-    tip: 'Protective time added after the scheduled work, so a slip eats the buffer instead of the promise. A flat 25% of the chain by default.',
+    tip: 'Protective time added after the scheduled work, so a slip eats the buffer instead of the promise. Its size follows the plan settings and current critical chain.',
   },
   commit: {
-    label: 'Commit week',
-    tip: 'The week you can promise: scheduled finish plus buffer. Promising the raw finish date leaves nothing for reality.',
+    label: 'Buffered finish',
+    tip: 'The forecast finish including protective buffer, conditional on the current estimates, staffing, dependencies and calendar. Save an agreed baseline when the team accepts this forecast.',
   },
   target: {
     label: 'Target date',
@@ -43,7 +43,7 @@ export const TERMS = {
   },
   'weighted-late': {
     label: 'Weighted weeks late',
-    tip: 'The plan\u2019s total lateness, where a week late on an important initiative counts more. The engine picks the order that minimises this number.',
+    tip: 'The plan\u2019s total lateness, where a week late on an important initiative counts more. The engine first minimizes weighted unstarted work, then uses weighted lateness to break ties.',
   },
   verdict: {
     label: 'Verdict',
@@ -104,11 +104,11 @@ export const TERMS = {
   },
   siteOverlap: {
     label: 'Site overlap',
-    tip: 'How many working hours two sites share per day, from their real IANA timezones on the modelled date — daylight saving included. A handoff across zero shared hours costs more than one across eight.',
+    tip: 'Shared working hours from site timezones and the modeled date. The finite planning scheduler currently adds zero timezone handoff delay; represent material coordination work explicitly.',
   },
   objective: {
-    label: 'Objective (weighted lateness)',
-    tip: 'The plan\u2019s price tag: weeks missed by dated initiatives, weighted by cost of delay. Lower is better. Zero means every dated initiative holds \u2014 on a plan with no dates, zero carries no information.',
+    label: 'Objective (coverage, then lateness)',
+    tip: 'The engine compares weighted unstarted work first, then weighted weeks late. Zero lateness does not prove that all work is scheduled: held initiatives have no completion dates. The two costs stay separate.',
   },
   optimize: {
     label: 'Optimize order',
@@ -128,7 +128,7 @@ export const TERMS = {
   },
   kingman: {
     label: 'Wait multiplier',
-    tip: 'How much time-in-queue multiplies as utilisation rises (Kingman\u2019s formula): near full it explodes — at 90% load, work waits ~9\u00d7 its touch time. The reason "just one more thing" is so expensive.',
+    tip: 'Queueing-inspired sensitivity factor rho / (1 - rho): 90% modeled load gives 9. This is a heuristic using a concurrency proxy, not a measurement of waiting or the full Kingman formula.',
   },
   freeze: {
     label: 'Freeze window',

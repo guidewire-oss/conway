@@ -1,0 +1,18 @@
+.announcement-indicator { display: inline-flex; align-items: center; gap: .3rem; margin-inline-start: .45rem; font-size: .7rem; font-weight: 600; }
+.announcement-dot { display: inline-block; width: .5rem; height: .5rem; flex: 0 0 .5rem; border-radius: 50%; background: #f4c542; outline: 1px solid currentColor; }
+.announcement-new-label { white-space: nowrap; }
+.announcement-list { list-style: none; padding: 0; margin: 0; }
+.announcement-list li { padding-block: 1rem; border-bottom: 1px solid var(--border); }
+.announcement-list li:last-child { border-bottom: 0; }
+.announcement-list h3 { font-size: 1.1rem; overflow-wrap: anywhere; }
+.announcement-list p { overflow-wrap: anywhere; }
+.announcement-state { display: inline-block; font-size: .85rem; margin: .5rem; }
+.announcement-status:not([hidden]) { padding: .7rem 1rem; margin: .5rem; border: 1px solid var(--border); }
+#announcements-overlay .modal-content { background: var(--bg); color: var(--text); }
+#announcements-overlay .modal-header { gap: .7rem; flex-wrap: wrap; }
+#announcements-overlay .modal-title { font-size: 1.35rem; }
+#announcements-overlay .modal-body { overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+  #announcements-overlay .modal-dialog { margin: .5rem; max-width: calc(100vw - 1rem); }
+  #announcements-overlay .btn { white-space: normal; min-height: 44px; }
+}

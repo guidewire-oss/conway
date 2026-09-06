@@ -28,6 +28,7 @@ import (
 	"conway/server/game"
 	"conway/server/logging"
 	"conway/server/oidc"
+	"conway/server/sheets"
 )
 
 // Play state is scoped per game (gameID -> team -> …). The legacy single game is
@@ -59,6 +60,11 @@ type server struct {
 	oidc      *oidc.Provider       // nil = SSO not configured (password login only)
 	oidcMu    sync.Mutex           // guards oidcFlows
 	oidcFlows map[string]*oidcFlow // pending SSO logins keyed by state (PKCE + nonce)
+
+	// specs/023-linked-google-sheets.md:208 — read-only, deployment-owned Sheets access.
+	sheetsProvider     sheets.Provider
+	sheetsAccountEmail string
+	sheetsNow          func() time.Time
 }
 
 // sess/gmap/tmap return the per-game maps, creating them on first use. Caller holds s.mu.
@@ -434,6 +440,16 @@ func main() {
 		jiraBaseURL:  strings.TrimRight(os.Getenv("CONWAY_JIRA_BASE_URL"), "/"),
 		jiraSiteHint: os.Getenv("CONWAY_JIRA_SITE_HINT"),
 	}
+	if credentials := os.Getenv("CONWAY_GOOGLE_CREDENTIALS_FILE"); credentials != "" {
+		provider, err := sheets.NewGoogleProvider(credentials)
+		if err != nil {
+			logger.Error().Err(err).Msg("linked Google Sheets unavailable; check configured credentials")
+		} else {
+			s.sheetsProvider = provider
+			s.sheetsAccountEmail = provider.AccountEmail()
+			go s.RunLinkedSheets(context.Background())
+		}
+	}
 	if id := os.Getenv("CONWAY_JIRA_CLIENT_ID"); id != "" {
 		s.jiraOAuth = &jiraOAuthConfig{
 			ClientID:     id,
@@ -476,6 +492,8 @@ func main() {
 	mux.HandleFunc("/api/oidc/start", s.handleOIDCStart)
 	mux.HandleFunc("/api/oidc/callback", s.handleOIDCCallback)
 	mux.HandleFunc("/api/me", s.withAuth(s.handleMe, ""))
+	mux.HandleFunc("/api/announcements", s.withAuth(s.handleAnnouncements, ""))
+	mux.HandleFunc("/api/announcements/ack", s.withAuth(s.handleAnnouncementAck, ""))
 	// account & role management is admin-only; running the game is facilitator
 	// (admin passes too, as a superuser).
 	mux.HandleFunc("/api/admin/users", s.withAuth(s.handleUsers, "admin"))

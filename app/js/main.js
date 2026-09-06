@@ -6,13 +6,17 @@ import { initGuide } from './guide.js';
 import { initHygiene } from './hygiene.js';
 import { workStreams } from './sim.js';
 import { initGameUI } from './gameui.js';
-import { initAuth, isStaff, hasRole, authMode } from './auth.js';
-import { initPlanUI } from './planui.js';
+import { initAuth, isStaff, hasRole, authMode, authFetch, authUser, authToken, authGameID } from './auth.js';
+import { mountAnnouncements } from './announcements.js';
+import { initPlanUI, restorePlanLocation, openPlanDestination } from './planui.js';
+import { readRoute, writeRoute, restoringRoute } from './navigation.js';
+import { icon } from './icons.js';
 import { setSnapshot, getSnapshot, dataJson, listSnapshots } from './data.js';
 import { openImport } from './importui.js';
 import { openSnapshots } from './snapshotsui.js';
 import { openRosters } from './rostersui.js';
 import { initHome } from './home.js';
+import { mountMeasureContext, snapshotSelectionURL } from './measure-context.js';
 import './sortable.js'; // delegated column sorting for tables.sortable
 
 function syntheticStats(pod) {
@@ -23,6 +27,33 @@ function syntheticStats(pod) {
     resolved180: 0, synthetic: true,
   };
 }
+
+let measureContext = null;
+let announcements = null;
+const pendingAnnouncementVisits = new Map();
+const announcementIdentity = () => authMode() === 'auth' && !authGameID() && authUser() ? `${authUser()}:${authToken()}` : null;
+function flushAnnouncementVisits() {
+  if (!announcements) return;
+  const targets = new Set(announcements.state().features.map(feature => feature.action.target));
+  for (const [target, identity] of pendingAnnouncementVisits) {
+    if (identity !== announcementIdentity()) { pendingAnnouncementVisits.delete(target); continue; }
+    if (!targets.has(target)) continue;
+    pendingAnnouncementVisits.delete(target);
+    void announcements.visit(target);
+  }
+}
+window.addEventListener('conway:feature-opened', event => {
+  const target = ({ guide: 'docs-btn', execution: 'view-execution', 'linked-sheets': 'plan-linked-sheets' })[event.detail?.action];
+  if (target && announcementIdentity()) {
+    pendingAnnouncementVisits.set(target, announcementIdentity());
+    flushAnnouncementVisits();
+  }
+});
+window.addEventListener('pagehide', event => { if (!event.persisted) announcements?.dispose(); });
+window.addEventListener('pageshow', event => {
+  if (event.persisted) { announcements?.refreshIndicators(); flushAnnouncementVisits(); }
+});
+document.addEventListener('conway:measure-sources-changed', () => measureContext?.refresh());
 
 export const state = { pods: [], overlap: {}, stats: {}, edges: [], mined: false };
 
@@ -72,18 +103,16 @@ async function load() {
     (e) => state.stats[e.from] && state.stats[e.to] && e.from !== e.to,
   );
 
-  const badge = document.getElementById('data-badge');
-  if (!state.pods.length) {
-    badge.textContent = 'no org snapshot yet';
-    badge.className = 'badge warn';
-  } else if (state.mined) {
-    badge.textContent = `${state.pods.length} pods · ${state.edges.length} cross-pod edges`;
-    badge.className = 'badge ok';
-  } else {
-    badge.textContent = 'no stats in this snapshot — using synthetic estimates';
-    badge.className = 'badge warn';
-  }
-  mountSnapshotPicker(badge);
+  measureContext = mountMeasureContext(document.getElementById('measure-context'), {
+    selectedId: getSnapshot(), state, canManage: authMode() !== 'auth' || hasRole('manager'), request: authFetch,
+    onSelect: id => {
+      localStorage.setItem('conway_snapshot', id);
+      location.assign(snapshotSelectionURL(location.href, id));
+    },
+    actions: { import: openImport, associations: openSnapshots, rosters: openRosters,
+      plans: () => document.querySelector('.tab[data-view="plan"]')?.click() },
+  });
+  syncMeasureContext();
   wireSnapshotControls();
 
   initGuide(state);
@@ -105,6 +134,38 @@ async function load() {
     initHome(state); // staff landing dashboard
   }
   applyRoleGating();
+  await restoreWorkspace();
+  window.addEventListener('popstate', restoreWorkspace);
+  // specs/022-feature-announcements.md:180 — show news after restoring work;
+  // opening a plan picker is not evidence that its feature was visited.
+  if (authMode() === 'auth' && !authGameID() && authUser()) {
+    announcements = mountAnnouncements({ request: authFetch,
+      getIdentity: announcementIdentity,
+      onStateChange: () => queueMicrotask(flushAnnouncementVisits),
+      replayButton: document.getElementById('whats-new-btn'),
+      onAction: async action => {
+        if (action.target === 'docs-btn') { openDocs(); return true; }
+        return openPlanDestination(action.target === 'view-execution' ? 'execution' : 'linked-sheets');
+      },
+    });
+    await announcements.ready;
+    flushAnnouncementVisits();
+    if (document.querySelector('#view-execution.active')) void announcements.visit('view-execution');
+  }
+}
+
+async function restoreWorkspace() {
+  const route=readRoute(location.href);
+  let target=route.view;
+  if(authMode() === 'auth' && !isStaff()) target='game';
+  else if(target === 'plan' && authMode() === 'auth' && !hasRole('manager')) target='home';
+  await restoringRoute(async()=>{
+    const selector = target === 'network'
+      ? (route.networkLens === 'what-if' && (authMode() !== 'auth' || hasRole('manager')) ? '#net-plan' : '#net-observe')
+      : `.tab[data-view="${target}"]`;
+    document.querySelector(selector)?.click();
+    if(target === 'plan') await restorePlanLocation(route);
+  });
 }
 
 // Rosters, Import, and Snapshots are observation tools (capturing & comparing
@@ -124,49 +185,6 @@ function wireSnapshotControls() {
   }
   // returning from the Jira SSO redirect → reopen the import modal (now connected)
   if (authMode() === 'auth' && new URLSearchParams(location.search).get('import') === '1') openImport();
-}
-
-// Snapshot picker: the single control for "which org capture every Observe
-// screen renders". Always shown in server mode (even with just the baseline, so
-// it's discoverable and labels what you're viewing). Changing it reloads with
-// ?snapshot=<id> so every view re-reads cleanly.
-async function mountSnapshotPicker(badge) {
-  if (authMode() !== 'auth' || !badge) return;
-  const snaps = await listSnapshots();
-  // One visible snapshot = nothing to switch between: the picker is noise
-  // (review). It earns its place the moment a second dated snapshot exists —
-  // then it flips every Measure screen between "now" and "then".
-  if (snaps.length < 2) return;
-  const fmt = (s) => s.source === 'baseline' ? (s.name || 'Baseline')
-    : `${s.name || s.id} -- ${new Date(s.createdAt * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} -- ${s.owner}`;
-  const wrap = document.createElement('span');
-  wrap.className = 'snapshot-pick';
-  wrap.innerHTML = '<label class="hint" for="snapshot-pick-sel">Viewing org snapshot</label>';
-  const sel = document.createElement('select');
-  sel.id = 'snapshot-pick-sel';
-  sel.title = 'Flips the Measure screens between your dated org snapshots — e.g. this quarter vs last. New ones come from Import from Jira.';
-  const cur = getSnapshot();
-  sel.innerHTML = snaps.map((s) => `<option value="${s.id}" ${s.id === cur ? 'selected' : ''}>${fmt(s)}</option>`).join('');
-  const fitWidth = () => {
-    const tmp = document.createElement('canvas').getContext('2d');
-    tmp.font = getComputedStyle(sel).font;
-    const text = sel.options[sel.selectedIndex]?.text ?? '';
-    sel.style.width = (tmp.measureText(text).width + 36) + 'px';
-  };
-  sel.addEventListener('change', () => {
-    fitWidth();
-    localStorage.setItem('conway_snapshot', sel.value); // sticky across reloads
-    const u = new URL(location.href);
-    u.searchParams.set('snapshot', sel.value);
-    location.assign(u);
-  });
-  wrap.appendChild(sel);
-  badge.after(wrap);
-  requestAnimationFrame(fitWidth);
-  // The picker mounts after async snapshot data, later than the initial
-  // syncSnapshotPicker() call — a player landing on the game view would see it
-  // mount visible over the game. Sync here, at the moment it exists.
-  syncSnapshotPicker();
 }
 
 // Role-based landing: a plain team player sees only the game (which embeds its
@@ -196,27 +214,16 @@ new bootstrap.Tooltip(document.body, {
   placement: 'bottom'
 });
 
-// The "Viewing" picker is the org snapshot every OBSERVE screen renders. Plan
-// and Games carry their own data (a plan's roster and initiatives, a game's
-// scenario network) and never consult it — on those views the picker would
-// imply a connection that does not exist, so it hides.
-const SNAPSHOT_AGNOSTIC_VIEWS = new Set(['plan', 'game']);
-const syncSnapshotPicker = () => {
-  const pick = document.querySelector('.snapshot-pick');
-  if (!pick) return;
+// Plan and Game own separate inputs. All snapshot-backed surfaces retain source context.
+const syncMeasureContext = () => {
   const active = document.querySelector('.view.active');
-  const hide = active && SNAPSHOT_AGNOSTIC_VIEWS.has(active.id.replace('view-', ''));
-  pick.toggleAttribute('hidden', !!hide);
+  measureContext?.setView(active?.id.replace('view-', '') || 'home');
 };
-// Initial sync: role gating may land the page on a snapshot-agnostic view
-// (players go straight to the game) before any tab is clicked — but the picker
-// itself mounts later, after its async listSnapshots, so the first real sync
-// happens on the first tab click; this one covers a picker that mounted fast.
-setTimeout(syncSnapshotPicker, 0);
 document.querySelectorAll('.tab[data-view]').forEach((b) => b.addEventListener('click', () => {
   document.querySelectorAll('.tab[data-view]').forEach((x) => x.classList.toggle('active', x === b));
   document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === `view-${b.dataset.view}`));
-  syncSnapshotPicker();
+  syncMeasureContext();
+  writeRoute({view:b.dataset.view, ...(b.dataset.view === 'network' ? {networkLens:b.id === 'net-plan' ? 'what-if' : 'observe'} : {})});
 }));
 
 // Explore ▾ dropdown: groups the analytics views under one menu so the top bar
@@ -242,16 +249,16 @@ document.getElementById('net-plan')?.addEventListener('click', () => document.ge
     const next = document.documentElement.dataset.bsTheme === 'light' ? 'dark' : 'light';
     document.documentElement.dataset.bsTheme = next;
     localStorage.setItem('conway-theme', next);
-    btn.textContent = next === 'light' ? '☀' : '☾';
+    btn.innerHTML = icon(next === 'light' ? 'sun' : 'moon') + (next === 'light' ? 'Light theme' : 'Dark theme');
   });
-  if (btn) btn.textContent = document.documentElement.dataset.bsTheme === 'light' ? '☀' : '☾';
+  if (btn) btn.innerHTML = icon(document.documentElement.dataset.bsTheme === 'light' ? 'sun' : 'moon') + (document.documentElement.dataset.bsTheme === 'light' ? 'Light theme' : 'Dark theme');
 })();
 
 // gate the app behind login when the server is present (dev/static: passes through)
 // Bootstrap form adoption (spec 011 FR-001): class-inject before the first
 // render so native focus/validation semantics load with the app.
 import { initForms } from './forms.js';
-import { initDocs } from './docs.js';
+import { initDocs, openDocs } from './docs.js';
 initForms();
 initDocs();
 initAuth().then(load);

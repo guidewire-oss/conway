@@ -1,3 +1,4 @@
+import { icon } from './icons.js';
 // Execution-order view: the proposed order and its reconciliation (spec 001
 // §13.2), plus the per-pod weekly load heatmap (AC 4.1) and a pod's queue in
 // scheduled start order (AC 4.3).
@@ -20,7 +21,14 @@ import { term } from './terms.js';
 export const esc = (s) => String(s ?? '').replace(/[&<>"]/g,
   (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-export const weekLabel = (w) => `w${w}`;
+export const weekLabel = (w) => Number.isFinite(w) ? `w${w}` : 'unknown';
+
+// specs/017-planning-and-execution-usability.md:85: keep calendar dates visible.
+export function weekDateHTML(week, periodStart) {
+  const label = weekLabel(week);
+  const date = Number.isFinite(week) ? weekToDate(week, periodStart) : '';
+  return date ? `<time datetime="${date}">${date}</time> <span class="hint">(${label})</span>` : label;
+}
 
 // zoneOf matches the thresholds the app already uses everywhere else (AC 4.1,
 // and rhoColor in planui.js): at or over capacity is red, 0.85 up is amber.
@@ -91,6 +99,10 @@ export function objectiveView(sched) {
   const stated = sched.statedOrderObjectiveScore || 0;
   const proposed = sched.objectiveScore || 0;
   const delta = Math.round((proposed - stated) * 10) / 10;
+  const coverageKnown = Number.isFinite(sched.unscheduledWeight) && Number.isFinite(sched.statedOrderUnscheduledWeight);
+  const statedUnstarted = coverageKnown ? sched.statedOrderUnscheduledWeight : 0;
+  const proposedUnstarted = coverageKnown ? sched.unscheduledWeight : 0;
+  const coverageDelta = proposedUnstarted - statedUnstarted;
   const inits = sched.initiatives || [];
   // Comparability comes from the inputs, not the scores. The objective is weighted
   // lateness, so a plan where every date holds scores 0 on both runs — reading that
@@ -99,15 +111,15 @@ export function objectiveView(sched) {
   const dated = inits.filter(isDated);
   const ranked = inits.some((si) => si.statedRank > 0);
   return {
-    stated, proposed, delta,
-    comparable: dated.length > 0 || ranked,
+    stated, proposed, delta, coverageKnown, statedUnstarted, proposedUnstarted, coverageDelta,
+    comparable: dated.length > 0 || ranked || (coverageKnown && (statedUnstarted > 0 || proposedUnstarted > 0)),
     // "Every date holds" is an absolute claim, so all three have to be true: there
     // are dates, every one of them came back on-time — weeksLate is 0 for an
     // unschedulable row too, so the verdict is what counts — and neither order
     // costs anything, since a stated order that was late is still a miss.
     allOnTime: dated.length > 0 && dated.every((si) => si.verdict === 'on-time') &&
-      stated === 0 && proposed === 0,
-    better: delta < 0,
+      stated === 0 && proposed === 0 && statedUnstarted === 0 && proposedUnstarted === 0,
+    better: coverageDelta < 0 || (coverageDelta === 0 && delta < 0),
   };
 }
 
@@ -146,11 +158,12 @@ export function orderRows(sched) {
 
 function orderRowHTML(row, opts = {}) {
   const { si, verdict } = row;
+  const unplaced = ['beyond-horizon', 'unschedulable'].includes(si.verdict);
   const target = si.targetWeek === null || si.targetWeek === undefined
-    ? '<span class="hint">—</span>' : weekLabel(si.targetWeek);
+    ? '<span class="hint">—</span>' : weekDateHTML(si.targetWeek, opts.periodStart);
   // AC 2.1 shows both numbers: the raw finish is what the schedule says, the commit
   // is what may be promised, and Decision 9 exists because they are not one claim.
-  const raw = si.rawFinishWeek === undefined ? '' :
+  const raw = unplaced || si.rawFinishWeek === undefined ? '' :
     `<span class="hint" title="raw scheduled finish, before its buffer">${weekLabel(si.rawFinishWeek)} +${si.bufferWeeks || 0}w →</span> `;
   // Spec 004 AC 1.1/1.2: pin/unpin rides the stated-rank cell (the deviation
   // lives there), as a toggle. Locked rows offer unpin; moved rows offer pin.
@@ -160,17 +173,17 @@ function orderRowHTML(row, opts = {}) {
   // either, so no control is offered there.
   const canPin = !opts.noPin && (si.statedRank > 0 || si.priorityLocked);
   const pin = !canPin ? '' : (si.priorityLocked
-    ? `<button type="button" class="ord-pin" data-pin="${esc(si.name)}" data-locked="1" title="release this priority back to the engine">unpin</button>`
-    : `<button type="button" class="ord-pin" data-pin="${esc(si.name)}" data-locked="" title="lock this initiative to its stated rank">pin</button>`);
+    ? `<button type="button" class="ord-pin" data-pin="${esc(si.name)}" data-locked="1" title="release this priority back to the engine">Unpin priority</button>`
+    : `<button type="button" class="ord-pin" data-pin="${esc(si.name)}" data-locked="" title="lock this initiative to its stated rank">${icon('pin')} Pin priority</button>`);
   // ✎ opens the sequencing-attribute editor (spec 004: the in-app half of the
   // sheet upload). Next to the name, where the row's identity lives.
-  const edit = opts.noPin ? '' : `<button type="button" class="ord-edit" data-edit="${esc(si.name)}" title="edit priority, dates, tier, dependencies…">✎ edit</button>`;
+  const edit = opts.noPin ? '' : `<button type="button" class="ord-edit" data-edit="${esc(si.name)}" title="edit priority, dates, tier, dependencies…">${icon('edit')} Edit initiative</button>`;
   const main = `<tr class="ord-row">
     <td class="num">#${si.proposedRank}${suggestedCell(si, opts.engineRanks)}</td>
     <td>${esc(si.name)} ${edit}</td>
     <td>${statedCell(si)} ${pin}</td>
-    <td class="num">${weekLabel(si.startWeek)}</td>
-    <td class="num">${raw}<b>${weekLabel(si.commitWeek)}</b></td>
+    <td class="num">${unplaced ? 'not scheduled' : weekDateHTML(si.startWeek, opts.periodStart)}</td>
+    <td class="num">${raw}<b>${unplaced ? 'unknown' : weekDateHTML(si.commitWeek, opts.periodStart)}</b></td>
     <td class="num">${target}</td>
     <td>${verdictBadgeHTML(si)}</td>
     <td>${esc(row.binds) || '<span class="hint">—</span>'}</td>
@@ -220,7 +233,7 @@ export function orderTableHTML(sched, opts = {}) {
       <th>#</th><th>Initiative</th><th>Stated</th><th>Start</th>
       <th>${term('commit', 'Commit')}</th><th>${term('target', 'Target')}</th><th>${term('verdict', 'Verdict')}</th><th>${term('binds', 'Binds')}</th>
     </tr></thead>
-    <tbody>${rows.map((r) => orderRowHTML(r, opts)).join('')}</tbody>
+    <tbody>${rows.map((r) => orderRowHTML(r, { ...opts, periodStart: sched.periodStart || opts.periodStart })).join('')}</tbody>
   </table></div>`;
 }
 
@@ -283,7 +296,7 @@ export function feverChartHTML(sched) {
   </svg>
   <p class="hint">Fever chart (plan-time): each dot is a dated initiative read at its target date —
     how much of the chain should be done, against how much buffer the date eats.
-    Zones match the Observe fever chart: below the green line is comfortable, amber is the
+    Zones match the Measure fever chart: below the green line is comfortable, amber is the
     buffer going fast, red has spent it. ${dated.length} dated of ${(sched.initiatives || []).length}.</p>
 </div>`;
 }
@@ -451,7 +464,7 @@ export function verdictBannerHTML(sched, opts = {}) {
         <span class="verdict-icon">📅</span>
         <div class="ord-hero-body">
           <p class="ord-hero-headline">Target dates can't be read yet — the plan has no period start</p>
-          <p class="ord-hero-sub">Set the period start in ⚙ Assumptions and every verdict on this page comes alive.
+          <p class="ord-hero-sub">Set the period start in ${icon('settings')}Assumptions and every verdict on this page comes alive.
             <button type="button" class="usage-link" data-anchor="planning-loop">learn more</button></p>
         </div></div>`;
     }
@@ -495,25 +508,27 @@ export function verdictBannerHTML(sched, opts = {}) {
 // computed). Numbers ride on the bars — length never carries meaning alone
 // (WCAG 1.4.1).
 export function comparisonBarsHTML(obj) {
+  // specs/019-scheduling-audit-and-gantt-integrity.md:157: coverage precedes lateness.
+  const coverage = obj.coverageKnown ? `<p class="hint">Weighted unstarted work: yours <b>${esc(String(obj.statedUnstarted))}</b> · proposed <b>${esc(String(obj.proposedUnstarted))}</b>. Lower unstarted work takes priority; weighted lateness breaks ties. This is weighted work, not an initiative count.</p>` : '';
   if (!obj.comparable) {
     return '<span class="hint">no dates or priorities set yet, so there is no order to argue with</span>';
   }
   if (obj.stated === 0 && obj.proposed === 0) {
     // "Every date holds" is only true when there ARE dates; a priority-only
     // plan scores zero because no date can be missed, not because all held.
-    return '<span class="hint">neither order costs any weighted lateness</span>';
+    return `${coverage}<span class="hint">neither order costs any weighted lateness</span>`;
   }
   const max = Math.max(obj.stated, obj.proposed, 1);
   const pctOf = (v) => Math.max(2, Math.round((v / max) * 100)); // 2% floor: a bar must be visible
   const yours = pctOf(obj.stated), prop = pctOf(obj.proposed);
-  return `<div class="ord-bars" title="weighted weeks late under each order — lower is better">
+  return `${coverage}<div class="ord-bars" title="weighted weeks late under each order — compare unstarted work first">
     <div class="ord-bar-row"><span class="ord-bar-lbl">yours</span>
       <span class="ord-bar-track"><span class="ord-bar-fill ord-yours" style="width:${yours}%"></span></span>
       <span class="ord-bar-val">${obj.stated}</span></div>
     <div class="ord-bar-row"><span class="ord-bar-lbl">proposed</span>
       <span class="ord-bar-track"><span class="ord-bar-fill ord-prop" style="width:${prop}%"></span></span>
       <span class="ord-bar-val">${obj.proposed}</span></div>
-    <span class="hint">weighted weeks late${term('weighted-late')} — lower is better${obj.delta !== 0 ? ` · the proposed order ${obj.better ? 'saves' : 'costs'} <b>${Math.abs(obj.delta)}</b>` : ''}</span>
+    <span class="hint">weighted weeks late${term('weighted-late')} — lower is better${obj.delta !== 0 ? ` · the proposed order ${obj.delta < 0 ? 'saves' : 'costs'} <b>${Math.abs(obj.delta)}</b>` : ''}</span>
   </div>`;
 }
 
@@ -533,13 +548,26 @@ export function orderingBadge(sp = {}) {
 
 // optimizeDeltaHTML prices the engine's best run against the working order, so
 // the Optimize button can carry its offer on its face (spec 006 AC 3.1).
+export function compareScheduleCosts(a, b) {
+  const coverage = Number.isFinite(a.unscheduledWeight) && Number.isFinite(b.unscheduledWeight)
+    ? a.unscheduledWeight - b.unscheduledWeight : 0;
+  return coverage || a.objective - b.objective;
+}
+
 export function optimizeOfferHTML(sched) {
-  const best = (sched.rulesTried || [])
-    .filter((r) => r.rule !== sched.rule)
-    .reduce((m, r) => (r.objective < m.objective ? r : m), { rule: '', objective: Infinity });
-  if (best.rule === '' || !Number.isFinite(best.objective)) return '';
+  const coverageKnown = Number.isFinite(sched.unscheduledWeight);
+  const candidates = (sched.rulesTried || []).filter((r) => r.rule !== sched.rule &&
+    Number.isFinite(r.objective) && (!coverageKnown || Number.isFinite(r.unscheduledWeight)));
+  candidates.sort(compareScheduleCosts);
+  const best = candidates[0];
+  if (!best) return '';
   const cur = sched.objectiveScore || 0;
   const save = Math.round((cur - best.objective) * 10) / 10;
+  if (coverageKnown) {
+    const coverageSave = sched.unscheduledWeight - best.unscheduledWeight;
+    if (coverageSave < 0 || (coverageSave === 0 && save <= 0)) return '';
+    return `<span class="hint">suggestion: ${esc(best.rule)} · weighted unstarted work ${esc(String(sched.unscheduledWeight))} → ${esc(String(best.unscheduledWeight))}; weighted lateness ${esc(String(cur))} → ${esc(String(best.objective))}. Coverage takes priority over lateness.</span>`;
+  }
   if (save <= 0) return '';
   return `<span class="hint" title="The best dispatch rule scores ${best.objective} weighted lateness versus this order's ${cur}. A suggestion, not an answer — the sequencing problem has no single solution.">suggestion: ${esc(best.rule)} would cost ${save} less</span>`;
 }
@@ -555,11 +583,11 @@ export function orderHeaderHTML(sched, opts = {}) {
     <span class="hint">rule: ${esc(sched.rule || '—')}${rules ? ` (best of ${rules})` : ''}${term('objective')}</span>
     <span class="hint">${wipLimitNote(sched.wipLimit)}</span>
     ${yours ? optimizeOfferHTML(sched) : ''}
-    ${yours ? `${term('optimize')}<button type="button" class="primary" id="ord-optimize" title="Run every dispatch rule and present the best ordering beside yours, priced. Accepting it is always your call — this is an optimization, not the solution.">⚡ Optimize order</button>`
-      : `<button type="button" id="ord-unoptimize" title="Return to your stated order. The engine's proposal stays available.">↩ back to your order</button>`}
-    <button type="button" class="docs-link" data-docs="order" title="how the Order view works — every column and action">📖 docs</button>
-    <button type="button" id="sched-open" title="period start, WIP model, buffers, freezes — set once">⚙ Assumptions</button>
-    <button type="button" id="tl-open" title="open this order as a timeline (Story 8)">▦ Open timeline ▸</button>
+    ${yours ? `${term('optimize')}<button type="button" class="primary" id="ord-optimize" title="Run every dispatch rule and present the best ordering beside yours, priced. Accepting it is always your call — this is an optimization, not the solution.">${icon('play')}Preview optimized order</button>`
+      : `<button type="button" id="ord-unoptimize" title="Return to your stated order. The engine's proposal stays available.">${icon('undo')}Use stated order</button>`}
+    <button type="button" class="docs-link" data-docs="order" title="how the Order view works — every column and action">${icon('book')}Help with commitments</button>
+    <button type="button" id="sched-open" title="period start, WIP model, buffers, freezes — set once">${icon('settings')}Assumptions</button>
+    <button type="button" id="tl-open" title="open this order as a timeline (Story 8)">${icon('calendar')}Open timeline</button>
     <span class="ord-bl-head">
 
     </span>
@@ -609,8 +637,8 @@ export function initiativeEditDialogHTML(it) {
           <span class="sched-row"><input id="ie-inflight" type="checkbox" ${it.inFlight ? 'checked' : ''}></span></label>
       </div>
       <div class="sched-row" style="gap:14px; margin-top:6px">
-        <label class="hint"><input type="checkbox" id="ie-priority-locked" ${it.priorityLocked ? 'checked' : ''}> priority fixed (pin the stated rank)</label>
-        <label class="hint"><input type="checkbox" id="ie-date-locked" ${it.dateLocked ? 'checked' : ''}> date fixed (a commitment, not an aspiration)</label>
+        <label class="hint"><input type="checkbox" id="ie-priority-locked" ${it.priorityLocked ? 'checked' : ''}> Pin priority (keep the stated rank)</label>
+        <label class="hint"><input type="checkbox" id="ie-date-locked" ${it.dateLocked ? 'checked' : ''}> Lock start (hold the requested start date)</label>
       </div>
       <span id="ie-error" class="login-err"></span>
       <div class="sched-row" style="gap:8px; margin-top:8px">
@@ -739,7 +767,7 @@ export function setupCardHTML(sp = {}, dated = 0) {
   if (!items.length) return '';
   return `<div class="panel-card ord-setup-card" id="setup-card">
     <b>Set up this plan</b>
-    <p class="hint">Two choices shape every number here. Recommended defaults below — one click each, change later in ⚙ Assumptions.</p>
+    <p class="hint">Two choices shape every number here. Recommended defaults below — one click each, change later in ${icon('settings')}Assumptions.</p>
     ${items.map((it, i) => `<div class="setup-item">
       <div><b>${esc(it.field)}</b> <span class="hint">— ${esc(it.why)}</span></div>
       <div class="hint">recommended: ${esc(it.rec)}</div>
@@ -776,7 +804,7 @@ export function orderViewHTML(sched, opts = {}) {
 // simulator all consume; these only affect the order, and putting them in the
 // header would imply that moving them changes the Network view's numbers.
 //
-// Only knobs that do something are offered. leadCapacity and the transfer
+// Only knobs that do something are offered. The transfer
 // settings are in §7 but nothing consumes them yet, and a control that silently
 // does nothing is worse than an absent one. (targetUtilization joined the live
 // set when the drum stagger landed — spec 004 Story 5.)
@@ -890,13 +918,13 @@ export function schedulingFormHTML(sp = {}, wip, sched) {
       <label class="hint sched-f">lane chunking
         <span class="sched-row"><select id="sched-chunking">
           <option value="spread"${!sp.splitMinWeeks ? ' selected' : ''}>spread evenly (all lanes take a share)</option>
-          <option value="chunk"${sp.splitMinWeeks ? ' selected' : ''}>chunk — no track carries more than…</option>
+          <option value="chunk"${sp.splitMinWeeks ? ' selected' : ''}>chunk — choose lanes by work size</option>
         </select></span>
-        <span class="hint">how big work divides across a team's tracks: spread shares it evenly, chunk caps each track's load (45w chunks 20+20+5 at a 20-week cap)</span></label>
+        <span class="hint">spread uses available tracks; chunk selects up to ceil(work / chunk size) tracks, then shares evenly. Requires positive splitting tax.</span></label>
       <label class="hint sched-f">chunk size (weeks)
         <span class="sched-row"><input id="sched-split-min" type="number" min="1" step="1" value="${esc(String(asInt(sp.splitMinWeeks) || 20))}"
           ${sp.splitMinWeeks ? '' : 'disabled'}></span>
-        <span class="hint">the per-track cap when chunking; work under this stays whole on one track</span></label>
+        <span class="hint">lane-selection threshold, not a guaranteed cap: 45w at 20w selects up to 3 tracks, sharing 15w each before loss</span></label>
       ${intField('sched-wip', 'org WIP limit', asInt(sp.maxConcurrentInitiatives), derived,
     'initiatives in flight at once; blank derives it from the drum pod')}
       ${pctField('sched-buffer', 'buffer', asPct(sp.bufferPct), '25', 'of each chain; blank means 25%, 0 commits on the raw finish')}
@@ -908,6 +936,18 @@ export function schedulingFormHTML(sp = {}, wip, sched) {
       ${pctField('sched-stagger', 'drum target utilization', asPct(sp.targetUtilization), 'off',
     'hold releases so drum load stays under this; blank means no stagger')}
     </div>
+    <fieldset><legend>Named lead capacity</legend>
+      <label class="hint sched-f">Lead limits
+        <select id="sched-lead-mode">
+          <option value="advisory"${leadCapacityMode(sp) === 'advisory' ? ' selected' : ''}>Advisory — schedule team work and warn</option>
+          <option value="hard"${leadCapacityMode(sp) === 'hard' ? ' selected' : ''}>Hard — hold work when a limit is reached</option>
+        </select>
+      </label>
+      <p class="hint">Work does not need input start or finish dates. Advisory limits show lead workload warnings while team capacity, dependencies, calendars and other release limits still apply. Hard limits can hold an entire initiative.</p>
+      <p class="hint">Concurrent initiatives per named lead. Blank uses the shown threshold. Zero is a warning threshold in advisory mode and prevents new releases for that role in hard mode.</p>
+      <div class="sched-grid">${LEAD_ROLES.map(([role, label, limit]) => intField(`sched-lead-${role}`, label,
+        sp.leadCapacity?.[role] == null ? '' : String(sp.leadCapacity[role]), String(limit), `Default: ${limit} concurrent initiatives`)).join('')}</div>
+    </fieldset>
     ${calendarWindowsHTML(sp.calendars || [])}
     <button type="button" id="sched-save" class="primary">Save assumptions</button>
     <button type="button" id="sched-cancel">Cancel</button>
@@ -948,6 +988,7 @@ export function wipModelsTableHTML(sched) {
       <td>${weekLabel(o.lastCommitWeek)}</td>
       <td>${o.datesMissed}${o.infeasible ? ` <span class="hint">(${o.infeasible} cannot fit)</span>` : ''}</td>
       <td>${o.podsIdleAllPeriod}</td>
+      <td>${Number.isFinite(o.unscheduledWeight) ? esc(String(o.unscheduledWeight)) : 'unknown'}</td>
       <td>${o.objective}</td>
     </tr>`;
   }).join('');
@@ -958,7 +999,7 @@ export function wipModelsTableHTML(sched) {
   const sameMisses = missed.size === 1 && rows.length > 1;
 
   return `<table class="wip-table ord-models"><thead><tr>
-      <th>model${term('wip-model')}</th><th>limit</th><th>ends</th><th>dates missed</th><th>pods idle all period</th><th>cost${term('weighted-late')}</th>
+      <th>model ${term('wip-model')}</th><th>limit</th><th>ends</th><th>dates missed</th><th>pods idle all period</th><th>weighted unstarted work</th><th>weighted lateness ${term('weighted-late')}</th>
     </tr></thead><tbody>${body}</tbody></table>
     <ul class="hint ord-models-why">
       ${WIP_MODELS.map((m) => `<li><b>${esc(m.label)}</b> — ${esc(m.blurb)}</li>`).join('')}
@@ -967,7 +1008,8 @@ export function wipModelsTableHTML(sched) {
       (${rows[0].datesMissed}) — though not necessarily the same ones. What changes is what the
       misses cost and how much of the org sits idle: a model buys cheaper misses and busier pods,
       not fewer misses.</p>` : ''}
-    <p class="hint">Cost is weighted weeks late. It favours <b>off</b> by construction: the schedule
+    <p class="hint">Compare weighted unstarted work first, then weighted lateness. A partial schedule can have zero lateness because held work has no dates; this does not make it better. Unstarted weight includes work held beyond the horizon and work that cannot be scheduled.</p>
+    <p class="hint">Lateness cost is weighted weeks late. Among schedules with equal coverage it favours <b>off</b> by construction: the schedule
       makes waiting explicit but charges nothing for multitasking, so it cannot price what a WIP limit
       is for. That is why this is a choice and not a calculation.</p>`;
 }
@@ -988,9 +1030,34 @@ export function pctToFraction(raw) {
 // those mean different things — absent is 25% of the chain, an explicit 0 is
 // "commit on the raw finish" — and collapsing them would take away a choice
 // Decision 20 deliberately left open.
-export function schedulingFromForm(read) {
+// specs/019-scheduling-audit-and-gantt-integrity.md:147: preserve policy
+// outside this form while allowing deliberately blank controls to restore defaults.
+export const LEAD_ROLES = [['pm', 'Product management', 2], ['eng', 'Engineering', 2],
+  ['architect', 'Architecture', 3], ['pgm', 'Program management', 4]];
+
+// specs/020-undated-capacity-scheduling.md:106: match the server's legacy inference.
+export function leadCapacityMode(sp = {}) {
+  if (['advisory', 'hard'].includes(sp.leadCapacityMode)) return sp.leadCapacityMode;
+  return Object.keys(sp.leadCapacity || {}).length ? 'hard' : 'advisory';
+}
+
+export function schedulingFromForm(read, saved = {}) {
   const raw = (id) => String(read(id) ?? '').trim();
-  const out = {};
+  const out = { ...saved };
+  const leadMode = raw('sched-lead-mode');
+  if (['advisory', 'hard'].includes(leadMode)) out.leadCapacityMode = leadMode;
+  for (const key of ['periodStart', 'wipModel', 'maxConcurrentInitiatives', 'maxInitiativesPerPod',
+    'maxStartsPerQuarter', 'bufferPct', 'kitGate', 'targetUtilization', 'estimateModel',
+    'splitTaxWeeks', 'splitMinWeeks', 'calendars']) delete out[key];
+  const leads = { ...(saved.leadCapacity || {}) };
+  for (const [role] of LEAD_ROLES) {
+    delete leads[role];
+    const value = raw(`sched-lead-${role}`);
+    const n = Number(value);
+    if (value !== '' && Number.isFinite(n) && n >= 0) leads[role] = Math.round(n);
+  }
+  if (Object.keys(leads).length) out.leadCapacity = leads;
+  else delete out.leadCapacity;
 
   const start = raw('sched-period-start');
   if (start) out.periodStart = start;
@@ -1065,6 +1132,7 @@ export function schedulingFromForm(read) {
 //
 // Silent when everything fits. A note that always shows is a note nobody reads.
 export function fitNote(fit, horizonWeeks) {
+  if (fit?.unavailableReason) return `<p class="plan-warn ord-fit">Period fit is unknown: ${esc(fit.unavailableReason)}</p>`;
   if (!fit || !fit.beyondHorizon) return '';
   const horizon = Math.max(1, Math.ceil(horizonWeeks || 26));
   const n = fit.beyondHorizon;

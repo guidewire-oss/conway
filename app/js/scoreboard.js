@@ -1,5 +1,7 @@
 import { heatColor } from './graph.js';
 
+const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
 export function initScoreboard(state) {
   // inbound demand: who is waiting on this pod's work?
   const dependents = {}; const demand = {}; const upstreams = {};
@@ -26,13 +28,13 @@ export function initScoreboard(state) {
     },
       'Work in progress — started-but-not-done items (Jira "In Progress" category; backlog/"To Do" is NOT counted). Split into active (In Progress, Testing) vs waiting (In Review, On Hold, Blocked — started work sitting in a queue). The Goal & Rules of Flow: WIP doesn\'t mean output; a high waiting share means a review/handoff bottleneck, not busy developers.'],
     ['Thru/wk', (p, s) => s.throughputWk.toFixed(1),
-      'Throughput = items resolved in 180d ÷ 26 weeks. The Goal: throughput (value actually finished) is the real measure of a system\'s output — not how busy everyone looks.'],
+      'Retained non-epic completion samples divided by 26 weeks; durations over 180 days are excluded. Item throughput is a flow measure, not a measurement of business value.'],
     ['Cycle P50', (p, s) => `${s.p50.toFixed(1)}d`,
       'Median lead time, created→resolved (epics and >180d items removed, winsorized at the pod\'s 95th percentile). Half of this pod\'s work finishes within this many days.'],
     ['Cycle P85', (p, s) => `${s.p85.toFixed(1)}d`,
-      '85th-percentile lead time — the date you can promise with confidence. Rules of Flow / probabilistic forecasting: commit the P85, not the optimistic P50, or you break promises half the time.'],
+      '85th percentile of retained historical single-item calendar durations. Check sample coverage; this is not a confidence guarantee for an initiative or portfolio.'],
     ['Load ρ', (p, s) => (s.load ?? s.rho0),
-      'Load = WIP ÷ (work-streams × 2) — the REAL ratio (we show it uncapped, so >1 means over capacity; the bar saturates at a full plate). The Goal & queueing theory: a system near or past full utilisation is not fast — it is where delay explodes.'],
+      'Load = WIP divided by twice modeled work streams. An uncapped concurrency proxy, not measured utilization; values above 1 exceed this model\'s assumed WIP allowance.'],
     ['Wait ×', (p, s) => {
       const load = s.load ?? s.rho0;
       return load >= 1 ? '∞' : `${(load / (1 - load)).toFixed(1)}×`;
@@ -99,7 +101,8 @@ export function initScoreboard(state) {
           const load = s.load ?? s.rho0;
           return `<td><span class="bar" style="width:${s.rho0 * 60}px;background:${heatColor(s.rho0)}"></span> ${load.toFixed(2)}</td>`;
         }
-        return `<td>${fn(p, s, state)}</td>`;
+        const value = fn(p, s, state);
+        return `<td>${h === 'Pod' || h === 'Site' ? esc(value) : value}</td>`;
       }).join('')}</tr>`).join('')}</tbody>`;
     table.querySelectorAll('th').forEach((th) => th.addEventListener('click', () => {
       const i = +th.dataset.i;

@@ -25,22 +25,30 @@ const VERDICT_LABELS = {
 
 const byVerdict = (sched, v) => (sched.initiatives || []).filter((i) => i.verdict === v);
 
-// fitSentence is the one line the meeting needs (AC 1.2): how many of the
-// total initiatives will not finish inside the period. Anything that is not
-// a known-good verdict counts as not landing — a future server's new bad
-// verdict must never read as all-green (remedyui's upgrade-tolerance rule).
-const GOOD_VERDICTS = ['on-time', 'no-date'];
-
+// The meeting headline keeps period fit, missed targets and missing forecast
+// evidence separate. A target verdict alone cannot answer period fit.
 export function fitSentence(sched) {
+  if (sched.fit?.unavailableReason) return `Period fit is unknown: ${esc(sched.fit.unavailableReason)}`;
   const inits = sched.initiatives || [];
-  const doomed = inits.filter((i) => !GOOD_VERDICTS.includes(i.verdict));
   if (!inits.length) return 'No initiatives are scheduled yet.';
-  if (!doomed.length) {
-    return inits.length === 1
-      ? 'The one initiative commits inside the period.'
-      : `All ${inits.length} initiatives commit inside the period.`;
-  }
-  return `${doomed.length} of ${inits.length} initiatives will not finish inside the period.`;
+  // specs/017-planning-and-execution-usability.md:78: target lateness and
+  // period fit are independent. ScheduleFit.beyondHorizon counts refused
+  // STARTS; the buffered finish must also be compared with the horizon.
+  const held = Number.isInteger(sched.fit?.beyondHorizon)
+    ? sched.fit.beyondHorizon : inits.filter((i) => i.verdict === 'beyond-horizon').length;
+  const scheduled = inits.filter((i) => i.verdict !== 'beyond-horizon');
+  const known = scheduled.filter((i) => Number.isFinite(i.commitWeek) && Number.isFinite(sched.horizonWeeks) && i.verdict !== 'unschedulable');
+  const overrun = known.filter((i) => i.commitWeek > sched.horizonWeeks).length;
+  const unknown = scheduled.length - known.length;
+  const parts = [];
+  if (held + overrun) parts.push(`${held + overrun} of ${inits.length} initiatives will not finish inside the period.`);
+  else if (!unknown) parts.push(inits.length === 1 ? 'The one initiative is forecast inside the period.' : `All ${inits.length} initiatives are forecast inside the period.`);
+  if (unknown) parts.push(`Period fit is unknown for ${unknown} initiative${unknown === 1 ? '' : 's'}.`);
+  const late = inits.filter((i) => i.verdict === 'late' || i.verdict === 'structurally-infeasible').length;
+  if (late) parts.push(`${late} initiative${late === 1 ? ' misses its target' : 's miss their targets'}.`);
+  const provisional = inits.filter((i) => i.provisional).length;
+  if (provisional) parts.push(`${provisional} forecast${provisional === 1 ? ' is' : 's are'} provisional because estimates are missing.`);
+  return parts.join(' ');
 }
 
 export function verdictSectionHTML(sched) {
@@ -76,16 +84,19 @@ export function verdictSectionHTML(sched) {
 // over-capacity (rho >= 1) and hot (>= 0.85), hottest first, drum pods marked.
 export function capacitySectionHTML(sched) {
   const pods = (sched.podWeeks || []).map((p) => ({
-    pod: p.pod, rho: typeof p.flatRho === 'number' ? p.flatRho : null,
+    pod: p.pod, rho: Number.isFinite(p.flatRho) ? p.flatRho : null,
     tracks: p.tracks, drum: (sched.drumPods || []).includes(p.pod),
   }));
   const over = pods.filter((p) => p.rho !== null && p.rho >= 1).sort((a, b) => b.rho - a.rho);
   const hot = pods.filter((p) => p.rho !== null && p.rho >= 0.85 && p.rho < 1).sort((a, b) => b.rho - a.rho);
+  const incomplete = !pods.length || pods.some((p) => p.rho === null)
+    ? '<p class="hint">Capacity evidence is incomplete. Review team estimates and roster capacity.</p>' : '';
   const line = (p) => `<li><b>${esc(p.pod)}</b> flat ρ ${p.rho.toFixed(2)} · ${p.tracks} track${p.tracks > 1 ? 's' : ''}${p.drum ? ' · <b>drum</b>' : ''}</li>`;
   if (!over.length && !hot.length) {
+    if (incomplete) return `<h3>Capacity</h3>${incomplete}`;
     return `<h3>Capacity</h3><p class="report-ok">Every pod is comfortably inside capacity.</p>`;
   }
-  return `<h3>Capacity</h3><ul class="report-list">
+  return `<h3>Capacity</h3>${incomplete}<ul class="report-list">
     ${over.length ? `<li><b>Over capacity (ρ≥1):</b><ul>${over.map(line).join('')}</ul></li>` : ''}
     ${hot.length ? `<li><b>Queue hot (ρ≥0.85):</b><ul>${hot.map(line).join('')}</ul></li>` : ''}
   </ul>`;
@@ -110,13 +121,13 @@ export function remediesSectionHTML(data) {
   if (data.error) return `<p class="plan-warn">${esc(data.error)}</p>`;
   const remedies = [...(data.remedies || [])]
     .filter((r) => typeof r.objectiveDelta === 'number')
-    .sort((a, b) => a.objectiveDelta - b.objectiveDelta)
+    .sort((a, b) => ((a.unscheduledWeightDelta ?? 0) - (b.unscheduledWeightDelta ?? 0)) || a.objectiveDelta - b.objectiveDelta)
     .slice(0, 3);
   const warnings = (data.warnings || []).map((w) => `<p class="hint">${esc(w)}</p>`).join('');
   if (!remedies.length) return `${warnings || ''}<p class="report-ok">No remedies — the engine sees nothing worth pulling.</p>`;
   return `<ul class="report-list">${remedies.map((r) => {
     const victims = (r.affectedInitiatives || []).length;
-    return `<li><b>${esc(remedyKindLabel(r.kind))}</b> — ${esc(r.target)} → ${esc(remedyLabelOf(r.resultingVerdict))}, portfolio ${fmtDelta(r.objectiveDelta)}${victims ? `, moves ${victims} other initiative${victims > 1 ? 's' : ''}` : ''} <button type="button" class="report-remedy-link" data-target="${esc(r.target)}">full options</button></li>`;
+    return `<li><b>${esc(remedyKindLabel(r.kind))}</b> — ${esc(r.target)} → ${esc(remedyLabelOf(r.resultingVerdict))}, ${Number.isFinite(r.unscheduledWeightDelta) ? `weighted unstarted work ${fmtDelta(r.unscheduledWeightDelta)}, ` : ''}weighted lateness ${fmtDelta(r.objectiveDelta)}${victims ? `, moves ${victims} other initiative${victims > 1 ? 's' : ''}` : ''} <button type="button" class="report-remedy-link" data-target="${esc(r.target)}">full options</button></li>`;
   }).join('')}</ul>${warnings}`;
 }
 
@@ -151,7 +162,7 @@ export function healthReportHTML(sched, opts = {}) {
       <p>${active
         ? `Baseline: <b>${esc(active.name)}</b>, saved ${fmtWhen(active.createdAt)}.`
         : 'No baseline saved — save one to compare future re-plans against.'}</p>
-      <p class="hint">Dispatch rule: ${esc(sched.rule || '?')} · portfolio objective ${esc(String(sched.objectiveScore ?? '?'))} · generated ${esc(opts.generatedAt || '')}</p>
+      <p class="hint">Dispatch rule: ${esc(sched.rule || '?')} · weighted unstarted work ${esc(String(sched.unscheduledWeight ?? 'unknown'))} · weighted lateness ${esc(String(sched.objectiveScore ?? '?'))} · generated ${esc(opts.generatedAt || '')}</p>
     </div>
   </div>`;
 }

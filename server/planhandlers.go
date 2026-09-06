@@ -168,6 +168,18 @@ func (s *server) handlePlanItem(w http.ResponseWriter, r *http.Request, c auth.C
 		return
 	}
 	switch {
+	case sub == "sources" || strings.HasPrefix(sub, "sources/"):
+		s.handlePlanSources(w, r, p, c, sub)
+	case sub == "actuals" && r.Method == http.MethodGet:
+		s.planActuals(w, r, p, c)
+	case sub == "decisions" && (r.Method == http.MethodGet || r.Method == http.MethodPost):
+		s.planDecisions(w, r, p, c)
+	case sub == "scenario" && r.Method == http.MethodPost:
+		s.clonePlanScenario(w, r, p, c)
+	case sub == "schedule/remedies/preview" && r.Method == http.MethodPost:
+		s.previewPlanRemedy(w, r, p, c)
+	case sub == "schedule/remedies/apply" && r.Method == http.MethodPost:
+		s.applyPlanRemedy(w, r, p, c)
 	case sub == "teams" && r.Method == http.MethodPost:
 		s.uploadPlanTeams(w, r, p, c)
 	case sub == "teams" && r.Method == http.MethodPatch:
@@ -550,8 +562,22 @@ func (s *server) uploadPlanInitiatives(w http.ResponseWriter, r *http.Request, p
 		json.Unmarshal(p.Teams, &teams)
 	}
 	plan := planning.ParseMatrix(rows, teamNames(teams), strict)
+	// specs/019-scheduling-audit-and-gantt-integrity.md:135: names identify work.
+	if err := planning.ValidateInitiativeNames(plan.Initiatives); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	if len(plan.Initiatives) == 0 {
 		http.Error(w, "no initiatives found — expected the FullKit matrix", 400)
+		return
+	}
+	var previous []planning.Initiative
+	if len(p.Initiatives) > 0 && json.Unmarshal(p.Initiatives, &previous) != nil {
+		http.Error(w, "Saved initiative bindings are unreadable; upload was not applied.", 500)
+		return
+	}
+	if err := normalizeInitiativeBindings(plan.Initiatives, previous); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	b, _ := json.Marshal(plan.Initiatives)
@@ -588,8 +614,22 @@ func (s *server) previewPlanInitiatives(w http.ResponseWriter, r *http.Request, 
 		json.Unmarshal(p.Teams, &teams)
 	}
 	parsed := planning.ParseMatrix(rows, teamNames(teams), strict)
+	// specs/019-scheduling-audit-and-gantt-integrity.md:135: names identify work.
+	if err := planning.ValidateInitiativeNames(parsed.Initiatives); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	if len(parsed.Initiatives) == 0 {
 		http.Error(w, "no initiatives found — expected the FullKit matrix", 400)
+		return
+	}
+	var previous []planning.Initiative
+	if len(p.Initiatives) > 0 && json.Unmarshal(p.Initiatives, &previous) != nil {
+		http.Error(w, "Saved initiative bindings are unreadable; preview was not created.", http.StatusInternalServerError)
+		return
+	}
+	if err := normalizeInitiativeBindings(parsed.Initiatives, previous); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	net, unknowns := planNetwork(teams, parsed.Initiatives)
@@ -599,6 +639,28 @@ func (s *server) previewPlanInitiatives(w http.ResponseWriter, r *http.Request, 
 		"initiatives": parsed.Initiatives, "network": net, "unknownTeams": unknowns,
 		"sim": map[string]any{"before": before, "after": after, "levers": []planning.Lever{}},
 	})
+}
+
+// normalizeInitiativeBindings keeps preview and upload binding rules identical.
+// An absent column preserves matching saved bindings; a present blank clears
+// them. specs/017-planning-and-execution-usability.md:200
+func normalizeInitiativeBindings(inits, previous []planning.Initiative) error {
+	for i := range inits {
+		if inits[i].EpicKeys == nil {
+			for _, old := range previous {
+				if old.Name == inits[i].Name {
+					inits[i].EpicKeys = append([]string(nil), old.EpicKeys...)
+					break
+				}
+			}
+		}
+		keys, err := planning.NormalizeEpicKeys(inits[i].EpicKeys)
+		if err != nil {
+			return fmt.Errorf("%s: %w", inits[i].Name, err)
+		}
+		inits[i].EpicKeys = keys
+	}
+	return nil
 }
 
 // planNetwork builds the directed dependency network for a team/initiative
@@ -645,6 +707,10 @@ func (s *server) simulatePlan(w http.ResponseWriter, r *http.Request, p *db.Plan
 	inits := body.Initiatives
 	if inits == nil && len(p.Initiatives) > 0 {
 		json.Unmarshal(p.Initiatives, &inits)
+	}
+	if err := planning.ValidateInitiativeNames(inits); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 	before, after := planning.Simulate(teams, inits,
 		planning.Params{HorizonWeeks: p.HorizonWeeks, CapacityLoss: p.CapacityLoss}, body.Levers)
@@ -734,6 +800,18 @@ func (s *server) editPlanInitiatives(w http.ResponseWriter, r *http.Request, p *
 			return
 		}
 	}
+	if err := planning.ValidateInitiativeNames(inits); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	editNames := make([]planning.Initiative, len(body.Initiatives))
+	for i, edit := range body.Initiatives {
+		editNames[i].Name = edit.Name
+	}
+	if err := planning.ValidateInitiativeNames(editNames); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	var teams []planning.Team
 	if len(p.Teams) > 0 {
 		if err := json.Unmarshal(p.Teams, &teams); err != nil {
@@ -746,10 +824,9 @@ func (s *server) editPlanInitiatives(w http.ResponseWriter, r *http.Request, p *
 		http.Error(w, err.Error(), 400)
 		return
 	}
-	// Spec 008 Decision 3: lane pins are validated against the CURRENT
-	// schedule's lane stacks — a drop onto lanes another slice holds in any
-	// overlapping week is refused loudly, never silently re-packed.
-	if msg := planning.ValidateLanePins(edited, body.Initiatives, planScheduling(p), p.HorizonWeeks, teams); msg != "" {
+	// specs/019-scheduling-audit-and-gantt-integrity.md:184: all saved lane
+	// reservations are checked against the edited schedule and actual loss.
+	if msg := planning.ValidateLanePinsWithParams(edited, planScheduling(p), planning.Params{HorizonWeeks: p.HorizonWeeks, CapacityLoss: p.CapacityLoss}, teams); msg != "" {
 		http.Error(w, msg, http.StatusConflict) // the drop overlaps existing work
 		return
 	}
@@ -899,6 +976,9 @@ func (s *server) planScheduleFor(p *db.PlanRow, body scheduleRequest) (planning.
 		if err := json.Unmarshal(p.Initiatives, &inits); err != nil {
 			return planning.BaselineInputs{}, fmt.Errorf("the plan's stored initiatives are unreadable: %w", err)
 		}
+	}
+	if err := planning.ValidateInitiativeNames(inits); err != nil {
+		return planning.BaselineInputs{}, errBadInitiativeNames{err.Error()}
 	}
 	if len(body.Levers) > 0 {
 		teams, inits = planning.ApplyLevers(teams, inits, body.Levers)
@@ -1440,6 +1520,12 @@ func validateCalendarWindow(win planning.CalendarWindow) string {
 	return ""
 }
 
+// specs/019-scheduling-audit-and-gantt-integrity.md:135: ambiguous names are
+// invalid input across every shared schedule, remedy and baseline boundary.
+type errBadInitiativeNames struct{ msg string }
+
+func (e errBadInitiativeNames) Error() string { return e.msg }
+
 // errBadWindow marks a calendar-window validation failure so handlers can
 // answer 400 rather than 500 — the caller sent a constraint the engine will
 // not honour, and that is their error, not the server's.
@@ -1450,6 +1536,10 @@ func (e errBadWindow) Error() string { return e.msg }
 // windowError unwraps a validation failure, reporting whether it is the
 // caller's (400) or the server's (500).
 func windowError(err error) (string, bool) {
+	var names errBadInitiativeNames
+	if errors.As(err, &names) {
+		return names.msg, true
+	}
 	var bad errBadWindow
 	if errors.As(err, &bad) {
 		return bad.msg, true

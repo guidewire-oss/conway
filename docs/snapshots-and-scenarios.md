@@ -1,40 +1,47 @@
-# Snapshots & Scenarios
+# Snapshots and scenario files
+
+For concepts, source selection and model calculations, start with the
+[Planning and execution guide](../app/docs.html#snapshots-picker). This reference
+covers stored snapshots, learning templates and their file/API format. A plan
+agreement is a separate object; see [agreements](../app/docs.html#baselines).
 
 One object underlies both the manager's analytics and the facilitator's games: a
 **network snapshot** — a dated, named capture of the org network (pods, the
 cross-pod dependency edges, per-pod flow stats, and hygiene). Snapshots live in
-the database; Observe renders them and Train seeds games from them. There is no
+the database; Measure renders them and Learn seeds games from them. There is no
 separate "template" store — a template is just a snapshot a facilitator owns and
 edits.
 
 A snapshot has:
 
-- **source** — `baseline` (the mined seed shipped with the app), `jira` (a manager's
-  live import), or `template` (a facilitator's editable scenario).
+- **source** — `baseline` (the synthetic example seed shipped with the app), `jira` (a manager's
+  dated import), or `template` (a facilitator's editable scenario).
 - **visibility** — `private` (only the owner + admins) or `public` (everyone can
   see and seed from it).
 - **owner** — who created it.
 
-## Manager flow (Observe)
+## Manager flow (Measure)
 
-1. **Import from Jira** (Observe bar → 📥). Pick projects; structure is **auto from
-   Jira** by default (pods from the pod field, dev-count ≈ distinct assignees) or
-   from a Plan. The result is a private snapshot.
+1. **Import from Jira** (Measure → Import from Jira). Select a saved roster,
+   projects, name and WIP counting mode. The current UI requires a roster. Team
+   names join captured work to that structure. The result is a private, dated
+   snapshot; it does not automatically refresh from Jira.
 2. **Compare over time.** The Org Network view's *compare to* picker diffs the
    current snapshot against another — new edges (green), dropped edges (red
    dashed), and per-pod WIP deltas — for a temporal view of how the org moved.
 3. **Try levers.** The Org Network's simulation panel and the Levers view let you
    rehearse changes against a snapshot before committing to them.
-4. **Publish.** 🗂 Snapshots → *make public* shares a snapshot so facilitators can
+4. **Publish.** Snapshots → *make public* shares a snapshot so facilitators can
    build games from it. *make private* unshares it.
 
-## Facilitator flow (Train → 🎮 Games)
+## Facilitator flow (Learn → Run games)
 
 The **Scenario library** in the Games panel lists every snapshot/template you can
 use — your own, anything public, plus the built-in difficulty presets.
 
 - **Seed a game.** The scenario dropdown groups *Difficulty presets*, *Live org
-  snapshots*, *Scenario templates*, and *Plans*. Pick any to be the game's world.
+  snapshots*, *Scenario templates*, and *Plans*. Despite the “Live” label,
+  snapshots are dated captures. Each game receives its own simulated world.
 - **Customize for a scenario.** *Duplicate* a snapshot/template → you get an
   editable copy you own. *Download* it as JSON, edit, and *Upload* it back as a new
   template. The pods in the file are the game's teams.
@@ -55,26 +62,28 @@ synthesized from dev-count). `pods` are the teams.
 {
   "name": "Crisis scenario A",
   "pods": [
-    {"name": "Platform", "location": "San Mateo", "pairing": true,  "devCount": 6},
-    {"name": "Payments", "location": "Bengaluru", "pairing": true,  "devCount": 5},
-    {"name": "Mobile",   "location": "Toronto",   "pairing": false, "devCount": 4}
+    {"name": "Atlas", "location": "Dublin", "pairing": true,  "devCount": 6},
+    {"name": "Beacon", "location": "Warsaw", "pairing": true,  "devCount": 5},
+    {"name": "Cascade",   "location": "Denver",   "pairing": false, "devCount": 4}
   ],
   "edges": [
-    {"from": "Payments", "to": "Platform", "count": 5},
-    {"from": "Mobile",   "to": "Platform", "count": 3}
+    {"from": "Beacon", "to": "Atlas", "count": 5},
+    {"from": "Cascade",   "to": "Atlas", "count": 3}
   ],
   "stats": {
-    "Platform": {"wip": 14, "throughputPerWeek": 3, "cycleP50": 8, "cycleP85": 20, "hygiene": 0.6}
+    "Atlas": {"wip": 14, "throughputPerWeek": 3, "cycleP50": 8, "cycleP85": 20, "hygiene": 0.6}
   },
-  "overlap": {"Payments": {"Platform": 2}}
+  "overlap": {"Beacon": {"Atlas": 2}}
 }
 ```
 
 - **pods** — the teams. `location` drives the cross-site coordination seam;
-  `pairing` halves effective tracks; `devCount` is the headcount.
+  `pairing` derives tracks as `ceil(devCount / 2)` unless an explicit track
+  override applies; `devCount` is the headcount.
 - **edges** — directed blocking dependencies (`from` blocks `to`), `count` = how
   many links (edge thickness / coupling weight).
-- **stats** — per-pod flow: `wip`, `throughputPerWeek`, cycle-time `cycleP50`/
+- **stats** — per-pod flow (cycle durations are days; counts must use a
+  consistent work-item unit): `wip`, `throughputPerWeek`, cycle-time `cycleP50`/
   `cycleP85`, `hygiene` (0–1). Omitted pods get defaults.
 - **overlap** — optional per-pair work-hour overlap; omit to derive from sites.
 
@@ -87,7 +96,7 @@ synthesized from dev-count). `pods` are the teams.
 | `GET /api/snapshots` | any signed-in | list visible snapshots (own + public + baseline) |
 | `GET /api/snapshots/{id}/data/{doc}` | any visible | a stored world/observe doc |
 | `GET /api/snapshots/{id}/export` | any visible | download the editable NetworkFile |
-| `POST /api/snapshots/import` | manager | live Jira import → `jira` snapshot |
+| `POST /api/snapshots/import` | manager | dated Jira capture → `jira` snapshot |
 | `POST /api/snapshots/import-network` | facilitator | upload NetworkFile → `template` |
 | `POST /api/snapshots/{id}/clone` | facilitator | duplicate a visible snapshot → `template` |
 | `PATCH /api/snapshots/{id}` | owner/admin | rename and/or set `public` |

@@ -22,10 +22,11 @@ const isoDate = "2006-01-02"
 // planner's target date because the form omitted the field would be exactly the
 // silent data loss this feature exists to prevent.
 type InitiativeEdit struct {
-	Name           string  `json:"name"`
-	StatedPriority *int    `json:"statedPriority,omitempty"`
-	PriorityLocked *bool   `json:"priorityLocked,omitempty"`
-	TargetDate     *string `json:"targetDate,omitempty"`
+	EpicKeys       *[]string `json:"epicKeys,omitempty"`
+	Name           string    `json:"name"`
+	StatedPriority *int      `json:"statedPriority,omitempty"`
+	PriorityLocked *bool     `json:"priorityLocked,omitempty"`
+	TargetDate     *string   `json:"targetDate,omitempty"`
 	// ClearDate is the explicit clear for the target date: JSON null on
 	// targetDate means "not mentioned" (the pointer protocol), so clearing
 	// needs its own flag or a dialog that empties the field can never unset it.
@@ -103,6 +104,12 @@ func ApplyInitiativeEdits(inits []Initiative, edits []InitiativeEdit, sp Schedul
 		}
 		r := resolved{idx: idx, edit: e}
 		bad := false
+		if e.EpicKeys != nil {
+			if _, err := NormalizeEpicKeys(*e.EpicKeys); err != nil {
+				problems = append(problems, fmt.Sprintf("%s: %s", e.Name, err))
+				bad = true
+			}
+		}
 		if e.TargetDate != nil {
 			iso, err := validDate(*e.TargetDate, start, end, bounded)
 			if err != nil {
@@ -206,6 +213,9 @@ func ApplyInitiativeEdits(inits []Initiative, edits []InitiativeEdit, sp Schedul
 		}
 		if e.AfterInitiatives != nil {
 			it.AfterInitiatives = append([]string(nil), (*e.AfterInitiatives)...)
+		}
+		if e.EpicKeys != nil {
+			it.EpicKeys, _ = NormalizeEpicKeys(*e.EpicKeys)
 		}
 		out[r.idx] = it
 	}

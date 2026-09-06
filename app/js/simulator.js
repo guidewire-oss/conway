@@ -1,5 +1,8 @@
 import { simulateFeature, suggestDeps, fullKitCheck, relativeSize } from './sim.js';
 import { apiGet } from './data.js';
+import { simulatorSourceHTML, simulatorTeamOptionsHTML } from './measure-context.js';
+
+const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // short numeric-suffix id for display: strips any "PROJECT-" prefix, not just one org's
 const shortId = (key) => key.replace(/^[^-]+-/, '');
@@ -29,7 +32,7 @@ h3. Readiness
 * [ ] Environments and access available for every involved pod
 * [ ] SRE / production-readiness task created under this epic
 * [ ] Drum slot: constraint pod(s) confirmed a start window
-* [ ] Forecast attached: P50 ___ / P85 ___ (from the flow model — commit the P85)
+* [ ] Forecast attached: P50 ___ / P85 ___ (from the flow model — review assumptions and calibration before committing)
 
 h3. If this epic gets frozen
 * Defrost criteria (what must be true to resume):`;
@@ -54,22 +57,37 @@ const EXAMPLE = {
 let state = null;
 let rhoOverride = {};
 let lastResult = null;
+let scenarioSource = { kind: 'example', edited: false, dirty: false };
+let importTicket = 0;
+
+function paintSource() {
+  const source = document.getElementById('simulator-source');
+  if (source) source.innerHTML = simulatorSourceHTML(scenarioSource);
+}
+
+function markEdited() {
+  importTicket++;
+  scenarioSource = { ...scenarioSource, edited: true, dirty: true };
+  paintSource();
+}
 
 export function initSimulator(s) {
   state = s;
-  document.getElementById('add-task').addEventListener('click', () => addRow());
+  document.getElementById('add-task').addEventListener('click', () => { addRow(); markEdited(); });
+  document.querySelector('#task-table tbody').addEventListener('input', markEdited);
+  document.querySelector('#task-table tbody').addEventListener('change', markEdited);
   document.getElementById('load-example').addEventListener('click', loadExample);
   document.getElementById('run-sim').addEventListener('click', run);
   document.getElementById('import-epic').addEventListener('click', importEpic);
   // charts drawn while the tab is hidden get a 0-width container; redraw on activation
   document.querySelector('button[data-view=simulator]').addEventListener('click', () => {
-    if (lastResult) requestAnimationFrame(() => renderAll(lastResult));
+    if (lastResult) requestAnimationFrame(() => { if (lastResult) renderAll(lastResult); });
   });
   loadExample();
 }
 
 function podOptions(selected) {
-  return state.pods.map((p) => `<option ${p.name === selected ? 'selected' : ''}>${p.name}</option>`).join('');
+  return simulatorTeamOptionsHTML(state.pods, selected);
 }
 
 function addRow(t = null) {
@@ -78,12 +96,12 @@ function addRow(t = null) {
   const tr = document.createElement('tr');
   const id = t?.id ?? `T${n}`;
   tr.innerHTML = `
-    <td><input class="t-id" value="${id}" size="3"></td>
-    <td><select class="t-pod">${podOptions(t?.pod ?? state.pods[0].name)}</select></td>
+    <td><input class="t-id" value="${esc(id)}" size="3"></td>
+    <td><select class="t-pod">${podOptions(t?.pod ?? state.pods[0]?.name ?? '')}</select></td>
     <td><select class="t-size">${Object.keys(SIZES).map((k) => `<option ${k === (t?.size ?? 'M') ? 'selected' : ''}>${k}</option>`).join('')}</select></td>
-    <td><input class="t-deps" value="${t?.deps ?? ''}" placeholder="T1,T2"></td>
+    <td><input class="t-deps" value="${esc(t?.deps ?? '')}" placeholder="T1,T2"></td>
     <td><button class="del" title="remove">✕</button></td>`;
-  tr.querySelector('.del').addEventListener('click', () => tr.remove());
+  tr.querySelector('.del').addEventListener('click', () => { tr.remove(); markEdited(); });
   tbody.appendChild(tr);
 }
 
@@ -108,7 +126,9 @@ async function importEpic() {
   const key = document.getElementById('epic-key').value.trim().toUpperCase();
   const status = document.getElementById('epic-status');
   if (!key) { status.textContent = 'enter an epic key'; return; }
+  const mine = ++importTicket;
   const epic = await apiGet(`epic/${encodeURIComponent(key)}`);
+  if (mine !== importTicket) return;
   if (!epic) {
     status.textContent = `no snapshot for ${key} — import it from Jira first`;
     return;
@@ -121,12 +141,14 @@ async function importEpic() {
     const pod = (t.pod ?? '').trim();
     addRow({
       id: shortId(t.key),
-      pod: state.pods.some((p) => p.name === pod) ? pod : state.pods[0].name,
+      pod,
       size: pointsToSize(t.points, pod),
       deps: t.blockedBy.filter((k) => keys.has(k)).map(shortId).join(','),
     });
   }
   status.textContent = `${chosen.length} open tasks imported${open.length ? '' : ' (all were closed; imported everything)'}`;
+  scenarioSource = { kind: 'epic', epic: key, edited: false, dirty: true };
+  paintSource();
   renderKit({ ...epic, tasks: chosen });
   rhoOverride = {};
   run();
@@ -140,13 +162,13 @@ function renderKit(epic) {
   document.getElementById('fullkit').innerHTML = `
     <div class="kit-head">
       <span class="kit-score ${cls}">kit ${(kit.score * 100).toFixed(0)}%</span>
-      <b>Full-kit check — ${epic.epic}</b>
+      <b>Full-kit check — ${esc(epic.epic)}</b>
       <span class="help" data-tip="Machine-checkable half of the full kit. The human half (business case, contracts, defrost criteria) is the template below — paste it into the epic description. Rule of thumb: don't start below 80%; a started epic without its kit becomes a stop-start zombie and burns buffer before progress (see the fever chart's top-left cluster).">?</span>
       <button id="kit-tmpl-btn">Jira template</button>
     </div>
     ${kit.items.map((i) => `<div class="kit-item ${i.status}">
-      <span class="ki">${ICON[i.status]}</span><span>${i.label}</span>
-      <span class="kd">— ${i.detail}</span></div>`).join('')}
+      <span class="ki">${ICON[i.status]}</span><span>${esc(i.label)}</span>
+      <span class="kd">— ${esc(i.detail)}</span></div>`).join('')}
     <textarea id="kit-template" hidden readonly>${KIT_TEMPLATE}</textarea>`;
   document.getElementById('kit-tmpl-btn').addEventListener('click', () => {
     const ta = document.getElementById('kit-template');
@@ -159,8 +181,14 @@ function renderKit(epic) {
 }
 
 function loadExample() {
+  importTicket++;
+  scenarioSource = { kind: 'example', edited: false, dirty: true };
+  paintSource();
+  document.getElementById('epic-status').textContent = '';
+  document.getElementById('fullkit').innerHTML = '';
   document.querySelector('#task-table tbody').innerHTML = '';
-  EXAMPLE.tasks.forEach((t) => addRow(t));
+  if (!state.pods.length) { invalidateResults('No teams are available in this snapshot. Select a snapshot with a roster before forecasting.'); return; }
+  EXAMPLE.tasks.forEach((t, index) => addRow({ ...t, pod: state.pods.some(p => p.name === t.pod) ? t.pod : state.pods[index % state.pods.length].name }));
   rhoOverride = {};
   run();
 }
@@ -178,9 +206,31 @@ function readFeature() {
   return { tasks, deps };
 }
 
+// specs/017-planning-and-execution-usability.md:195: invalid inputs must not
+// leave any prior scenario's forecast or interactive what-if controls visible.
+function invalidateResults(message) {
+  lastResult = null;
+  scenarioSource.dirty = true;
+  for (const id of ['stat-cards', 'cdf', 'tornado', 'gantt', 'crit-list', 'suggestions', 'whatif']) {
+    const panel = document.getElementById(id);
+    if (panel) panel.innerHTML = '';
+  }
+  const status = document.getElementById('stat-cards');
+  if (status) status.innerHTML = `<p role="alert">${esc(message)}</p>`;
+  paintSource();
+}
+
 function run() {
   const feature = readFeature();
-  if (!feature.tasks.length) return;
+  if (!feature.tasks.length) {
+    invalidateResults('Add at least one named task before forecasting.');
+    return;
+  }
+  const unavailable = feature.tasks.filter(task => !state.stats[task.pod]);
+  if (unavailable.length) {
+    invalidateResults('Some tasks have no team statistics in this snapshot. Choose a team for each task or select a snapshot with the required roster.');
+    return;
+  }
   const podStats = {};
   for (const [name, st] of Object.entries(state.stats)) {
     podStats[name] = { mu: st.mu, sigma: st.sigma, rho0: st.rho0 };
@@ -191,10 +241,12 @@ function run() {
       trials: 10000, seed: 20260611, flowEff: 0.15, rhoOverride,
     });
   } catch (e) {
-    document.getElementById('stat-cards').innerHTML = `<div class="stat"><div class="v" style="color:var(--red);font-size:14px">${e.message}</div></div>`;
+    invalidateResults(e.message || 'The scenario could not be simulated. Check its tasks and dependencies.');
     return;
   }
   lastResult = { r, feature };
+  scenarioSource.dirty = false;
+  paintSource();
   renderAll(lastResult);
 }
 
@@ -216,7 +268,7 @@ function renderSuggestions(feature) {
   if (!sugg.length) { div.innerHTML = ''; return; }
   div.innerHTML = '<h3>Suggested dependencies (from Jira history)</h3>' + sugg.map((s, i) => `
     <div class="suggestion">
-      <span><b>${s.fromPod}</b> has blocked <b>${s.toPod}</b> ×${s.count} in the past 12 months,
+      <span><b>${esc(s.fromPod)}</b> has blocked <b>${esc(s.toPod)}</b> ×${s.count} in the past 12 months,
       but no dependency is declared here.</span>
       <button data-i="${i}">add</button>
     </div>`).join('');
@@ -229,6 +281,7 @@ function renderSuggestions(feature) {
         if (!cur.includes(s.fromTask)) depsEl.value = [...cur, s.fromTask].join(',');
       }
     }
+    markEdited();
     run();
   }));
 }
@@ -240,21 +293,23 @@ function chartWidth(svg, fallback = 900) {
 
 function fmtDate(days) {
   const d = new Date();
-  d.setDate(d.getDate() + Math.round(days * 7 / 5)); // working → calendar days
+  // specs/017-planning-and-execution-usability.md:194: Jira samples and model
+  // output already use elapsed calendar days, not five-day working weeks.
+  d.setDate(d.getDate() + Math.round(days));
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 function renderStats(r) {
   const hlp = (t) => ` <span class="help" data-tip="${t.replace(/"/g, '&quot;')}">?</span>`;
   const cards = [
-    ['P50', r.p50, '', 'The completion day 50% of the 10,000 Monte-Carlo trials beat — the optimistic, coin-flip plan. Rules of Flow: do NOT commit this; you\'ll miss it half the time.'],
-    ['P85 — commit this', r.p85, 'p85', 'The day 85% of trials finished by — the date to actually promise. It already prices in per-pod cycle-time variability, queue waits, and cross-site handoff delay. Probabilistic forecasting: commit a percentile, not a point.'],
-    ['P95', r.p95, '', 'The near-worst-case day (95% of trials beat it). The gap P95−P50 is your risk/variability — wide gaps mean the plan is fragile to a bad event.'],
+    ['P50', r.p50, '', '50% of simulated trials finished by this point. This percentile is conditional on the historical data and model assumptions.'],
+    ['P85', r.p85, 'p85', '85% of simulated trials finished by this point. This is not a guaranteed commitment or measured real-world confidence; review data coverage and compare past forecasts with observed delivery.'],
+    ['P95', r.p95, '', '95% of simulated trials finished by this point. Outcomes beyond P95 remain possible, including risks absent from the input model.'],
   ];
   document.getElementById('stat-cards').innerHTML = cards.map(([l, v, cls, tip]) => `
     <div class="stat ${cls}"><div class="l">${l}${hlp(tip)}</div>
     <div class="v">${v.toFixed(0)}d</div>
-    <div class="hint">~${fmtDate(v)}</div></div>`).join('');
+    <div class="hint">~${fmtDate(v)}</div></div>`).join('') + '<p class="hint">Conditional forecast from the selected snapshot. Dates start today and use elapsed calendar days, matching the historical cycle-time samples; future changes are not included. Review data quality and calibration before agreeing a commitment.</p>';
 }
 
 function renderCdf(makespans) {
@@ -318,7 +373,7 @@ function renderCrit(r) {
   const entries = Object.entries(r.podCriticality).sort((a, b) => b[1] - a[1]);
   document.getElementById('crit-list').innerHTML =
     '<b>Criticality index</b> (probability the pod sits on the critical path): ' +
-    entries.map(([pod, c]) => `${pod} <b>${(c * 100).toFixed(0)}%</b>`).join(' · ');
+    entries.map(([pod, c]) => `${esc(pod)} <b>${(c * 100).toFixed(0)}%</b>`).join(' · ');
 }
 
 function renderWhatIf(feature) {
@@ -326,9 +381,9 @@ function renderWhatIf(feature) {
   const div = document.getElementById('whatif');
   div.innerHTML = '<h3>What-if: pod load (Kingman queue scaling)</h3>' + pods.map((p) => {
     const rho = rhoOverride[p] ?? state.stats[p].rho0;
-    return `<label>${p} — ρ <b id="rv-${p}" style="color:${heatColor(rho)}">${rho.toFixed(2)}</b>
+    return `<label>${esc(p)} — ρ <b id="rv-${esc(p)}" style="color:${heatColor(rho)}">${rho.toFixed(2)}</b>
       (baseline ${state.stats[p].rho0.toFixed(2)})</label>
-      <input type="range" min="0.30" max="0.97" step="0.01" value="${rho}" data-pod="${p}">`;
+      <input type="range" min="0.30" max="0.97" step="0.01" value="${rho}" data-pod="${esc(p)}">`;
   }).join('');
   div.querySelectorAll('input[type=range]').forEach((el) => {
     el.addEventListener('input', () => {
@@ -337,6 +392,7 @@ function renderWhatIf(feature) {
       const lbl = document.getElementById(`rv-${p}`);
       lbl.textContent = rhoOverride[p].toFixed(2);
       lbl.style.color = heatColor(rhoOverride[p]);
+      markEdited();
     });
     el.addEventListener('change', run);
   });

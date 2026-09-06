@@ -123,7 +123,8 @@ tbody tr:hover td { background: var(--panel2); }
 .sso-divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; margin: 2px 0; }
 .sso-divider::before, .sso-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
 .auth-chip { color: var(--muted); font-size: 12px; padding: 7px 4px 7px 12px; }
-.auth-chip a { color: var(--accent); cursor: pointer; }
+.auth-chip a, .auth-chip button { color: var(--accent); cursor: pointer; }
+.auth-chip button { background: transparent; border: 0; padding: 0; font-size: inherit; }
 .admin-tab { color: var(--amber); border-color: var(--amber) !important; }
 #admin-overlay { --bs-modal-width: min(1120px, 100%); }
 #admin-modal { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; max-width: 1120px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 22px 28px; font-size: 15px; }
@@ -197,7 +198,6 @@ tbody tr:hover td { background: var(--panel2); }
 /* As <button> (terms.js), the global button padding would shrink the 16px
    circle's content box to nothing — reset it so the ? stays centered. */
 button.help { padding: 0; line-height: 1; font-family: inherit; }
-button.help:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 1px; }
 #tooltip { position: fixed; max-width: 340px; background: #0b1117; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text); font-size: 12px; line-height: 1.5; z-index: 100; pointer-events: none; font-weight: 400; text-transform: none; letter-spacing: 0; box-shadow: 0 4px 18px rgba(0,0,0,.5); }
 #tooltip[hidden] { display: none; }
 
@@ -344,7 +344,6 @@ button { background: var(--bs-secondary-bg); color: var(--text); border: 1px sol
 button.primary { background: var(--bs-primary); color: #04222f; font-weight: 600; border-color: var(--bs-primary); }
 button.primary:hover:not(:disabled) { background: var(--bs-primary-text-emphasis); border-color: var(--bs-primary-text-emphasis); }
 button:hover:not(.primary):not(:disabled) { border-color: var(--bs-primary-text-emphasis); }
-button:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 1px; }
 button:disabled { opacity: .55; cursor: not-allowed; }
 /* The framework's own classes, for new markup. */
 .btn { font-size: 13px; }
@@ -465,7 +464,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .ord-podlink { background: none; border: 0; padding: 0; margin: 0; font: inherit;
   color: var(--accent); cursor: pointer; text-align: left; }
 .ord-podlink:hover { text-decoration: underline; }
-.ord-podlink:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+.ord-podlink:focus-visible { border-radius: 3px; }
 .ord-terms { margin-left: 14px; }
 .ord-terms summary { cursor: pointer; }
 .ord-queue { margin-top: 12px; }
@@ -512,7 +511,6 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 button.bl-chip { background: transparent; border: 1px solid transparent; border-radius: 7px;
   padding: 3px 8px; cursor: pointer; font: inherit; font-size: 12px; color: var(--muted); }
 button.bl-chip:hover { border-color: var(--border); background: var(--panel2); }
-button.bl-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* ── Timeline (spec 001 §13.3-§13.5) ────────────────────────────────────
    FR-035: every position is a percentage; the horizon always fits. */
@@ -850,3 +848,43 @@ button.plan-back { background: none; border: 0; padding: 0; font: inherit; }
 .plan-up-init { display: flex; flex-direction: column; gap: 6px; }
 .plan-up-init .plan-up { margin-bottom: 4px; }
 #plan-init-preview:disabled { opacity: .5; cursor: not-allowed; }
+
+/* specs/017-planning-and-execution-usability.md:104 — reachable controls at narrow widths. */
+.cv-icon { width: 1em; height: 1em; vertical-align: -.12em; flex-shrink: 0; }
+button:focus-visible, .btn:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+header nav { flex-wrap: wrap; align-items: center; }
+#help-menu .dropdown-item { min-height: 40px; white-space: normal; }
+.guide-personas { flex-wrap: wrap; }
+.auth-chip { overflow-wrap: anywhere; }
+@media (max-width: 900px) {
+  header { flex-wrap: wrap; gap: 8px; position: relative; }
+  header nav { width: 100%; gap: 4px; }
+  .nav-menu { max-width: calc(100vw - 24px); }
+  .nav-group .nav-menu { left: 0; right: auto; }
+  #help-group .nav-menu { left: auto; right: 0; }
+  .sim-grid, .flow-grid, .net-wrap { grid-template-columns: minmax(0, 1fr); }
+  .panel-card, .view, main { min-width: 0; }
+  .panel-card { overflow-x: auto; }
+  #netsvg { height: 55dvh; min-height: 300px; }
+  #netpanel { max-height: none; }
+  .games-create { flex-wrap: wrap; }
+}
+@media (max-width: 480px) {
+  header { padding: 10px; }
+  main { padding: 10px; }
+  header .brand h1 .hint { display: none; }
+  header nav > .tab, header nav > .nav-group > .tab { padding: 7px 9px; }
+  .chart-pair, .game-top { display: block; }
+  .home-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #guide-modal, #games-modal { padding: 14px; max-height: 90dvh; }
+}
+
+/* Snapshot labels must not force the entire header wider than the viewport. */
+header .brand { flex-wrap: wrap; min-width: 0; max-width: 100%; }
+.snapshot-pick { min-width: 0; max-width: 100%; }
+.snapshot-pick select { min-width: 0; max-width: 100%; }
+@media (max-width: 900px) {
+  header .brand { width: 100%; }
+  header .snapshot-pick { flex: 1 1 100%; display: flex; flex-wrap: wrap; }
+  header .snapshot-pick select { width: 100% !important; }
+}

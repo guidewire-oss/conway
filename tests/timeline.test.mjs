@@ -258,8 +258,8 @@ test('the pod sheet carries the exact start-by and slack values (FR-041)', () =>
   assert.ok(at >= 0, 'the slice is in this pod\'s sheet');
   const row = html.slice(at, html.indexOf('</tr>', at));
   // Cell-anchored: a bare w8 would also match w80.
-  assert.match(row, new RegExp(`<td>w${found.sl.startWeek}</td>`), 'the start week is the actual start');
-  assert.match(row, new RegExp(`<td>w${found.sl.latestStartWeek}</td>`), 'start-by is latestStartWeek');
+  assert.match(row, new RegExp(`\\(w${found.sl.startWeek}\\)</span></td>`), 'the start week is the actual start');
+  assert.match(row, new RegExp(`\\(w${found.sl.latestStartWeek}\\)</span></td>`), 'start-by is latestStartWeek');
   assert.match(row, new RegExp(`<td>${found.sl.slackWeeks}w</td>`), 'slack is the slice\'s own weeks');
 });
 

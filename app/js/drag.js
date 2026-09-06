@@ -17,12 +17,15 @@
 const WEEK_PX_HINT = 12; // px around an edge that counts as the resize zone
 
 // attachDrag makes every bar in `root` draggable. callbacks:
-//   onPin(initiative, pod, { startWeek, laneDelta, effort }) — async PATCH +
+//   onPin(initiative, pod, { startWeek, laneDelta, effort }, { lane }) — async PATCH +
 //   recompute. startWeek null = time unchanged; laneDelta 0 = lane unchanged;
 //   effort (weeks, optional) = the new estimate when the gesture resized.
+//   lane is the slice's original first-lane offset, independent of which
+//   phase or continuation row was grabbed.
 //   onResize(initiative, pod, newEffortWeeks) — async PATCH estimateEdits.
+//   onPreview(message) — transient text before release; empty clears it.
 //   lossFactor = 1 − capacityLoss of the plan (default 0.9).
-export function attachDrag(root, { onPin, onResize, span, horizon, periodStart, readOnly, lossFactor = 0.9 }) {
+export function attachDrag(root, { onPin, onResize, onPreview, span, horizon, periodStart, readOnly, lossFactor = 0.9 }) {
   if (!root || readOnly) return;
   // Touch/coarse-pointer devices never attach drag handlers (cubic P2): a
   // swipe over a bar is a scroll, not a pin.
@@ -33,6 +36,7 @@ export function attachDrag(root, { onPin, onResize, span, horizon, periodStart, 
     const initiative = bar.dataset.initiative;
     const pod = bar.dataset.pod;
     if (!initiative || !pod) return; // continuation bars carry the same data attrs
+    const laneOrigin = Number(bar.dataset.laneOrigin ?? bar.dataset.lane ?? 0);
 
     let startX = 0;
     let startY = 0;
@@ -50,9 +54,42 @@ export function attachDrag(root, { onPin, onResize, span, horizon, periodStart, 
       const rect = bar.getBoundingClientRect();
       const edge = Math.min(EDGE, rect.width / 3);
       const x = ev.clientX - rect.left;
+      if (bar.dataset.estimate === undefined) return 'move';
       if (x < edge && Number(bar.dataset.startWeek || 0) > 0) return 'resize-w';
       if (x > rect.width - edge) return 'resize-e';
       return 'move';
+    };
+    // specs/017-planning-and-execution-usability.md:86: show the exact edit
+    // before release. Preview and persistence share the same rounded values.
+    const valuesFor = (dx, dy) => {
+      const laneDelta = Math.round(dy / rowHeight(root));
+      // specs/019-scheduling-audit-and-gantt-integrity.md:172: a left edge
+      // stops at week zero; effort must use that same effective movement.
+      const rounded = Math.round(dx / weekWidth(root));
+      const weekDelta = mode === 'resize-w' ? Math.max(-Number(bar.dataset.startWeek || 0), rounded) : rounded;
+      const estimate = Number(bar.dataset.estimate);
+      const lanes = Number(bar.dataset.lanes || 1);
+      const lossPct = Number(bar.dataset.loss);
+      const factor = Number.isFinite(lossPct) && lossPct > 0 ? 1 - lossPct / 100 : lossFactor;
+      const delta = Math.round(weekDelta * lanes * factor);
+      return { laneDelta, weekDelta, estimate, delta };
+    };
+    const preview = (dx, dy) => {
+      const { laneDelta, weekDelta, estimate, delta } = valuesFor(dx, dy);
+      if ((Math.abs(dx) < 3 && Math.abs(dy) < 3) || (!weekDelta && !laneDelta)) return '';
+      const start = Number(bar.dataset.startWeek || 0);
+      const lane = laneOrigin + 1;
+      let change;
+      if (mode === 'resize-w' || (mode === 'resize-e' && onResize && bar.dataset.estimate !== undefined)) {
+        if (!weekDelta) return '';
+        const effort = estimate + (mode === 'resize-w' ? -delta : delta);
+        if (!Number.isFinite(effort) || effort < 1) return `${initiative} · ${pod}: cannot resize below one estimate week. Release keeps the current estimate.`;
+        change = `Estimate ${estimate} → ${effort} weeks`;
+        if (mode === 'resize-w') change += `; start week ${start} → ${Math.max(0, start + weekDelta)}`;
+      } else {
+        change = `Start week ${start} → ${Math.max(0, start + weekDelta)}; lane ${lane} → ${Math.max(1, lane + laneDelta)}`;
+      }
+      return `${initiative} · ${pod}: ${change}. Release to save the working plan; the schedule will recalculate.`;
     };
 
     bar.style.cursor = 'grab';
@@ -77,14 +114,16 @@ export function attachDrag(root, { onPin, onResize, span, horizon, periodStart, 
       if (!dragging) return;
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
+      onPreview?.(preview(dx, dy));
       bar.style.opacity = '0.75';
       // preview per mode: resize-e grows the width, resize-w moves the left
       // edge (translate + shrink), move translates the whole bar
       if (mode === 'resize-e') {
         bar.style.width = `${Math.max(2, startW + dx)}px`;
       } else if (mode === 'resize-w') {
-        bar.style.transform = `translateX(${Math.max(-startW + 2, dx)}px)`;
-        bar.style.width = `${Math.max(2, startW - dx)}px`;
+        const movement = Math.min(startW - 2, Math.max(-Number(bar.dataset.startWeek || 0) * weekWidth(root), dx));
+        bar.style.transform = `translateX(${movement}px)`;
+        bar.style.width = `${Math.max(2, startW - movement)}px`;
       } else {
         const rowH = rowHeight(root);
         bar.style.transform = `translate(${dx}px, ${Math.round(dy / rowH) * rowH}px)`;
@@ -93,6 +132,7 @@ export function attachDrag(root, { onPin, onResize, span, horizon, periodStart, 
     const release = async (ev) => {
       if (!dragging) return;
       dragging = false;
+      onPreview?.('');
       bar.style.cursor = 'grab';
       bar.style.transform = '';
       bar.style.width = savedWidth ?? '';
@@ -100,18 +140,12 @@ export function attachDrag(root, { onPin, onResize, span, horizon, periodStart, 
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
       if (Math.abs(dx) < 3 && Math.abs(dy) < 3) return; // a click, not a drag
-      const laneDelta = Math.round(dy / rowHeight(root));
-      const weekDelta = Math.round(dx / weekWidth(root));
+      const { laneDelta, weekDelta, estimate, delta } = valuesFor(dx, dy);
       if (weekDelta === 0 && laneDelta === 0) return;
-      const estimate = Number(bar.dataset.estimate);
-      const lanes = Number(bar.dataset.lanes || 1);
       // Spec 014: the pod's effective loss rides the bar (data-loss, percent)
       // — a 30%-loss pod converts duration to effort at 0.7, not at the plan
       // global. The opts.lossFactor (the plan global) is the fallback for a
       // schedule rendered before the pod carried the field.
-      const lossPct = Number(bar.dataset.loss);
-      const factor = Number.isFinite(lossPct) && lossPct > 0 ? 1 - lossPct / 100 : lossFactor;
-      const delta = Math.round(weekDelta * lanes * factor); // Decision 4 math
       if (mode === 'resize-w') {
         // Left edge (Q2): the dragged edge moves, the finish anchors. The
         // start moves AND the estimate shrinks by the same duration, so the
@@ -121,7 +155,7 @@ export function attachDrag(root, { onPin, onResize, span, horizon, periodStart, 
         const curStart = Number(bar.dataset.startWeek || 0);
         await onPin(initiative, pod, {
           startWeek: Math.max(0, curStart + weekDelta), laneDelta: 0, effort: estimate - delta,
-        });
+        }, { lane: laneOrigin });
       } else if (mode === 'resize-e' && onResize && bar.dataset.estimate !== undefined) {
         // Right edge: more/less duration = more/less effort; the engine
         // re-divides by lanes on the server. In-flight bars carry no
@@ -134,12 +168,14 @@ export function attachDrag(root, { onPin, onResize, span, horizon, periodStart, 
         await onPin(initiative, pod, {
           startWeek: weekDelta ? Math.max(0, Number(bar.dataset.startWeek || 0) + weekDelta) : null,
           laneDelta,
-        });
+        }, { lane: laneOrigin });
       }
     };
     bar.addEventListener('pointerup', release);
     bar.addEventListener('pointercancel', () => {
       dragging = false;
+      onPreview?.('');
+      bar.style.cursor = 'grab';
       bar.style.transform = '';
       bar.style.width = savedWidth ?? '';
       bar.style.opacity = '';
