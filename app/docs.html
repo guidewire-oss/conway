@@ -15,7 +15,7 @@
   h1 { font-size: clamp(28px, 3vw, 36px); line-height: 1.2; margin: 0 0 16px; }
   h2 { font-size: 24px; line-height: 1.35; margin: 48px 0 16px; padding-top: 24px; border-top: 1px solid var(--border); }
   h3 { font-size: 19px; margin: 28px 0 12px; }
-  h2, #docs-top { scroll-margin-top: 110px; }
+  h2, h3[id], #docs-top { scroll-margin-top: 110px; }
   p { margin: 0 0 16px; }
   li { margin: 8px 0; }
   .eyebrow { color: var(--accent); font-weight: 600; margin-bottom: 8px; }
@@ -69,7 +69,7 @@
     .sidebar { order: 1; position: static; width: 100%; max-height: none; border: 1px solid var(--border); padding: 12px; margin-top: 32px; }
     .reader-ready .sidebar { display: none; position: fixed; z-index: 11; top: 125px; left: 12px; right: 12px; width: auto; max-height: calc(100dvh - 145px); overflow: auto; background: var(--bg); border-radius: 8px; box-shadow: 0 12px 28px #0003; margin: 0; }
     .reader-ready .sidebar.is-open { display: block; }
-    h2, #docs-top { scroll-margin-top: 145px; }
+    h2, h3[id], #docs-top { scroll-margin-top: 145px; }
     h2 { font-size: 22px; }
   }
   @media screen and (max-width: 600px) {
@@ -118,6 +118,8 @@
 <a href="#howto">Choose settings</a>
 <a href="#planning-loop">Planning and weekly review</a>
 <a href="#snapshots-picker">Sources and switching</a>
+<a href="#linked-sheets">Link Google Sheets</a>
+<a href="#feature-news">Discover new features</a>
 <p>Planning reference</p>
 <a href="#plan-setup">Prepare a workbook</a>
 <a href="#capacity-calculations">Capacity and duration</a>
@@ -272,6 +274,23 @@
 </tbody></table></div>
 <p>Selecting a workbook stages it. Use <b>Preview</b>, inspect scope and warnings, then <b>Save initiatives</b>. A preview is not the same as saved working inputs. Keep the source workbook for reconciliation.</p>
 <div class="caution"><b>Current import limitation:</b> a nonnumeric estimate such as <code>TBD</code> with no retained dependency can disappear; duplicate columns can overwrite work; differently capitalized dependencies can be accepted without being enforced. Reconcile these cases before agreeing dates. Do not replace unknown work with zero merely to obtain a schedule.</div>
+
+<h3 id="linked-sheets">Keep plan inputs connected to Google Sheets</h3>
+<p>Use a linked sheet when people maintain planning inputs together and repeated workbook uploads are becoming hard to track. Open a saved plan and choose <b>Linked Google Sheets</b>. An administrator must first configure the connection; share the spreadsheet with the service-account email displayed in the dialog.</p>
+<ol><li>Choose <b>Teams</b> or <b>Initiatives</b>, paste the Google spreadsheet link and enter the tab or range containing the table, including its header row. Use the workbook columns described above.</li><li>Start in <b>Review</b> mode. Run a check, inspect the captured version and its validation messages, then apply the version you intend to use.</li><li>Recompute and inspect the timeline after applying changed inputs. Save a new agreement only when stakeholders accept the revised plan.</li></ol>
+<p>A Teams source updates this plan's roster. It does not change the shared roster library or other plans. An Initiatives source updates this plan's initiative inputs. Neither source supplies Jira delivery evidence or changes the snapshot selected in Measure.</p>
+<div class="table-wrap" role="region" aria-label="Linked sheet update choices"><table><thead><tr><th scope="col">Choice</th><th scope="col">Behavior</th><th scope="col">Choose it when</th></tr></thead><tbody>
+<tr><td data-label="Choice">Review</td><td data-label="Behavior">Checks capture changes for inspection. Applying a version is a separate action.</td><td data-label="Choose it when">The plan contains commitments or several people negotiate changes.</td></tr>
+<tr><td data-label="Choice">Automatic apply</td><td data-label="Behavior">Eligible valid changes apply only while the plan still matches the source's checkpoint. Local divergence and removals require review.</td><td data-label="Choose it when">The spreadsheet is the agreed source and the team accepts routine updates to working inputs.</td></tr>
+<tr><td data-label="Choice">Pause</td><td data-label="Behavior">Stops periodic checks while retaining the connection and history.</td><td data-label="Choose it when">You need a stable working period or are reorganizing the sheet.</td></tr>
+<tr><td data-label="Choice">Disconnect</td><td data-label="Behavior">Stops synchronization and retains captured history.</td><td data-label="Choose it when">The source is retired or is being replaced.</td></tr>
+</tbody></table></div>
+<p>Periodic checks normally run every 15 minutes; the supported interval is 5–1440 minutes. A check compares table content with the last capture: unchanged content does not create another version. Empty or invalid tables are retained with diagnostics and cannot replace a usable plan. Removals need explicit confirmation. Reopen a plan to load changes applied by background checks; an already open timeline is not a live spreadsheet view.</p>
+<p>Version history contains <b>captures Conway actually read</b>, not every edit or every native Google revision. Edits between checks can be missed. Restoring a captured version uses the same validation and conflict checks as applying a new one. A changed plan requires a fresh review; saved agreements remain unchanged so you can compare the new working plan with the earlier commitment.</p>
+<p>If access fails, check spreadsheet sharing, the tab or range and the administrator's connection configuration. If validation fails, correct the header or data reported in the diagnostics and check again. If applying reports a conflict, reload the version preview and assess the current plan before retrying.</p>
+<h3 id="feature-news">Discover features at your own pace</h3>
+<p>After sign-in, <b>What's new</b> briefly introduces newly available features for your account. Closing it leaves your work in place. A yellow dot and the text <b>New feature</b> guide you through the relevant menu until you open the feature itself. Opening a parent menu does not clear the indicator.</p>
+<p>Use <b>Help → What's new</b> to replay available announcements. Presentation and visits are remembered separately for each account across browsers. If saving history fails, use the retry control; the feature remains available even when its history cannot be saved.</p>
 
 <h2 id="capacity-calculations">9. Capacity, effort and duration calculations</h2>
 <p>Plan schedules on a whole-week grid. Fractions of required duration round up. The following examples assume available tracks, no dependencies, calendars, WIP holds, start pins or splitting overhead unless stated.</p>

@@ -30,6 +30,8 @@ contents first, then closes the embedded guide on a subsequent press.
 | Prepare planning and delivery reviews | [Planning and weekly review](../app/docs.html#planning-loop) |
 | Identify which data a view uses | [Sources and switching](../app/docs.html#snapshots-picker) |
 | Upload a roster and initiative matrix | [Workbook preparation](../app/docs.html#plan-setup) |
+| Maintain plan inputs in a shared spreadsheet | [Linked Google Sheets](../app/docs.html#linked-sheets) |
+| Find newly available capabilities | [Feature announcements](../app/docs.html#feature-news) |
 | Inspect capacity or edit placement | [Timeline](../app/docs.html#timeline) |
 | Preserve and compare a commitment | [Agreements](../app/docs.html#baselines) |
 | Connect Jira evidence to initiatives | [Execution review](../app/docs.html#execution) |
@@ -58,6 +60,7 @@ presented as formulas prescribed by those authors.
 - [Run locally and contribute](../README.md#run)
 - [Snapshots, scenario files and API](snapshots-and-scenarios.md)
 - [Single sign-on](sso-oidc.md)
+- [Configure linked Google Sheets](linked-google-sheets.md)
 - [Feature specifications](../specs/): source of truth for requirements and decisions
 - [Feature strategy](FEATURE-STRATEGY-2026-09-05.md): proposed planning and execution improvements, priorities, dependencies and pilot criteria; not implemented features
 - [Factory rules](FACTORY_RULES.md) and [workflows](../workflows/README.md)

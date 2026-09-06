@@ -39,7 +39,10 @@ function ensureOverlay() {
       </div>
     </div>`;
   document.body.appendChild(overlay);
-  overlay.addEventListener('shown.bs.modal', positionSection);
+  overlay.addEventListener('shown.bs.modal', () => {
+    positionSection();
+    window.dispatchEvent(new CustomEvent('conway:feature-opened', { detail: { action: 'guide' } }));
+  });
   // specs/017-planning-and-execution-usability.md:92 — iframe focus stays
   // in its document. Reattach after each navigation, including the first load.
   const frame = overlay.querySelector('#docs-frame');

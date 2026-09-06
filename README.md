@@ -147,6 +147,10 @@ For your own org's data, use **Import from Jira** in the app. Sign-in gates
 everything: the admin panel creates/extends/revokes expiring team accounts and
 shows a live board.
 
+To maintain plan rosters and initiatives in a shared spreadsheet, configure
+[linked Google Sheets](docs/linked-google-sheets.md), then link the source
+inside a saved plan. This requires a server restart after configuration.
+
 ## Authentication
 
 By default an **admin** manages accounts and shares credentials manually

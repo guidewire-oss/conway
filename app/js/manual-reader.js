@@ -14,10 +14,10 @@ function initManualReader(doc) {
   const toggle = doc.getElementById('contents-toggle');
   const clear = doc.getElementById('search-clear');
   const current = doc.getElementById('current-section');
-  const headings = [...doc.querySelectorAll('main h2[id]')];
+  const headings = [...doc.querySelectorAll('main h2[id], main h3[id]')];
   const sections = headings.map((heading) => {
     let content = heading.textContent;
-    for (let sibling = heading.nextElementSibling; sibling && sibling.tagName !== 'H2'; sibling = sibling.nextElementSibling) content += ' ' + sibling.textContent;
+    for (let sibling = heading.nextElementSibling; sibling && !headings.includes(sibling); sibling = sibling.nextElementSibling) content += ' ' + sibling.textContent;
     return { id: heading.id, title: heading.textContent.replace(/^\d+\.\s*/, ''), content };
   });
   const links = [...contents.querySelectorAll('a[href^="#"]')];

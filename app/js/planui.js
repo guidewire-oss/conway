@@ -7,6 +7,7 @@ import { icon } from './icons.js';
 import { openModal, closeModal, containFocus } from './modal.js';
 import { mountExecution } from './executionui.js';
 import { openImport } from './importui.js';
+import { openLinkedSheets } from './linksheets.js';
 import {
   heatColor, layoutColumns, bezierEdgePath, appendArrowMarker,
   enablePanZoom, enableNodeDrag, makeSpotlight,
@@ -226,7 +227,7 @@ async function renderList() {
         <td><span class="tag">${p.estimateModel === 'effort' ? 'effort' : 'wall-clock'}</span> ${p.periodStart ? '<span class="tag" style="color:var(--green)">dates set</span>' : '<span class="hint">no dates</span>'} ${p.baselineCount ? `<span class="tag">${p.baselineCount} baseline${p.baselineCount > 1 ? 's' : ''}</span>` : ''}</td>
         <td>${fmtDate(p.updatedAt)}</td>
         <td><button class="plan-del" data-id="${p.id}">delete</button></td></tr>`).join('')
-      || '<tr><td colspan="6" class="hint">No plans yet — create one to upload your teams &amp; initiatives.</td></tr>'}
+      || '<tr><td colspan="6" class="hint">No plans yet — create one, then upload your teams and initiatives or link Google Sheets.</td></tr>'}
       </tbody></table>`;
   root.querySelector('#plan-new').addEventListener('click', createPlan);
   root.querySelector('#plan-demo').addEventListener('click', async () => {
@@ -292,10 +293,12 @@ function renderPlan() {
       <h2>${esc(p.name)}</h2>
       <span class="hint">${esc(p.scheduling?.periodStart || 'Period start not set')} · ${p.horizonWeeks} weeks</span>
       <button type="button" id="plan-scenario" ${p.isDraft ? 'disabled' : ''}>${icon('copy')}Create scenario copy</button>
+      <button type="button" id="plan-linked-sheets" ${p.isDraft ? 'disabled' : ''}>Linked Google Sheets</button>
       <span id="plan-save-status" role="status" aria-live="polite" class="hint ${p.saveNotice?.error ? 'plan-warn' : ''}">${esc(p.saveNotice?.message || 'Working plan · saved. Edits autosave; baselines change only when you save an agreement.')}</span>
     </div>
     <details class="plan-setup"${(nTeams === 0 || nInit === 0) ? ' open' : ''}>
       <summary>Plan setup <span class="hint">${nTeams} pods · ${nInit} initiatives · ${(Math.round((p.capacityLoss || 0) * 100))}% capacity loss</span></summary>
+      <p class="hint">Use the inputs below, or choose Linked Google Sheets above to maintain this plan from shared sheet ranges. For a new plan, link and apply the team roster before its initiatives.</p>
       <div class="row-actions">
         <label>Period length <input id="plan-horizon" type="number" min="1" max="104" value="${p.horizonWeeks}"> weeks</label>
         <label>Capacity loss <input id="plan-loss" type="number" min="0" max="90" value="${Math.round((p.capacityLoss || 0) * 100)}">%</label>
@@ -360,6 +363,24 @@ function renderPlan() {
   });
   root.querySelector('#plan-save').addEventListener('click', savePlanParams);
   document.getElementById('plan-scenario')?.addEventListener('click', createScenario);
+  // specs/023-linked-google-sheets.md:241 — a late apply must not replace a
+  // different plan or an unsaved local draft when its source dialog finishes.
+  document.getElementById('plan-linked-sheets')?.addEventListener('click', async () => {
+    const planID = current.id;
+    const opened = await openLinkedSheets(planID, async () => {
+      if (current?.id !== planID) return;
+      const horizon = document.getElementById('plan-horizon');
+      const loss = document.getElementById('plan-loss');
+      const unsavedSettings = (horizon && Number(horizon.value) !== current.horizonWeeks)
+        || (loss && Number(loss.value) !== Math.round((current.capacityLoss || 0) * 100));
+      if (current.isDraft || pendingInitiativesFile || unsavedSettings) {
+        planNotice('Linked sheet applied on the server. Finish or discard your local draft, then reopen the plan to load it.');
+        return;
+      }
+      await openPlan(planID);
+    });
+    if (opened) window.dispatchEvent(new CustomEvent('conway:feature-opened', { detail: { action: 'linked-sheets' } }));
+  });
   root.querySelectorAll('#plan-horizon,#plan-loss').forEach(el=>el.addEventListener('input',()=>planNotice('Unsaved settings — choose Save settings to apply.')));
   // The missing-pod warning's fix (spec 009 AC 3.2): open setup at the roster.
   document.getElementById('unknown-fix')?.addEventListener('click', () => {
@@ -492,6 +513,7 @@ function renderExecution() {
       dragUndo=null; dragHistory=[]; staleOrder();
       loadBaselines().then(()=>{ if(current?.id === plan.id) { const chip=document.getElementById('bl-chip'); if(chip) chip.outerHTML=baselineChipHTML(current.baselines); } });
     }});
+  window.dispatchEvent(new CustomEvent('conway:feature-opened', { detail: { action: 'execution' } }));
 }
 
 // Spec 012 FR-004: one-time callouts. Dismissal persists per session.

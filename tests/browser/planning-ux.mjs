@@ -15,7 +15,14 @@ const errors=[];page.on('pageerror',e=>errors.push(e.message));
 try {
  await page.goto(baseURL);
  await page.locator('#login-user').fill(username); await page.locator('#login-pass').fill(password);
+ const catalogResponse=page.waitForResponse(r=>r.url().endsWith('/api/announcements')&&r.request().method()==='GET');
  await page.locator('#signin-form button[type=submit]').click();
+ const catalog=await catalogResponse;
+ if(catalog.ok() && (await catalog.json()).features.some(f=>!f.announced)) {
+  const intro=page.locator('#announcements-overlay'); await intro.waitFor({state:'visible'});
+  await page.waitForFunction(async()=>{const r=await fetch('/api/announcements',{headers:{Authorization:'Bearer '+localStorage.getItem('conway_token')}});return r.ok&&(await r.json()).features.every(f=>f.announced);});
+  await intro.locator('[data-announcement-close]').click(); await intro.waitFor({state:'hidden'});
+ }
  await page.locator('#plan-btn').waitFor(); await page.locator('#plan-btn').click(); await page.locator('.tab[data-view="plan"]').click();
  await page.locator('#plan-demo').click();
  await page.locator('#view-order.active').waitFor(); await page.locator('.ord-table').waitFor();
@@ -30,6 +37,7 @@ try {
  await page.locator('#tl-initiative-filter').fill(name); await page.waitForTimeout(250);
  await page.locator('#tl-by-pod').click(); assert.equal(await page.locator('#tl-initiative-filter').inputValue(),name);
  await page.reload(); await page.locator('.tl-precise-edit').waitFor(); assert.equal(await page.locator('#tl-initiative-filter').inputValue(),name);
+ assert.equal(await page.locator('#announcements-overlay').isVisible(),false,'introduction must not repeat after reload');
  const form=page.locator('.tl-precise-edit'); const start=form.locator('[name=startWeek]').first();
  const original=await start.inputValue(); await start.fill(String(Number(original)+1));
  await form.locator('button[type=submit]').click(); await page.locator('#tl-undo:not([disabled])').waitFor();

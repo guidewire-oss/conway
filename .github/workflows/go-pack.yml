@@ -142,6 +142,67 @@ jobs:
           ./scripts/harness-structural-eval.sh --harness=claude
           ./scripts/harness-structural-eval.sh --harness=codex
 
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    services:
+      postgres:
+        # Reuse the development database image; each CI job owns its database.
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: conway
+          POSTGRES_PASSWORD: conway-test
+          POSTGRES_DB: conway_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U conway -d conway_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      CONWAY_TEST_DATABASE_URL: postgres://conway:conway-test@127.0.0.1:5432/conway_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.6'
+          cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      # specs/023-linked-google-sheets.md:289: these are explicit CI gates,
+      # independent of conditional diff-aware checks in the main check job.
+      - name: JavaScript unit tests
+        run: node --test tests/*.test.mjs
+
+      - name: PostgreSQL integration tests
+        run: go test -race -count=1 ./server -ginkgo.label-filter=database -ginkgo.fail-on-empty -timeout 5m
+
+      # Release 2026-09-04, checked 2026-09-06:
+      # https://github.com/microsoft/playwright/releases/tag/v1.63.0
+      # https://playwright.dev/docs/ci
+      - name: Install pinned browser test dependencies
+        run: |
+          npm install --prefix "$RUNNER_TEMP/conway-browser" --no-save --package-lock=false playwright@1.63.0
+          "$RUNNER_TEMP/conway-browser/node_modules/.bin/playwright" install --with-deps chromium
+
+      # specs/023-linked-google-sheets.md:277: the opt-in test owns its real
+      # server and internal provider; missing prerequisites fail this CI step.
+      - name: Authenticated browser acceptance
+        env:
+          CONWAY_TEST_BROWSER: '1'
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/conway-browser/node_modules/playwright/index.mjs
+        run: go test -race -count=1 ./server -ginkgo.focus='linked features browser' -ginkgo.fail-on-empty -timeout 5m
+
   golden-task-eval:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'

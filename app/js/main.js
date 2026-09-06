@@ -6,7 +6,8 @@ import { initGuide } from './guide.js';
 import { initHygiene } from './hygiene.js';
 import { workStreams } from './sim.js';
 import { initGameUI } from './gameui.js';
-import { initAuth, isStaff, hasRole, authMode, authFetch } from './auth.js';
+import { initAuth, isStaff, hasRole, authMode, authFetch, authUser, authToken, authGameID } from './auth.js';
+import { mountAnnouncements } from './announcements.js';
 import { initPlanUI, restorePlanLocation } from './planui.js';
 import { readRoute, writeRoute, restoringRoute } from './navigation.js';
 import { icon } from './icons.js';
@@ -28,6 +29,12 @@ function syntheticStats(pod) {
 }
 
 let measureContext = null;
+let announcements = null;
+window.addEventListener('conway:feature-opened', event => {
+  const target = ({ guide: 'docs-btn', execution: 'view-execution', 'linked-sheets': 'plan-linked-sheets' })[event.detail?.action];
+  if (target) void announcements?.visit(target);
+});
+window.addEventListener('pagehide', () => announcements?.dispose());
 document.addEventListener('conway:measure-sources-changed', () => measureContext?.refresh());
 
 export const state = { pods: [], overlap: {}, stats: {}, edges: [], mined: false };
@@ -111,6 +118,24 @@ async function load() {
   applyRoleGating();
   await restoreWorkspace();
   window.addEventListener('popstate', restoreWorkspace);
+  // specs/022-feature-announcements.md:180 — show news after restoring work;
+  // opening a plan picker is not evidence that its feature was visited.
+  if (authMode() === 'auth' && !authGameID() && authUser()) {
+    announcements = mountAnnouncements({ request: authFetch,
+      getIdentity: () => authMode() === 'auth' && !authGameID() && authUser() ? `${authUser()}:${authToken()}` : null,
+      replayButton: document.getElementById('whats-new-btn'),
+      onAction: async action => {
+        if (action.target === 'docs-btn') { openDocs(); return true; }
+        document.querySelector('.tab[data-view="plan"]')?.click();
+        const target = document.getElementById(action.target);
+        if (target && !target.disabled) target.click();
+        // Destination renderers acknowledge successful openings themselves.
+        return false;
+      },
+    });
+    await announcements.ready;
+    if (document.querySelector('#view-execution.active')) void announcements.visit('view-execution');
+  }
 }
 
 async function restoreWorkspace() {
@@ -214,7 +239,7 @@ document.getElementById('net-plan')?.addEventListener('click', () => document.ge
 // Bootstrap form adoption (spec 011 FR-001): class-inject before the first
 // render so native focus/validation semantics load with the app.
 import { initForms } from './forms.js';
-import { initDocs } from './docs.js';
+import { initDocs, openDocs } from './docs.js';
 initForms();
 initDocs();
 initAuth().then(load);

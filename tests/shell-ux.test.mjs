@@ -141,12 +141,15 @@ test('manual Escape closes after both the initial document and later iframe navi
   let hashChanged;
   let shown;
   let closed = 0;
+  const featureEvents = [];
   const positioned = [];
   const frameDocument = { getElementById(id) { return { scrollIntoView() { positioned.push(id); } }; }, documentElement: { setAttribute() {} }, addEventListener(type, handler) { if (type === 'keydown') keydown = handler; } };
   const frame = { dataset: {}, contentDocument: frameDocument, contentWindow: { location: { pathname: '/docs.html' }, document: frameDocument, addEventListener(type, handler) { if (type === 'hashchange') hashChanged = handler; } }, addEventListener(type, handler) { if (type === 'load') load = handler; } };
   const separate = {};
   const overlay = { addEventListener(type, handler) { if (type === 'shown.bs.modal') shown = handler; }, querySelector: (selector) => selector === '#docs-separate' ? separate : frame };
   const context = moduleContext('docs.js', {
+    window: { dispatchEvent: event => featureEvents.push(event) },
+    CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
     document: { createElement: () => overlay, body: { appendChild() {} }, documentElement: { getAttribute: () => 'dark' } },
     openModal() {}, closeModal(target) { assert.equal(target, overlay); closed++; },
   });
@@ -156,6 +159,9 @@ test('manual Escape closes after both the initial document and later iframe navi
   load(); keydown({ key: 'Escape', preventDefault() {} });
   assert.deepEqual(positioned, ['timeline'], 'a loaded document applies the requested section');
   shown();
+  assert.equal(featureEvents.length, 1);
+  assert.equal(featureEvents[0].type, 'conway:feature-opened');
+  assert.equal(featureEvents[0].detail.action, 'guide');
   assert.deepEqual(positioned, ['timeline', 'timeline'], 'presentation restores positioning if loading happened while hidden');
   assert.equal(closed, 1);
   context.openDocs('execution');
