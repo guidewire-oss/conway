@@ -739,6 +739,9 @@ critical paths at once.
 - assumptions, warnings
 
 **ScheduleFit** _(derived; Decision 28)_
+- unavailableReason: optional string — explains why invalid inputs prevent fit
+  arithmetic. When present, numeric fit totals are null and no fit verdict is
+  implied (specs/017-planning-and-execution-usability.md Decision 6).
 - podWeeksDemanded: number — every initiative's in-path work, whether or not it
   fitted. Counting only placed work would report a plan that fits
 - trackWeeksAvailable: number — the per-pod sum of tracks x horizon, less each

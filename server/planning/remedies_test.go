@@ -289,10 +289,15 @@ var _ = Describe("ComputeRemedies", func() {
 			Expect(r.Target).NotTo(BeEmpty())
 			Expect(r.ResultingVerdict).NotTo(BeEmpty())
 		}
-		// The ranked order is part of the shape the page relies on.
+		// Coverage comes before lateness (specs/019-scheduling-audit-and-gantt-integrity.md:157).
+		// A better-coverage option can have a larger lateness delta; checking
+		// lateness alone would reject the actual portfolio ranking contract.
 		for i := 1; i < len(fixture.Remedies); i++ {
-			Expect(fixture.Remedies[i].ObjectiveDelta).
-				To(BeNumerically(">=", fixture.Remedies[i-1].ObjectiveDelta))
+			previous, current := fixture.Remedies[i-1], fixture.Remedies[i]
+			Expect(current.UnscheduledWeightDelta).To(BeNumerically(">=", previous.UnscheduledWeightDelta))
+			if current.UnscheduledWeightDelta == previous.UnscheduledWeightDelta {
+				Expect(current.ObjectiveDelta).To(BeNumerically(">=", previous.ObjectiveDelta))
+			}
 		}
 	})
 })

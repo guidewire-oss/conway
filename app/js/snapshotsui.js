@@ -88,13 +88,13 @@ async function renderList(ov) {
   box.querySelectorAll('.snap-roster').forEach((sel) => sel.addEventListener('change', async () => {
     if (!sel.value) return; // structure must come from some roster — ignore the blank option
     const r = await req('/api/snapshots/' + sel.dataset.id, { method: 'PATCH', body: JSON.stringify({ rosterId: sel.value }) });
-    if (!r || !r.ok) { showError(ov, (r ? await r.text() : '') || 'Could not re-associate. Check the connection and retry.'); return; }
+    if (!r || !r.ok) { showError(ov, (r ? await r.text() : '').trim() || 'Could not re-associate. Check the connection and retry.'); return; }
     // structure changed — if viewing this snapshot, reload so Measure re-reads it
     if (sel.dataset.id === getSnapshot()) location.reload(); else renderList(ov);
   }));
   box.querySelectorAll('.snap-pub').forEach((b) => b.addEventListener('click', async () => {
     const r = await req('/api/snapshots/' + b.dataset.id, { method: 'PATCH', body: JSON.stringify({ public: b.dataset.pub !== '1' }) });
-    if (!r || !r.ok) { showError(ov, (r ? await r.text() : '') || 'Could not change visibility. Try again.'); return; }
+    if (!r || !r.ok) { showError(ov, (r ? await r.text() : '').trim() || 'Could not change visibility. Try again.'); return; }
     renderList(ov);
   }));
   box.querySelectorAll('.snap-rename').forEach((b) => b.addEventListener('click', async () => {

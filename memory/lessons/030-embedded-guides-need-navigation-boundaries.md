@@ -20,9 +20,6 @@ Home Help: the tutorial heading remained more than 5,000 pixels below the
 viewport before correction, then appeared at approximately 145 pixels afterward.
 Repeated Scoreboard Help and Data Quality Help also landed at their headings.
 The lifecycle regression is exercised by `tests/shell-ux.test.mjs`.
-
-Provenance: observed 2026-09-05 during the documentation interaction review and
-the `tests/shell-ux.test.mjs` iframe lifecycle regression check. Implementation
-references: `app/js/docs.js:13`, `app/js/docs.js:47` and
-`app/js/manual-reader.js:64`. The design decision is recorded in
+Implementation references are `app/js/docs.js` and `app/js/manual-reader.js`.
+The design decision is recorded in
 `specs/012-in-app-usage-guide.md:221`.

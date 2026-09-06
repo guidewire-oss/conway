@@ -13,6 +13,8 @@ import (
 	"conway/server/auth"
 	"conway/server/db"
 	"conway/server/planning"
+	"conway/server/sheets"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -144,6 +146,62 @@ var _ = Describe("linked Sheets plan integration", Label("database"), func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(history).To(HaveLen(3))
 		Expect(fingerprint()).To(Equal(before))
+	})
+	It("recovers a historically invalid capture only through a fresh valid explicit review", func() {
+		provider.set([][]string{{"Initiative", "Full Kit Estimate", "Team A", "Team C"}, {"Atlas", "4", "4", "2"}}, nil)
+		first := create("initiatives", "auto_apply")
+		Expect(first.Version.Valid).To(BeFalse())
+		Expect(first.Version.Errors).NotTo(BeEmpty())
+		Expect(first.Applied).To(BeFalse())
+		historical, err := database.GetSourceVersion(context.Background(), first.Source.ID, first.Version.ID)
+		Expect(err).NotTo(HaveOccurred())
+		stale := fingerprint()
+		in, err := srv.planScheduleFor(reload(), scheduleRequest{})
+		Expect(err).NotTo(HaveOccurred())
+		in.Teams = append(in.Teams, planning.Team{Name: "Team C", Tracks: 1})
+		Expect(database.SavePlanTeams(plan.ID, encode(in.Teams), now.Unix())).To(Succeed())
+		rec := request("GET", path(first.Source.ID, "/versions/"+first.Version.ID), nil, claims)
+		Expect(rec.Code).To(Equal(200), rec.Body.String())
+		var preview struct {
+			Version         db.SourceVersion
+			Preview         sheets.Candidate
+			Applyable       bool
+			PlanFingerprint string
+		}
+		Expect(json.Unmarshal(rec.Body.Bytes(), &preview)).To(Succeed())
+		Expect(preview.Version.Valid).To(BeFalse())
+		Expect(preview.Version.Errors).To(Equal(historical.Errors))
+		Expect(preview.Preview.Valid()).To(BeTrue(), "%v", preview.Preview.Errors)
+		Expect(preview.Applyable).To(BeTrue())
+		_, _, code, _ := srv.applySheetVersion(context.Background(), reload(), first.Source, *first.Version, fingerprint(), false, true, claims.Sub, "")
+		Expect(code).To(Equal(422), "automatic application must retain the historical-invalid gate")
+		rec = request("POST", path(first.Source.ID, "/apply"), map[string]any{"versionId": first.Version.ID, "expectedFingerprint": stale}, claims)
+		Expect(rec.Code).To(Equal(409), rec.Body.String())
+		rec = request("POST", path(first.Source.ID, "/apply"), map[string]any{"versionId": first.Version.ID, "expectedFingerprint": preview.PlanFingerprint}, claims)
+		Expect(rec.Code).To(Equal(200), rec.Body.String())
+		unchanged, err := database.GetSourceVersion(context.Background(), first.Source.ID, first.Version.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(unchanged).To(Equal(historical))
+		provider.set([][]string{{"Initiative", "Full Kit Estimate", "Team A", "Team C"}, {"Atlas", "4", "bad estimate", "2"}}, nil)
+		bad := decodeCheck(request("POST", path(first.Source.ID, "/check"), map[string]any{}, claims))
+		Expect(bad.Version.Valid).To(BeFalse())
+		rec = request("POST", path(first.Source.ID, "/apply"), map[string]any{"versionId": bad.Version.ID, "expectedFingerprint": fingerprint()}, claims)
+		Expect(rec.Code).To(Equal(422), rec.Body.String())
+	})
+	It("rejects application provenance that associates a version with another source", func() {
+		teams := create("teams", "review")
+		provider.set(matrix("4"), nil)
+		inits := create("initiatives", "review")
+		pool, err := pgxpool.New(context.Background(), os.Getenv("CONWAY_TEST_DATABASE_URL"))
+		Expect(err).NotTo(HaveOccurred())
+		defer pool.Close()
+		_, err = pool.Exec(context.Background(), `INSERT INTO plan_sheet_applications(id,source_id,version_id,applied_at,data) VALUES($1,$2,$3,$4,'{}'::jsonb)`, newID(), teams.Source.ID, inits.Version.ID, now.Unix())
+		Expect(err).To(HaveOccurred(), "cross-source version provenance must be refused by the database")
+		var constraintError *pgconn.PgError
+		Expect(errors.As(err, &constraintError)).To(BeTrue())
+		Expect(constraintError.Code).To(Equal("23503"), "the source/version foreign key must enforce provenance")
+		_, err = pool.Exec(context.Background(), `INSERT INTO plan_sheet_applications(id,source_id,version_id,applied_at,data) VALUES($1,$2,$3,$4,'{}'::jsonb)`, newID(), teams.Source.ID, teams.Version.ID, now.Unix())
+		Expect(err).NotTo(HaveOccurred(), "same-source version provenance remains legal")
 	})
 	It("retains invalid raw captures, refuses apply, and never turns provider errors into empty replacements", func() {
 		first := create("teams", "review")

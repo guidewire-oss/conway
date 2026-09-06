@@ -46,6 +46,11 @@ made by Conway, not a mirror of Google's complete revision history. Google's
 own [revision API documentation](https://developers.google.com/workspace/drive/api/guides/manage-revisions)
 also cautions that API revision lists can omit older revisions.
 
+A capture rejected because a required team was missing can become usable after
+the roster is corrected. Explicitly review that capture again: Conway validates
+it against the current plan before allowing application. The original capture's
+diagnostics remain unchanged, and automatic checks do not bypass the review.
+
 ## Troubleshooting
 
 | Symptom | Action |

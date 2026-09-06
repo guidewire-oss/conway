@@ -28,6 +28,7 @@ const byVerdict = (sched, v) => (sched.initiatives || []).filter((i) => i.verdic
 // The meeting headline keeps period fit, missed targets and missing forecast
 // evidence separate. A target verdict alone cannot answer period fit.
 export function fitSentence(sched) {
+  if (sched.fit?.unavailableReason) return `Period fit is unknown: ${esc(sched.fit.unavailableReason)}`;
   const inits = sched.initiatives || [];
   if (!inits.length) return 'No initiatives are scheduled yet.';
   // specs/017-planning-and-execution-usability.md:78: target lateness and
@@ -83,17 +84,19 @@ export function verdictSectionHTML(sched) {
 // over-capacity (rho >= 1) and hot (>= 0.85), hottest first, drum pods marked.
 export function capacitySectionHTML(sched) {
   const pods = (sched.podWeeks || []).map((p) => ({
-    pod: p.pod, rho: typeof p.flatRho === 'number' ? p.flatRho : null,
+    pod: p.pod, rho: Number.isFinite(p.flatRho) ? p.flatRho : null,
     tracks: p.tracks, drum: (sched.drumPods || []).includes(p.pod),
   }));
   const over = pods.filter((p) => p.rho !== null && p.rho >= 1).sort((a, b) => b.rho - a.rho);
   const hot = pods.filter((p) => p.rho !== null && p.rho >= 0.85 && p.rho < 1).sort((a, b) => b.rho - a.rho);
+  const incomplete = !pods.length || pods.some((p) => p.rho === null)
+    ? '<p class="hint">Capacity evidence is incomplete. Review team estimates and roster capacity.</p>' : '';
   const line = (p) => `<li><b>${esc(p.pod)}</b> flat ρ ${p.rho.toFixed(2)} · ${p.tracks} track${p.tracks > 1 ? 's' : ''}${p.drum ? ' · <b>drum</b>' : ''}</li>`;
   if (!over.length && !hot.length) {
-    if (!pods.length || pods.some((p) => p.rho === null)) return '<h3>Capacity</h3><p class="hint">Capacity evidence is incomplete. Review team estimates and roster capacity.</p>';
+    if (incomplete) return `<h3>Capacity</h3>${incomplete}`;
     return `<h3>Capacity</h3><p class="report-ok">Every pod is comfortably inside capacity.</p>`;
   }
-  return `<h3>Capacity</h3><ul class="report-list">
+  return `<h3>Capacity</h3>${incomplete}<ul class="report-list">
     ${over.length ? `<li><b>Over capacity (ρ≥1):</b><ul>${over.map(line).join('')}</ul></li>` : ''}
     ${hot.length ? `<li><b>Queue hot (ρ≥0.85):</b><ul>${hot.map(line).join('')}</ul></li>` : ''}
   </ul>`;

@@ -138,7 +138,7 @@ export function announcementsHTML(features) {
 // Mount only after authentication and workspace restoration. onAction must
 // return true only after the actual feature opens; opening its parent menu or
 // selecting a plan is insufficient. Organic visits call visit(target) too.
-export function mountAnnouncements({ request, getIdentity, onAction, replayButton, root = document }) {
+export function mountAnnouncements({ request, getIdentity, onAction, onStateChange, replayButton, root = document }) {
   const doc = root.ownerDocument || root;
   let overlay, displayed = [], mounted = true, openIdentity;
   const status = doc.createElement('p');
@@ -169,6 +169,7 @@ export function mountAnnouncements({ request, getIdentity, onAction, replayButto
       if (openIdentity !== getIdentity()) closeModal(overlay);
     }
     refreshIndicators();
+    onStateChange?.(next);
   }
   const controller = createAnnouncementController({ request, getIdentity, onChange: update });
   function acknowledgeDisplayed() {

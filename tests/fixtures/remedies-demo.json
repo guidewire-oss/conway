@@ -2,191 +2,91 @@
   "remedies": [
     {
       "kind": "defer-other",
-      "target": "SCIM provisioning",
+      "target": "Telemetry GA",
       "magnitude": 1,
-      "resultingVerdict": "no-date",
+      "resultingVerdict": "on-time",
       "targetWeeksLate": 0,
-      "objectiveDelta": -346.7,
+      "unscheduledWeightDelta": -26.250000000000007,
+      "objectiveDelta": -53974.5,
       "affectedInitiatives": [
         {
-          "initiative": "Tenant isolation",
-          "startDeltaWeeks": -10,
-          "commitDeltaWeeks": -10
+          "initiative": "Disaster recovery for event streaming",
+          "startDeltaWeeks": 10,
+          "commitDeltaWeeks": 10
         },
         {
           "initiative": "Access-control rollout",
-          "startDeltaWeeks": -2,
-          "commitDeltaWeeks": -2
+          "startDeltaWeeks": 5,
+          "commitDeltaWeeks": 5
+        },
+        {
+          "initiative": "Managed database MVP",
+          "startDeltaWeeks": 24,
+          "commitDeltaWeeks": 44
         }
       ],
       "note": "defer Self-service app platform out of this period"
     },
     {
       "kind": "defer-other",
-      "target": "Tenant isolation",
-      "magnitude": 1,
-      "resultingVerdict": "structurally-infeasible",
-      "targetWeeksLate": 5,
-      "objectiveDelta": -346.7,
-      "affectedInitiatives": [
-        {
-          "initiative": "SCIM provisioning",
-          "startDeltaWeeks": 10,
-          "commitDeltaWeeks": 35
-        },
-        {
-          "initiative": "Access-control rollout",
-          "startDeltaWeeks": -2,
-          "commitDeltaWeeks": -2
-        }
-      ],
-      "note": "defer Self-service app platform out of this period"
-    },
-    {
-      "kind": "add-capacity",
-      "target": "Secrets rotation",
-      "pod": "Delta",
+      "target": "Managed database MVP",
       "magnitude": 1,
       "resultingVerdict": "late",
-      "targetWeeksLate": 8,
-      "objectiveDelta": -310.7,
+      "targetWeeksLate": 17,
+      "unscheduledWeightDelta": -26.250000000000007,
+      "objectiveDelta": -53928.1,
       "affectedInitiatives": [
         {
-          "initiative": "Tenant isolation",
+          "initiative": "Telemetry GA",
           "startDeltaWeeks": -10,
           "commitDeltaWeeks": -10
         },
         {
           "initiative": "Access-control rollout",
-          "startDeltaWeeks": -2,
-          "commitDeltaWeeks": -2
+          "startDeltaWeeks": -4,
+          "commitDeltaWeeks": -4
         },
         {
           "initiative": "Self-service app platform",
-          "startDeltaWeeks": 0,
-          "commitDeltaWeeks": -29
+          "startDeltaWeeks": -4,
+          "commitDeltaWeeks": -4
         }
       ],
-      "note": "+1 track(s) at Delta"
+      "note": "defer Disaster recovery for event streaming out of this period"
     },
     {
-      "kind": "add-capacity",
-      "target": "Secrets rotation",
-      "pod": "Delta",
-      "magnitude": 2,
-      "resultingVerdict": "late",
-      "targetWeeksLate": 8,
-      "objectiveDelta": -310.7,
-      "affectedInitiatives": [
-        {
-          "initiative": "Tenant isolation",
-          "startDeltaWeeks": -10,
-          "commitDeltaWeeks": -10
-        },
-        {
-          "initiative": "Access-control rollout",
-          "startDeltaWeeks": -2,
-          "commitDeltaWeeks": -2
-        },
-        {
-          "initiative": "Self-service app platform",
-          "startDeltaWeeks": 0,
-          "commitDeltaWeeks": -29
-        }
-      ],
-      "note": "+2 track(s) at Delta"
-    },
-    {
-      "kind": "add-capacity",
-      "target": "Tenant isolation",
-      "pod": "Delta",
-      "magnitude": 1,
-      "resultingVerdict": "structurally-infeasible",
-      "targetWeeksLate": 5,
-      "objectiveDelta": -310.7,
-      "affectedInitiatives": [
-        {
-          "initiative": "Secrets rotation",
-          "startDeltaWeeks": 10,
-          "commitDeltaWeeks": 34
-        },
-        {
-          "initiative": "Access-control rollout",
-          "startDeltaWeeks": -2,
-          "commitDeltaWeeks": -2
-        },
-        {
-          "initiative": "Self-service app platform",
-          "startDeltaWeeks": 0,
-          "commitDeltaWeeks": -29
-        }
-      ],
-      "note": "+1 track(s) at Delta"
-    },
-    {
-      "kind": "add-capacity",
-      "target": "Tenant isolation",
-      "pod": "Delta",
-      "magnitude": 2,
-      "resultingVerdict": "structurally-infeasible",
-      "targetWeeksLate": 5,
-      "objectiveDelta": -310.7,
-      "affectedInitiatives": [
-        {
-          "initiative": "Secrets rotation",
-          "startDeltaWeeks": 10,
-          "commitDeltaWeeks": 34
-        },
-        {
-          "initiative": "Access-control rollout",
-          "startDeltaWeeks": -2,
-          "commitDeltaWeeks": -2
-        },
-        {
-          "initiative": "Self-service app platform",
-          "startDeltaWeeks": 0,
-          "commitDeltaWeeks": -29
-        }
-      ],
-      "note": "+2 track(s) at Delta"
-    },
-    {
-      "kind": "relax-date",
-      "target": "Tenant isolation",
-      "magnitude": 15,
-      "resultingVerdict": "on-time",
-      "targetWeeksLate": 0,
-      "objectiveDelta": -250,
-      "note": "move the date to week 37 (2026-09-21)"
-    },
-    {
-      "kind": "relax-date",
+      "kind": "defer-other",
       "target": "Self-service app platform",
-      "magnitude": 5,
-      "resultingVerdict": "on-time",
-      "targetWeeksLate": 0,
-      "objectiveDelta": -180,
-      "note": "move the date to week 29 (2026-07-27)"
-    },
-    {
-      "kind": "unlock",
-      "target": "Telemetry GA",
       "magnitude": 1,
-      "resultingVerdict": "beyond-horizon",
-      "targetWeeksLate": 0,
-      "objectiveDelta": 0,
-      "note": "release the date lock; the date stays as a target"
-    },
-    {
-      "kind": "raise-priority",
-      "target": "Telemetry GA",
-      "magnitude": 1,
-      "resultingVerdict": "on-time",
-      "targetWeeksLate": 0,
-      "objectiveDelta": 110,
+      "resultingVerdict": "structurally-infeasible",
+      "targetWeeksLate": 19,
+      "unscheduledWeightDelta": -26.250000000000007,
+      "objectiveDelta": -53858.2,
       "affectedInitiatives": [
         {
-          "initiative": "Self-service app platform",
+          "initiative": "Access-control rollout",
+          "startDeltaWeeks": -4,
+          "commitDeltaWeeks": -4
+        },
+        {
+          "initiative": "Managed database MVP",
+          "startDeltaWeeks": 17,
+          "commitDeltaWeeks": 37
+        }
+      ],
+      "note": "defer Telemetry GA out of this period"
+    },
+    {
+      "kind": "descope",
+      "target": "Telemetry GA",
+      "magnitude": 0.5,
+      "resultingVerdict": "on-time",
+      "targetWeeksLate": 0,
+      "unscheduledWeightDelta": -26.250000000000007,
+      "objectiveDelta": -53182.5,
+      "affectedInitiatives": [
+        {
+          "initiative": "Disaster recovery for event streaming",
           "startDeltaWeeks": 10,
           "commitDeltaWeeks": 10
         },
@@ -196,25 +96,53 @@
           "commitDeltaWeeks": -4
         },
         {
-          "initiative": "Tenant isolation",
-          "startDeltaWeeks": -10,
-          "commitDeltaWeeks": -37
+          "initiative": "Self-service app platform",
+          "startDeltaWeeks": -4,
+          "commitDeltaWeeks": -4
+        },
+        {
+          "initiative": "Managed database MVP",
+          "startDeltaWeeks": 24,
+          "commitDeltaWeeks": 44
         }
       ],
-      "note": "priority 1 lands it; 3 other initiative(s) move"
+      "note": "cut 50% of the estimated work"
     },
     {
-      "kind": "raise-priority",
-      "target": "Secrets rotation",
-      "magnitude": 1,
+      "kind": "descope",
+      "target": "Telemetry GA",
+      "magnitude": 0.25,
       "resultingVerdict": "on-time",
       "targetWeeksLate": 0,
-      "objectiveDelta": 110,
+      "unscheduledWeightDelta": -26.250000000000007,
+      "objectiveDelta": -53038.5,
       "affectedInitiatives": [
         {
-          "initiative": "Self-service app platform",
+          "initiative": "Disaster recovery for event streaming",
           "startDeltaWeeks": 10,
           "commitDeltaWeeks": 10
+        },
+        {
+          "initiative": "Managed database MVP",
+          "startDeltaWeeks": 24,
+          "commitDeltaWeeks": 44
+        }
+      ],
+      "note": "cut 25% of the estimated work"
+    },
+    {
+      "kind": "descope",
+      "target": "Managed database MVP",
+      "magnitude": 0.5,
+      "resultingVerdict": "on-time",
+      "targetWeeksLate": 0,
+      "unscheduledWeightDelta": -26.250000000000007,
+      "objectiveDelta": 38143.2,
+      "affectedInitiatives": [
+        {
+          "initiative": "Disaster recovery for event streaming",
+          "startDeltaWeeks": 8,
+          "commitDeltaWeeks": 8
         },
         {
           "initiative": "Access-control rollout",
@@ -222,12 +150,49 @@
           "commitDeltaWeeks": -4
         },
         {
-          "initiative": "Tenant isolation",
-          "startDeltaWeeks": -10,
-          "commitDeltaWeeks": -37
+          "initiative": "Telemetry GA",
+          "startDeltaWeeks": 7,
+          "commitDeltaWeeks": 7
+        },
+        {
+          "initiative": "Self-service app platform",
+          "startDeltaWeeks": 1,
+          "commitDeltaWeeks": 1
         }
       ],
-      "note": "priority 1 lands it; 3 other initiative(s) move"
+      "note": "cut 50% of the estimated work"
+    },
+    {
+      "kind": "descope",
+      "target": "Self-service app platform",
+      "magnitude": 0.5,
+      "resultingVerdict": "on-time",
+      "targetWeeksLate": 0,
+      "unscheduledWeightDelta": -26.250000000000007,
+      "objectiveDelta": 48625.5,
+      "affectedInitiatives": [
+        {
+          "initiative": "Disaster recovery for event streaming",
+          "startDeltaWeeks": 10,
+          "commitDeltaWeeks": 10
+        },
+        {
+          "initiative": "Access-control rollout",
+          "startDeltaWeeks": -2,
+          "commitDeltaWeeks": -2
+        },
+        {
+          "initiative": "Telemetry GA",
+          "startDeltaWeeks": 9,
+          "commitDeltaWeeks": 9
+        },
+        {
+          "initiative": "Managed database MVP",
+          "startDeltaWeeks": 24,
+          "commitDeltaWeeks": 44
+        }
+      ],
+      "note": "cut 50% of the estimated work"
     },
     {
       "kind": "raise-priority",
@@ -235,25 +200,196 @@
       "magnitude": 1,
       "resultingVerdict": "on-time",
       "targetWeeksLate": 0,
-      "objectiveDelta": 576.7,
+      "unscheduledWeightDelta": -26.250000000000007,
+      "objectiveDelta": 70692,
       "affectedInitiatives": [
         {
-          "initiative": "Self-service app platform",
+          "initiative": "Disaster recovery for event streaming",
           "startDeltaWeeks": 10,
           "commitDeltaWeeks": 10
         },
         {
           "initiative": "Access-control rollout",
-          "startDeltaWeeks": -7,
-          "commitDeltaWeeks": -7
+          "startDeltaWeeks": 2,
+          "commitDeltaWeeks": 2
         },
         {
-          "initiative": "Tenant isolation",
+          "initiative": "Telemetry GA",
           "startDeltaWeeks": 13,
           "commitDeltaWeeks": 13
+        },
+        {
+          "initiative": "Self-service app platform",
+          "startDeltaWeeks": 3,
+          "commitDeltaWeeks": 3
+        }
+      ],
+      "note": "priority 1 lands it; 4 other initiative(s) move"
+    },
+    {
+      "kind": "relax-date",
+      "target": "Telemetry GA",
+      "magnitude": 10,
+      "resultingVerdict": "on-time",
+      "targetWeeksLate": 0,
+      "unscheduledWeightDelta": 0,
+      "objectiveDelta": -54000,
+      "note": "move the date to week 34 (2026-08-31)"
+    },
+    {
+      "kind": "raise-priority",
+      "target": "Telemetry GA",
+      "magnitude": 1,
+      "resultingVerdict": "on-time",
+      "targetWeeksLate": 0,
+      "unscheduledWeightDelta": 0,
+      "objectiveDelta": -53508,
+      "affectedInitiatives": [
+        {
+          "initiative": "Disaster recovery for event streaming",
+          "startDeltaWeeks": 10,
+          "commitDeltaWeeks": 10
+        },
+        {
+          "initiative": "Access-control rollout",
+          "startDeltaWeeks": 5,
+          "commitDeltaWeeks": 5
+        },
+        {
+          "initiative": "Self-service app platform",
+          "startDeltaWeeks": 3,
+          "commitDeltaWeeks": 3
         }
       ],
       "note": "priority 1 lands it; 3 other initiative(s) move"
+    },
+    {
+      "kind": "unlock",
+      "target": "Telemetry GA",
+      "magnitude": 1,
+      "resultingVerdict": "late",
+      "targetWeeksLate": 10,
+      "unscheduledWeightDelta": 0,
+      "objectiveDelta": -53460,
+      "note": "release the date lock; the date stays as a target"
+    },
+    {
+      "kind": "descope",
+      "target": "Disaster recovery for event streaming",
+      "magnitude": 0.5,
+      "resultingVerdict": "on-time",
+      "targetWeeksLate": 0,
+      "unscheduledWeightDelta": 0,
+      "objectiveDelta": -11174.4,
+      "affectedInitiatives": [
+        {
+          "initiative": "Telemetry GA",
+          "startDeltaWeeks": -2,
+          "commitDeltaWeeks": -2
+        },
+        {
+          "initiative": "Access-control rollout",
+          "startDeltaWeeks": -4,
+          "commitDeltaWeeks": -4
+        },
+        {
+          "initiative": "Self-service app platform",
+          "startDeltaWeeks": -4,
+          "commitDeltaWeeks": -4
+        }
+      ],
+      "note": "cut 50% of the estimated work"
+    },
+    {
+      "kind": "relax-date",
+      "target": "Self-service app platform",
+      "magnitude": 26,
+      "resultingVerdict": "on-time",
+      "targetWeeksLate": 0,
+      "unscheduledWeightDelta": 0,
+      "objectiveDelta": -936,
+      "note": "move the date to week 50 (2026-12-21)"
+    },
+    {
+      "kind": "descope",
+      "target": "Disaster recovery for event streaming",
+      "magnitude": 0.25,
+      "resultingVerdict": "structurally-infeasible",
+      "targetWeeksLate": 2,
+      "unscheduledWeightDelta": 0,
+      "objectiveDelta": -261.6,
+      "affectedInitiatives": [
+        {
+          "initiative": "Access-control rollout",
+          "startDeltaWeeks": -3,
+          "commitDeltaWeeks": -3
+        },
+        {
+          "initiative": "Self-service app platform",
+          "startDeltaWeeks": -3,
+          "commitDeltaWeeks": -3
+        }
+      ],
+      "note": "cut 25% of the estimated work"
+    },
+    {
+      "kind": "relax-date",
+      "target": "Disaster recovery for event streaming",
+      "magnitude": 6,
+      "resultingVerdict": "on-time",
+      "targetWeeksLate": 0,
+      "unscheduledWeightDelta": 0,
+      "objectiveDelta": -230.4,
+      "note": "move the date to week 18 (2026-05-11)"
+    },
+    {
+      "kind": "descope",
+      "target": "Self-service app platform",
+      "magnitude": 0.25,
+      "resultingVerdict": "late",
+      "targetWeeksLate": 9,
+      "unscheduledWeightDelta": 0,
+      "objectiveDelta": 58788,
+      "affectedInitiatives": [
+        {
+          "initiative": "Telemetry GA",
+          "startDeltaWeeks": 11,
+          "commitDeltaWeeks": 11
+        }
+      ],
+      "note": "cut 25% of the estimated work"
+    },
+    {
+      "kind": "raise-priority",
+      "target": "Secrets rotation",
+      "magnitude": 1,
+      "resultingVerdict": "on-time",
+      "targetWeeksLate": 0,
+      "unscheduledWeightDelta": 31.499999999999986,
+      "objectiveDelta": 75048,
+      "affectedInitiatives": [
+        {
+          "initiative": "Disaster recovery for event streaming",
+          "startDeltaWeeks": 10,
+          "commitDeltaWeeks": 10
+        },
+        {
+          "initiative": "Access-control rollout",
+          "startDeltaWeeks": 5,
+          "commitDeltaWeeks": 5
+        },
+        {
+          "initiative": "Telemetry GA",
+          "startDeltaWeeks": 14,
+          "commitDeltaWeeks": 14
+        },
+        {
+          "initiative": "Self-service app platform",
+          "startDeltaWeeks": -21,
+          "commitDeltaWeeks": -50
+        }
+      ],
+      "note": "priority 1 lands it; 4 other initiative(s) move"
     }
   ],
   "warnings": [

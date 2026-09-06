@@ -10,7 +10,8 @@ statistics. A task imported without a team must retain an explicit missing
 selection; a browser select otherwise chooses its first option and invents an
 assignment.
 
-Provenance: observed 2026-09-05 by inspecting `app/js/main.js`'s previous
-single-snapshot early return and reproducing `podOptions('')` against a one-team
-roster. Decisions are recorded in `specs/021-measure-source-context.md` section
+Provenance: observed 2026-09-05 while checking single-snapshot source visibility
+and reproducing `podOptions('')` against a one-team roster. Current source is
+`app/js/measure-context.js` for single-snapshot handling and
+`app/js/simulator.js` for `podOptions`. Decisions are recorded in `specs/021-measure-source-context.md` section
 11; source-state regressions are in `tests/measure-context.test.mjs`.

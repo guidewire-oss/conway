@@ -7,6 +7,18 @@ import { icon } from './icons.js';
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 async function req(p, o) { try { return await authFetch(p, o); } catch { return null; } }
 
+// specs/017-planning-and-execution-usability.md:196: the estimate and request
+// use the same integer defaults and bounds as game creation on the server.
+export function normalizeGameTiming(roundsValue, timerValue) {
+  const normalized = (value, fallback, minimum, maximum) => {
+    const number = Number(value);
+    return Number.isInteger(number) && number > 0 ? Math.min(maximum, Math.max(minimum, number)) : fallback;
+  };
+  const rounds = normalized(roundsValue, 4, 1, 8);
+  const timerSecs = normalized(timerValue, 300, 30, 3600);
+  return { rounds, timerSecs, minutes: Math.ceil(rounds * timerSecs / 60) };
+}
+
 export async function openGames() {
   let ov = document.getElementById('games-overlay');
   if (!ov) {
@@ -36,9 +48,8 @@ export async function openGames() {
     ov.querySelector('#games-close').addEventListener('click', () => closeModal(ov));
     ov.querySelector('#g-create').addEventListener('click', createGame);
     const duration = () => {
-      const rounds = +ov.querySelector('#g-rounds').value;
-      const seconds = +ov.querySelector('#g-timer').value;
-      ov.querySelector('#game-duration').textContent = `${Math.ceil(rounds * seconds / 60)} minutes of round timers for ${rounds} simulated quarters. Allow extra time for introduction, results and debrief; the epilogue simulates a year.`;
+      const { rounds, minutes } = normalizeGameTiming(ov.querySelector('#g-rounds').value, ov.querySelector('#g-timer').value);
+      ov.querySelector('#game-duration').textContent = `${minutes} minutes of round timers for ${rounds} simulated quarters. Allow extra time for introduction, results and debrief; the epilogue simulates a year.`;
     };
     ov.querySelector('#g-rounds').addEventListener('input', duration);
     ov.querySelector('#g-timer').addEventListener('input', duration);
@@ -92,11 +103,12 @@ async function populateScenario(sel, selected) {
 async function createGame() {
   const name = document.getElementById('g-name').value.trim();
   if (!name) { document.getElementById('g-name').focus(); alert('Enter a game name.'); return; }
+  const timing = normalizeGameTiming(document.getElementById('g-rounds').value, document.getElementById('g-timer').value);
   const body = {
     name,
-    rounds: +document.getElementById('g-rounds').value || 4,
+    rounds: timing.rounds,
     ap: +document.getElementById('g-ap').value || 5,
-    timerSecs: +document.getElementById('g-timer').value || 0,
+    timerSecs: timing.timerSecs,
     scenario: document.getElementById('g-scenario').value,
     expiryHours: 48,
   };

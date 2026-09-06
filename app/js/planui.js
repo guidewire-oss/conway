@@ -24,6 +24,45 @@ import { portfolioTimelineHTML, podLensHTML, podSheetHTML, timelineControlsHTML,
 import { healthReportHTML, remediesSectionHTML } from './report.js';
 
 let root, current = null;
+let pendingPlanDestination = '';
+const planDestinations = { setup: 'plan setup', order: 'Plan commitments', timeline: 'Timeline', execution: 'Review execution', 'linked-sheets': 'Linked Google Sheets' };
+function pendingDestinationHTML() {
+  return pendingPlanDestination ? `<p data-pending-destination role="status">${current ? 'Complete this plan’s inputs' : 'Choose a plan'} to open ${esc(planDestinations[pendingPlanDestination])}. <button type="button" data-cancel-destination>Cancel</button></p>` : '';
+}
+function wirePendingDestination() {
+  root.querySelector('[data-cancel-destination]')?.addEventListener('click', () => {
+    pendingPlanDestination = '';
+    root.querySelector('[data-pending-destination]')?.remove();
+  });
+}
+export async function openPlanDestination(destination) {
+  if (!Object.hasOwn(planDestinations, destination)) return false;
+  pendingPlanDestination = destination;
+  document.querySelector('.tab[data-view="plan"]')?.click();
+  return resumePlanDestination();
+}
+async function resumePlanDestination() {
+  const destination = pendingPlanDestination;
+  if (!destination || !current) return false;
+  if (current.isDraft) { planNotice('Save or discard the upload preview before opening this feature.'); return false; }
+  if (destination === 'linked-sheets') {
+    pendingPlanDestination = '';
+    root.querySelector('[data-pending-destination]')?.remove();
+    return showLinkedSheets();
+  }
+  if (destination === 'setup') {
+    pendingPlanDestination = '';
+    const setup = root.querySelector('.plan-setup');
+    if (setup) { setup.open = true; setup.querySelector('input,button,select')?.focus(); }
+    root.querySelector('[data-pending-destination]')?.remove();
+    return !!setup;
+  }
+  setView(destination);
+  if (!document.getElementById('plan-dash')) return false;
+  pendingPlanDestination = '';
+  root.querySelector('[data-pending-destination]')?.remove();
+  return true;
+}
 // specs/017-planning-and-execution-usability.md:86: successful timeline edits
 // retain undo history; failed saves and failed undo never consume an entry.
 let dragUndo = null;
@@ -104,6 +143,12 @@ export function initPlanUI() {
   document.querySelector('.tab[data-view="plan"]')?.addEventListener('click', () => {
     if (!current) renderList();
   });
+  document.querySelectorAll('.tab[data-view]').forEach(button => button.addEventListener('click', () => {
+    if (button.dataset.view !== 'plan') {
+      pendingPlanDestination = '';
+      root.querySelector('[data-pending-destination]')?.remove();
+    }
+  }));
 }
 
 const fmtDate = (ts) => ts ? new Date(ts * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—';
@@ -115,7 +160,7 @@ function planNotice(message, error = false) {
 }
 async function req(path, opts = {}) {
   const method = opts.method || 'GET';
-  const write = method !== 'GET' && !/\/(schedule(?:\/remedies)?|simulate|compare|preview)$/.test(path);
+  const write = method !== 'GET' && !/\/(schedule(?:\/remedies)?|simulate|compare(?:-to\/[^/]+)?|preview)$/.test(path);
   const planId = current?.id;
   if (write) planNotice('Saving…');
   try {
@@ -218,6 +263,7 @@ async function renderList() {
   if (ticket !== planLoadTicket) return;
   root.innerHTML = `
     <div class="plan-head"><h2>Your plans</h2><button id="plan-new" class="primary">+ New plan</button><button id="plan-demo">Load demo plan</button></div>
+    ${pendingDestinationHTML()}
     <p class="hint">Sample files to try the upload path: <a href="/api/sample/teams.csv" download>teams.csv</a> · <a href="/api/sample/initiatives.xlsx" download>initiatives.xlsx</a> (same data as the demo).</p>
     <table class="wip-table">
       <thead><tr><th>Name</th><th>Pods</th><th>Initiatives</th><th>Health</th><th>Updated</th><th></th></tr></thead>
@@ -230,6 +276,7 @@ async function renderList() {
       || '<tr><td colspan="6" class="hint">No plans yet — create one, then upload your teams and initiatives or link Google Sheets.</td></tr>'}
       </tbody></table>`;
   root.querySelector('#plan-new').addEventListener('click', createPlan);
+  wirePendingDestination();
   root.querySelector('#plan-demo').addEventListener('click', async () => {
     const r = await req('/api/plan/demo', { method: 'POST' });
     if (!r || !r.ok) { alert('Could not create demo plan'); return; }
@@ -274,6 +321,7 @@ async function openPlan(id, route = null) {
   if (ticket !== planLoadTicket) return;
   if (!route) rememberPlanRoute();
   renderPlan();
+  if (ticket === planLoadTicket) await resumePlanDestination();
 }
 
 function uploadField(kind, label, count) {
@@ -296,6 +344,7 @@ function renderPlan() {
       <button type="button" id="plan-linked-sheets" ${p.isDraft ? 'disabled' : ''}>Linked Google Sheets</button>
       <span id="plan-save-status" role="status" aria-live="polite" class="hint ${p.saveNotice?.error ? 'plan-warn' : ''}">${esc(p.saveNotice?.message || 'Working plan · saved. Edits autosave; baselines change only when you save an agreement.')}</span>
     </div>
+    ${pendingDestinationHTML()}
     <details class="plan-setup"${(nTeams === 0 || nInit === 0) ? ' open' : ''}>
       <summary>Plan setup <span class="hint">${nTeams} pods · ${nInit} initiatives · ${(Math.round((p.capacityLoss || 0) * 100))}% capacity loss</span></summary>
       <p class="hint">Use the inputs below, or choose Linked Google Sheets above to maintain this plan from shared sheet ranges. For a new plan, link and apply the team roster before its initiatives.</p>
@@ -353,6 +402,7 @@ function renderPlan() {
     ${nTeams > 0 && nInit > 0 ? '<div id="plan-dash"></div>' : ''}`;
 
   root.querySelector('.plan-back').addEventListener('click', renderList);
+  wirePendingDestination();
   // The empty-state's demo button (IA #5): the fastest honest path to seeing
   // what a plan does — same handler as the list's "Load demo plan". Wired here,
   // not in renderOrder: the empty state never renders the Order view.
@@ -363,24 +413,7 @@ function renderPlan() {
   });
   root.querySelector('#plan-save').addEventListener('click', savePlanParams);
   document.getElementById('plan-scenario')?.addEventListener('click', createScenario);
-  // specs/023-linked-google-sheets.md:241 — a late apply must not replace a
-  // different plan or an unsaved local draft when its source dialog finishes.
-  document.getElementById('plan-linked-sheets')?.addEventListener('click', async () => {
-    const planID = current.id;
-    const opened = await openLinkedSheets(planID, async () => {
-      if (current?.id !== planID) return;
-      const horizon = document.getElementById('plan-horizon');
-      const loss = document.getElementById('plan-loss');
-      const unsavedSettings = (horizon && Number(horizon.value) !== current.horizonWeeks)
-        || (loss && Number(loss.value) !== Math.round((current.capacityLoss || 0) * 100));
-      if (current.isDraft || pendingInitiativesFile || unsavedSettings) {
-        planNotice('Linked sheet applied on the server. Finish or discard your local draft, then reopen the plan to load it.');
-        return;
-      }
-      await openPlan(planID);
-    });
-    if (opened) window.dispatchEvent(new CustomEvent('conway:feature-opened', { detail: { action: 'linked-sheets' } }));
-  });
+  document.getElementById('plan-linked-sheets')?.addEventListener('click', showLinkedSheets);
   root.querySelectorAll('#plan-horizon,#plan-loss').forEach(el=>el.addEventListener('input',()=>planNotice('Unsaved settings — choose Save settings to apply.')));
   // The missing-pod warning's fix (spec 009 AC 3.2): open setup at the roster.
   document.getElementById('unknown-fix')?.addEventListener('click', () => {
@@ -444,6 +477,27 @@ function renderPlan() {
 }
 
 const view = () => ['network', 'timeline', 'execution'].includes(current && current.view) ? current.view : 'order';
+
+// specs/023-linked-google-sheets.md:241 — a late apply must not replace a
+// different plan or an unsaved local draft when its source dialog finishes.
+async function showLinkedSheets() {
+  if (!current || current.isDraft) return false;
+  const planID = current.id;
+  const opened = await openLinkedSheets(planID, async () => {
+    if (current?.id !== planID) return;
+    const horizon = document.getElementById('plan-horizon');
+    const loss = document.getElementById('plan-loss');
+    const unsavedSettings = (horizon && Number(horizon.value) !== current.horizonWeeks)
+      || (loss && Number(loss.value) !== Math.round((current.capacityLoss || 0) * 100));
+    if (current.isDraft || pendingInitiativesFile || unsavedSettings) {
+      planNotice('Linked sheet applied on the server. Finish or discard your local draft, then reopen the plan to load it.');
+      return;
+    }
+    await openPlan(planID);
+  });
+  if (opened) window.dispatchEvent(new CustomEvent('conway:feature-opened', { detail: { action: 'linked-sheets' } }));
+  return opened;
+}
 
 function proposalModal(title, content) {
   let ov = document.getElementById('plan-proposal-overlay');
@@ -844,11 +898,13 @@ async function toggleRemedies(btn) {
   if (open?.classList?.contains('ord-remedies')) {
     open.remove(); // collapse
     btn.textContent = 'options ▾';
+    btn.setAttribute('aria-expanded', 'false');
     return;
   }
   document.querySelectorAll('tr.ord-remedies').forEach((el) => el.remove());
-  document.querySelectorAll('.ord-options').forEach((b) => { b.textContent = 'options ▾'; });
+  document.querySelectorAll('.ord-options').forEach((b) => { b.textContent = 'options ▾'; b.setAttribute('aria-expanded', 'false'); });
   btn.textContent = 'options ▴';
+  btn.setAttribute('aria-expanded', 'true');
   btn.disabled = true;
   const forPlan = current.id;
   const atEpoch = orderEpoch; // the order can move while the price is being computed
@@ -865,6 +921,7 @@ async function toggleRemedies(btn) {
   });
   if (!current || current.id !== forPlan || orderEpoch !== atEpoch) {
     holder.remove(); // the order moved: the row this belonged to is gone
+    btn.setAttribute('aria-expanded', 'false');
     return;
   }
   // A redraw without an input change (opening a pod queue) does not bump the
@@ -877,6 +934,7 @@ async function toggleRemedies(btn) {
     if (!live) return; // the redraw removed the miss: nothing to attach to
     live.closest('tr').after(holder);
     live.textContent = 'options ▴';
+    live.setAttribute('aria-expanded', 'true');
   }
   if (live) live.disabled = false;
   if (!r || !r.ok) {
@@ -1095,7 +1153,7 @@ async function renderTimeline() {
       dragHistory.push(undo);
       dragUndo = undo;
       staleOrder();
-      if (view() === 'order') await renderOrder(); else if (view() === 'timeline') await renderTimeline(); else await renderDash();
+      if (view() === 'order') await renderOrder(); else if (view() === 'timeline') await renderTimeline(); else if (view() === 'execution') renderExecution(); else await renderDash();
       return true;
     } catch (error) {
       if (current?.id === forPlan) dragNote(error.message || 'The edit could not be saved. Your inputs remain available to retry.');

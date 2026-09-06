@@ -71,12 +71,12 @@ Conway has captured every change made in Google Sheets.
 ### Story 2: Apply updates safely
 
 **AC 2.1: Explicit reviewed apply**
-> Given a valid captured version and the unchanged expected plan fingerprint,
+> Given a capture that validates against the current plan and its unchanged expected fingerprint,
 > when the manager applies it,
 > then the intended input kind changes atomically and its provenance is recorded.
 
 **AC 2.2: Conflict after review**
-> Given local inputs changed after the source's checkpoint or a review was opened,
+> Given local inputs changed after the source's checkpoint or the explicit preview's fingerprint was captured,
 > when an automatic or stale explicit apply is attempted,
 > then the plan remains unchanged and the conflict requires a fresh review.
 
@@ -99,7 +99,7 @@ Conway has captured every change made in Google Sheets.
 > then no remote check or automatic update runs; recorded history remains available.
 
 **AC 3.3: Restore a capture**
-> Given an earlier valid captured version and a fresh expected fingerprint,
+> Given an earlier capture that validates against current planning inputs and a fresh expected fingerprint,
 > when the manager explicitly restores it with any necessary removal acknowledgement,
 > then the working inputs are updated through the same validation and conflict checks,
 > the restore is recorded, and neither prior captures nor agreements are rewritten.
@@ -288,6 +288,35 @@ conflict checks.
 
 **Consequences:** CI runs database and JavaScript checks as well as the browser
 acceptance test. Browser test dependencies live outside the product package.
+
+### Decision 6: Fresh explicit review can recover a context-dependent invalid capture
+
+**Context:** An initiative capture can be invalid because a required team is
+absent from the current roster. Correcting that roster can make the same cells
+usable without changing the historical evidence.
+
+**Decision:** Explicit apply and restore use the candidate revalidated against
+the current plan and require that preview's unchanged fingerprint. Historical
+validity, errors, warnings and captured cells remain immutable and are displayed
+separately from current validation. A currently valid candidate may be explicitly
+applied even if invalid when captured. Intrinsic errors, empty captures, stale
+fingerprints and unacknowledged removals still refuse application. Automatic
+application additionally requires validity at capture time; it never silently
+recovers a historically invalid version.
+
+Requester tier cells, when populated, must be integers 1 through 4; a blank
+cell represents the unset value. Application provenance must reference a
+version belonging to the same source, enforced by a composite database foreign
+key as well as scoped handler lookups.
+
+**Alternatives considered:** Permanently rejecting any historically invalid
+capture was rejected because it prevents an explicit reviewed recovery after
+the missing roster context is corrected. Automatically recovering such captures
+was rejected because the earlier validation failure merits human review.
+
+**Consequences:** Managers can repair context and review the original capture;
+historical errors remain visible, automatic updates remain conservative, and
+cross-source provenance cannot be inserted even below the HTTP layer.
 
 ---
 

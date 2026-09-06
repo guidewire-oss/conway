@@ -81,7 +81,7 @@ export function initSimulator(s) {
   document.getElementById('import-epic').addEventListener('click', importEpic);
   // charts drawn while the tab is hidden get a 0-width container; redraw on activation
   document.querySelector('button[data-view=simulator]').addEventListener('click', () => {
-    if (lastResult) requestAnimationFrame(() => renderAll(lastResult));
+    if (lastResult) requestAnimationFrame(() => { if (lastResult) renderAll(lastResult); });
   });
   loadExample();
 }
@@ -162,13 +162,13 @@ function renderKit(epic) {
   document.getElementById('fullkit').innerHTML = `
     <div class="kit-head">
       <span class="kit-score ${cls}">kit ${(kit.score * 100).toFixed(0)}%</span>
-      <b>Full-kit check — ${epic.epic}</b>
+      <b>Full-kit check — ${esc(epic.epic)}</b>
       <span class="help" data-tip="Machine-checkable half of the full kit. The human half (business case, contracts, defrost criteria) is the template below — paste it into the epic description. Rule of thumb: don't start below 80%; a started epic without its kit becomes a stop-start zombie and burns buffer before progress (see the fever chart's top-left cluster).">?</span>
       <button id="kit-tmpl-btn">Jira template</button>
     </div>
     ${kit.items.map((i) => `<div class="kit-item ${i.status}">
-      <span class="ki">${ICON[i.status]}</span><span>${i.label}</span>
-      <span class="kd">— ${i.detail}</span></div>`).join('')}
+      <span class="ki">${ICON[i.status]}</span><span>${esc(i.label)}</span>
+      <span class="kd">— ${esc(i.detail)}</span></div>`).join('')}
     <textarea id="kit-template" hidden readonly>${KIT_TEMPLATE}</textarea>`;
   document.getElementById('kit-tmpl-btn').addEventListener('click', () => {
     const ta = document.getElementById('kit-template');
@@ -187,7 +187,7 @@ function loadExample() {
   document.getElementById('epic-status').textContent = '';
   document.getElementById('fullkit').innerHTML = '';
   document.querySelector('#task-table tbody').innerHTML = '';
-  if (!state.pods.length) return;
+  if (!state.pods.length) { invalidateResults('No teams are available in this snapshot. Select a snapshot with a roster before forecasting.'); return; }
   EXAMPLE.tasks.forEach((t, index) => addRow({ ...t, pod: state.pods.some(p => p.name === t.pod) ? t.pod : state.pods[index % state.pods.length].name }));
   rhoOverride = {};
   run();
@@ -206,15 +206,29 @@ function readFeature() {
   return { tasks, deps };
 }
 
+// specs/017-planning-and-execution-usability.md:195: invalid inputs must not
+// leave any prior scenario's forecast or interactive what-if controls visible.
+function invalidateResults(message) {
+  lastResult = null;
+  scenarioSource.dirty = true;
+  for (const id of ['stat-cards', 'cdf', 'tornado', 'gantt', 'crit-list', 'suggestions', 'whatif']) {
+    const panel = document.getElementById(id);
+    if (panel) panel.innerHTML = '';
+  }
+  const status = document.getElementById('stat-cards');
+  if (status) status.innerHTML = `<p role="alert">${esc(message)}</p>`;
+  paintSource();
+}
+
 function run() {
   const feature = readFeature();
   if (!feature.tasks.length) {
-    scenarioSource.dirty = true; paintSource();
+    invalidateResults('Add at least one named task before forecasting.');
     return;
   }
   const unavailable = feature.tasks.filter(task => !state.stats[task.pod]);
   if (unavailable.length) {
-    document.getElementById('stat-cards').innerHTML = '<p role="alert">Some tasks have no team statistics in this snapshot. Choose a team for each task or select a snapshot with the required roster.</p>';
+    invalidateResults('Some tasks have no team statistics in this snapshot. Choose a team for each task or select a snapshot with the required roster.');
     return;
   }
   const podStats = {};
@@ -227,7 +241,7 @@ function run() {
       trials: 10000, seed: 20260611, flowEff: 0.15, rhoOverride,
     });
   } catch (e) {
-    document.getElementById('stat-cards').innerHTML = `<div class="stat"><div class="v" style="color:var(--red);font-size:14px">${esc(e.message)}</div></div>`;
+    invalidateResults(e.message || 'The scenario could not be simulated. Check its tasks and dependencies.');
     return;
   }
   lastResult = { r, feature };
@@ -254,7 +268,7 @@ function renderSuggestions(feature) {
   if (!sugg.length) { div.innerHTML = ''; return; }
   div.innerHTML = '<h3>Suggested dependencies (from Jira history)</h3>' + sugg.map((s, i) => `
     <div class="suggestion">
-      <span><b>${s.fromPod}</b> has blocked <b>${s.toPod}</b> ×${s.count} in the past 12 months,
+      <span><b>${esc(s.fromPod)}</b> has blocked <b>${esc(s.toPod)}</b> ×${s.count} in the past 12 months,
       but no dependency is declared here.</span>
       <button data-i="${i}">add</button>
     </div>`).join('');
@@ -279,7 +293,9 @@ function chartWidth(svg, fallback = 900) {
 
 function fmtDate(days) {
   const d = new Date();
-  d.setDate(d.getDate() + Math.round(days * 7 / 5)); // working → calendar days
+  // specs/017-planning-and-execution-usability.md:194: Jira samples and model
+  // output already use elapsed calendar days, not five-day working weeks.
+  d.setDate(d.getDate() + Math.round(days));
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
@@ -293,7 +309,7 @@ function renderStats(r) {
   document.getElementById('stat-cards').innerHTML = cards.map(([l, v, cls, tip]) => `
     <div class="stat ${cls}"><div class="l">${l}${hlp(tip)}</div>
     <div class="v">${v.toFixed(0)}d</div>
-    <div class="hint">~${fmtDate(v)}</div></div>`).join('') + '<p class="hint">Conditional forecast from the selected snapshot. Dates start today and convert working days using a five-day week; holidays and future changes are not included. Review data quality and calibration before agreeing a commitment.</p>';
+    <div class="hint">~${fmtDate(v)}</div></div>`).join('') + '<p class="hint">Conditional forecast from the selected snapshot. Dates start today and use elapsed calendar days, matching the historical cycle-time samples; future changes are not included. Review data quality and calibration before agreeing a commitment.</p>';
 }
 
 function renderCdf(makespans) {
@@ -357,7 +373,7 @@ function renderCrit(r) {
   const entries = Object.entries(r.podCriticality).sort((a, b) => b[1] - a[1]);
   document.getElementById('crit-list').innerHTML =
     '<b>Criticality index</b> (probability the pod sits on the critical path): ' +
-    entries.map(([pod, c]) => `${pod} <b>${(c * 100).toFixed(0)}%</b>`).join(' · ');
+    entries.map(([pod, c]) => `${esc(pod)} <b>${(c * 100).toFixed(0)}%</b>`).join(' · ');
 }
 
 function renderWhatIf(feature) {
@@ -365,9 +381,9 @@ function renderWhatIf(feature) {
   const div = document.getElementById('whatif');
   div.innerHTML = '<h3>What-if: pod load (Kingman queue scaling)</h3>' + pods.map((p) => {
     const rho = rhoOverride[p] ?? state.stats[p].rho0;
-    return `<label>${p} — ρ <b id="rv-${p}" style="color:${heatColor(rho)}">${rho.toFixed(2)}</b>
+    return `<label>${esc(p)} — ρ <b id="rv-${esc(p)}" style="color:${heatColor(rho)}">${rho.toFixed(2)}</b>
       (baseline ${state.stats[p].rho0.toFixed(2)})</label>
-      <input type="range" min="0.30" max="0.97" step="0.01" value="${rho}" data-pod="${p}">`;
+      <input type="range" min="0.30" max="0.97" step="0.01" value="${rho}" data-pod="${esc(p)}">`;
   }).join('');
   div.querySelectorAll('input[type=range]').forEach((el) => {
     el.addEventListener('input', () => {

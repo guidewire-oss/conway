@@ -16,7 +16,7 @@ Guide modal routes by persona but froze before planning existed; vocabulary
 tooltips cover words, not procedure. This spec adds a **Planning Manager
 persona** to the Guide (clickable steps that navigate), a **dismissible
 first-visit callout** on Order and Timeline, an **in-app docs panel** (the
-manual, shipped offline in `app/`), and **deep links** from warnings into it.
+manual, shipped offline in `app/`), and **deep links** from warnings into it. The maintained manual introduces concepts, model calculations and situation-based choices, with contextual entry points, persistent search and responsive contents alongside the working plan.
 
 ---
 
@@ -26,7 +26,7 @@ A brand-new planning manager opening the Portfolio plan sees a finished, dense
 tool with no sense of the intended sequence. The knowledge exists — in specs,
 commit messages, and the team's heads — but not where a user can reach it.
 Warnings name problems ("no period start", "missing pods") without teaching
-the workflow that prevents them.
+the workflow that prevents them. Returning users also need to identify a metric's source, compare scheduling assumptions and find explanations without losing their place.
 
 ---
 
@@ -258,3 +258,6 @@ view. This refinement was recorded before the correction on 2026-09-05.
 |--------|---------|--------|----------------|
 | Planning loop documented in-app | no | yes | panel sections |
 | Warning states with a fix + link | partial | all 3 named warnings | in-browser |
+| Concepts, calculations and situation-based choices | Fragmented explanations | All supported planning and measurement views have a guide entry | Source-to-manual review |
+| Manual search and navigation | Static contents | Search, contextual anchors and return-to-work function on desktop and phone | Reader and browser checks |
+| Internal guide anchors | Unchecked | Every internal contents and task link resolves to a unique target | HTML anchor validation |

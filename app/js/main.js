@@ -8,7 +8,7 @@ import { workStreams } from './sim.js';
 import { initGameUI } from './gameui.js';
 import { initAuth, isStaff, hasRole, authMode, authFetch, authUser, authToken, authGameID } from './auth.js';
 import { mountAnnouncements } from './announcements.js';
-import { initPlanUI, restorePlanLocation } from './planui.js';
+import { initPlanUI, restorePlanLocation, openPlanDestination } from './planui.js';
 import { readRoute, writeRoute, restoringRoute } from './navigation.js';
 import { icon } from './icons.js';
 import { setSnapshot, getSnapshot, dataJson, listSnapshots } from './data.js';
@@ -30,11 +30,29 @@ function syntheticStats(pod) {
 
 let measureContext = null;
 let announcements = null;
+const pendingAnnouncementVisits = new Map();
+const announcementIdentity = () => authMode() === 'auth' && !authGameID() && authUser() ? `${authUser()}:${authToken()}` : null;
+function flushAnnouncementVisits() {
+  if (!announcements) return;
+  const targets = new Set(announcements.state().features.map(feature => feature.action.target));
+  for (const [target, identity] of pendingAnnouncementVisits) {
+    if (identity !== announcementIdentity()) { pendingAnnouncementVisits.delete(target); continue; }
+    if (!targets.has(target)) continue;
+    pendingAnnouncementVisits.delete(target);
+    void announcements.visit(target);
+  }
+}
 window.addEventListener('conway:feature-opened', event => {
   const target = ({ guide: 'docs-btn', execution: 'view-execution', 'linked-sheets': 'plan-linked-sheets' })[event.detail?.action];
-  if (target) void announcements?.visit(target);
+  if (target && announcementIdentity()) {
+    pendingAnnouncementVisits.set(target, announcementIdentity());
+    flushAnnouncementVisits();
+  }
 });
-window.addEventListener('pagehide', () => announcements?.dispose());
+window.addEventListener('pagehide', event => { if (!event.persisted) announcements?.dispose(); });
+window.addEventListener('pageshow', event => {
+  if (event.persisted) { announcements?.refreshIndicators(); flushAnnouncementVisits(); }
+});
 document.addEventListener('conway:measure-sources-changed', () => measureContext?.refresh());
 
 export const state = { pods: [], overlap: {}, stats: {}, edges: [], mined: false };
@@ -122,18 +140,16 @@ async function load() {
   // opening a plan picker is not evidence that its feature was visited.
   if (authMode() === 'auth' && !authGameID() && authUser()) {
     announcements = mountAnnouncements({ request: authFetch,
-      getIdentity: () => authMode() === 'auth' && !authGameID() && authUser() ? `${authUser()}:${authToken()}` : null,
+      getIdentity: announcementIdentity,
+      onStateChange: () => queueMicrotask(flushAnnouncementVisits),
       replayButton: document.getElementById('whats-new-btn'),
       onAction: async action => {
         if (action.target === 'docs-btn') { openDocs(); return true; }
-        document.querySelector('.tab[data-view="plan"]')?.click();
-        const target = document.getElementById(action.target);
-        if (target && !target.disabled) target.click();
-        // Destination renderers acknowledge successful openings themselves.
-        return false;
+        return openPlanDestination(action.target === 'view-execution' ? 'execution' : 'linked-sheets');
       },
     });
     await announcements.ready;
+    flushAnnouncementVisits();
     if (document.querySelector('#view-execution.active')) void announcements.visit('view-execution');
   }
 }
@@ -144,7 +160,10 @@ async function restoreWorkspace() {
   if(authMode() === 'auth' && !isStaff()) target='game';
   else if(target === 'plan' && authMode() === 'auth' && !hasRole('manager')) target='home';
   await restoringRoute(async()=>{
-    document.querySelector(`.tab[data-view="${target}"]`)?.click();
+    const selector = target === 'network'
+      ? (route.networkLens === 'what-if' ? '#net-plan' : '#net-observe')
+      : `.tab[data-view="${target}"]`;
+    document.querySelector(selector)?.click();
     if(target === 'plan') await restorePlanLocation(route);
   });
 }
@@ -204,7 +223,7 @@ document.querySelectorAll('.tab[data-view]').forEach((b) => b.addEventListener('
   document.querySelectorAll('.tab[data-view]').forEach((x) => x.classList.toggle('active', x === b));
   document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === `view-${b.dataset.view}`));
   syncMeasureContext();
-  writeRoute({view:b.dataset.view});
+  writeRoute({view:b.dataset.view, ...(b.dataset.view === 'network' ? {networkLens:b.id === 'net-plan' ? 'what-if' : 'observe'} : {})});
 }));
 
 // Explore ▾ dropdown: groups the analytics views under one menu so the top bar

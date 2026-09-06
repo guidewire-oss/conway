@@ -7,6 +7,7 @@ export function readRoute(url) {
     view: VIEWS.includes(p.get('view')) ? p.get('view') : (p.has('plan') ? 'plan' : 'home'),
     plan: p.get('plan') || '',
     planView: PLAN_VIEWS.includes(p.get('planView')) ? p.get('planView') : 'order',
+    networkLens: p.get('networkLens') === 'what-if' ? 'what-if' : 'observe',
     lens: p.get('lens') === 'pod' ? 'pod' : 'initiative',
     initiative: p.get('initiative') || '', team: p.get('team') || '', selected: p.get('selected') || '',
   };

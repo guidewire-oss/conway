@@ -25,6 +25,7 @@ const instances = new Map();
 const cleanups = new Map();
 const invokers = new WeakMap();
 const fallbackKeys = new WeakMap();
+const fallbackOverlays = new Set();
 const pendingClose = new WeakSet();
 const generatedLabels = new WeakMap();
 
@@ -43,9 +44,16 @@ export function containFocus(ov, close) {
   ov.addEventListener('keydown',handler);
   return ()=>ov.removeEventListener('keydown',handler);
 }
+function visibleInvoker(el) {
+  return el?.isConnected && !el.closest?.('[hidden]') &&
+    (!el.getClientRects || el.getClientRects().length > 0) &&
+    window.getComputedStyle?.(el)?.visibility !== 'hidden';
+}
 function restoreFocus(ov) {
   const invoker = invokers.get(ov);
-  if (invoker?.isConnected && ![...instances.keys()].some((el) => el !== ov && el.classList.contains('show'))) invoker.focus?.();
+  const anotherOpen = [...instances.keys()].some((el) => el !== ov && el.classList.contains('show')) ||
+    [...fallbackOverlays].some(el => el !== ov && !el.hidden);
+  if (visibleInvoker(invoker) && !anotherOpen) invoker.focus?.();
   invokers.delete(ov);
 }
 
@@ -149,7 +157,10 @@ export function openModal(ov) {
   if (!ov.contains(document.activeElement)) {
     const active = document.activeElement;
     const dropdownToggle = active?.closest?.('.dropdown')?.querySelector('[data-bs-toggle="dropdown"]');
-    invokers.set(ov, dropdownToggle || active);
+    // specs/017-planning-and-execution-usability.md:197: a modal handoff keeps
+    // the visible original trigger, not a control about to become hidden.
+    const parent = [...instances.keys(), ...fallbackOverlays].find(el => el !== ov && el.contains(active));
+    invokers.set(ov, (parent && invokers.get(parent)) || dropdownToggle || active);
   }
   // One modal at a time: opening a second (e.g. the halt modal over an open
   // admin panel) while the first is shown leaves the first visible with a
@@ -158,11 +169,18 @@ export function openModal(ov) {
   for (const [el, inst] of instances) {
     if (el !== ov && el.classList.contains('show')) { inst.hide(); }
   }
+  for (const el of [...fallbackOverlays]) {
+    if (el !== ov) closeModal(el);
+  }
   document.querySelectorAll('.modal-backdrop').forEach((b) => b.remove());
   document.body.classList.remove('modal-open');
   const m = modalFor(ov);
-  if (m) { ov.hidden = false; m.show(); return; }
+  if (m) {
+    fallbackKeys.get(ov)?.(); fallbackKeys.delete(ov); fallbackOverlays.delete(ov);
+    ov.hidden = false; m.show(); return;
+  }
   ov.hidden = false;
+  fallbackOverlays.add(ov);
   fallbackKeys.get(ov)?.();
   fallbackKeys.set(ov,containFocus(ov,()=>closeModal(ov)));
   ov.focus();
@@ -182,6 +200,7 @@ export function closeModal(ov) {
   }
   fallbackKeys.get(ov)?.();
   fallbackKeys.delete(ov);
+  fallbackOverlays.delete(ov);
   ov.hidden = true;
   restoreFocus(ov);
 }

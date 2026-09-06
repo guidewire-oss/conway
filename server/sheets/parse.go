@@ -326,9 +326,14 @@ func validMetadata(field, v string) bool {
 	switch field {
 	case "priority lock", "date lock", "flight":
 		return boolCell(v)
-	case "priority", "tier":
+	case "priority":
 		n, ok := number(v)
 		return ok && n >= 0 && math.Trunc(n) == n && n <= 1000000
+	case "tier":
+		// Blank is handled as unset before this function; populated requester
+		// tiers are 1–4 (specs/001-plan-execution-order.md:656).
+		n, ok := number(v)
+		return ok && n >= 1 && n <= 4 && math.Trunc(n) == n
 	case "cost":
 		n, ok := number(v)
 		return ok && n >= 0 && n <= 1000000

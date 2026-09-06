@@ -999,7 +999,7 @@ export function wipModelsTableHTML(sched) {
   const sameMisses = missed.size === 1 && rows.length > 1;
 
   return `<table class="wip-table ord-models"><thead><tr>
-      <th>model${term('wip-model')}</th><th>limit</th><th>ends</th><th>dates missed</th><th>pods idle all period</th><th>weighted unstarted work</th><th>weighted lateness${term('weighted-late')}</th>
+      <th>model ${term('wip-model')}</th><th>limit</th><th>ends</th><th>dates missed</th><th>pods idle all period</th><th>weighted unstarted work</th><th>weighted lateness ${term('weighted-late')}</th>
     </tr></thead><tbody>${body}</tbody></table>
     <ul class="hint ord-models-why">
       ${WIP_MODELS.map((m) => `<li><b>${esc(m.label)}</b> — ${esc(m.blurb)}</li>`).join('')}
@@ -1132,6 +1132,7 @@ export function schedulingFromForm(read, saved = {}) {
 //
 // Silent when everything fits. A note that always shows is a note nobody reads.
 export function fitNote(fit, horizonWeeks) {
+  if (fit?.unavailableReason) return `<p class="plan-warn ord-fit">Period fit is unknown: ${esc(fit.unavailableReason)}</p>`;
   if (!fit || !fit.beyondHorizon) return '';
   const horizon = Math.max(1, Math.ceil(horizonWeeks || 26));
   const n = fit.beyondHorizon;

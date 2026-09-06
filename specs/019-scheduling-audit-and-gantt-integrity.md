@@ -132,7 +132,7 @@ existing splitting-cost tradeoff rather than charging overhead for waiting alone
 
 ### Decision 4: Reject ambiguous identities and qualify unresolved dependencies
 
-Names are the current initiative identifiers. Reject duplicate normalized names
+Names are the current initiative identifiers. Reject blank or duplicate normalized names
 at import/save and schedule boundaries rather than merging or dropping work.
 Unresolved dependency references remain non-blocking under the existing model,
 but must add an explicit assumption and qualify the affected forecast as

@@ -32,7 +32,7 @@ func NormalizeEpicKeys(keys []string) ([]string, error) {
 }
 
 // ExecutionIssue contains snapshot evidence only; no I/O or live Jira access.
-// specs/001-plan-execution-order.md:1390: starts remain explicitly inferred.
+// specs/001-plan-execution-order.md:1393: starts remain explicitly inferred.
 type ExecutionIssue struct {
 	Key, ParentKey, Pod, Type, Summary, StatusCategory string
 	Created, Updated, Resolved                         *time.Time
@@ -263,6 +263,11 @@ func DeriveActuals(current []Initiative, baseline *BaselineInputs, schedule *Sch
 				a.Gaps = append(a.Gaps, "Bound epic "+key+" is missing from this snapshot or is not an epic.")
 			}
 		}
+		if missingEpic {
+			// A completed captured subset is not completion of the bound scope.
+			// specs/017-planning-and-execution-usability.md:193
+			a.Gaps = append(a.Gaps, "Bound epic scope is incomplete; observed counts and inferred start are retained, but completion, finish, risk, variance and calibration are unavailable.")
+		}
 		groups := map[string][]ExecutionIssue{}
 		unmappedScope := false
 		total, done := 0, 0
@@ -299,9 +304,9 @@ func DeriveActuals(current []Initiative, baseline *BaselineInputs, schedule *Sch
 		if total > 0 {
 			a.Tracked = true
 			a.IssueCount, a.DoneCount = total, done
-			if a.UnknownStatusCount == 0 {
+			if a.UnknownStatusCount == 0 && !missingEpic {
 				a.PercentComplete = number(float64(done) * 100 / float64(total))
-			} else {
+			} else if a.UnknownStatusCount > 0 {
 				a.Gaps = append(a.Gaps, "Some captured child issues have unknown status categories; known completed counts are retained, but overall progress and risk are unavailable.")
 			}
 			out.Coverage.Tracked++
@@ -362,6 +367,8 @@ func DeriveActuals(current []Initiative, baseline *BaselineInputs, schedule *Sch
 				}
 			}
 			switch {
+			case missingEpic:
+				slice.Gaps = append(slice.Gaps, "Bound epic scope is incomplete; observed team counts and inferred start are retained, but completion, finish, risk, variance, calibration and order comparison are unavailable.")
 			case len(children) > 0 && !missingProgress:
 				slice.PercentComplete = number(float64(slice.DoneCount) * 100 / float64(len(children)))
 				slice.Confidence = "low"
@@ -375,7 +382,7 @@ func DeriveActuals(current []Initiative, baseline *BaselineInputs, schedule *Sch
 				slice.ActualStartWeek = week(earliest)
 				slice.Gaps = append(slice.Gaps, "No status-transition history; start inferred from earliest created/updated child activity.")
 			}
-			if len(children) > 0 && slice.DoneCount == len(children) && !missingFinish {
+			if len(children) > 0 && slice.DoneCount == len(children) && !missingFinish && !missingEpic {
 				slice.ActualFinishWeek = week(latest)
 			}
 			if missingFinish {
@@ -398,9 +405,12 @@ func DeriveActuals(current []Initiative, baseline *BaselineInputs, schedule *Sch
 			} else {
 				slice.BaselineStartWeek = number(float64(bs.StartWeek))
 				slice.BaselineFinishWeek = number(float64(bs.FinishWeek))
-				if scopeChanged {
+				switch {
+				case missingEpic:
+					slice.Gaps = append(slice.Gaps, "Missing bound epic evidence prevents comparison with the agreed scope.")
+				case scopeChanged:
 					slice.Gaps = append(slice.Gaps, "Epic scope changed since agreement; combined-scope variance and calibration are withheld.")
-				} else {
+				default:
 					if slice.ActualStartWeek != nil {
 						slice.StartVarianceWeeks = number(*slice.ActualStartWeek - float64(bs.StartWeek))
 					}
@@ -479,10 +489,10 @@ func DeriveActuals(current []Initiative, baseline *BaselineInputs, schedule *Sch
 				a.ActualFinishWeek = number(*slice.ActualFinishWeek)
 			}
 		}
-		if !allFinished || assignedCount != total {
+		if !allFinished || assignedCount != total || missingEpic {
 			a.ActualFinishWeek = nil
 		}
-		if hasBase && hasSchedule && !scopeChanged && len(a.UnplannedPods) == 0 && assignedCount == total {
+		if hasBase && hasSchedule && !scopeChanged && !missingEpic && len(a.UnplannedPods) == 0 && assignedCount == total {
 			if a.ActualStartWeek != nil {
 				a.StartVarianceWeeks = number(*a.ActualStartWeek - float64(sched.StartWeek))
 			}

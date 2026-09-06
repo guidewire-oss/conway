@@ -108,6 +108,12 @@ Start an upload in plan A, switch to plan B and begin a draft. When A’s reques
 
 ### M08 · P1 · Simulator date conversion mixes calendar and working days
 
+**Correction status, 2026-09-06:** The date formatter now uses elapsed calendar
+days without the previous 7/5 multiplier. Handoff allowances use the same
+model-day basis; they do not implement weekends or holidays. The historical
+observation below is retained. Current regression coverage is in
+`tests/manager-review-regressions.test.mjs`.
+
 Jira cycle samples are elapsed calendar days. Their lognormal parameters pass unchanged into the simulator, whose date formatter multiplies by 7/5 as though the result were working days. An isolated one-task fixture with a seven-calendar-day median returns P50 about 6.985 but displays a date ten calendar days away. Handoff durations also use working days, so multi-team forecasts mix units internally.
 
 **Evidence:** Time probe: `inputCalendarMedian:7, simulatedP50:6.985135321498676, displayedCalendarDays:10`.
@@ -255,6 +261,9 @@ and warnings readable without color. This audit does not claim those checks pass
   server. Pure functions and DOM stubs cannot establish complete persistence behavior.
 
 ## Validation record and limits
+
+These command outputs record the September 5 audit. Counts describe that
+revision, not the current test suite; subsequent review added regressions.
 
 RAN `node --test tests/*.test.mjs`:
 

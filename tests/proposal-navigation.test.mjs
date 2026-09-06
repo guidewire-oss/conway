@@ -63,9 +63,11 @@ test('workspace restoration opens the selected plan and preserves role-based nav
 
 test('a failed older plan load cannot replace the newer loaded plan', async () => {
   let finishOld;
+  const resumed=[];
   const scope = vm.createContext({ current: null, planLoadTicket: 0, root: { innerHTML: '' },
     staleOrder() {}, loadBaselines: async () => {}, localStorage: { getItem: () => null }, rememberPlanRoute() {},
     renderPlan() { scope.root.innerHTML = scope.current.name; },
+    resumePlanDestination: async()=>{resumed.push(scope.current.id);},
     req: async (path) => path.endsWith('/old') ? new Promise((r) => { finishOld = r; }) : { ok: true, json: async () => ({ id: 'new', name: 'New plan' }) },
   });
   vm.runInContext(extract('async function openPlan(', 'function uploadField('), scope);
@@ -74,6 +76,7 @@ test('a failed older plan load cannot replace the newer loaded plan', async () =
   finishOld({ ok: false }); await old;
   assert.equal(scope.root.innerHTML, 'New plan');
   assert.equal(scope.current.id, 'new');
+  assert.deepEqual(resumed,['new'],'only the newest loaded plan may resume a requested destination');
 });
 
 test('a reused proposal modal rejects an older preview response', async () => {
@@ -124,6 +127,8 @@ test('save feedback does not claim baselines unchanged and delayed errors stay o
   notices.length = 0;
   await scope.req('/api/plan/one/schedule', { method: 'POST' });
   assert.equal(notices.length, 0, 'read-only computation never claims a write');
+  await scope.req('/api/plan/one/baseline/first/compare-to/second', { method: 'POST' });
+  assert.equal(notices.length, 0, 'comparing saved baselines never shows saving or saved feedback');
   scope.authFetch = async () => ({ ok: false, clone: () => ({ text: () => new Promise((r) => { textDone = r; }) }) });
   const pending = scope.req('/api/plan/one/initiatives', { method: 'PATCH' });
   await new Promise(setImmediate);

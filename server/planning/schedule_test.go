@@ -1149,7 +1149,7 @@ var _ = Describe("lane splitting", func() {
 		for i := 1; i < len(lanes); i++ {
 			Expect(lanes[i]).To(BeNumerically(">=", lanes[i-1]), "growth only, never preemption")
 		}
-		// Without the tax the same plan finishes no later.
+		// A zero tax disables splitting; this assertion checks the phase shape.
 		spNoTax := sp
 		spNoTax.SplitTaxWeeks = 0
 		noTax := ComputeSchedule(teams, []Initiative{holder, big},

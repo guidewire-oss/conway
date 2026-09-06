@@ -18,6 +18,7 @@ package planning
 // applying it too would count the same delay twice (Decision 4).
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"slices"
@@ -442,6 +443,7 @@ type RuleScore struct {
 // committed one of 29 inside its horizon; what a planner needed to hear was that
 // they were asking for 125% of the available capacity.
 type ScheduleFit struct {
+	UnavailableReason string `json:"unavailableReason,omitempty"`
 	// PodWeeksDemanded is every initiative's in-path work, whether or not it fitted.
 	PodWeeksDemanded float64 `json:"podWeeksDemanded"`
 	// TrackWeeksAvailable is the per-pod sum of tracks x horizon less each
@@ -454,6 +456,21 @@ type ScheduleFit struct {
 	// demand figures above explain a plan that is over capacity; they explain
 	// nothing about one held out by a WIP limit, and the lever differs.
 	HeldBy []ConstraintCount `json:"heldBy,omitempty"`
+}
+
+// MarshalJSON preserves the normal numeric contract while making rejected
+// input arithmetic explicitly unknown. specs/017-planning-and-execution-usability.md:210
+func (f ScheduleFit) MarshalJSON() ([]byte, error) {
+	type fitJSON ScheduleFit
+	if f.UnavailableReason == "" {
+		return json.Marshal(fitJSON(f))
+	}
+	return json.Marshal(struct {
+		fitJSON
+		PodWeeksDemanded    *float64 `json:"podWeeksDemanded"`
+		TrackWeeksAvailable *float64 `json:"trackWeeksAvailable"`
+		BeyondHorizon       *int     `json:"beyondHorizon"`
+	}{fitJSON: fitJSON(f)})
 }
 
 // ConstraintCount is one bindingConstraint and how many initiatives it held out.
@@ -580,7 +597,8 @@ func ComputeScheduleWith(teams []Team, inits []Initiative, params Params, sp Sch
 			rows = append(rows, ScheduledInitiative{Name: it.Name, Verdict: verdictUnschedulable,
 				Provisional: true, BindingConstraint: "invalid-input", Assumptions: []string{err.Error()}, Slices: []WorkSlice{}})
 		}
-		return &Schedule{Initiatives: rows, Assumptions: []string{err.Error()}, UnscheduledWeight: unstarted, StatedOrderUnscheduledWeight: unstarted}
+		return &Schedule{Initiatives: rows, Assumptions: []string{err.Error()}, UnscheduledWeight: unstarted, StatedOrderUnscheduledWeight: unstarted,
+			Fit: &ScheduleFit{UnavailableReason: err.Error(), HeldBy: []ConstraintCount{{Constraint: "invalid-input", Count: len(inits)}}}}
 	}
 	sched := computeOne(teams, inits, params, sp)
 	if opts.CompareWipModels {

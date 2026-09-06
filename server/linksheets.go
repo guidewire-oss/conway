@@ -101,7 +101,7 @@ func (s *server) handlePlanSources(w http.ResponseWriter, r *http.Request, p *db
 			return
 		}
 		candidate := sheets.Parse(source.Kind, v.Rows, in)
-		writeJSON(w, map[string]any{"version": v, "planFingerprint": in.Fingerprint(), "preview": candidate, "applyable": v.Valid && candidate.Valid()})
+		writeJSON(w, map[string]any{"version": v, "planFingerprint": in.Fingerprint(), "preview": candidate, "applyable": candidate.Valid()})
 		return
 	}
 	if len(parts) > 3 {
@@ -438,8 +438,10 @@ func (s *server) applyLinkedSheet(w http.ResponseWriter, r *http.Request, p *db.
 
 func (s *server) applySheetVersion(ctx context.Context, p *db.PlanRow, source db.PlanSource, v db.SourceVersion, expected string, allowRemovals, automatic bool, actor, token string) (db.PlanSource, string, int, string) {
 	refuse := func(code int, msg string) (db.PlanSource, string, int, string) { return source, "", code, msg }
-	if !v.Valid {
-		return refuse(http.StatusUnprocessableEntity, "this capture contains validation errors and cannot apply")
+	// Explicit review can recover a contextual failure without rewriting the
+	// original evidence (specs/023-linked-google-sheets.md:298).
+	if automatic && !v.Valid {
+		return refuse(http.StatusUnprocessableEntity, "this capture was invalid when captured and requires explicit review before it can apply")
 	}
 	in, err := s.planScheduleFor(p, scheduleRequest{})
 	if err != nil {

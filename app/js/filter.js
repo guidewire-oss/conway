@@ -1,8 +1,8 @@
 // Fuzzy matching for the timeline lens filters (spec 010). Case-insensitive,
 // substring OR subsequence: "aplat" matches "Apollo/App Platform" because the
 // letters appear in order; "app platform" matches "Apollo/App Platform" as a
-// substring after squashing. Common word endings also connect "rotate" with
-// "rotation". Pure functions — no DOM — so the shape is unit-tested.
+// substring after squashing. Initiative queries additionally connect common
+// word endings such as "rotate" and "rotation". Pure functions — no DOM.
 
 // specs/010-timeline-lens-filters.md:164: bounded word-ending matching, not
 // initiative identity normalization. Keep at least four letters in a root.
@@ -31,11 +31,11 @@ export function initiativeMatch(query, target) {
     targetWords.some((candidate) => candidate.includes(word) || wordRoot(word) === wordRoot(candidate)));
 }
 
-// Team names retain their established shorthand matching. Initiative queries
-// require matching text: specs/010-timeline-lens-filters.md:187.
+// Team names retain only their established shorthand matching:
+// specs/010-timeline-lens-filters.md:195.
 export function fuzzyMatch(query, target) {
-  if (initiativeMatch(query, target)) return true;
   const q = String(query || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  if (!q) return true;
   const t = String(target || '').toLowerCase().replace(/\s+/g, ' ');
   let i = 0;
   for (const ch of t) {

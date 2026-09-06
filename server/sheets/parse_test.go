@@ -41,12 +41,19 @@ var _ = Describe("linked Sheets captures", func() {
 	}, Entry("unknown text", "later"), Entry("negative", "-2"), Entry("infinity", "Inf"), Entry("not a number", "NaN"))
 	DescribeTable("preserves accepted effort units without silently clearing work", func(value string) {
 		got := sheets.Parse("initiatives", matrix(value), current)
-		if got.Valid() {
-			Expect(got.Initiatives[0].Work["Team A"]).To(Equal(planning.TeamWork{Weeks: 4, Estimated: true, InPath: true}))
-		} else {
-			Expect(got.Errors).NotTo(BeEmpty())
-		}
+		Expect(got.Valid()).To(BeTrue(), "%v", got.Errors)
+		Expect(got.Initiatives[0].Work["Team A"]).To(Equal(planning.TeamWork{Weeks: 4, Estimated: true, InPath: true}))
 	}, Entry("short week suffix", "4wk"), Entry("plural week suffix", "4wks"))
+	DescribeTable("accepts only supported requester tiers or blank", func(value string, want int) {
+		got := sheets.Parse("initiatives", [][]string{{"Initiative", "Tier", "Full Kit Estimate", "Team A"}, {"Atlas", value, "4", "4"}}, current)
+		Expect(got.Valid()).To(BeTrue(), "%v", got.Errors)
+		Expect(got.Initiatives[0].Tier).To(Equal(want))
+	}, Entry("blank unset", "", 0), Entry("tier one", "1", 1), Entry("tier two", "2", 2), Entry("tier three", "3", 3), Entry("tier four", "4", 4))
+	DescribeTable("rejects populated requester tiers outside integers one through four", func(value string) {
+		got := sheets.Parse("initiatives", [][]string{{"Initiative", "Tier", "Full Kit Estimate", "Team A"}, {"Atlas", value, "4", "4"}}, current)
+		Expect(got.Valid()).To(BeFalse())
+		Expect(got.Errors).NotTo(BeEmpty())
+	}, Entry("zero", "0"), Entry("above range", "5"), Entry("negative", "-1"), Entry("fraction", "2.5"), Entry("text", "urgent"))
 	DescribeTable("rejects conflicting roster header aliases", func(first, second, a, b string) {
 		got := sheets.Parse("teams", [][]string{{"Name", first, second}, {"Team A", a, b}}, current)
 		Expect(got.Valid()).To(BeFalse())

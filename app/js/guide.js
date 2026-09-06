@@ -3,6 +3,7 @@ import { isStaff, authMode, hasRole } from './auth.js';
 import { apiGet } from './data.js';
 import { openModal, closeModal } from './modal.js';
 import { openDocs } from './docs.js';
+import { openPlanDestination } from './planui.js';
 
 // Players get a rules-only guide (how the game is played + what it's about), with
 // no strategy. The full leader/analytics guide is admin-only.
@@ -373,15 +374,7 @@ export function initGuide(state) {
         if (['network', 'scoreboard', 'simulator', 'flow'].includes(b.dataset.nav)) {
           document.querySelector(`.tab[data-view="${b.dataset.nav}"]`)?.click(); return;
         }
-        document.querySelector('.tab[data-view="plan"]')?.click();
-        setTimeout(() => {
-          const dest = b.dataset.nav;
-          if (dest === 'plan') {
-            document.querySelector('.plan-setup')?.setAttribute('open', '');
-          } else {
-            document.getElementById(`view-${dest === 'baseline' ? 'order' : dest}`)?.click();
-          }
-        }, 350);
+        void openPlanDestination(b.dataset.nav === 'plan' ? 'setup' : b.dataset.nav === 'baseline' ? 'order' : b.dataset.nav);
       }));
     document.getElementById('usage-open')?.addEventListener('click', () => {
       closeModal(overlay);

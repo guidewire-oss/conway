@@ -12,6 +12,7 @@ import assert from 'node:assert/strict';
 const browser=await chromium.launch({channel:'chrome',headless:true});
 const page=await browser.newPage({viewport:{width:1440,height:1000}});
 const errors=[];page.on('pageerror',e=>errors.push(e.message));
+let primaryFailure;
 try {
  await page.goto(baseURL);
  await page.locator('#login-user').fill(username); await page.locator('#login-pass').fill(password);
@@ -41,7 +42,9 @@ try {
  const form=page.locator('.tl-precise-edit'); const start=form.locator('[name=startWeek]').first();
  const original=await start.inputValue(); await start.fill(String(Number(original)+1));
  await form.locator('button[type=submit]').click(); await page.locator('#tl-undo:not([disabled])').waitFor();
- await page.locator('#tl-undo').click(); await page.waitForTimeout(300);
+ await page.locator('#tl-undo').click();
+ await page.waitForFunction(value=>document.querySelector('.tl-precise-edit [name=startWeek]')?.value===value,original);
+ assert.equal(await page.locator('.tl-precise-edit [name=startWeek]').first().inputValue(),original,'undo must restore the original start week');
  await page.locator('#view-order').click(); await page.locator('#bl-chip').click();
  await page.locator('#bl-save').click(); assert.match(await page.locator('.bl-drawer-error').textContent(),/name/i);
  await page.locator('#bl-drawer-name').fill('UX review agreement'); await page.locator('#bl-save').click();
@@ -55,7 +58,16 @@ try {
  await page.setViewportSize({width:360,height:800}); await page.screenshot({path:join(artifacts,'conway-plan-360.png'),fullPage:true});
  const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth); assert.equal(overflow,false);
  assert.deepEqual(errors,[]); console.log(JSON.stringify({defaultOrder:true,setupCollapsed:true,routeRestored:true,filterPreserved:true,preciseEditUndo:true,baselineValidation:true,executionEvidence:true,scenarioIndependent:true,mobileOverflow:overflow,pageErrors:errors}));
-} catch(e) { console.log(await page.locator('body').innerText()); console.log({errors}); await page.screenshot({path:join(artifacts,'conway-plan-failure.png'),fullPage:true}); throw e; } finally {
- for(const id of createdPlans) await page.evaluate(async id=>{const token=localStorage.getItem('conway_token'); const r=await fetch('/api/plan/'+encodeURIComponent(id),{method:'DELETE',headers:{Authorization:'Bearer '+token}});if(!r.ok) throw new Error('Could not clean up the browser-created plan '+id);},id);
- await browser.close();
+} catch(e) {
+ primaryFailure=e;
+ try {console.log(await page.locator('body').innerText());console.log({errors});await page.screenshot({path:join(artifacts,'conway-plan-failure.png'),fullPage:true});}catch(diagnosticError){console.error('Could not capture failure diagnostics:',diagnosticError);}
+ throw e;
+} finally {
+ const cleanupErrors=[];
+ try {
+  for(const id of createdPlans) {
+   try {await page.evaluate(async id=>{const token=localStorage.getItem('conway_token');const r=await fetch('/api/plan/'+encodeURIComponent(id),{method:'DELETE',headers:{Authorization:'Bearer '+token}});if(!r.ok)throw new Error('Could not clean up the browser-created plan '+id);},id);}catch(error){cleanupErrors.push(error);}
+  }
+ } finally {try{await browser.close();}catch(error){cleanupErrors.push(error);}}
+ if(cleanupErrors.length){if(primaryFailure)console.error('Additional cleanup failures:',cleanupErrors);else throw new AggregateError(cleanupErrors,'Browser workflow cleanup failed');}
 }

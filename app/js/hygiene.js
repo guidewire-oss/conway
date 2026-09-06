@@ -122,7 +122,7 @@ function render(state) {
     <th>Link density${hlp('Issues with a blocking link ÷ resolved issues. Conway: low density means real cross-team coupling is invisible in the data, so the dependency graph and suggestions under-count it.')}</th>
     <th>Fix first${hlp('Auto-flags pointing at the cheapest high-impact cleanup for this pod.')}</th></tr></thead>
     <tbody>${rows.map(({ p, h }) => `<tr class="hyg-row" data-pod="${esc(p.name)}" tabindex="0" role="button" aria-expanded="false" style="cursor:pointer" title="Open team quality details">
-      <td>▸ ${p.name}</td>
+      <td>▸ ${esc(p.name)}</td>
       <td><span class="bar" style="width:${(h.score ?? 0) * 60}px;background:${heatColor(1.05 - (h.score ?? 0))}"></span> ${pct(h.score)}</td>
       <td>${pct(h.sizedPct)} <span class="hint">of ${h.sampleSized}</span></td>
       <td>${h.medianPoints ?? '<span class="hint">n/a</span>'}</td>
@@ -131,7 +131,7 @@ function render(state) {
       <td>${pct(h.linkDensity)}</td>
       <td>${flagsFor(h)}</td>
     </tr>
-    <tr class="hyg-drill" data-pod="${p.name}" hidden><td colspan="8"><div class="wip-drill" id="hyg-${p.name}"></div></td></tr>`).join('')}</tbody>`;
+    <tr class="hyg-drill" data-pod="${esc(p.name)}" hidden><td colspan="8"><div class="wip-drill" id="hyg-${esc(p.name)}"></div></td></tr>`).join('')}</tbody>`;
   document.querySelectorAll('.hyg-row').forEach((row) => {
     row.addEventListener('click', () => toggle(row.dataset.pod));
     row.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggle(row.dataset.pod); } });
@@ -170,7 +170,7 @@ function renderCats(pod, openCat) {
         style="margin-right:8px">${label}: <b>${n}</b></button>
         ${active ? `<span class="hint">— ${why}</span>` : ''}`;
   }).join('')}</div>
-    <div id="hyg-issues-${pod}"></div>`;
+    <div id="hyg-issues-${esc(pod)}"></div>`;
   div.querySelectorAll('.hyg-cat').forEach((b) => b.addEventListener('click', (ev) => {
     ev.stopPropagation();
     renderCats(pod, b.dataset.cat === openCat ? null : b.dataset.cat);

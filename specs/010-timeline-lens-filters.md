@@ -192,7 +192,9 @@ requested text or a related word form. This makes initiative isolation unreliabl
 
 **Decision:** Initiative filters use literal substring or common word-root
 matching, with every query word required. They do not use scattered-letter
-subsequences. Team filters retain their existing shorthand behavior. Apply the
+subsequences. Team filters retain their existing shorthand behavior, without
+initiative word-root matching; this supersedes Decision 3's inclusion of teams
+in the shared word-root matcher. Apply the
 initiative matcher consistently to bars, team-card selection, held work,
 outside-view notices, portfolio rows and counts. This supersedes Decision 3's
 preservation of subsequence matching for initiative names only.

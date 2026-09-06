@@ -68,6 +68,18 @@ try {
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await page.screenshot({path:join(process.env.CONWAY_TEST_ARTIFACT_DIR||tmpdir(),'conway-linked-sources-mobile.png'),fullPage:true});
   await overlay.locator('[data-close]').click(); await overlay.waitFor({state:'hidden'});
+  await page.setViewportSize({width:1280,height:960});
+  await page.goto(base+'?view=home');await page.locator('#help-btn').waitFor();
+  await page.locator('#help-btn').click();await page.locator('#whats-new-btn').click();
+  await announcements.waitFor({state:'visible'});
+  await announcements.locator('[data-announcement-action="linked-sheet-import-v1"]').click();
+  await page.locator('[data-pending-destination]').waitFor();
+  assert.match(await page.locator('[data-pending-destination]').textContent(),/Choose a plan.*Linked Google Sheets/);
+  await page.locator('[data-cancel-destination]').waitFor({state:'visible'});
+  await page.locator(`.plan-open[data-id="${plan}"]`).click();
+  await overlay.locator('[data-source]').waitFor({state:'visible'});
+  assert.equal(await page.locator('[data-pending-destination]').count(),0);
+  await overlay.locator('[data-close]').click();await overlay.waitFor({state:'hidden'});
   assert.deepEqual(errors,[]);
   await checkAnnouncementRecovery(browser,base);
   console.log(JSON.stringify({announcedOnce:true,replay:true,visitedAfterOpen:true,reviewApply:true,staleConflict:true,restore:true,immutableCaptureCount:2,mobileOverflow:false,pageErrors:errors}));

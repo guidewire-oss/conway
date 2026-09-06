@@ -177,7 +177,7 @@ replace account rows; that maintenance must not erase feature acknowledgements.
 
 **Context:** Users want a brief post-login introduction and a way to return later.
 
-**Decision:** Show a single modal containing eligible unannounced features. Acknowledge announced items after the modal is presented; persistence failure remains retryable. Closing the modal does not acknowledge visits. What's new replays eligible descriptions without resetting either state. Mark a visit when its actual allowed destination opens, not merely when its description is read.
+**Decision:** Show a single modal containing eligible unannounced features. Acknowledge announced items after the modal is presented; persistence failure remains retryable. Closing the modal does not acknowledge visits. What's new replays eligible descriptions without resetting either state. Mark a visit when its actual allowed destination opens, not merely when its description is read. Queue same-account destination visits until the initial catalog is ready; discard them if identity changes. Preserve the mounted controller across persisted back-forward-cache navigation. A pending plan destination survives asynchronous plan rendering and plan selection, offers a visible cancel control, and acknowledges a visit only after the actual destination opens.
 
 **Alternatives considered:**
 - A modal per feature — rejected because it creates repeated interruptions.

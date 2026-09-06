@@ -224,7 +224,7 @@ export function timelineRowHTML(si, opts = {}) {
 
   const expandMark = (si.slices || []).length > 1 ? '▸ ' : '';
   return `<div class="tl-row" data-init="${esc(si.name)}" data-expandable="${(si.slices || []).length > 1 ? 1 : 0}">
-    <button type="button" class="tl-label tl-trunc" data-select-init="${esc(si.name)}" aria-pressed="${opts.selected === si.name}" aria-expanded="${!!opts.expand}" title="Select ${esc(si.name)}">${expandMark}${esc(si.name)}</button>
+    <button type="button" class="tl-label tl-trunc" data-select-init="${esc(si.name)}" aria-pressed="${opts.selected === si.name}" ${(si.slices || []).length > 1 ? `aria-expanded="${!!opts.expand}"` : ''} title="Select ${esc(si.name)}">${expandMark}${esc(si.name)}</button>
     <div class="tl-track${subrows ? ' tl-expanded' : ''}">${bar}${buffer}${target}${subrows}</div>
   </div>`;
 }

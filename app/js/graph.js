@@ -14,7 +14,7 @@ export { heatColor, layerDag };
 const MUTED = '#2e3f51';
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 // jiraLink() falls back to plain (unlinked) text when CONWAY_JIRA_BASE_URL is unset.
-const jiraLink = (base, key) => (base ? `<a href="${base}/browse/${key}" target="_blank">${key}</a>` : key);
+const jiraLink = (base, key) => (base ? `<a href="${esc(base)}/browse/${encodeURIComponent(key)}" target="_blank" rel="noopener">${esc(key)}</a>` : esc(key));
 
 export function initGraph(state) {
   const baseModel = {
@@ -56,7 +56,7 @@ export function initGraph(state) {
   function renderHideBar() {
     if (!hidden.size) { hideBar.hidden = true; hideBar.innerHTML = ''; return; }
     hideBar.hidden = false;
-    hideBar.innerHTML = `<b>Hidden:</b> ${[...hidden].map((n) => `<span class="flag">${n}</span>`).join(' ')}
+    hideBar.innerHTML = `<b>Hidden:</b> ${[...hidden].map((n) => `<span class="flag">${esc(n)}</span>`).join(' ')}
       <button id="net-show-all">Reset (show all)</button>`;
     hideBar.querySelector('#net-show-all').addEventListener('click', () => { hidden.clear(); render(); });
   }
@@ -68,7 +68,7 @@ export function initGraph(state) {
     const fmt = (s) => (s.id === 'baseline' ? s.name : (s.name || s.id));
     const label = document.createElement('label');
     label.innerHTML = `compare to <select id="net-cmp"><option value="">— off —</option>`
-      + others.map((s) => `<option value="${s.id}">${fmt(s)}</option>`).join('') + '</select>';
+      + others.map((s) => `<option value="${esc(s.id)}">${esc(fmt(s))}</option>`).join('') + '</select>';
     controls.appendChild(label);
     controls.querySelector('#net-cmp').addEventListener('change', (e) => {
       loadCompare(e.target.value, e.target.selectedOptions[0]?.textContent || e.target.value);
@@ -109,13 +109,13 @@ export function initGraph(state) {
   }
 
   function renderCompareSummary(msg) {
-    if (msg) { cmpWrap.hidden = false; cmpWrap.innerHTML = `<span class="hint">${msg}</span>`; return; }
+    if (msg) { cmpWrap.hidden = false; cmpWrap.innerHTML = `<span class="hint">${esc(msg)}</span>`; return; }
     if (!diff) { cmpWrap.hidden = true; cmpWrap.innerHTML = ''; return; }
     cmpWrap.hidden = false;
     const movers = [...diff.podDelta.entries()].filter(([, d]) => d !== 0)
       .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 6)
-      .map(([n, d]) => `${n} ${d > 0 ? '+' : ''}${d}`).join(' · ');
-    cmpWrap.innerHTML = `<b>vs ${diff.bName}:</b>
+      .map(([n, d]) => `${esc(n)} ${d > 0 ? '+' : ''}${d}`).join(' · ');
+    cmpWrap.innerHTML = `<b>vs ${esc(diff.bName)}:</b>
       <span class="flag" style="color:#3ecf8e">+${diff.totals.addedE} edges</span>
       <span class="flag red">−${diff.totals.removedE} edges</span>
       ${diff.added.size ? `<span class="flag" style="color:#3ecf8e">${diff.added.size} pods new</span>` : ''}
@@ -127,7 +127,7 @@ export function initGraph(state) {
   const sim = document.getElementById('org-sim');
   function renderSimPanel(suggestions = null) {
     const pods = [...model().pods].sort((a, b) => a.name.localeCompare(b.name));
-    const opts = (sel) => pods.map((p) => `<option ${p.name === sel ? 'selected' : ''}>${p.name}</option>`).join('');
+    const opts = (sel) => pods.map((p) => `<option ${p.name === sel ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
     const base = orgFlowScore(baseModel);
     const cur = orgFlowScore(model());
     // 50/50 blend so neither tax can drown the other
@@ -152,13 +152,13 @@ export function initGraph(state) {
         </span>
       </div>
       ${appliedMoves.length ? `<div class="sim-chips">${appliedMoves
-        .map((m) => `<span class="chip">${m.absorber} ⊕ ${m.absorbed} <i>(${Math.round(m.fraction * 100)}% ppl)</i></span>`).join('')}
+        .map((m) => `<span class="chip">${esc(m.absorber)} ⊕ ${esc(m.absorbed)} <i>(${Math.round(m.fraction * 100)}% ppl)</i></span>`).join('')}
         <span class="hint">applied in order — Reset reverts everything</span></div>` : ''}
       <div id="sim-suggestions">${suggestions === null ? '' : suggestions.length === 0
         ? '<p class="hint">No headcount-neutral merge improves the score under the 12-dev team cap.</p>'
         : suggestions.map((s, i) => `
           <div class="suggestion">
-            <span><b>${s.absorber}</b> absorbs <b>${s.absorbed}</b>
+            <span><b>${esc(s.absorber)}</b> absorbs <b>${esc(s.absorbed)}</b>
               <span class="hint">(coupling ×${s.coupling}, merged team ${s.mergedDevs} devs)</span>
               → index −${s.delta.toFixed(1)} pts</span>
             <button data-i="${i}">apply</button>
@@ -361,9 +361,9 @@ export function initGraph(state) {
 // compare annotation: how this pod's WIP moved vs the other snapshot
 function compareWipNote(cmp, name) {
   const delta = cmp.podDelta.get(name);
-  if (!delta) return ` <span class="hint">(no change vs ${cmp.bName})</span>`;
+  if (!delta) return ` <span class="hint">(no change vs ${esc(cmp.bName)})</span>`;
   const col = delta > 0 ? 'var(--red)' : 'var(--green)';
-  return ` <span class="flag" style="color:${col}">${delta > 0 ? '+' : ''}${delta} vs ${cmp.bName}</span>`;
+  return ` <span class="flag" style="color:${col}">${delta > 0 ? '+' : ''}${delta} vs ${esc(cmp.bName)}</span>`;
 }
 
 function showPanel(d, m, simulated, cmp, onHide) {
@@ -386,7 +386,7 @@ function showPanel(d, m, simulated, cmp, onHide) {
 
   const fmtEdge = (idx, other, count, dir) => {
     const ov = m.overlap[d.name]?.[other] ?? '?';
-    return `<li><span class="insp-num">${idx + 1}</span><span class="insp-name">${dir} <b>${other}</b> ×${count}</span><span class="insp-weeks">${ov}h overlap</span></li>`;
+    return `<li><span class="insp-num">${idx + 1}</span><span class="insp-name">${dir} <b>${esc(other)}</b> ×${count}</span><span class="insp-weeks">${ov}h overlap</span></li>`;
   };
 
   // The <ol> sits inside a <dd>: a <dt> without its <dd> breaks the dl's
@@ -394,11 +394,11 @@ function showPanel(d, m, simulated, cmp, onHide) {
   const edgeList = (rows, empty) => rows.length
     ? `<dd><ol class="insp-list">${rows.join('')}</ol></dd>` : `<dd>${empty}</dd>`;
   document.getElementById('netpanel').innerHTML = `
-    <h2>${d.name}</h2>
+    <h2>${esc(d.name)}</h2>
     <div>${flags.join(' ') || '<span class="flag" style="color:var(--green)">healthy</span>'}</div>
     <dl>
-      <dt>Work area</dt><dd>${d.area || '—'}</dd>
-      <dt>Site</dt><dd>${d.location} · ${d.devCount} devs</dd>
+      <dt>Work area</dt><dd>${esc(d.area || '—')}</dd>
+      <dt>Site</dt><dd>${esc(d.location)} · ${d.devCount} devs</dd>
       <dt>Flow (180d)</dt><dd>${s.synthetic ? 'synthetic estimate' : `${s.resolved180} resolved · ${s.throughputWk.toFixed(1)}/wk`}</dd>
       <dt>Cycle time</dt><dd>P50 ${s.p50.toFixed(1)}d · P85 ${s.p85.toFixed(1)}d</dd>
       <dt>WIP / queue heat</dt><dd>${s.wip} items · ρ≈${s.rho0.toFixed(2)}${cmp && cmp.podDelta.has(d.name) ? compareWipNote(cmp, d.name) : ''}</dd>
@@ -410,7 +410,7 @@ function showPanel(d, m, simulated, cmp, onHide) {
     ${onHide ? '<button id="np-hide">🙈 Hide this pod</button> <span class="hint">temporarily, this session</span>' : ''}`;
   if (onHide) document.getElementById('np-hide').addEventListener('click', () => {
     onHide(d.name);
-    document.getElementById('netpanel').innerHTML = `<p class="hint">${d.name} hidden — use “Reset (show all)” above the graph to restore it.</p>`;
+    document.getElementById('netpanel').innerHTML = `<p class="hint">${esc(d.name)} hidden — use “Reset (show all)” above the graph to restore it.</p>`;
   });
 }
 
@@ -455,6 +455,6 @@ async function showEdgeIssuesModal(e) {
     return;
   }
   body.innerHTML = `<dl>${rows.map((r) => `
-      <dt>${jiraLink(jiraBase, esc(r.blockerKey))} ${esc(r.blockerSummary)}</dt>
-      <dd>⬇ blocks ${jiraLink(jiraBase, esc(r.blockedKey))} ${esc(r.blockedSummary)}</dd>`).join('')}</dl>`;
+      <dt>${jiraLink(jiraBase, r.blockerKey)} ${esc(r.blockerSummary)}</dt>
+      <dd>⬇ blocks ${jiraLink(jiraBase, r.blockedKey)} ${esc(r.blockedSummary)}</dd>`).join('')}</dl>`;
 }

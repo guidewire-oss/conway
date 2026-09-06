@@ -1,5 +1,7 @@
 import { heatColor } from './graph.js';
 
+const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
 export function initScoreboard(state) {
   // inbound demand: who is waiting on this pod's work?
   const dependents = {}; const demand = {}; const upstreams = {};
@@ -99,7 +101,8 @@ export function initScoreboard(state) {
           const load = s.load ?? s.rho0;
           return `<td><span class="bar" style="width:${s.rho0 * 60}px;background:${heatColor(s.rho0)}"></span> ${load.toFixed(2)}</td>`;
         }
-        return `<td>${fn(p, s, state)}</td>`;
+        const value = fn(p, s, state);
+        return `<td>${h === 'Pod' || h === 'Site' ? esc(value) : value}</td>`;
       }).join('')}</tr>`).join('')}</tbody>`;
     table.querySelectorAll('th').forEach((th) => th.addEventListener('click', () => {
       const i = +th.dataset.i;

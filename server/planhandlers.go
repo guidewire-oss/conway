@@ -635,6 +635,30 @@ func (s *server) previewPlanInitiatives(w http.ResponseWriter, r *http.Request, 
 		http.Error(w, "no initiatives found — expected the FullKit matrix", 400)
 		return
 	}
+	// Preview applies the same binding preservation and validation as upload;
+	// reviewing a draft must not promise a save that would be refused.
+	// specs/017-planning-and-execution-usability.md:200
+	var previous []planning.Initiative
+	if len(p.Initiatives) > 0 && json.Unmarshal(p.Initiatives, &previous) != nil {
+		http.Error(w, "Saved initiative bindings are unreadable; preview was not created.", http.StatusInternalServerError)
+		return
+	}
+	for i := range parsed.Initiatives {
+		if parsed.Initiatives[i].EpicKeys == nil {
+			for _, old := range previous {
+				if old.Name == parsed.Initiatives[i].Name {
+					parsed.Initiatives[i].EpicKeys = append([]string(nil), old.EpicKeys...)
+					break
+				}
+			}
+		}
+		keys, err := planning.NormalizeEpicKeys(parsed.Initiatives[i].EpicKeys)
+		if err != nil {
+			http.Error(w, parsed.Initiatives[i].Name+": "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		parsed.Initiatives[i].EpicKeys = keys
+	}
 	net, unknowns := planNetwork(teams, parsed.Initiatives)
 	before, after := planning.Simulate(teams, parsed.Initiatives,
 		planning.Params{HorizonWeeks: p.HorizonWeeks, CapacityLoss: p.CapacityLoss}, nil)

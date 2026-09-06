@@ -181,6 +181,37 @@ resolved issue timestamps: a missing resolution date is never replaced with a
 forecast. Refresh remains read-only, and forecast dates are relative to the
 selected snapshot rather than the current clock.
 
+### Decision 6: Preserve context and distinguish incomplete evidence during recovery
+
+**Context:** Review exposed cases where a delayed response, incomplete snapshot or
+shared view identifier could change what a manager believed they were seeing.
+
+**Decision:** Persist the observed versus what-if network lens explicitly in the
+route. After a delayed planning write, render the currently selected workspace.
+Read-only comparisons never report a save. Plan-dependent guidance retains its
+requested destination while the user chooses a plan, with a visible cancellation
+action. Incomplete bound-epic scope retains observed counts but withholds whole-
+scope completion, finish/risk, variance and calibration. Simulator dates use the
+same duration basis as their input samples, and invalid scenarios clear previous
+forecasts. Game timing guidance uses the creation defaults and bounds. Escape
+returns focus to a visible invoker; fallback dialogs remain mutually exclusive.
+Expandable controls expose their actual state, empty warnings stay hidden, and
+imported names are escaped wherever inserted into HTML.
+Preview and save validate epic bindings identically so a successful preview
+cannot approve a malformed key that the matching save operation rejects.
+
+**Alternatives considered:** Keeping a previous forecast or silently opening a
+different workspace was rejected because both imply evidence the user did not
+select. Treating partial scope as complete was rejected for the same reason.
+
+**Consequences:** Recovery can require a plan choice or more evidence, but the
+interface explains that requirement and retains the user's intended task.
+
+For a rejected schedule identity, return the always-present `ScheduleFit` with
+`unavailableReason`. Serialize its unavailable demand, capacity and horizon
+counts as null rather than zero; consumers show the reason instead of a fit
+verdict. Valid schedule responses retain their existing numeric shape.
+
 ## 12. Success Metrics
 
 | Metric | Current | Target | How to Measure |

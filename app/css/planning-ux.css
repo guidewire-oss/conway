@@ -29,7 +29,7 @@ table.sortable th:focus-visible, .tl-bar[role="button"]:focus-visible, .tl-label
 /* specs/019-scheduling-audit-and-gantt-integrity.md:166 */
 .tl-card, .tl-pod { container-type: inline-size; }
 .tl-card .ord-head, .tl-pod .ord-head { flex-wrap: wrap; }
-.tl-axis { position: sticky; top: 0; z-index: 4; background: var(--panel); }
+#plan-dash.tl-fullscreen .tl-axis { position: sticky; top: 0; z-index: 4; background: var(--panel); }
 .tl-pod .tl-axis { margin-top: 1rem; }
 .tl-tick:first-child { transform: none; }
 .tl-tick:last-child { transform: translateX(-100%); }

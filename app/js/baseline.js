@@ -155,7 +155,7 @@ export function baselinesDrawerHTML(baselines, compare, { draft = false } = {}) 
       <button type="button" class="bl-drawer-close" title="close (ESC)">${icon('close')}Close</button>
     </div>
     ${cta}
-    <p class="bl-drawer-error plan-warn" role="alert" aria-live="assertive"></p>
+    <p class="bl-drawer-error plan-warn" role="alert" aria-live="assertive" hidden></p>
     <div class="bl-save">
       <input id="bl-drawer-name" type="text" placeholder="name this order, e.g. v2 agreed 12 Jan" maxlength="25" ${draft ? 'disabled' : ''} aria-label="baseline name">
       <button type="button" id="bl-save" class="primary" ${draft ? 'disabled' : ''}>Save current order</button>
