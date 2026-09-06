@@ -260,10 +260,10 @@ Requests cannot select their actor, timestamps, derived state or scheduling outc
 **Context:** The scheduler already enforces ordering, calendars, dependencies,
 WIP, leads and physical tracks. Past planned work does not establish actual state.
 
-**Decision:** Recompute saved inputs through the existing accepted-order scheduler;
-when no ordering is saved, the effective default and displayed label are stated
-priority, matching the scheduler. Do not build a parallel planner. A new work item may become ready only at its
-actual scheduled team start week, with estimated, nonprovisional whole-chain
+**Decision:** Recompute saved inputs through the accepted-order scheduler.
+Without a saved ordering, its effective default and label are stated priority.
+Do not build a parallel planner. New work may become ready only at its scheduled
+team start week, with estimated, nonprovisional whole-chain
 placement and a valid positive-work reservation. Consecutive phase growth is
 allowed; interrupted work reservations require review/replanning. Administrative
 finish holds do not fabricate occupied work. Future starts are Waiting for their
