@@ -243,6 +243,13 @@ JavaScript. Search and mobile controls need behavioral checks; responsive
 formatting needs visual review. Existing formulas and task instructions remain
 unchanged. Recorded before implementation on 2026-09-05.
 
+Authenticated browser testing exposed an additional lifecycle requirement:
+native fragment navigation can occur while the modal is still hidden, and
+reopening the same fragment does not trigger navigation again. Position the
+requested section explicitly after both frame loading and modal presentation,
+including repeat opens of the same section. Preserve the surrounding working
+view. This refinement was recorded before the correction on 2026-09-05.
+
 ---
 
 ## 12. Success Metrics

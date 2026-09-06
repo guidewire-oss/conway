@@ -6,6 +6,15 @@
 import { openModal, closeModal } from './modal.js';
 
 let overlay;
+let requestedSection = 'docs-top';
+
+// specs/012-in-app-usage-guide.md:221 — a hidden frame cannot reliably apply
+// fragment scrolling; repeat opens also need positioning when the hash is unchanged.
+function positionSection() {
+  const frame = overlay.querySelector('#docs-frame');
+  if (frame.dataset.loaded !== '1') return;
+  frame.contentDocument?.getElementById(requestedSection)?.scrollIntoView({ block: 'start', behavior: 'instant' });
+}
 
 function ensureOverlay() {
   if (overlay) return overlay;
@@ -30,6 +39,7 @@ function ensureOverlay() {
       </div>
     </div>`;
   document.body.appendChild(overlay);
+  overlay.addEventListener('shown.bs.modal', positionSection);
   // specs/017-planning-and-execution-usability.md:92 — iframe focus stays
   // in its document. Reattach after each navigation, including the first load.
   const frame = overlay.querySelector('#docs-frame');
@@ -38,6 +48,7 @@ function ensureOverlay() {
     delete frame.dataset.loaded;
     if (!doc) return;
     if (frame.contentWindow.location.pathname.endsWith('/docs.html')) frame.dataset.loaded = '1';
+    positionSection();
     frame.contentWindow.addEventListener?.('hashchange', () => {
       overlay.querySelector('#docs-separate').href = `docs.html${frame.contentWindow.location.hash}`;
     });
@@ -53,6 +64,7 @@ function ensureOverlay() {
 // ("order", "timeline", "warnings", "docs-top", ...).
 export function openDocs(section) {
   const ov = ensureOverlay();
+  requestedSection = section || 'docs-top';
   openModal(ov);
   const frame = ov.querySelector('#docs-frame');
   const target = `docs.html${section ? `#${section}` : ''}`;
@@ -64,6 +76,7 @@ export function openDocs(section) {
     // leave the iframe in its old palette (cubic P2).
     frame.contentWindow.document.documentElement.setAttribute('data-bs-theme',
       document.documentElement.getAttribute('data-bs-theme') || 'dark');
+    positionSection();
   } else {
     frame.src = target;
   }

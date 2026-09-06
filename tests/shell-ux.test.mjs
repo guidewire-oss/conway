@@ -139,11 +139,13 @@ test('manual Escape closes after both the initial document and later iframe navi
   let load;
   let keydown;
   let hashChanged;
+  let shown;
   let closed = 0;
-  const frameDocument = { documentElement: { setAttribute() {} }, addEventListener(type, handler) { if (type === 'keydown') keydown = handler; } };
+  const positioned = [];
+  const frameDocument = { getElementById(id) { return { scrollIntoView() { positioned.push(id); } }; }, documentElement: { setAttribute() {} }, addEventListener(type, handler) { if (type === 'keydown') keydown = handler; } };
   const frame = { dataset: {}, contentDocument: frameDocument, contentWindow: { location: { pathname: '/docs.html' }, document: frameDocument, addEventListener(type, handler) { if (type === 'hashchange') hashChanged = handler; } }, addEventListener(type, handler) { if (type === 'load') load = handler; } };
   const separate = {};
-  const overlay = { querySelector: (selector) => selector === '#docs-separate' ? separate : frame };
+  const overlay = { addEventListener(type, handler) { if (type === 'shown.bs.modal') shown = handler; }, querySelector: (selector) => selector === '#docs-separate' ? separate : frame };
   const context = moduleContext('docs.js', {
     document: { createElement: () => overlay, body: { appendChild() {} }, documentElement: { getAttribute: () => 'dark' } },
     openModal() {}, closeModal(target) { assert.equal(target, overlay); closed++; },
@@ -152,9 +154,15 @@ test('manual Escape closes after both the initial document and later iframe navi
   assert.equal(frame.src, 'docs.html#timeline');
   assert.equal(separate.href, 'docs.html#timeline');
   load(); keydown({ key: 'Escape', preventDefault() {} });
+  assert.deepEqual(positioned, ['timeline'], 'a loaded document applies the requested section');
+  shown();
+  assert.deepEqual(positioned, ['timeline', 'timeline'], 'presentation restores positioning if loading happened while hidden');
   assert.equal(closed, 1);
   context.openDocs('execution');
   assert.equal(frame.contentWindow.location.hash, 'execution');
+  assert.equal(positioned.at(-1), 'execution');
+  context.openDocs('execution');
+  assert.deepEqual(positioned.slice(-2), ['execution', 'execution'], 'reopening the same hash restores the section after scrolling elsewhere');
   load(); keydown({ key: 'Escape', preventDefault() {} });
   assert.equal(closed, 2);
   keydown({ key: 'Escape', defaultPrevented: true, preventDefault() {} });
