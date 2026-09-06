@@ -225,7 +225,7 @@ test('podHeatmapHTML never draws more tracks busy than a pod has', () => {
 
 test('podHeatmapHTML marks the drum and puts the count in the cell (FR-044)', () => {
   const html = podHeatmapHTML(sched, 26);
-  assert.match(html, /class="tag">drum/);
+  assert.match(html, /class="(?:[^"<>]* )?tag(?: [^"<>]*)?">drum/);
   // The regenerated demo fixture has no over-capacity week (critical-path-first
   // spreads work), so prove the red-cell rendering on a synthetic over-capacity
   // week rather than depending on the demo's tuning.
@@ -410,9 +410,9 @@ test('the tie-break compares bytes, the way Go does, not by locale', () => {
 // to assistive tech; an anchor with no href is not focusable at all.
 test('the pod selector is a real button', () => {
   const html = podHeatmapHTML(sched, 26);
-  assert.match(html, /<button[^>]*class="ord-podlink"[^>]*type="button"|<button[^>]*type="button"[^>]*class="ord-podlink"/,
+  assert.match(html, /<button[^>]*class="(?:[^"<>]* )?ord-podlink(?: [^"<>]*)?"[^>]*type="button"|<button[^>]*type="button"[^>]*class="(?:[^"<>]* )?ord-podlink(?: [^"<>]*)?"/,
     'pods must be reachable by keyboard');
-  assert.ok(!/<a class="ord-podlink"/.test(html), 'no href-less anchors as controls');
+  assert.ok(!/<a class="(?:[^"<>]* )?ord-podlink(?: [^"<>]*)?"/.test(html), 'no href-less anchors as controls');
 });
 
 test('esc closes the injection hole an initiative name could open', () => {
@@ -751,7 +751,7 @@ test('the form reads windows back with only complete rows kept', () => {
 // The verdict badge (UX-audit polish): tinted pill, symbol + text survive.
 test('the verdict badge keeps symbol and text with a zone class (FR-044)', () => {
   const html = verdictBadgeHTML({ verdict: 'late', weeksLate: 5 });
-  assert.match(html, /class="vbadge v-red"/);
+  assert.match(html, /class="(?:[^"<>]* )?vbadge v-red(?: [^"<>]*)?"/);
   assert.match(html, /▲ late 5w/);
   assert.ok(html.includes('>▲'), 'symbol inside the pill, not just text');
 });
@@ -779,8 +779,8 @@ test('order rows right-align the week columns', () => {
 // Spec 004 Story 1: pin/unpin rides the Stated cell as a toggle; drafts get none.
 test('the order table offers a pin toggle per row, suppressed on drafts', () => {
   const html = orderTableHTML(sched);
-  assert.match(html, /class="ord-pin"/);
-  assert.equal((html.match(/class="ord-pin"/g) || []).length, sched.initiatives.length,
+  assert.match(html, /class="(?:[^"<>]* )?ord-pin(?: [^"<>]*)?"/);
+  assert.equal((html.match(/class="(?:[^"<>]* )?ord-pin(?: [^"<>]*)?"/g) || []).length, sched.initiatives.length,
     'one toggle per initiative row');
   const locked = sched.initiatives.find((si) => si.priorityLocked);
   if (locked) {

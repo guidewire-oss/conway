@@ -25,15 +25,15 @@ export async function openGames() {
     ov = document.createElement('div');
     ov.id = 'games-overlay';
     ov.innerHTML = `<div id="games-modal">
-      <div class="guide-head"><h2>Games</h2><button id="games-close" aria-label="Close games">Close</button></div>
+      <div class="guide-head"><h2>Games</h2><button class="btn btn-secondary" id="games-close" aria-label="Close games">Close</button></div>
       <p>Practise decisions about scope, WIP and dependencies together. Action points are a move budget that resets each round; unused points expire. One round represents a simulated quarter. The timer is meeting time.</p>
       <div class="games-create">
-        <input id="g-name" aria-label="Game name" placeholder="Game name (e.g. Q3 Offsite)">
-        <label class="hint">Rounds <input id="g-rounds" type="number" min="1" max="8" value="4" style="width:46px"></label>
-        <label class="hint">Action points / round <input id="g-ap" type="number" min="2" max="6" value="5" style="width:42px"></label>
-        <label class="hint">Round timer (seconds) <input id="g-timer" type="number" min="30" max="3600" value="300" style="width:62px"></label>
-        <select id="g-scenario" aria-label="Scenario" title="Scenario / difficulty (seed)"></select>
-        <button id="g-create" class="primary">Create game</button>
+        <input class="form-control" id="g-name" aria-label="Game name" placeholder="Game name (e.g. Q3 Offsite)">
+        <label class="hint">Rounds <input class="form-control" id="g-rounds" type="number" min="1" max="8" value="4" style="width:46px"></label>
+        <label class="hint">Action points / round <input class="form-control" id="g-ap" type="number" min="2" max="6" value="5" style="width:42px"></label>
+        <label class="hint">Round timer (seconds) <input class="form-control" id="g-timer" type="number" min="30" max="3600" value="300" style="width:62px"></label>
+        <select class="form-select" id="g-scenario" aria-label="Scenario" title="Scenario / difficulty (seed)"></select>
+        <button id="g-create" class="btn btn-primary primary">Create game</button>
       </div>
       <p id="game-duration" class="hint" aria-live="polite"></p>
       <p class="hint">Balanced: practise ordinary tradeoffs. Constrained: higher load and less morale, to practise protecting a bottleneck. Crisis: heavier load and interruptions, to practise recovery. Default uses the Balanced difficulty. Snapshot and plan seeds start from their own inputs.</p>
@@ -84,7 +84,7 @@ async function fetchSeeds() {
 
 const seedLabel = (s) => (s.name || s.id) + (s.public && !s.mine ? ` · shared by ${s.owner}` : s.public ? ' · public' : '');
 
-// Build the grouped scenario <select>: difficulty presets, live org snapshots,
+// Build the grouped scenario <select class="form-select">: difficulty presets, live org snapshots,
 // scenario templates, and (if any) plans — each in a labelled optgroup.
 async function populateScenario(sel, selected) {
   if (!sel) return;
@@ -127,12 +127,12 @@ async function editGame(gid) {
   box.innerHTML = `
     <h3 style="margin-top:16px">Edit “${esc(g.name)}” <a class="plan-back" id="edit-close">✕ close</a></h3>
     <div class="games-create">
-      <input id="eg-name" aria-label="Game name" value="${esc(g.name)}" placeholder="Game name">
-      <label class="hint">Rounds <input id="eg-rounds" type="number" min="1" max="8" value="${g.rounds}" style="width:46px"></label>
-      <label class="hint">Action points / round <input id="eg-ap" type="number" min="2" max="6" value="${g.ap}" style="width:42px"></label>
-      <label class="hint">Round timer (seconds) <input id="eg-timer" type="number" min="30" max="3600" value="${g.timerSecs}" style="width:62px"></label>
-      <select id="eg-scenario" aria-label="Scenario" title="Scenario / difficulty (seed)"></select>
-      <button id="eg-save" class="primary">Save</button>
+      <input class="form-control" id="eg-name" aria-label="Game name" value="${esc(g.name)}" placeholder="Game name">
+      <label class="hint">Rounds <input class="form-control" id="eg-rounds" type="number" min="1" max="8" value="${g.rounds}" style="width:46px"></label>
+      <label class="hint">Action points / round <input class="form-control" id="eg-ap" type="number" min="2" max="6" value="${g.ap}" style="width:42px"></label>
+      <label class="hint">Round timer (seconds) <input class="form-control" id="eg-timer" type="number" min="30" max="3600" value="${g.timerSecs}" style="width:62px"></label>
+      <select class="form-select" id="eg-scenario" aria-label="Scenario" title="Scenario / difficulty (seed)"></select>
+      <button id="eg-save" class="btn btn-primary primary">Save</button>
     </div>
     <p class="hint">Changing the scenario only re-seeds teams that begin play afterward.</p>`;
   populateScenario(box.querySelector('#eg-scenario'), g.scenario || 'default');
@@ -164,16 +164,16 @@ async function renderRoster(gid, name) {
   box.innerHTML = `
     <h3 style="margin-top:16px">Teams in “${esc(name)}” <a class="plan-back" id="roster-close">✕ close</a></h3>
     <div class="games-create">
-      <input id="rt-name" aria-label="Team name" placeholder="Team name (e.g. Team 1)">
-      <button id="rt-add" class="primary">Add team</button>
+      <input class="form-control" id="rt-name" aria-label="Team name" placeholder="Team name (e.g. Team 1)">
+      <button id="rt-add" class="btn btn-primary primary">Add team</button>
       <span class="hint">each team gets its own join link to share</span>
     </div>
-    <table class="wip-table"><thead><tr><th>Team</th><th>Join code</th><th>Status</th><th></th></tr></thead>
+    <table class="table table-sm wip-table"><thead><tr><th>Team</th><th>Join code</th><th>Status</th><th></th></tr></thead>
       <tbody>${(teams || []).map((t) => `<tr>
         <td>${esc(t.name)}</td>
-        <td><b>${esc(t.code)}</b> <button class="rt-copy" data-code="${esc(t.code)}">copy link</button></td>
+        <td><b>${esc(t.code)}</b> <button class="btn btn-secondary rt-copy" data-code="${esc(t.code)}">copy link</button></td>
         <td>${t.joined ? `<span style="color:var(--green)">joined · round ${t.round}</span>` : 'not joined'}</td>
-        <td><button class="rt-del" data-name="${esc(t.name)}">remove</button></td></tr>`).join('')
+        <td><button class="btn btn-secondary rt-del" data-name="${esc(t.name)}">remove</button></td></tr>`).join('')
       || '<tr><td colspan="4" class="hint">No teams yet — add the teams that will play this game.</td></tr>'}
       </tbody></table>`;
   box.querySelector('#roster-close').addEventListener('click', () => { box.innerHTML = ''; });
@@ -201,21 +201,21 @@ async function refreshGames() {
   if (!r || !r.ok) { list.innerHTML = '<p class="hint">Could not load games.</p>'; return; }
   const games = await r.json();
   if (!games || !games.length) { list.innerHTML = '<p class="hint">No games yet — create one above.</p>'; return; }
-  list.innerHTML = `<table class="wip-table">
+  list.innerHTML = `<table class="table table-sm wip-table">
     <thead><tr><th>Game</th><th>Scenario</th><th>Join code</th><th>Status</th><th></th></tr></thead>
     <tbody>${games.map((g) => `<tr>
       <td>${esc(g.name)}</td>
       <td>${esc(g.scenario || 'default')}</td>
-      <td><b>${esc(g.joinCode)}</b> <button class="g-copy" data-code="${esc(g.joinCode)}">copy link</button></td>
+      <td><b>${esc(g.joinCode)}</b> <button class="btn btn-secondary g-copy" data-code="${esc(g.joinCode)}">copy link</button></td>
       <td>${g.open ? `<span style="color:var(--green)">open · round ${g.openRound}</span>` : 'closed'}</td>
       <td class="btn-row">
-        <button class="g-round primary" data-id="${g.id}">open next round ▶</button>
-        <button class="g-test" data-id="${g.id}">${icon('play')} Test game</button>
-        <button class="g-edit" data-id="${g.id}">${icon('edit')} Edit game</button>
-        <button class="g-teams" data-id="${g.id}" data-name="${esc(g.name)}">${icon('users')} Manage teams</button>
-        <button class="g-board" data-id="${g.id}">${icon('chart')} Leaderboard</button>
-        <button class="g-reset" data-id="${g.id}">reset</button>
-        <button class="g-del" data-id="${g.id}">delete</button>
+        <button class="btn btn-primary g-round primary" data-id="${g.id}">open next round ▶</button>
+        <button class="btn btn-secondary g-test" data-id="${g.id}">${icon('play')} Test game</button>
+        <button class="btn btn-secondary g-edit" data-id="${g.id}">${icon('edit')} Edit game</button>
+        <button class="btn btn-secondary g-teams" data-id="${g.id}" data-name="${esc(g.name)}">${icon('users')} Manage teams</button>
+        <button class="btn btn-secondary g-board" data-id="${g.id}">${icon('chart')} Leaderboard</button>
+        <button class="btn btn-secondary g-reset" data-id="${g.id}">reset</button>
+        <button class="btn btn-secondary g-del" data-id="${g.id}">delete</button>
       </td></tr>`).join('')}</tbody></table>`;
   list.querySelectorAll('.g-edit').forEach((b) => b.addEventListener('click', () => editGame(b.dataset.id)));
   list.querySelectorAll('.g-teams').forEach((b) => b.addEventListener('click', () => renderRoster(b.dataset.id, b.dataset.name)));
@@ -278,30 +278,30 @@ async function renderScenarios() {
   const seeds = (await fetchSeeds()).filter((s) => s.source !== 'baseline');
   const rows = seeds.map((s) => {
     const tmpl = s.source === 'template';
-    const vis = s.public ? '<span class="flag" style="color:var(--green)">public</span>' : '<span class="flag">private</span>';
+    const vis = s.public ? '<span class="badge bg-success-subtle text-success-emphasis flag">public</span>' : '<span class="badge text-bg-secondary flag">private</span>';
     const owner = !s.mine ? ` <span class="hint">· by ${esc(s.owner)}</span>` : '';
     return `<tr>
       <td><b>${esc(s.name || s.id)}</b>${owner}</td>
       <td>${tmpl ? 'template' : esc(s.source)}</td>
       <td>${s.mine ? vis : '<span class="hint">shared</span>'}</td>
       <td>
-        <button class="sc-use" data-id="${s.id}" data-name="${esc(s.name || s.id)}">use in new game</button>
-        <button class="sc-dl" data-id="${s.id}" data-name="${esc(s.name || s.id)}">${icon('download')} Download</button>
-        <button class="sc-dup" data-id="${s.id}" data-name="${esc(s.name || s.id)}">${icon('copy')} Duplicate</button>
-        ${s.mine && tmpl ? `<button class="sc-pub" data-id="${s.id}" data-pub="${s.public ? 1 : 0}">${s.public ? 'make private' : 'make public'}</button>
-          <button class="sc-ren" data-id="${s.id}" data-name="${esc(s.name || '')}">rename</button>
-          <button class="sc-del" data-id="${s.id}" data-name="${esc(s.name || s.id)}">delete</button>` : ''}
+        <button class="btn btn-secondary sc-use" data-id="${s.id}" data-name="${esc(s.name || s.id)}">use in new game</button>
+        <button class="btn btn-secondary sc-dl" data-id="${s.id}" data-name="${esc(s.name || s.id)}">${icon('download')} Download</button>
+        <button class="btn btn-secondary sc-dup" data-id="${s.id}" data-name="${esc(s.name || s.id)}">${icon('copy')} Duplicate</button>
+        ${s.mine && tmpl ? `<button class="btn btn-secondary sc-pub" data-id="${s.id}" data-pub="${s.public ? 1 : 0}">${s.public ? 'make private' : 'make public'}</button>
+          <button class="btn btn-secondary sc-ren" data-id="${s.id}" data-name="${esc(s.name || '')}">rename</button>
+          <button class="btn btn-secondary sc-del" data-id="${s.id}" data-name="${esc(s.name || s.id)}">delete</button>` : ''}
       </td></tr>`;
   }).join('');
   box.innerHTML = `
     <h3 style="margin-top:18px">Scenario library <span class="hint">— org snapshots &amp; editable templates you can seed games from</span></h3>
     <div class="games-create">
-      <button id="sc-upload">${icon('upload')} Upload network file</button>
-      <button id="sc-sample">${icon('download')} Download sample format</button>
-      <input id="sc-file" type="file" accept="application/json,.json" hidden>
+      <button class="btn btn-secondary" id="sc-upload">${icon('upload')} Upload network file</button>
+      <button class="btn btn-secondary" id="sc-sample">${icon('download')} Download sample format</button>
+      <input class="form-control" id="sc-file" type="file" accept="application/json,.json" hidden>
       <span class="hint">Download a network → edit the JSON → upload it as a reusable template. Pods in the file are the teams.</span>
     </div>
-    <table class="wip-table sortable"><thead><tr><th>Name</th><th>Type</th><th>Visibility</th><th data-nosort></th></tr></thead>
+    <table class="table table-sm wip-table sortable"><thead><tr><th>Name</th><th>Type</th><th>Visibility</th><th data-nosort></th></tr></thead>
       <tbody>${rows || '<tr><td colspan="4" class="hint">No templates or shared snapshots yet — upload one, or duplicate a snapshot.</td></tr>'}</tbody></table>`;
 
   box.querySelector('#sc-sample').addEventListener('click', () => downloadAuthed('/api/sample/network.json', 'conway-sample.network.json'));

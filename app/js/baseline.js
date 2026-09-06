@@ -31,7 +31,7 @@ export function activeBaseline(baselines) {
 export function baselineChipHTML(baselines) {
   const active = activeBaseline(baselines);
   if (!active) {
-    return `<button type="button" class="bl-chip bl-empty" id="bl-chip"
+    return `<button type="button" class="btn btn-secondary btn-sm bl-chip bl-empty" id="bl-chip"
       title="Nothing has been agreed for this period yet — open the Order view to save one">
       baseline: <span class="bl-dot bl-none">○</span> none <span class="hint">— save one ▸</span></button>`;
   }
@@ -43,9 +43,9 @@ export function baselineChipHTML(baselines) {
   // characters truncate with an ellipsis here, while the drawer and the
   // tooltip keep the full name (spec 015 review).
   const shown = active.name.length > 25 ? active.name.slice(0, 25) + '…' : active.name;
-  return `<button type="button" class="bl-chip" id="bl-chip" title="${esc(active.name)} — ${esc(why)}; open the baselines panel">
+  return `<button type="button" class="btn btn-secondary btn-sm bl-chip" id="bl-chip" title="${esc(active.name)} — ${esc(why)}; open the baselines panel">
     agreed: <span class="bl-dot ${diverged ? 'bl-diverged' : 'bl-current'}">●</span>
-    ${esc(shown)}${diverged ? ' <span class="tag">inputs have moved</span>' : ' <span class="tag">matches</span>'} <span class="hint">▾</span></button>`;
+    ${esc(shown)}${diverged ? ' <span class="badge text-bg-secondary tag">inputs have moved</span>' : ' <span class="badge text-bg-secondary tag">matches</span>'} <span class="hint">▾</span></button>`;
 }
 
 // baselineListHTML is the history. Every baseline stays readable, not just the
@@ -61,24 +61,24 @@ export function baselineListHTML(baselines) {
   const vsSelect = (b) => {
     const others = list.filter((o) => o.id !== b.id);
     if (!others.length) return '';
-    return `<select aria-label="Compare ${esc(b.name)} against another baseline" class="bl-vs-sel" data-from="${esc(b.id)}" title="compare this baseline against another saved one">
+    return `<select aria-label="Compare ${esc(b.name)} against another baseline" class="form-select bl-vs-sel" data-from="${esc(b.id)}" title="compare this baseline against another saved one">
       <option value="">vs…</option>
       ${others.map((o) => `<option value="${esc(o.id)}">${esc(o.name)}</option>`).join('')}
     </select>`;
   };
   const rows = list.map((b) => `<tr${b.active ? ' class="bl-active"' : ''}>
-    <td>${esc(b.name)}${b.active ? ' <span class="tag">active</span>' : ''}</td>
+    <td>${esc(b.name)}${b.active ? ' <span class="badge text-bg-secondary tag">active</span>' : ''}</td>
     <td>${esc(fmtWhen(b.createdAt))}</td>
     <td>${esc(b.createdBy || '—')}</td>
     <td>${b.diverged ? '<span class="ord-amber">inputs moved since</span>' : '<span class="hint">matches</span>'}</td>
     <td>
-      ${b.active ? '' : `<button type="button" class="bl-activate" data-id="${esc(b.id)}">make active</button>`}
-      <button type="button" class="bl-compare" data-id="${esc(b.id)}">compare</button>
+      ${b.active ? '' : `<button type="button" class="btn btn-secondary bl-activate" data-id="${esc(b.id)}">make active</button>`}
+      <button type="button" class="btn btn-secondary bl-compare" data-id="${esc(b.id)}">compare</button>
       ${vsSelect(b)}
-      <button type="button" class="bl-delete" data-id="${esc(b.id)}" title="delete this baseline">Delete</button>
+      <button type="button" class="btn btn-secondary bl-delete" data-id="${esc(b.id)}" title="delete this baseline">Delete</button>
     </td>
   </tr>`).join('');
-  return `<table class="wip-table bl-table"><thead><tr>
+  return `<table class="table table-sm wip-table bl-table"><thead><tr>
       <th>Baseline${term('baseline')}</th><th>Saved</th><th>By</th><th>Against this plan</th><th></th>
     </tr></thead><tbody>${rows}</tbody></table>
     <p class="hint">Actuals and variance are measured against the active one. The others stay readable as history.</p>`;
@@ -125,10 +125,10 @@ export function compareTableHTML(result) {
   const listed = (label, names) => (names || []).length
     ? `<p class="hint">${label}: ${names.map((n) => esc(n)).join(' · ')}</p>` : '';
 
-  return `<div class="panel-card bl-compare-card">
+  return `<div class="card p-3 panel-card bl-compare-card">
     <div class="plan-summary">${summary}${result.diverged
-    ? ' <span class="tag">inputs moved</span>' : ''}</div>
-    ${rows ? `<table class="wip-table"><thead><tr>
+    ? ' <span class="badge text-bg-secondary tag">inputs moved</span>' : ''}</div>
+    ${rows ? `<table class="table table-sm wip-table"><thead><tr>
       <th>Initiative</th><th>Start</th><th>Δ</th><th>Commit</th><th>Δ</th><th>Verdict</th>
     </tr></thead><tbody>${rows}</tbody></table>` : '<p class="hint">No initiatives in common with this baseline.</p>'}
     ${listed('Added since', cmp.added)}
@@ -152,13 +152,13 @@ export function baselinesDrawerHTML(baselines, compare, { draft = false } = {}) 
     <div class="bl-drawer-head">
       <b>Baselines${term('baseline')}</b>
       <span class="hint">the agreed order for this period, frozen with the inputs that produced it</span>
-      <button type="button" class="bl-drawer-close" title="close (ESC)">${icon('close')}Close</button>
+      <button type="button" class="btn btn-secondary bl-drawer-close" title="close (ESC)">${icon('close')}Close</button>
     </div>
     ${cta}
     <p class="bl-drawer-error plan-warn" role="alert" aria-live="assertive" hidden></p>
     <div class="bl-save">
-      <input id="bl-drawer-name" type="text" placeholder="name this order, e.g. v2 agreed 12 Jan" maxlength="25" ${draft ? 'disabled' : ''} aria-label="baseline name">
-      <button type="button" id="bl-save" class="primary" ${draft ? 'disabled' : ''}>Save current order</button>
+      <input class="form-control" id="bl-drawer-name" type="text" placeholder="name this order, e.g. v2 agreed 12 Jan" maxlength="25" ${draft ? 'disabled' : ''} aria-label="baseline name">
+      <button type="button" id="bl-save" class="btn btn-primary primary" ${draft ? 'disabled' : ''}>Save current order</button>
       ${draft ? '<span class="plan-warn">Save the uploaded initiatives first — a baseline freezes what is stored, not the preview you are looking at.</span>' : ''}
     </div>
     ${baselineListHTML(baselines)}

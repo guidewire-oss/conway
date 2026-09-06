@@ -26,7 +26,7 @@ export async function openRosters() {
     // no click-outside-to-close — the ✕ button is the deliberate exit.
   }
   ov.innerHTML = `<div class="modal-box">
-      <div class="modal-head"><h2>Team rosters</h2><button id="rosters-close">${icon('close')}Close</button></div>
+      <div class="modal-head"><h2>Team rosters</h2><button class="btn btn-secondary" id="rosters-close">${icon('close')}Close</button></div>
       <p class="hint">Reusable team structure — headcount, pairing, site and work-lanes. A Jira import
         joins a roster to live activity by pod name. Edit anytime; re-associate a snapshot from Measure ▸ Snapshots.</p>
       <p class="rosters-status" role="status" aria-live="polite"></p><div id="rosters-body"></div>
@@ -54,22 +54,22 @@ async function renderList(ov) {
   const fmt = (ts) => (ts ? new Date(ts * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }) : '');
   box.innerHTML = `
     <div class="games-create">
-      <button id="ros-new" class="primary">+ New roster</button>
-      <button id="ros-upload">${icon('upload')}New from CSV/XLSX</button>
+      <button id="ros-new" class="btn btn-primary primary">+ New roster</button>
+      <button class="btn btn-secondary" id="ros-upload">${icon('upload')}New from CSV/XLSX</button>
       <a class="hint" href="/api/sample/roster.csv">Download sample format</a>
-      <input id="ros-file" type="file" accept=".csv,.xlsx" hidden>
+      <input class="form-control" id="ros-file" type="file" accept=".csv,.xlsx" hidden>
     </div>
-    <table class="wip-table"><thead><tr><th>Name</th><th>Pods</th><th>Visibility</th><th>Updated</th><th></th></tr></thead>
+    <table class="table table-sm wip-table"><thead><tr><th>Name</th><th>Pods</th><th>Visibility</th><th>Updated</th><th></th></tr></thead>
       <tbody>${rosters.map((r) => {
-    const vis = r.public ? '<span class="flag" style="color:var(--green)">public</span>' : '<span class="flag">private</span>';
+    const vis = r.public ? '<span class="badge bg-success-subtle text-success-emphasis flag">public</span>' : '<span class="badge text-bg-secondary flag">private</span>';
     return `<tr>
         <td><b>${esc(r.name)}</b>${!r.mine ? ` <span class="hint">· shared by ${r.owner ? esc(r.owner) : 'system'}</span>` : ''}</td>
         <td>${r.podCount}</td>
-        <td>${r.mine ? `${vis} <button class="ros-pub" data-id="${r.id}" data-pub="${r.public ? 1 : 0}">${r.public ? 'make private' : 'make public'}</button>` : vis}</td>
+        <td>${r.mine ? `${vis} <button class="btn btn-secondary ros-pub" data-id="${r.id}" data-pub="${r.public ? 1 : 0}">${r.public ? 'make private' : 'make public'}</button>` : vis}</td>
         <td>${fmt(r.updatedAt)}</td>
         <td>${r.mine
-      ? `<button class="ros-edit" data-id="${r.id}">edit</button> <button class="ros-del" data-id="${r.id}" data-name="${esc(r.name)}">delete</button>`
-      : `<button class="ros-edit" data-id="${r.id}">view</button>`}</td>
+      ? `<button class="btn btn-secondary ros-edit" data-id="${r.id}">edit</button> <button class="btn btn-secondary ros-del" data-id="${r.id}" data-name="${esc(r.name)}">delete</button>`
+      : `<button class="btn btn-secondary ros-edit" data-id="${r.id}">view</button>`}</td>
       </tr>`;
   }).join('') || '<tr><td colspan="5" class="hint">No rosters yet — create one or upload your pod directory.</td></tr>'}
       </tbody></table>`;
@@ -105,12 +105,12 @@ async function renderList(ov) {
 
 function podRow(p) {
   return `<tr>
-    <td><input class="rp-name" aria-label="Pod name" value="${esc(p.name)}" placeholder="Pod name"></td>
-    <td><input class="rp-loc" aria-label="Site" value="${esc(p.location || '')}" placeholder="Site"></td>
-    <td style="text-align:center"><input class="rp-pair" aria-label="Pairing enabled" type="checkbox" ${p.pairing ? 'checked' : ''}></td>
-    <td><input class="rp-dev" aria-label="Developer count" type="number" min="0" value="${p.devCount || 0}" style="width:56px"></td>
-    <td><input class="rp-lane" aria-label="Parallel work lanes" type="number" min="0" value="${p.streams || ''}" placeholder="auto" style="width:60px"></td>
-    <td><button type="button" class="rp-del">Remove pod</button></td></tr>`;
+    <td><input class="form-control rp-name" aria-label="Pod name" value="${esc(p.name)}" placeholder="Pod name"></td>
+    <td><input class="form-control rp-loc" aria-label="Site" value="${esc(p.location || '')}" placeholder="Site"></td>
+    <td style="text-align:center"><input class="form-check-input rp-pair" aria-label="Pairing enabled" type="checkbox" ${p.pairing ? 'checked' : ''}></td>
+    <td><input class="form-control rp-dev" aria-label="Developer count" type="number" min="0" value="${p.devCount || 0}" style="width:56px"></td>
+    <td><input class="form-control rp-lane" aria-label="Parallel work lanes" type="number" min="0" value="${p.streams || ''}" placeholder="auto" style="width:60px"></td>
+    <td><button type="button" class="btn btn-secondary rp-del">Remove pod</button></td></tr>`;
 }
 
 function editRoster(ov, roster) {
@@ -118,12 +118,12 @@ function editRoster(ov, roster) {
   const readOnly = roster.id && roster.mine === false; // a shared roster owned by someone else
   box.innerHTML = `
     <div class="games-create">
-      <label>Roster name <input id="ros-name" value="${esc(roster.name || '')}" placeholder="Roster name" style="min-width:220px" ${readOnly ? 'disabled' : ''}></label>
-      ${readOnly ? '' : '<button id="ros-add">+ Add pod</button> <button id="ros-save" class="primary">Save roster</button>'}
-      <button type="button" class="plan-back" id="ros-back">Back to rosters</button>
+      <label>Roster name <input class="form-control" id="ros-name" value="${esc(roster.name || '')}" placeholder="Roster name" style="min-width:220px" ${readOnly ? 'disabled' : ''}></label>
+      ${readOnly ? '' : '<button class="btn btn-secondary" id="ros-add">+ Add pod</button> <button id="ros-save" class="btn btn-primary primary">Save roster</button>'}
+      <button type="button" class="btn btn-link p-0 plan-back" id="ros-back">Back to rosters</button>
       <span id="ros-status" class="hint" role="status" aria-live="polite">${readOnly ? `read-only — shared by ${roster.owner ? 'another manager' : 'system'}` : ''}</span>
     </div>
-    <table class="wip-table"><thead><tr><th>Pod</th><th>Site</th><th>Pairing</th><th>Devs</th><th>Lanes</th><th></th></tr></thead>
+    <table class="table table-sm wip-table"><thead><tr><th>Pod</th><th>Site</th><th>Pairing</th><th>Devs</th><th>Lanes</th><th></th></tr></thead>
       <tbody id="ros-rows">${(roster.pods && roster.pods.length ? roster.pods : [{}]).map(podRow).join('')}</tbody></table>
     <p class="hint">Lanes = parallel work-streams (capacity). Leave blank to derive from Devs + Pairing (pairing ≈ Devs÷2). Pod names must match the Jira pod field to join activity.</p>`;
   const rows = box.querySelector('#ros-rows');

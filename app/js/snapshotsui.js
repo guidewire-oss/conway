@@ -28,7 +28,7 @@ export async function openSnapshots() {
     // no click-outside-to-close — the ✕ button is the deliberate exit.
   }
   ov.innerHTML = `<div class="modal-box">
-      <div class="modal-head"><h2>Snapshots</h2><button id="snap-close">${icon('close')}Close</button></div>
+      <div class="modal-head"><h2>Snapshots</h2><button class="btn btn-secondary" id="snap-close">${icon('close')}Close</button></div>
       <h3>Rosters</h3>
       <p class="hint">Team structure — headcount, pairing, site and work-lanes — uploaded via Measure ▸ Rosters.</p>
       <div id="snap-rosters"></div>
@@ -60,28 +60,28 @@ async function renderList(ov) {
   const rosterCell = (s) => {
     if (s.source !== 'jira' || !s.mine) return esc(rosters.find((r) => r.id === s.rosterId)?.name || '—');
     const opts = `<option value="">— roster —</option>` + rosters.map((r) => `<option value="${r.id}" ${r.id === s.rosterId ? 'selected' : ''}>${esc(r.name)}</option>`).join('');
-    return `<select aria-label="Roster for ${esc(s.name || s.id)}" class="snap-roster" data-id="${s.id}">${opts}</select>`;
+    return `<select aria-label="Roster for ${esc(s.name || s.id)}" class="form-select snap-roster" data-id="${s.id}">${opts}</select>`;
   };
   const fmtDate = (ts) => (ts ? new Date(ts * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '');
-  box.innerHTML = `<table class="wip-table">
+  box.innerHTML = `<table class="table table-sm wip-table">
     <thead><tr><th>Name</th><th>Source</th><th>Created by</th><th>Visibility</th><th>Roster</th><th>Created</th><th></th></tr></thead>
     <tbody>${snaps.map((s) => {
     const baseline = s.source === 'baseline';
     const current = s.id === getSnapshot() ? ' <span class="hint">(viewing)</span>' : '';
     const scope = scopeText(s);
     const vis = baseline ? '<span class="hint">built-in</span>'
-      : s.public ? '<span class="flag" style="color:var(--green)">public</span>'
-        : '<span class="flag">private</span>';
+      : s.public ? '<span class="badge bg-success-subtle text-success-emphasis flag">public</span>'
+        : '<span class="badge text-bg-secondary flag">private</span>';
     const owned = s.mine && !baseline;
     return `<tr>
         <td><b>${esc(s.name || s.id)}</b>${current}${scope ? ` <span class="hint">(${esc(scope)})</span>` : ''}</td>
         <td>${esc(s.source)}</td>
         <td>${baseline ? '<span class="hint">system</span>' : esc(s.owner)}</td>
-        <td>${vis}${owned ? ` <button class="snap-pub" data-id="${s.id}" data-pub="${s.public ? 1 : 0}">${s.public ? 'make private' : 'make public'}</button>` : ''}</td>
+        <td>${vis}${owned ? ` <button class="btn btn-secondary snap-pub" data-id="${s.id}" data-pub="${s.public ? 1 : 0}">${s.public ? 'make private' : 'make public'}</button>` : ''}</td>
         <td>${rosterCell(s)}</td>
         <td>${baseline ? '—' : fmtDate(s.createdAt)}</td>
-        <td>${owned ? `<button class="snap-rename" data-id="${s.id}" data-name="${esc(s.name || '')}">rename</button>
-          <button class="snap-del" data-id="${s.id}" data-name="${esc(s.name || s.id)}">delete</button>` : ''}</td>
+        <td>${owned ? `<button class="btn btn-secondary snap-rename" data-id="${s.id}" data-name="${esc(s.name || '')}">rename</button>
+          <button class="btn btn-secondary snap-del" data-id="${s.id}" data-name="${esc(s.name || s.id)}">delete</button>` : ''}</td>
       </tr>`;
   }).join('')}</tbody></table>`;
 

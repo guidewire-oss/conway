@@ -42,7 +42,7 @@ export async function initHome(state) {
 
   const roles = (authRoles() || []).filter((r) => r !== 'player');
   const who = authUser() ? `Welcome, <b>${esc(authUser())}</b>` : 'Welcome';
-  const roleBadges = roles.map((r) => `<span class="flag" style="color:var(--accent)">${cap(r)}</span>`).join(' ');
+  const roleBadges = roles.map((r) => `<span class="badge bg-primary-subtle text-primary-emphasis flag">${cap(r)}</span>`).join(' ');
 
   // first run: no org snapshot yet → a clear call to action instead of zeros
   if (!pods.length) {
@@ -51,15 +51,15 @@ export async function initHome(state) {
         <h1>Conway</h1>
         <p class="home-sub">${who}. ${roleBadges}</p>
       </div>
-      <div class="panel-card" style="max-width:640px">
+      <div class="card p-3 panel-card" style="max-width:640px">
         <h3>No snapshot data loaded</h3>
         <p>Conway has three surfaces: <b>Measure</b> (what's happening now, mined from
           Jira), <b>Plan</b> (what you intend to run — rosters and initiatives, priced
           by capacity), and <b>Learn</b> (the multi-team flow game). Measure uses an <b>org network</b> — teams and dependencies — captured as a dated <b>snapshot</b>. No teams were loaded; the selected snapshot may be empty or unavailable. Reload to retry, or select another snapshot.</p>
         ${hasRole('manager')
-        ? '<p>Capture the current state from Jira to get started — each import creates a <b>dated snapshot</b> that is yours, and the Measure screens render whichever one you pick at the top:</p><button class="home-act" data-ctl="obs-import" style="max-width:280px"><b>Import from Jira</b><span class="hint">build your first snapshot</span></button><p class="hint" style="margin-top:8px">New here? The <b>Help</b> menu has a 15-minute walkthrough on the demo plan.</p>'
+        ? '<p>Capture the current state from Jira to get started — each import creates a <b>dated snapshot</b> that is yours, and the Measure screens render whichever one you pick at the top:</p><button class="btn btn-secondary home-act" data-ctl="obs-import" style="max-width:280px"><b>Import from Jira</b><span class="hint">build your first snapshot</span></button><p class="hint" style="margin-top:8px">New here? The <b>Help</b> menu has a 15-minute walkthrough on the demo plan.</p>'
         : '<p class="hint">Ask a manager to import a snapshot from Jira, or (facilitators) upload a scenario under Learn ▸ Run games.</p>'}
-        ${hasRole('manager') ? '<p>You can plan without importing Jira. Start with a roster and initiatives, or try the demo.</p><button class="home-act" data-go="plan"><b>Create or open a plan</b><span class="hint">My plans includes Load demo plan</span></button>' : ''}
+        ${hasRole('manager') ? '<p>You can plan without importing Jira. Start with a roster and initiatives, or try the demo.</p><button class="btn btn-secondary home-act" data-go="plan"><b>Create or open a plan</b><span class="hint">My plans includes Load demo plan</span></button>' : ''}
       </div>`;
     el.querySelectorAll('[data-go]').forEach((button) => button.addEventListener('click', () => document.querySelector('.tab[data-view="plan"]')?.click()));
     el.querySelectorAll('button[data-ctl]').forEach((b) => b.addEventListener('click', () => document.getElementById(b.dataset.ctl)?.click()));
@@ -71,7 +71,7 @@ export async function initHome(state) {
   // the snapshot; plan-level (dates at risk) from the manager's own most
   // recently updated plan with a schedule. Cards deep-link to the views.
   const alertCard = (level, title, sub, go) =>
-    `<button class="home-alert home-alert-${level}" data-go="${go}">
+    `<button class="btn btn-secondary home-alert home-alert-${level}" data-go="${go}">
       <b>${esc(title)}</b><span class="hint">${esc(sub)}</span></button>`;
 
   let planAlert = '';
@@ -145,8 +145,8 @@ export async function initHome(state) {
   // IA #3: Home is a dashboard, not a directory — the nav (Measure/Plan/Learn)
   // is the way around now. Two intent cards answer "what do I do from here",
   // each deep-linking into the nav's own destinations.
-  const viewBtn = (view, label, desc) => `<button class="home-act" data-go="${view}"><b>${label}</b><span class="hint">${desc}</span></button>`;
-  const ctlBtn = (id, label, desc) => `<button class="home-act" data-ctl="${id}"><b>${label}</b><span class="hint">${desc}</span></button>`;
+  const viewBtn = (view, label, desc) => `<button class="btn btn-secondary home-act" data-go="${view}"><b>${label}</b><span class="hint">${desc}</span></button>`;
+  const ctlBtn = (id, label, desc) => `<button class="btn btn-secondary home-act" data-ctl="${id}"><b>${label}</b><span class="hint">${desc}</span></button>`;
 
   el.innerHTML = `
     <div class="home-hero">
@@ -167,7 +167,7 @@ export async function initHome(state) {
     </div>
 
     <div class="home-cols">
-      <div class="panel-card">
+      <div class="card p-3 panel-card">
         <h3>Top constraints <span class="hint">— where flow chokes first</span></h3>
         ${list(constraints.map((c) => {
           const q = Math.min(1, c.queueFactor / 40); // 40x = full bar
@@ -176,7 +176,7 @@ export async function initHome(state) {
             <span class="hint">×${c.queueFactor.toFixed(1)} · ${c.dependents} deps</span></li>`;
         }), 'No constraints detected.')}
       </div>
-      <div class="panel-card">
+      <div class="card p-3 panel-card">
         <h3>Heaviest dependencies <span class="hint">— the costly seams</span></h3>
         ${list(topEdges.map((e) => {
           const w = topEdges[0].count ? Math.min(1, e.count / topEdges[0].count) : 0;

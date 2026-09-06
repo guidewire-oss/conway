@@ -1,52 +1,9 @@
-/* specs/017-planning-and-execution-usability.md:104 — keep evidence and actions usable at 360px. */
+/* specs/011-bootstrap-adoption-debt.md:165 — Bootstrap supplies components and layout.
+   Domain evidence needs readable columns and unbroken long-name containment. */
 .execution-review { min-width: 0; }
-.execution-review > .row-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
-.execution-review label { display: grid; gap: 5px; min-width: 0; }
-.execution-review select, .execution-review input, .execution-review textarea { max-width: 100%; min-width: 0; }
-.execution-review > .row-actions > label { flex: 1 1 240px; }
-.execution-review button { min-height: 40px; white-space: normal; }
-.execution-review .cv-icon { margin-right: 6px; }
-.execution-review p, .execution-review li, .execution-review h4 { overflow-wrap: anywhere; }
-.execution-review .panel-card { overflow: visible; }
-.execution-table-wrap { max-width: 100%; overflow-x: auto; margin: 12px 0; border: 1px solid var(--border); border-radius: 6px; }
-.execution-table-wrap table { min-width: 780px; margin: 0; }
-.execution-table-wrap th, .execution-table-wrap td { white-space: normal; min-width: 110px; vertical-align: top; }
-.execution-table-wrap small { display: block; color: var(--muted); }
-.execution-initiative { margin: 16px 0; }
-.execution-initiative h4 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; }
-.execution-initiative summary, .execution-evidence > details > summary { padding: 8px 0; cursor: pointer; }
-.execution-binding { display: grid; gap: 10px; padding: 12px 0; max-width: 700px; }
-.execution-binding .execution-suggestion { display: flex; align-items: baseline; gap: 8px; }
-.execution-binding button { justify-self: start; }
-.execution-decision-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-.execution-rationale, #execution-decision-status { grid-column: 1 / -1; }
-.execution-decision { padding: 14px 0; border-top: 1px solid var(--border); }
-/* specs/024-weekly-execution-review.md:167 — an accessible in-plan review. */
-.weekly-review { margin: 16px 0; }
-.weekly-heading, .weekly-controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: end; }
-.weekly-heading { justify-content: space-between; align-items: start; }
-.weekly-heading h3 { margin-top: 0; font-size: 1.2rem; color: inherit; }
-.weekly-review h4 { font-size: 1rem; }
-.weekly-new-action { margin: 16px 0; border-top: 1px solid var(--border); }
-.weekly-new-action > summary { font-weight: 600; }
-.weekly-controls > label { flex: 1 1 180px; }
-.weekly-context { border-left: 3px solid var(--accent); padding-left: 14px; }
-.weekly-counts { display: flex; flex-wrap: wrap; gap: 12px 24px; padding: 14px 0; }
-.weekly-counts span { display: flex; gap: 6px; align-items: baseline; }
-.weekly-agenda { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
-.weekly-agenda ul { padding-left: 20px; }
-.weekly-agenda li { margin-bottom: 10px; }
-.weekly-review details > summary, .execution-decision details > summary { cursor: pointer; padding: 12px 0; }
-#weekly-completion, .weekly-transition { display: grid; gap: 12px; margin: 16px 0; }
-#weekly-completion button, .weekly-transition button { justify-self: start; }
-.weekly-history { border-top: 1px solid var(--border); margin-top: 16px; }
+.execution-review select, .execution-review input, .execution-review textarea { min-width: 0; }
+.execution-review p, .execution-review li, .execution-review h4, .weekly-review a { overflow-wrap: anywhere; }
+.execution-table-wrap table { min-width: 780px; }
+.execution-table-wrap th, .execution-table-wrap td { min-width: 110px; }
+.execution-binding { max-width: 700px; }
 .weekly-note, .execution-decision p { white-space: pre-wrap; }
-.weekly-review a { overflow-wrap: anywhere; }
-@media (max-width: 600px) {
-  .execution-decision-form { grid-template-columns: minmax(0, 1fr); }
-  .weekly-agenda { grid-template-columns: minmax(0, 1fr); gap: 0; }
-  .execution-review > .row-actions > label { flex-basis: 100%; }
-  .execution-review > .row-actions > button { flex: 1 1 140px; }
-  .execution-review .panel-card { padding: 12px; }
-  .execution-initiative .tag { font-size: 12px; }
-}

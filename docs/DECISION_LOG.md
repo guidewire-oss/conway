@@ -443,3 +443,18 @@ feature algorithms or alternatives here would create another source of truth.
 
 *Cost:* Readers of older commits must follow this superseding entry and the
 numbered feature specifications for current decisions.
+
+## Decision 18
+
+**Retain Bootstrap-first delivery as a durable working convention.**
+
+*Context:* The maintainer requested completion of framework adoption before
+next feature work and asked that the rule persist across future sessions.
+
+*Decision:* Record the Bootstrap-first convention in AGENTS.md and use
+`docs/COMPONENTS.md` as the component registry. Specification 011 owns the
+migration scope, behavior requirements and implementation alternatives.
+
+*Rejected:* A chat-only reminder would not reliably survive future sessions.
+
+*Cost:* UI review must check component adoption as well as theme consistency.

@@ -96,11 +96,11 @@ function addRow(t = null) {
   const tr = document.createElement('tr');
   const id = t?.id ?? `T${n}`;
   tr.innerHTML = `
-    <td><input class="t-id" value="${esc(id)}" size="3"></td>
-    <td><select class="t-pod">${podOptions(t?.pod ?? state.pods[0]?.name ?? '')}</select></td>
-    <td><select class="t-size">${Object.keys(SIZES).map((k) => `<option ${k === (t?.size ?? 'M') ? 'selected' : ''}>${k}</option>`).join('')}</select></td>
-    <td><input class="t-deps" value="${esc(t?.deps ?? '')}" placeholder="T1,T2"></td>
-    <td><button class="del" title="remove">✕</button></td>`;
+    <td><input class="form-control t-id" value="${esc(id)}" size="3"></td>
+    <td><select class="form-select t-pod">${podOptions(t?.pod ?? state.pods[0]?.name ?? '')}</select></td>
+    <td><select class="form-select t-size">${Object.keys(SIZES).map((k) => `<option ${k === (t?.size ?? 'M') ? 'selected' : ''}>${k}</option>`).join('')}</select></td>
+    <td><input class="form-control t-deps" value="${esc(t?.deps ?? '')}" placeholder="T1,T2"></td>
+    <td><button class="btn btn-secondary del" title="remove">✕</button></td>`;
   tr.querySelector('.del').addEventListener('click', () => { tr.remove(); markEdited(); });
   tbody.appendChild(tr);
 }
@@ -164,12 +164,12 @@ function renderKit(epic) {
       <span class="kit-score ${cls}">kit ${(kit.score * 100).toFixed(0)}%</span>
       <b>Full-kit check — ${esc(epic.epic)}</b>
       <span class="help" data-tip="Machine-checkable half of the full kit. The human half (business case, contracts, defrost criteria) is the template below — paste it into the epic description. Rule of thumb: don't start below 80%; a started epic without its kit becomes a stop-start zombie and burns buffer before progress (see the fever chart's top-left cluster).">?</span>
-      <button id="kit-tmpl-btn">Jira template</button>
+      <button class="btn btn-secondary" id="kit-tmpl-btn">Jira template</button>
     </div>
     ${kit.items.map((i) => `<div class="kit-item ${i.status}">
       <span class="ki">${ICON[i.status]}</span><span>${esc(i.label)}</span>
       <span class="kd">— ${esc(i.detail)}</span></div>`).join('')}
-    <textarea id="kit-template" hidden readonly>${KIT_TEMPLATE}</textarea>`;
+    <textarea class="form-control" id="kit-template" hidden readonly>${KIT_TEMPLATE}</textarea>`;
   document.getElementById('kit-tmpl-btn').addEventListener('click', () => {
     const ta = document.getElementById('kit-template');
     ta.hidden = !ta.hidden;
@@ -270,7 +270,7 @@ function renderSuggestions(feature) {
     <div class="suggestion">
       <span><b>${esc(s.fromPod)}</b> has blocked <b>${esc(s.toPod)}</b> ×${s.count} in the past 12 months,
       but no dependency is declared here.</span>
-      <button data-i="${i}">add</button>
+      <button class="btn btn-secondary" data-i="${i}">add</button>
     </div>`).join('');
   div.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
     const s = sugg[+b.dataset.i];
@@ -307,7 +307,7 @@ function renderStats(r) {
     ['P95', r.p95, '', '95% of simulated trials finished by this point. Outcomes beyond P95 remain possible, including risks absent from the input model.'],
   ];
   document.getElementById('stat-cards').innerHTML = cards.map(([l, v, cls, tip]) => `
-    <div class="stat ${cls}"><div class="l">${l}${hlp(tip)}</div>
+    <div class="card p-3 stat ${cls}"><div class="l">${l}${hlp(tip)}</div>
     <div class="v">${v.toFixed(0)}d</div>
     <div class="hint">~${fmtDate(v)}</div></div>`).join('') + '<p class="hint">Conditional forecast from the selected snapshot. Dates start today and use elapsed calendar days, matching the historical cycle-time samples; future changes are not included. Review data quality and calibration before agreeing a commitment.</p>';
 }
@@ -383,7 +383,7 @@ function renderWhatIf(feature) {
     const rho = rhoOverride[p] ?? state.stats[p].rho0;
     return `<label>${esc(p)} — ρ <b id="rv-${esc(p)}" style="color:${heatColor(rho)}">${rho.toFixed(2)}</b>
       (baseline ${state.stats[p].rho0.toFixed(2)})</label>
-      <input type="range" min="0.30" max="0.97" step="0.01" value="${rho}" data-pod="${esc(p)}">`;
+      <input class="form-range" type="range" min="0.30" max="0.97" step="0.01" value="${rho}" data-pod="${esc(p)}">`;
   }).join('');
   div.querySelectorAll('input[type=range]').forEach((el) => {
     el.addEventListener('input', () => {

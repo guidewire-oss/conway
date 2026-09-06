@@ -228,7 +228,9 @@ function setPodsView(mode) {
   const showNet = mode === 'net';
   net.hidden = !showNet; tbl.hidden = showNet;
   document.getElementById('pods-view-net')?.classList.toggle('active', showNet);
+  document.getElementById('pods-view-net')?.setAttribute('aria-pressed', String(showNet));
   document.getElementById('pods-view-table')?.classList.toggle('active', !showNet);
+  document.getElementById('pods-view-table')?.setAttribute('aria-pressed', String(!showNet));
   if (showNet) renderGameNet(); // re-measure now the svg is visible
 }
 
@@ -361,7 +363,7 @@ function renderPods(pods) {
     const heat = p.rho >= 1 ? 'var(--red)' : p.rho >= 0.85 ? 'var(--amber)' : 'var(--green)';
     const mcol = p.morale >= 0.7 ? 'var(--green)' : p.morale >= 0.5 ? 'var(--amber)' : 'var(--red)';
     return `<tr>
-      <td>${p.name}${p.isSre ? ' <span class="hint">SRE</span>' : ''}${p.attrited ? ' <span class="flag red">attrition</span>' : ''}</td>
+      <td>${p.name}${p.isSre ? ' <span class="hint">SRE</span>' : ''}${p.attrited ? ' <span class="badge bg-danger-subtle text-danger-emphasis flag red">attrition</span>' : ''}</td>
       <td>${p.location.replace('*REMOTE - multicontinental*', 'Remote')}${p.pairing ? '' : ' <span class="hint">solo</span>'}</td>
       <td>${p.wip}</td>
       <td style="color:${heat}">${p.rho > 3 ? '3+' : p.rho.toFixed(2)}</td>
@@ -540,7 +542,7 @@ function showResolveModal(rep, scenario) {
       <p class="hint">${sub}</p>
       <div class="beats">${beats || '<span class="hint">A calm quarter — nothing notable shifted.</span>'}</div>
       ${scenario ? `<div class="curveball"><b>⚡ Heading into the next quarter — ${scenario.title}</b><br>${scenario.text}</div>` : ''}
-      <div class="row-actions"><button id="resolve-continue" class="primary">${btnLabel}</button></div>
+      <div class="row-actions"><button id="resolve-continue" class="btn btn-primary primary">${btnLabel}</button></div>
     </div>`;
   openModal(ov);
   ov.querySelector('#resolve-continue').addEventListener('click', () => { closeModal(ov); });
@@ -558,7 +560,7 @@ function renderReport() {
   const watch = (r.watch || []).length
     ? `<div class="watch"><b>What to watch next round</b><ul>${r.watch.map((w) => `<li>${w}</li>`).join('')}</ul></div>` : '';
   el.innerHTML = `
-    <div class="panel-card report">
+    <div class="card p-3 panel-card report">
       <div class="report-head"><h3>Quarter ${r.round} — ${r.headline}</h3>
         <span class="report-delta" style="color:${dCol}">score ${r.scoreDelta > 0 ? '+' : ''}${r.scoreDelta}</span></div>
       <p class="hint">Event: <b>${r.event}</b> · value delivered ${r.valueDelivered} · cost function ${r.costFn} · commitments hit ${r.commitmentsHit}</p>
@@ -582,15 +584,15 @@ function renderHistory(history) {
       <td class="dl-score" style="color:${dCol}">${r.scoreDelta > 0 ? '+' : ''}${r.scoreDelta}<br><span class="hint">→ ${r.score.total.toFixed(0)}</span></td>
     </tr>`;
   }).join('');
-  el.innerHTML = `<div class="panel-card"><h3>Decision log <span class="hint">— how each quarter played out</span></h3>
-    <table class="dl-table"><thead><tr><th>Qtr</th><th>What resulted</th><th>Score</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  el.innerHTML = `<div class="card p-3 panel-card"><h3>Decision log <span class="hint">— how each quarter played out</span></h3>
+    <table class="table table-sm dl-table"><thead><tr><th>Qtr</th><th>What resulted</th><th>Score</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 function renderEpilogue(final) {
   if (!final) return;
   const e = final.epilogue;
   document.getElementById('game-levers').innerHTML = `
-    <div class="panel-card"><h3>Epilogue — year 2 on autopilot</h3>
+    <div class="card p-3 panel-card"><h3>Epilogue — year 2 on autopilot</h3>
       ${e.narrative ? `<p class="epilogue-letter">${e.narrative}</p>` : ''}
       <p>With no further actions, the org you built ran another year.</p>
       <p>Run-rate value <b>${e.runRateValue}</b> · KTLO share of capacity
@@ -599,6 +601,6 @@ function renderEpilogue(final) {
       <p class="hint">${e.ktloShare > 0.6
     ? 'Maintenance is crowding out delivery — the org will spend year 2 keeping the lights on.'
     : 'The org keeps shipping — you left it healthier than you found it.'}</p>
-      ${canTestFreely() ? '<button id="game-again" class="primary">New game (test)</button>' : ''}</div>`;
+      ${canTestFreely() ? '<button id="game-again" class="btn btn-primary primary">New game (test)</button>' : ''}</div>`;
   document.getElementById('game-again')?.addEventListener('click', startGame);
 }

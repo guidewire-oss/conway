@@ -14,7 +14,7 @@ test('every glossary entry has a label and a plain-language first sentence', () 
 
 test('the affordance is a real button with a complete accessible name (WCAG 1.3.1 / F111)', () => {
   const html = term('rho');
-  assert.match(html, /<button[^>]*class="help term-tip"/);
+  assert.match(html, /<button[^>]*class="(?:[^"<>]* )?help term-tip(?: [^"<>]*)?"/);
   assert.match(html, /aria-label="What does Load ρ mean\?"/);
   assert.match(html, /data-bs-title="/);
 });

@@ -87,10 +87,10 @@ function unassocPanel() {
     <td>${jiraLink(e.key)}</td>
     <td>${esc(e.name)}</td>
     <td class="hint">${e.pod ? `pod “${esc(e.pod)}” not in roster` : 'no pod field'}</td></tr>`).join('');
-  el.innerHTML = `<div class="panel-card" style="margin-top:14px">
+  el.innerHTML = `<div class="card p-3 panel-card" style="margin-top:14px">
     <h3>Epics with no team <span class="hint">— ${unassocEpics.length} couldn’t be matched (Jira-import cleanup)</span></h3>
     <p class="hint">Either the Jira <b>pod field</b> is empty, or it names a team not in this snapshot’s roster. Fix the field in Jira, or add the team in Measure ▸ Rosters and re-associate the snapshot in Measure ▸ Snapshots.</p>
-    <table class="wip-table sortable"><thead><tr><th>Epic</th><th>Title</th><th>Why</th></tr></thead><tbody>${rows}</tbody></table>
+    <table class="table table-sm wip-table sortable"><thead><tr><th>Epic</th><th>Title</th><th>Why</th></tr></thead><tbody>${rows}</tbody></table>
     ${unassocEpics.length > 200 ? `<p class="hint">showing 200 of ${unassocEpics.length}</p>` : ''}</div>`;
 }
 
@@ -105,10 +105,10 @@ function render(state) {
     .sort((a, b) => (a.h.score ?? 1) - (b.h.score ?? 1));
   const flagsFor = (h) => {
     const out = [];
-    if (h.sizedPct != null && h.sizedPct < 0.5) out.push('<span class="flag red">mostly unsized</span>');
-    if (h.staleWipPct != null && h.staleWipPct > 0.5) out.push('<span class="flag red">stale board</span>');
-    if (h.unassignedWipPct != null && h.unassignedWipPct > 0.3) out.push('<span class="flag amber">zombie WIP</span>');
-    if (h.linkDensity != null && h.linkDensity < 0.05) out.push('<span class="flag amber">links unused</span>');
+    if (h.sizedPct != null && h.sizedPct < 0.5) out.push('<span class="badge bg-danger-subtle text-danger-emphasis flag red">mostly unsized</span>');
+    if (h.staleWipPct != null && h.staleWipPct > 0.5) out.push('<span class="badge bg-danger-subtle text-danger-emphasis flag red">stale board</span>');
+    if (h.unassignedWipPct != null && h.unassignedWipPct > 0.3) out.push('<span class="badge bg-warning-subtle text-warning-emphasis flag amber">zombie WIP</span>');
+    if (h.linkDensity != null && h.linkDensity < 0.05) out.push('<span class="badge bg-warning-subtle text-warning-emphasis flag amber">links unused</span>');
     return out.join(' ');
   };
   document.getElementById('hygiene-table').innerHTML = `
@@ -166,7 +166,7 @@ function renderCats(pod, openCat) {
     <p class="hint">Issue lists show up to 300 records per category. Summary counts cover the whole selected snapshot.</p><div style="margin:6px 0">${CATS.map(([cat, label, why]) => {
     const n = data[cat]?.length ?? 0;
     const active = cat === openCat;
-    return `<button class="hyg-cat ${active ? 'primary' : ''}" data-cat="${cat}" ${n ? '' : 'disabled'}
+    return `<button class="btn hyg-cat ${active ? 'btn-primary primary' : 'btn-secondary'}" aria-pressed="${active}" data-cat="${cat}" ${n ? '' : 'disabled'}
         style="margin-right:8px">${label}: <b>${n}</b></button>
         ${active ? `<span class="hint">— ${why}</span>` : ''}`;
   }).join('')}</div>
@@ -177,7 +177,7 @@ function renderCats(pod, openCat) {
   }));
   if (openCat && data[openCat]?.length) {
     document.getElementById(`hyg-issues-${pod}`).innerHTML = `
-      <table class="wip-table sortable"><thead><tr><th>Issue</th><th>Summary</th><th>Problem</th></tr></thead>
+      <table class="table table-sm wip-table sortable"><thead><tr><th>Issue</th><th>Summary</th><th>Problem</th></tr></thead>
       <tbody>${data[openCat].map((i) => `<tr>
         <td>${jiraLink(i.key)}</td>
         <td>${esc(i.summary)}</td>

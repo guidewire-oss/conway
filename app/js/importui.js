@@ -27,20 +27,20 @@ export async function openImport() {
     // button below is the only deliberate way out.
   }
   ov.innerHTML = `<div class="modal-box">
-      <div class="modal-head"><h2>Import from Jira</h2><button id="imp-close">${icon('close')}Close</button></div>
+      <div class="modal-head"><h2>Import from Jira</h2><button class="btn btn-secondary" id="imp-close">${icon('close')}Close</button></div>
       <p class="hint">Fetch live activity for the projects you pick and build a dated snapshot.
         Team structure comes from a roster.</p>
       <div id="imp-auth"></div>
       <div id="imp-err" class="login-err" role="alert"></div>
       <div id="imp-step2" hidden>
         <div class="games-create" style="flex-wrap:wrap">
-          <label>Snapshot name <input id="imp-name" placeholder="Snapshot name (e.g. Q3 2026)" style="min-width:220px"></label>
-          <label class="hint">roster <select id="imp-plan"></select></label>
+          <label>Snapshot name <input class="form-control" id="imp-name" placeholder="Snapshot name (e.g. Q3 2026)" style="min-width:220px"></label>
+          <label class="hint">roster <select class="form-select" id="imp-plan"></select></label>
         </div>
         <p class="hint" id="imp-struct-note"></p>
         <div class="games-create" style="flex-wrap:wrap">
           <label class="hint">count WIP as
-            <select id="imp-wipmode">
+            <select class="form-select" id="imp-wipmode">
               <option value="leaf">every in-progress story/task (recommended)</option>
               <option value="epic_or_parentless">in-progress epics as one unit each</option>
             </select>
@@ -48,14 +48,14 @@ export async function openImport() {
         </div>
         <p class="hint" id="imp-wipmode-note"></p>
         <div class="games-create">
-          <label>Filter projects <input id="imp-filter" placeholder="filter projects (e.g. ABC)" style="min-width:200px"></label>
-          <button id="imp-all">select all shown</button>
-          <button id="imp-none">clear</button>
+          <label>Filter projects <input class="form-control" id="imp-filter" placeholder="filter projects (e.g. ABC)" style="min-width:200px"></label>
+          <button class="btn btn-secondary" id="imp-all">select all shown</button>
+          <button class="btn btn-secondary" id="imp-none">clear</button>
           <span id="imp-count" class="hint"></span>
         </div>
         <div id="imp-projects" class="imp-projects"></div>
         <div class="row-actions">
-          <button id="imp-go" class="primary">Import snapshot</button>
+          <button id="imp-go" class="btn btn-primary primary">Import snapshot</button>
           <span id="imp-status" class="hint" role="status" aria-live="polite"></span>
         </div>
       </div>
@@ -79,14 +79,14 @@ async function renderAuth(ov) {
   const st = await jiraStatus();
   if (st.connected) {
     box.innerHTML = `<p class="hint">Connected to <b>${esc(st.site || 'Jira')}</b> via SSO.
-      <button type="button" id="imp-switch">Switch account</button></p>`;
+      <button class="btn btn-secondary" type="button" id="imp-switch">Switch account</button></p>`;
     box.querySelector('#imp-switch').addEventListener('click', () => startOAuth(ov));
     loadProjects(ov, false);
     return;
   }
   if (st.configured) {
     box.innerHTML = `<div class="games-create">
-        <button id="imp-connect" class="primary">Connect Jira (SSO)</button>
+        <button id="imp-connect" class="btn btn-primary primary">Connect Jira (SSO)</button>
         <span class="hint">Sign in through your org's single sign-on — no token needed.</span>
       </div>`;
     box.querySelector('#imp-connect').addEventListener('click', () => startOAuth(ov));
@@ -95,10 +95,10 @@ async function renderAuth(ov) {
   // fallback: API token
   const jiraBase = await getJiraBaseUrl();
   box.innerHTML = `<div class="games-create" style="flex-wrap:wrap">
-      <label>Jira site URL <input id="imp-url" placeholder="https://yourorg.atlassian.net" value="${esc(jiraBase)}" style="min-width:260px"></label>
-      <label>Jira email <input id="imp-email" placeholder="email" autocomplete="username" style="min-width:200px"></label>
-      <label>Jira API token <input id="imp-token" type="password" placeholder="API token" autocomplete="off" style="min-width:200px"></label>
-      <button id="imp-load" class="primary">Load projects</button>
+      <label>Jira site URL <input class="form-control" id="imp-url" placeholder="https://yourorg.atlassian.net" value="${esc(jiraBase)}" style="min-width:260px"></label>
+      <label>Jira email <input class="form-control" id="imp-email" placeholder="email" autocomplete="username" style="min-width:200px"></label>
+      <label>Jira API token <input class="form-control" id="imp-token" type="password" placeholder="API token" autocomplete="off" style="min-width:200px"></label>
+      <button id="imp-load" class="btn btn-primary primary">Load projects</button>
     </div>
     <p class="hint">Create a token at id.atlassian.com → Security → API tokens. Used for this import only — never stored.</p>`;
   box.querySelector('#imp-load').addEventListener('click', () => loadProjects(ov, true));
@@ -166,7 +166,7 @@ function renderProjects(ov) {
   const filter = ov.querySelector('#imp-filter').value.trim().toLowerCase().replace(/\*+$/, '');
   const box = ov.querySelector('#imp-projects');
   const shown = projects.filter((p) => !filter || p.key.toLowerCase().includes(filter) || (p.name || '').toLowerCase().includes(filter));
-  box.innerHTML = shown.map((p) => `<label class="imp-proj"><input type="checkbox" value="${esc(p.key)}" ${selectedKeySet.has(p.key) ? 'checked' : ''}> <b>${esc(p.key)}</b> <span class="hint">${esc(p.name || '')}</span></label>`).join('')
+  box.innerHTML = shown.map((p) => `<label class="imp-proj"><input class="form-check-input" type="checkbox" value="${esc(p.key)}" ${selectedKeySet.has(p.key) ? 'checked' : ''}> <b>${esc(p.key)}</b> <span class="hint">${esc(p.name || '')}</span></label>`).join('')
     || '<p class="hint">No projects match that filter.</p>';
   box.querySelectorAll('input').forEach((c) => c.addEventListener('change', () => {
     if (c.checked) selectedKeySet.add(c.value); else selectedKeySet.delete(c.value);

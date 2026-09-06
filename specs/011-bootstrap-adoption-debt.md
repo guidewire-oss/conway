@@ -1,6 +1,6 @@
 # Bootstrap Adoption Debt
 
-**Status:** In Progress
+**Status:** Implemented
 **Author(s):** opencode (implementer), Anoop (product owner)
 **Date:** 2026-08-26
 **Story/Ticket:** audit follow-up, post spec-010
@@ -10,21 +10,19 @@
 
 ## 1. Overview
 
-Bootstrap 5.3 is vendored and genuinely used for modals, dropdowns, theming
-and the variable bridge (119 `--bs-*` mappings in conway.css). But the views
-still hand-roll components Bootstrap ships: 47 custom input styles, a bespoke
-tooltip system, custom segmented controls, a shadowing `.card`, and zero use
-of BS utility classes. This spec records the debt and sequences its payoff —
-no behaviour changes, only component substitution.
+Bootstrap 5.3 is vendored and used for modals, dropdowns, tooltips, form
+classes and theming. The September follow-up completes generic component
+adoption and replaces duplicated layouts in Next work and execution reviews.
+Planning calculations, saved context and action semantics remain unchanged.
 
 ---
 
 ## 2. Problem
 
-The design-system PRs (#21–24) predates Bootstrap: a hand-rolled token layer
+The design-system PRs (#21–24) predate Bootstrap: a hand-rolled token layer
 came first, and Bootstrap was adopted *underneath* it (vendored, tokens
 bridged) to avoid rewriting every view at once. The migration stopped at the
-bridge. Consequences today:
+bridge. The following is the historical audit baseline, not a current inventory:
 
 - 47 `background: var(--panel2)` input overrides fight theme states BS
   already solves (focus rings, sizing, validation states, dark-mode
@@ -72,6 +70,18 @@ BS's active/ARIA semantics; the custom `.seg` CSS is deleted
 **AC 4.1:** The custom `.card` is renamed or reconciled with BS `card`;
 no shadowing
 
+**AC 5.1:** Generic action buttons, cards, badges and form controls use
+Bootstrap classes and states. Application hooks may remain as classes, but
+must not recreate their framework component's base styling.
+
+**AC 5.2:** Next work and execution review controls, forms and summaries use
+Bootstrap layout and spacing utilities. At 360px, long content wraps and
+wide evidence tables scroll within their container. Normal-size control and badge text meets 4.5:1 contrast in both themes.
+
+**AC 5.3:** Dynamic renders retain framework classes. Keyboard activation,
+visible focus, disabled actions, selected group state, modal dismissal and
+menu navigation continue without duplicate state controllers.
+
 ---
 
 ## 5. Functional Requirements
@@ -79,10 +89,12 @@ no shadowing
 | ID | Requirement | Priority |
 |----|------------|----------|
 | FR-001 | Migrate all form controls to BS form classes, delete the scattered input CSS overrides | DONE — forms.js injector (2026-08-26) |
-| FR-002 | Migrate tooltips to BS Tooltip (delegated init); remove the custom tip element | REMAINING — riskiest (hundreds of affordances), next slice |
-| FR-003 | Migrate `.seg` groups to BS button groups | REMAINING — 12 call sites, ARIA wiring needed |
+| FR-002 | Migrate tooltips to BS Tooltip (delegated init); remove the custom tip element | Implemented; native titles retained on dense chart marks |
+| FR-003 | Migrate `.seg` groups to BS button groups | Implemented with state-owner ARIA updates |
 | FR-004 | Resolve the `.card` shadow — ours renamed to `.panel-card` (32 class usages: 11 in index.html, 21 across the view modules, plus the CSS rule) | DONE (2026-08-26) |
 | FR-005 | No visual regressions beyond BS-native focus/validation states | MUST |
+| FR-006 | Generic buttons, cards, badges and forms use framework primitives | MUST |
+| FR-007 | Recent operational screens share framework layouts on desktop and mobile | MUST |
 
 ---
 
@@ -109,8 +121,8 @@ None.
 
 ## 9. Out of Scope
 
-- Utility-class migration for layout (d-flex/gap-* everywhere) — cosmetic,
-  churn-heavy, no behavior gain
+- Unrelated visualization geometry and pixel-for-pixel utility conversion of
+  every legacy layout. Generic component adoption is in scope throughout the app.
 - Replacing the custom Gantt/timeline rendering (not a BS component domain)
 
 ---
@@ -119,7 +131,7 @@ None.
 
 | # | Question | Owner | Target Date | Resolution |
 |---|----------|-------|-------------|------------|
-| Q1 | Keep native `title` on dense chart bars (cheap, browser-native) or migrate to BS Tooltip too? | Anoop | 2026-09-02 | pending — default: keep native on bars, BS Tooltip for UI chrome |
+| Q1 | Keep native `title` on dense chart bars (cheap, browser-native) or migrate to BS Tooltip too? | Anoop | 2026-09-02 | Resolved: keep native on bars, Bootstrap Tooltip for UI chrome |
 
 ---
 
@@ -142,10 +154,34 @@ seam.
 
 ---
 
+### Decision 2: Complete primitive adoption before further feature work
+
+**Context:** The maintainer requested Bootstrap-first implementation before
+next feature work on 2026-09-06. Theme-compatible custom buttons and cards
+still duplicate framework behavior. New operational layouts add avoidable CSS.
+
+**Decision:** Put framework classes directly in owned templates; retain the
+existing form adoption bridge for dynamic/legacy callers. Delete duplicated
+base input, button and card styling; express brand changes through Bootstrap
+variables. Preserve selectors used by app logic and migrate their visuals.
+Use Bootstrap utilities and responsive layout for Next work, execution and
+weekly review. Keep native disclosures and custom domain visualizations.
+Group labels and selected states belong to the existing state owner, not a
+second Bootstrap toggle controller. Test real interactions in the browser.
+
+**Alternatives considered:** A broad runtime component injector would hide
+missing template adoption and complicate state ownership. A full rewrite of
+visualization layouts would create unrelated rendering risk. Both are rejected.
+This decision expands the original four-component migration scope.
+
+**Consequences:** Templates and CSS change together; existing workflow tests
+must still pass. Component guidance and durable agent instructions change in
+the same increment. No library version change is required.
+
 ## 12. Success Metrics
 
 | Metric | Current | Target | How to Measure |
 |--------|---------|--------|----------------|
-| Custom input overrides | 47 | 0 | grep |
-| Tooltip systems | 2 + native | 1 (+ native on bars per Q1) | code |
-| Custom `.seg` CSS | 3 rules + JS wiring | 0 | grep |
+| Duplicated global input/button/card base rules | 0 | 0 | source inspection |
+| Tooltip systems | Bootstrap + native chart titles | Unchanged | code |
+| Operational workflow regression | Existing acceptance suite | Pass in both themes and at 360px | Ginkgo/Playwright |

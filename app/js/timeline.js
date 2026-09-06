@@ -42,7 +42,7 @@ function assumptionsHTML(si) {
 function unscheduledTeamHTML(items) {
   if (!items.length) return '';
   return `<div class="tl-unplaced-list"><b>Assigned work without a placement</b>${items.map((si) =>
-    `<p><button type="button" data-select-init="${esc(si.name)}">${esc(si.name)}</button> ${esc(unscheduledReason(si))}</p>`).join('')}</div>`;
+    `<p><button class="btn btn-secondary" type="button" data-select-init="${esc(si.name)}">${esc(si.name)}</button> ${esc(unscheduledReason(si))}</p>`).join('')}</div>`;
 }
 
 // axisScale maps a week onto the row width as a percentage. The row is the
@@ -179,7 +179,7 @@ export function timelineRowHTML(si, opts = {}) {
   // starts carry zero sentinels, not week-zero dates or an empty chart row.
   if (unplaced(si)) {
     return `<div class="tl-row tl-unplaced" data-init="${esc(si.name)}" data-expandable="0">
-      <button type="button" class="tl-label tl-trunc" data-select-init="${esc(si.name)}" aria-pressed="${opts.selected === si.name}">${esc(si.name)}</button>
+      <button type="button" class="btn btn-secondary tl-label tl-trunc" data-select-init="${esc(si.name)}" aria-pressed="${opts.selected === si.name}">${esc(si.name)}</button>
       <div class="tl-track"><p>${esc(unscheduledReason(si))}</p></div></div>`;
   }
   const horizon = opts.horizonWeeks || 26;
@@ -224,7 +224,7 @@ export function timelineRowHTML(si, opts = {}) {
 
   const expandMark = (si.slices || []).length > 1 ? '▸ ' : '';
   return `<div class="tl-row" data-init="${esc(si.name)}" data-expandable="${(si.slices || []).length > 1 ? 1 : 0}">
-    <button type="button" class="tl-label tl-trunc" data-select-init="${esc(si.name)}" aria-pressed="${opts.selected === si.name}" ${(si.slices || []).length > 1 ? `aria-expanded="${!!opts.expand}"` : ''} title="Select ${esc(si.name)}">${expandMark}${esc(si.name)}</button>
+    <button type="button" class="btn btn-secondary tl-label tl-trunc" data-select-init="${esc(si.name)}" aria-pressed="${opts.selected === si.name}" ${(si.slices || []).length > 1 ? `aria-expanded="${!!opts.expand}"` : ''} title="Select ${esc(si.name)}">${expandMark}${esc(si.name)}</button>
     <div class="tl-track${subrows ? ' tl-expanded' : ''}">${bar}${buffer}${target}${subrows}</div>
   </div>`;
 }
@@ -285,7 +285,7 @@ export function portfolioTimelineHTML(sched, opts = {}) {
     .join('');
   const bands = (opts.calendars || []).length;
   const periodEnd = periodEndHTML(horizon, span);
-  return `<div class="panel-card tl-card">
+  return `<div class="card p-3 panel-card tl-card">
     <div class="ord-head"><b>Timeline</b>
       <span class="hint">one row per initiative · the lighter tail is the ${term('buffer', 'buffer')} · ◆ is the ${term('target', 'target')}</span></div>
     ${timeAxisHTML(span, sched.periodStart || opts.periodStart)}
@@ -371,7 +371,7 @@ function outsideWorkHTML(ps, opts) {
   const outside = displaySlices(ps).filter((sl) => (!query || initiativeMatch(query, sl.initiative)) &&
     (sl.startWeek >= horizon || (sl.displayPhases || sl.phases)?.some((phase) => phase.fromWeek >= horizon)));
   return outside.length ? `<div class="tl-outside-list"><b>Work outside this view</b>${outside.map((sl) =>
-    `<p><button type="button" data-select-init="${esc(sl.initiative)}">${esc(sl.initiative)}</button> ${esc(ps.pod)}: w${sl.startWeek}–w${sl.finishWeek}. Widen the time span to see the remaining work.</p>`).join('')}</div>` : '';
+    `<p><button class="btn btn-secondary" type="button" data-select-init="${esc(sl.initiative)}">${esc(sl.initiative)}</button> ${esc(ps.pod)}: w${sl.startWeek}–w${sl.finishWeek}. Widen the time span to see the remaining work.</p>`).join('')}</div>` : '';
 }
 
 // podLanesHTML is one pod's track lanes (§13.4): every slice in start order,
@@ -529,8 +529,8 @@ export function podLensHTML(sched, opts = {}) {
     return `<div class="tl-pod" data-pod="${esc(ps.pod)}">
       <div class="ord-head"><b>${esc(ps.pod)}</b>
         <span class="hint">ρ ${rho.toFixed(2)} · ${ps.tracks} track${ps.tracks > 1 ? 's' : ''} · ${(ps.slices || []).length} slice${(ps.slices || []).length === 1 ? '' : 's'}${loss}</span>
-        <button type="button" data-open-pod="${esc(ps.pod)}">View team sheet</button>
-        <button type="button" class="pod-export" data-export-pod="${esc(ps.pod)}" title="download this pod's timeline as a PNG">${icon('download')} Download PNG</button></div>
+        <button class="btn btn-secondary" type="button" data-open-pod="${esc(ps.pod)}">View team sheet</button>
+        <button type="button" class="btn btn-secondary btn-sm pod-export" data-export-pod="${esc(ps.pod)}" title="download this pod's timeline as a PNG">${icon('download')} Download PNG</button></div>
       ${timeAxisHTML(span, sched.periodStart || opts.periodStart)}
       <div class="tl-body">${podLanesHTML(ps, { ...opts, horizonWeeks: span, includeOutside: false, pinnedLanes: (opts.pinnedLanes || {})[ps.pod] || null })}${contextHTML(sched, opts, horizon, span)}</div>
       ${calendarContextHTML(sched, opts, span)}
@@ -538,7 +538,7 @@ export function podLensHTML(sched, opts = {}) {
       ${unscheduledTeamHTML(rejectedAt(ps.pod))}
     </div>`;
   }).join('');
-  return `<div class="panel-card tl-card">
+  return `<div class="card p-3 panel-card tl-card">
     <div class="ord-head"><b>Timeline — by pod</b>
       <span class="hint">one lane per track · idle lanes are slack, shown on purpose · ${q ? 'waterfall: earliest matching start first' : 'hottest first'}</span></div>
     ${blocks}
@@ -578,11 +578,11 @@ export function podSheetHTML(ps, sched, opts = {}) {
     </tr>`;
   }).join('') + rejected.map((si) => `<tr class="tl-unplaced-sheet"><td>${esc(si.name)}</td><td colspan="6">${esc(unscheduledReason(si))}</td></tr>`).join('');
 
-  return `<div class="panel-card ord-card" data-pod-sheet="${esc(ps.pod)}" tabindex="-1" role="region" aria-label="${esc(ps.pod)} team sheet">
+  return `<div class="card p-3 panel-card ord-card" data-pod-sheet="${esc(ps.pod)}" tabindex="-1" role="region" aria-label="${esc(ps.pod)} team sheet">
     <div class="ord-head"><b>${esc(ps.pod)} — ${ps.tracks} track${ps.tracks > 1 ? 's' : ''}</b>
       <span class="hint">${slices.length} slice${slices.length === 1 ? '' : 's'} in start order${rejected.length ? ` · ${rejected.length} assigned without placement` : ''}${ps.lossPct ? ` · capacity loss ${ps.lossPct}%${ps.lossOverride ? '' : ' (plan default)'}` : ''}</span>
-      <button type="button" class="pod-export" data-export-sheet="${esc(ps.pod)}" title="download this sheet as a PNG">${icon('download')} Download PNG</button></div>
-    <table class="wip-table">
+      <button type="button" class="btn btn-secondary btn-sm pod-export" data-export-sheet="${esc(ps.pod)}" title="download this sheet as a PNG">${icon('download')} Download PNG</button></div>
+    <table class="table table-sm wip-table">
       <thead><tr><th>Initiative</th><th>Weeks</th><th>Start</th><th>Start by</th><th>Slack</th><th>Waiting on</th><th>Blocks</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="7" class="hint">No scheduled work at this pod.</td></tr>'}</tbody>
     </table>
@@ -601,29 +601,29 @@ export function timelineControlsHTML({ lens, spans, spanSel, filter, initiativeF
   const initiative = initiativeFilter ?? (lens === 'pod' ? filter : '') ?? '';
   const team = teamFilter ?? (lens === 'initiative' ? filter : '') ?? '';
   const lensBtn = (id, on, label) =>
-    `<button type="button" class="${on ? 'active' : ''}" id="${id}" aria-pressed="${on}">${label}</button>`;
+    `<button type="button" class="btn btn-secondary ${on ? 'active' : ''}" id="${id}" aria-pressed="${on}">${label}</button>`;
   return `<div class="plan-views tl-controls">
     <div class="btn-group" role="group" aria-label="Timeline grouping">
       ${lensBtn('tl-by-initiative', lens === 'initiative', 'By initiative')}
       ${lensBtn('tl-by-pod', lens === 'pod', 'By team')}
     </div>
     <div class="btn-group" role="group" aria-label="Visible time span">
-      ${spans.map((sp) => `<button type="button" class="${sp.id === spanSel ? 'active' : ''}" data-tlspan="${sp.id}" aria-pressed="${sp.id === spanSel}">${sp.label}</button>`).join('')}
+      ${spans.map((sp) => `<button type="button" class="btn btn-secondary ${sp.id === spanSel ? 'active' : ''}" data-tlspan="${sp.id}" aria-pressed="${sp.id === spanSel}">${sp.label}</button>`).join('')}
     </div>
-    <button type="button" id="tl-fullscreen" title="Open timeline full screen; Escape exits">${icon('expand')} Full screen</button>
+    <button class="btn btn-secondary" type="button" id="tl-fullscreen" title="Open timeline full screen; Escape exits">${icon('expand')} Full screen</button>
     <div class="tl-filter" id="tl-filter-box">
-      <label>Initiative <input id="tl-initiative-filter" type="search" placeholder="Find an initiative" value="${esc(initiative)}"></label>
-      <label>Team <input id="tl-team-filter" type="search" placeholder="Find a team" value="${esc(team)}"></label>
+      <label>Initiative <input class="form-control" id="tl-initiative-filter" type="search" placeholder="Find an initiative" value="${esc(initiative)}"></label>
+      <label>Team <input class="form-control" id="tl-team-filter" type="search" placeholder="Find a team" value="${esc(team)}"></label>
       <span class="hint" id="tl-filter-count" role="status"></span>
-      ${lens === 'pod' ? `<label class="hint"><input type="checkbox" id="tl-hide-empty" ${hideEmpty ? 'checked' : ''}> Hide teams without matching work</label>
-      <label class="hint"><input type="checkbox" id="tl-ghost" ${ghost ? 'checked' : ''}> Show other work</label>` : ''}
+      ${lens === 'pod' ? `<label class="hint"><input class="form-check-input" type="checkbox" id="tl-hide-empty" ${hideEmpty ? 'checked' : ''}> Hide teams without matching work</label>
+      <label class="hint"><input class="form-check-input" type="checkbox" id="tl-ghost" ${ghost ? 'checked' : ''}> Show other work</label>` : ''}
     </div></div>`;
 }
 
 // specs/017-planning-and-execution-usability.md:86: a persistent selection and
 // ordinary form controls provide the same edit path as a pointer gesture.
 export function timelineInspectorHTML(si, sched, opts = {}) {
-  if (!si) return '<aside class="tl-inspector panel-card"><h3>Initiative details</h3><p>Select an initiative to inspect its dates, dependencies and precise timeline controls.</p></aside>';
+  if (!si) return '<aside class="card p-3 tl-inspector panel-card"><h3>Initiative details</h3><p>Select an initiative to inspect its dates, dependencies and precise timeline controls.</p></aside>';
   const unplaced = ['beyond-horizon', 'unschedulable'].includes(si.verdict);
   const pi = (opts.planInitiatives || []).find((i) => i.name === si.name);
   const rows = (si.slices || []).map((sl) => {
@@ -633,19 +633,19 @@ export function timelineInspectorHTML(si, sched, opts = {}) {
     const lane = (packed?.placement.find((p) => p.sl.initiative === si.name && p.lead)?.lane ?? opts.pinnedLanes?.[sl.pod]?.[si.name] ?? 0) + 1;
     return `<fieldset class="tl-edit-row" data-pod="${esc(sl.pod)}"><legend>${esc(sl.pod)}</legend>
       <p class="hint">${weekDateHTML(sl.startWeek, sched.periodStart)} to ${weekDateHTML(sl.finishWeek, sched.periodStart)} · ${sl.slackWeeks ?? 'unknown'}w slack${sl.dependsOn?.length ? ` · waits on ${sl.dependsOn.map(esc).join(', ')}` : ''}</p>
-      <label>Start week <input name="startWeek" type="number" min="0" step="1" required value="${sl.startWeek ?? 0}"></label>
-      <label>Estimate (weeks) <input name="estimateWeeks" type="number" min="0.1" step="any" ${pi?.inFlight || !Number.isFinite(estimate) ? 'disabled' : 'required'} value="${Number.isFinite(estimate) ? estimate : ''}"></label>
-      <label>First lane <input name="lane" type="number" min="1" max="${Math.max(1, (team?.tracks || 1) - (sl.lanesUsed || 1) + 1)}" step="1" required value="${lane}"></label>
+      <label>Start week <input class="form-control" name="startWeek" type="number" min="0" step="1" required value="${sl.startWeek ?? 0}"></label>
+      <label>Estimate (weeks) <input class="form-control" name="estimateWeeks" type="number" min="0.1" step="any" ${pi?.inFlight || !Number.isFinite(estimate) ? 'disabled' : 'required'} value="${Number.isFinite(estimate) ? estimate : ''}"></label>
+      <label>First lane <input class="form-control" name="lane" type="number" min="1" max="${Math.max(1, (team?.tracks || 1) - (sl.lanesUsed || 1) + 1)}" step="1" required value="${lane}"></label>
       ${pi?.inFlight ? '<p class="hint">In-flight effort cannot be resized from its remaining work.</p>' : ''}
     </fieldset>`;
   }).join('');
-  return `<aside class="tl-inspector panel-card" aria-label="Selected initiative">
+  return `<aside class="card p-3 tl-inspector panel-card" aria-label="Selected initiative">
     <h3>${esc(si.name)}</h3>
     <p>Buffered finish: ${unplaced ? 'unknown (not scheduled)' : weekDateHTML(si.commitWeek, sched.periodStart)}. Target: ${si.targetWeek == null ? 'not set' : weekDateHTML(si.targetWeek, sched.periodStart)}.</p>
     <p>${esc(si.bindingConstraint || 'No binding constraint reported')}${si.provisional ? ' · provisional estimate' : ''}</p>
     ${assumptionsHTML(si)}
     <p class="hint">Forecast from working inputs, staffing and calendar. Applying edits saves the working plan; the agreed baseline remains available.</p>
-    ${rows ? `<form class="tl-precise-edit" data-init="${esc(si.name)}">${rows}<button type="submit">Apply timeline edits</button></form>` : '<p>No scheduled slices to edit.</p>'}
+    ${rows ? `<form class="tl-precise-edit" data-init="${esc(si.name)}">${rows}<button class="btn btn-secondary" type="submit">Apply timeline edits</button></form>` : '<p>No scheduled slices to edit.</p>'}
   </aside>`;
 }
 

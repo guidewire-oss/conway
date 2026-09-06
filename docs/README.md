@@ -65,6 +65,7 @@ presented as formulas prescribed by those authors.
 - [Snapshots, scenario files and API](snapshots-and-scenarios.md)
 - [Single sign-on](sso-oidc.md)
 - [Configure linked Google Sheets](linked-google-sheets.md)
+- [UI component registry](COMPONENTS.md): Bootstrap-first controls, theme and responsive layout conventions
 - [Feature specifications](../specs/): source of truth for requirements and decisions
 - [Feature strategy](FEATURE-STRATEGY-2026-09-05.md): proposed planning and execution improvements, priorities, dependencies and pilot criteria; not implemented features
 - [Factory rules](FACTORY_RULES.md) and [workflows](../workflows/README.md)

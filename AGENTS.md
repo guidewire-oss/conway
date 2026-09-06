@@ -8,6 +8,13 @@ This project uses the software factory scaffold (`opencode.json`, `.opencode/`, 
 
 ### Deliver coherent, usable product increments
 
+- Use Bootstrap first for generic UI: buttons, forms, cards, badges, menus,
+  dialogs and responsive layout. Put framework classes in new templates;
+  use its utilities and theme variables instead of parallel component CSS.
+  Custom extensions need a documented gap in `docs/COMPONENTS.md`. Keep
+  domain visualization geometry custom and preserve accessible interaction
+  semantics. Check this before calling a feature complete.
+
 - Design every feature around a complete manager or team workflow, with clear
   navigation, plain action labels, accessible controls and responsive layouts.
 - Reuse the existing theme, components, terminology, permissions and planning
@@ -23,7 +30,9 @@ This project uses the software factory scaffold (`opencode.json`, `.opencode/`, 
   remaining items in an ordered table with their status and dependencies.
 
 Provenance: product delivery requirements confirmed by the maintainer on
-2026-09-06 during the weekly execution review implementation request.
+2026-09-06 during the weekly execution review implementation request;
+Bootstrap-first adoption and long-term retention explicitly requested the
+same day before continuing the next feature.
 
 ### Always verify the latest version of any tool, library, or framework against its authoritative source — never rely on training data alone
 

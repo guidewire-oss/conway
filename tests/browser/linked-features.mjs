@@ -109,6 +109,32 @@ try {
   assert.deepEqual(errors,[]);
   await checkAnnouncementRecovery(browser,base);
   await checkLinkedSourceRaces(browser,base);
+  // specs/011-bootstrap-adoption-debt.md:81: the real state owner keeps
+  // keyboard selection, announced state and the user's filter together.
+  await page.goto(base+'?view=plan&plan='+plan);
+  await page.locator('.plan-setup > summary').click();
+  const upload = page.getByLabel('Initiatives (XLSX/CSV)',{exact:true});
+  assert.equal(await upload.isVisible(),true,'Native upload remains visible and labeled');
+  assert.equal(await upload.evaluate(el=>el.classList.contains('form-control')),true);
+  await upload.focus();
+  assert.equal(await upload.evaluate(el=>document.activeElement===el),true);
+  await page.setViewportSize({width:360,height:800});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'Expanded upload setup fits mobile');
+  await page.setViewportSize({width:1280,height:960});
+  await page.locator('.plan-setup > summary').click();
+  await page.locator('#view-timeline').click();
+  await page.locator('#tl-initiative-filter').fill('Atlas');
+  await page.locator('#tl-by-pod').focus(); await page.keyboard.press('Enter');
+  assert.equal(await page.locator('#tl-by-pod').getAttribute('aria-pressed'),'true');
+  assert.equal(await page.locator('#tl-by-initiative').getAttribute('aria-pressed'),'false');
+  assert.equal(await page.locator('#tl-initiative-filter').inputValue(),'Atlas');
+  await page.locator('[data-open-pod="Team A"]').click();
+  const nextTeam = page.getByRole('button',{name:'Next work for Team A',exact:true});
+  assert.equal(await nextTeam.evaluate(el=>el.classList.contains('btn')&&el.classList.contains('btn-secondary')),true,'Dynamically created team action adopts Bootstrap');
+  await page.locator('#tl-by-initiative').focus(); await page.keyboard.press('Enter');
+  assert.equal(await page.locator('#tl-by-initiative').getAttribute('aria-pressed'),'true');
+  assert.equal(await page.locator('#tl-by-pod').getAttribute('aria-pressed'),'false');
+  assert.equal(await page.locator('#tl-initiative-filter').inputValue(),'Atlas');
   await checkWeeklyReview(page,base,plan);
   await checkReadyQueue(page,base,plan);
   assert.deepEqual(errors,[]);

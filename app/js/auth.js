@@ -105,22 +105,22 @@ function showLogin(cfg = {}) {
       <div id="login-box">
         <h2>Conway</h2>
         <div class="login-tabs">
-          <button class="tab ${joinFirst ? '' : 'active'}" id="tab-signin">Sign in</button>
-          <button class="tab ${joinFirst ? 'active' : ''}" id="tab-join">Join a game</button>
+          <button class="btn btn-secondary tab ${joinFirst ? '' : 'active'}" id="tab-signin" aria-pressed="${!joinFirst}">Sign in</button>
+          <button class="btn btn-secondary tab ${joinFirst ? 'active' : ''}" id="tab-join" aria-pressed="${joinFirst}">Join a game</button>
         </div>
         <form id="signin-form" ${joinFirst ? 'hidden' : ''}>
           <p class="hint">Facilitators, managers &amp; admins.</p>
-          ${cfg.oidc ? `<button type="button" id="login-sso" class="primary sso-btn">Sign in with SSO</button>
+          ${cfg.oidc ? `<button type="button" id="login-sso" class="btn btn-primary primary sso-btn">Sign in with SSO</button>
           <div class="sso-divider"><span>or</span></div>` : ''}
-          <input id="login-user" aria-label="Username" placeholder="username" autocomplete="username">
-          <input id="login-pass" aria-label="Password" type="password" placeholder="password" autocomplete="current-password">
-          <button type="submit" class="primary">Sign in</button>
+          <input class="form-control" id="login-user" aria-label="Username" placeholder="username" autocomplete="username">
+          <input class="form-control" id="login-pass" aria-label="Password" type="password" placeholder="password" autocomplete="current-password">
+          <button type="submit" class="btn btn-primary primary">Sign in</button>
         </form>
         <form id="join-form" ${joinFirst ? '' : 'hidden'}>
           <p class="hint">Enter your join code. A team name is only needed for a shared game code.</p>
-          <input id="join-code" aria-label="Join code" placeholder="join code" value="${safeCode}" style="text-transform:uppercase">
-          <input id="join-team" aria-label="Team name (optional)" placeholder="team name (optional)">
-          <button type="submit" class="primary">Join</button>
+          <input class="form-control" id="join-code" aria-label="Join code" placeholder="join code" value="${safeCode}" style="text-transform:uppercase">
+          <input class="form-control" id="join-team" aria-label="Team name (optional)" placeholder="team name (optional)">
+          <button type="submit" class="btn btn-primary primary">Join</button>
         </form>
         <div id="login-err" class="login-err"></div>
       </div>`;
@@ -140,7 +140,9 @@ function showLogin(cfg = {}) {
       ov.querySelector('#signin-form').hidden = which !== 'signin';
       ov.querySelector('#join-form').hidden = which !== 'join';
       ov.querySelector('#tab-signin').classList.toggle('active', which === 'signin');
+      ov.querySelector('#tab-signin').setAttribute('aria-pressed', String(which === 'signin'));
       ov.querySelector('#tab-join').classList.toggle('active', which === 'join');
+      ov.querySelector('#tab-join').setAttribute('aria-pressed', String(which === 'join'));
       err('');
     };
     ov.querySelector('#tab-signin').addEventListener('click', () => show('signin'));
@@ -192,7 +194,7 @@ function mountChip() {
   const chip = document.createElement('span');
   chip.className = 'auth-chip';
   const label = testToken ? `testing as ${username.replace(/^__test__:/, '')}` : username;
-  chip.innerHTML = `${esc(label)} · <button type="button" id="auth-logout">Sign out</button>`;
+  chip.innerHTML = `${esc(label)} · <button class="btn btn-link p-0" type="button" id="auth-logout">Sign out</button>`;
   nav.appendChild(chip);
   chip.querySelector('#auth-logout').addEventListener('click', logout);
   // facilitators (and admins, as superusers) get the game-ops console, grouped
@@ -212,12 +214,12 @@ function mountChip() {
     const guideBtn = document.getElementById('help-group');
     const b = document.createElement('button');
     b.id = 'admin-btn';
-    b.className = 'tab admin-tab';
+    b.className = 'btn btn-secondary tab admin-tab';
     b.innerHTML = `${icon('settings')} Admin`;
     b.addEventListener('click', openAdmin);
     const u = document.createElement('button');
     u.id = 'usage-btn';
-    u.className = 'tab admin-tab';
+    u.className = 'btn btn-secondary tab admin-tab';
     u.innerHTML = `${icon('chart')} Usage`;
     u.title = 'Usage analytics — actives, funnel, per-user activity';
     u.addEventListener('click', () => import('./analytics.js').then((m) => m.openUsage()));
@@ -240,24 +242,24 @@ function openAdmin() {
     ov.id = 'admin-overlay';
     ov.innerHTML = `
       <div id="admin-modal">
-        <div class="guide-head"><h2>Admin — users &amp; roles</h2><button id="admin-close">✕</button></div>
+        <div class="guide-head"><h2>Admin — users &amp; roles</h2><button class="btn btn-secondary" id="admin-close">✕</button></div>
         <div id="admin-accounts">
           <div class="admin-create">
-            <input id="admin-disp" aria-label="Name (person or team)" placeholder="Name (person or team)">
+            <input class="form-control" id="admin-disp" aria-label="Name (person or team)" placeholder="Name (person or team)">
             <span class="role-pick" title="A user can hold several roles">
-              <label><input type="checkbox" class="role-cb" value="facilitator" checked> Facilitator</label>
-              <label><input type="checkbox" class="role-cb" value="manager"> Manager</label>
-              <label><input type="checkbox" class="role-cb" value="admin"> Admin</label>
+              <label><input type="checkbox" class="form-check-input role-cb" value="facilitator" checked> Facilitator</label>
+              <label><input type="checkbox" class="form-check-input role-cb" value="manager"> Manager</label>
+              <label><input type="checkbox" class="form-check-input role-cb" value="admin"> Admin</label>
             </span>
-            <label class="hint">expires <input id="admin-exp" type="date" value="${defaultExpiry()}" style="width:140px"></label>
-            <button id="admin-add" class="primary">Create user</button>
+            <label class="hint">expires <input class="form-control" id="admin-exp" type="date" value="${defaultExpiry()}" style="width:140px"></label>
+            <button id="admin-add" class="btn btn-primary primary">Create user</button>
             <span id="admin-new" class="admin-new"></span>
           </div>
-          <table id="admin-users" class="wip-table"></table>
+          <table id="admin-users" class="table table-sm wip-table"></table>
         </div>
         <div id="admin-usage">
           <h3>Usage — since this server booted</h3>
-          <table id="admin-metrics" class="wip-table"></table>
+          <table id="admin-metrics" class="table table-sm wip-table"></table>
           <p class="hint">Counters reset on restart. The request lines show which API paths are used most, by status class.</p>
         </div>
         <p class="hint">Run games — rounds, the team roster &amp; the leaderboard — from the 🎮 Games panel.</p>
@@ -353,9 +355,9 @@ async function refreshUsers() {
   const r = await api('/api/admin/users');
   const users = await r.json();
   const fmt = (ts) => (ts ? new Date(ts * 1000).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'never');
-  const BADGE = { admin: 'var(--violet)', facilitator: 'var(--accent)', manager: 'var(--green)', player: 'var(--muted)' };
+  const BADGE = { admin: 'info', facilitator: 'primary', manager: 'success', player: 'secondary' };
   const label = (r) => r === 'player' ? 'team' : r;
-  const roleBadges = (rs) => (rs || []).map((r) => `<span class="flag" style="color:${BADGE[r] || 'var(--muted)'}">${esc(label(r))}</span>`).join(' ');
+  const roleBadges = (rs) => (rs || []).map((r) => `<span class="badge bg-${BADGE[r] || 'secondary'}-subtle text-${BADGE[r] || 'secondary'}-emphasis flag">${esc(label(r))}</span>`).join(' ');
   // The extend picker defaults to the user's current expiry (or +1 day when
   // none), so pushing a date out is a delta on what's already true.
   const extDefault = (u) => {
@@ -367,11 +369,11 @@ async function refreshUsers() {
   document.getElementById('admin-users').innerHTML = `
     <thead><tr><th>Username</th><th>Name</th><th>Roles</th><th>Expires</th><th>Status</th><th></th></tr></thead>
     <tbody>${users.map((u) => `<tr>
-      <td>${esc(u.username)}${u.sso ? ' <span class="flag" style="color:var(--violet)">SSO</span>' : ''}</td>
+      <td>${esc(u.username)}${u.sso ? ' <span class="badge bg-info-subtle text-info-emphasis flag">SSO</span>' : ''}</td>
       <td>${esc(u.display)}</td><td>${roleBadges(u.roles)}</td><td>${u.sso ? '<span class="hint">via IdP</span>' : fmt(u.expiresAt)}</td>
-      <td>${u.expired ? '<span class="flag red">expired</span>' : '<span class="flag" style="color:var(--green)">active</span>'}
+      <td>${u.expired ? '<span class="badge bg-danger-subtle text-danger-emphasis flag red">expired</span>' : '<span class="badge bg-success-subtle text-success-emphasis flag">active</span>'}
           ${u.hasState ? '<span class="hint">playing</span>' : ''}</td>
-      <td>${u.sso ? '' : `<span class="admin-ext"><input type="date" class="admin-ext-date" aria-label="New expiry date" data-ext="${esc(u.username)}" value="${extDefault(u)}" title="new expiry date"><button data-extbtn="${esc(u.username)}">extend</button></span>`}${u.username === 'admin' ? '' : ` <button data-del="${esc(u.username)}">revoke</button>`}</td>
+      <td>${u.sso ? '' : `<span class="admin-ext"><input type="date" class="form-control admin-ext-date" aria-label="New expiry date" data-ext="${esc(u.username)}" value="${extDefault(u)}" title="new expiry date"><button class="btn btn-secondary" data-extbtn="${esc(u.username)}">extend</button></span>`}${u.username === 'admin' ? '' : ` <button class="btn btn-secondary" data-del="${esc(u.username)}">revoke</button>`}</td>
     </tr>`).join('') || '<tr><td colspan="6" class="hint">No accounts yet.</td></tr>'}`;
   document.querySelectorAll('#admin-users [data-extbtn]').forEach((b) => b.addEventListener('click', async () => {
     const u = users.find((x) => x.username === b.dataset.extbtn);

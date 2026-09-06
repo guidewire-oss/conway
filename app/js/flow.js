@@ -95,9 +95,9 @@ function renderFreeze(state, capPerDev) {
 let JIRA = '';
 const jiraLink = (key) => (JIRA ? `<a href="${esc(JIRA)}${encodeURIComponent(key)}" target="_blank" rel="noopener">${esc(key)}</a>` : esc(key));
 const VERDICT_BADGE = {
-  freeze: '<span class="flag red">freeze candidate</span>',
-  review: '<span class="flag amber">review</span>',
-  keep: '<span class="flag" style="color:var(--green)">keep</span>',
+  freeze: '<span class="badge bg-danger-subtle text-danger-emphasis flag red">freeze candidate</span>',
+  review: '<span class="badge bg-warning-subtle text-warning-emphasis flag amber">review</span>',
+  keep: '<span class="badge bg-success-subtle text-success-emphasis flag">keep</span>',
 };
 
 const DRILL_PER_PAGE = 15;
@@ -113,7 +113,7 @@ function toggleDrill(pod) {
     <tr class="v-${esc(i.verdict)}">
       <td>${jiraLink(i.key)}</td>
       <td>${esc(i.summary)}</td>
-      <td>${i.assignee ? esc(i.assignee) : '<span class="flag amber">unassigned</span>'}</td>
+      <td>${i.assignee ? esc(i.assignee) : '<span class="badge bg-warning-subtle text-warning-emphasis flag amber">unassigned</span>'}</td>
       <td>${i.ageDays?.toFixed(0) ?? '?'}d</td>
       <td>${i.staleDays?.toFixed(0) ?? '?'}d</td>
       <td>${i.blocksKeys?.length ? `${i.blocksKeys.length} issue(s)` : '—'}</td>
@@ -129,13 +129,13 @@ function toggleDrill(pod) {
     div.innerHTML = `
       <p class="hint">${total} in-progress issues · <b style="color:var(--red)">${r?.freezable ?? 0} look freezable</b>
       (stale &gt;14d or unassigned, and nothing waits on them). "Keep" = another issue blocks on it — freezing it freezes them too.</p>
-      ${total ? `<table class="wip-table">
+      ${total ? `<table class="table table-sm wip-table">
         <thead><tr><th>Issue</th><th>Summary</th><th>Assignee</th><th>Age</th><th>Stale</th><th>Blocks</th><th>Verdict</th></tr></thead>
         <tbody>${items.map(rowHtml).join('')}</tbody></table>
         ${pages > 1 ? `<div class="row-actions">
-          <button id="drill-prev-${esc(pod)}" ${page === 0 ? 'disabled' : ''}>‹ Prev</button>
+          <button class="btn btn-secondary" id="drill-prev-${esc(pod)}" ${page === 0 ? 'disabled' : ''}>‹ Prev</button>
           <span class="hint">page ${page + 1} of ${pages} · showing ${page * DRILL_PER_PAGE + 1}–${shown} of ${total}</span>
-          <button id="drill-next-${esc(pod)}" ${page >= pages - 1 ? 'disabled' : ''}>Next ›</button></div>` : ''}`
+          <button class="btn btn-secondary" id="drill-next-${esc(pod)}" ${page >= pages - 1 ? 'disabled' : ''}>Next ›</button></div>` : ''}`
       : '<p class="hint">No in-progress issues for this pod in the snapshot.</p>'}`;
     if (pages > 1) {
       document.getElementById(`drill-prev-${pod}`)?.addEventListener('click', () => renderPage(page - 1));
@@ -266,22 +266,22 @@ async function renderFever(state) {
     .sort((a, b) => (b.dateRisk === 'overdue') - (a.dateRisk === 'overdue') || b.fp.ratio - a.fp.ratio)
     .slice(0, cap);
   document.getElementById('fever-list').innerHTML = hot.length ? `
-    <table class="wip-table"><thead><tr><th>Needs attention</th><th>Epic</th>
+    <table class="table table-sm wip-table"><thead><tr><th>Needs attention</th><th>Epic</th>
     <th>Complete</th><th>Buffer burned</th><th>Zone</th><th>Due</th><th>Outcome?</th></tr></thead><tbody>
     ${hot.map((p) => `<tr>
       <td>${jiraLink(p.epic)}</td>
       <td>${esc(p.name || '—')}</td>
       <td>${(p.pct * 100).toFixed(0)}%</td>
       <td>${(Math.min(p.fp.consumed, 9.99) * 100).toFixed(0)}%</td>
-      <td><span class="flag ${p.fp.zone === 'red' ? 'red' : 'amber'}">${p.fp.zone}</span></td>
+      <td><span class="badge flag ${p.fp.zone === 'red' ? 'bg-danger-subtle text-danger-emphasis red' : 'bg-warning-subtle text-warning-emphasis amber'}">${p.fp.zone}</span></td>
       <td>${p.duedate == null ? '<span class="hint">none</span>' : esc(p.duedate)} ${p.dateRisk ? DATE_BADGE[p.dateRisk] : ''}</td>
-      <td>${p.hasOutcome === true ? '✓' : p.hasOutcome === false ? '<span class="flag red">missing</span>' : '<span class="hint">?</span>'}</td>
+      <td>${p.hasOutcome === true ? '✓' : p.hasOutcome === false ? '<span class="badge bg-danger-subtle text-danger-emphasis flag red">missing</span>' : '<span class="hint">?</span>'}</td>
     </tr>`).join('')}</tbody></table>` : '<p class="hint">All in-flight epics are in the green zone.</p>';
 }
 
 const DATE_BADGE = {
-  overdue: '<span class="flag red">overdue</span>',
-  'at risk': '<span class="flag amber">date at risk</span>',
+  overdue: '<span class="badge bg-danger-subtle text-danger-emphasis flag red">overdue</span>',
+  'at risk': '<span class="badge bg-warning-subtle text-warning-emphasis flag amber">date at risk</span>',
 };
 
 // Clicking a fever-chart dot shows the epic it represents — id + title, plus
@@ -300,11 +300,11 @@ function feverEpicModal() {
 
 function showFeverEpicModal(p) {
   const ov = feverEpicModal();
-  const zoneBadge = p.fp.zone === 'red' ? '<span class="flag red">red</span>'
-    : p.fp.zone === 'yellow' ? '<span class="flag amber">yellow</span>'
-      : '<span class="flag" style="color:var(--green)">green</span>';
+  const zoneBadge = p.fp.zone === 'red' ? '<span class="badge bg-danger-subtle text-danger-emphasis flag red">red</span>'
+    : p.fp.zone === 'yellow' ? '<span class="badge bg-warning-subtle text-warning-emphasis flag amber">yellow</span>'
+      : '<span class="badge bg-success-subtle text-success-emphasis flag">green</span>';
   ov.innerHTML = `<div class="modal-box">
-      <div class="modal-head"><h2>${jiraLink(p.epic)} — ${esc(p.name || '(no title)')}</h2><button id="fever-epic-close">✕</button></div>
+      <div class="modal-head"><h2>${jiraLink(p.epic)} — ${esc(p.name || '(no title)')}</h2><button class="btn btn-secondary" id="fever-epic-close">✕</button></div>
       <p class="hint">${(p.pct * 100).toFixed(0)}% complete · ${(p.fp.consumed * 100).toFixed(0)}% buffer consumed
         ${zoneBadge}</p>
       <p class="hint">Elapsed ${p.elapsed.toFixed(0)} calendar days · forecast P50 ${p.p50.toFixed(0)}d / P85 ${p.p85.toFixed(0)}d</p>

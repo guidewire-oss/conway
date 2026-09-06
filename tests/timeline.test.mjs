@@ -343,10 +343,10 @@ test('no windows render no bands', () => {
 // FR-043 (spec 004 Story 3): both pod views carry a PNG export affordance.
 test('the pod lens and the pod sheet offer a PNG export', () => {
   const lens = podLensHTML(sched, { horizonWeeks: 26 });
-  assert.match(lens, /class="pod-export" data-export-pod=/);
+  assert.match(lens, /class="(?:[^"<>]* )?pod-export(?: [^"<>]*)?" data-export-pod=/);
   const found = (sched.podWeeks || [])[0];
   const sheet = podSheetHTML(found, sched, { horizonWeeks: 26 });
-  assert.match(sheet, /class="pod-export" data-export-sheet=/);
+  assert.match(sheet, /class="(?:[^"<>]* )?pod-export(?: [^"<>]*)?" data-export-sheet=/);
 });
 
 // Spec 004 follow-up: the period-end marker when the view spans past the horizon.

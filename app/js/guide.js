@@ -334,7 +334,7 @@ export function initGuide(state) {
     try { localStorage.setItem('conway-guide-persona', who); } catch {}
     const p = PERSONAS[who];
     document.getElementById('guide-personas').innerHTML = Object.entries(PERSONAS)
-      .map(([k, v]) => `<button class="tab ${k === who ? 'active' : ''}" data-p="${k}">${v.label}</button>`).join('');
+      .map(([k, v]) => `<button class="btn btn-secondary tab ${k === who ? 'active' : ''}" aria-pressed="${k === who}" data-p="${k}">${v.label}</button>`).join('');
     document.querySelectorAll('#guide-personas button')
       .forEach((b) => b.addEventListener('click', () => renderGuide(b.dataset.p)));
 
@@ -351,8 +351,8 @@ export function initGuide(state) {
         docs/snapshots-and-scenarios.md.</div>
       <p class="guide-intro">${p.intro}</p>
       <h3>Where to look, in order</h3>
-      <ol class="guide-path">${p.path.map(([t, d, nav]) => `<li><b>${t}</b> — ${d}${(nav = nav || (t.includes('Scoreboard') ? 'scoreboard' : t.includes('Network') ? 'network' : t.includes('Simulator') ? 'simulator' : t.includes('Levers') ? 'flow' : '')) ? ` <button type="button" class="guide-go" data-nav="${nav}">go ›</button>` : ''}</li>`).join('')}</ol>
-      <p><button type="button" class="primary" id="usage-open">Open the manual</button></p>
+      <ol class="guide-path">${p.path.map(([t, d, nav]) => `<li><b>${t}</b> — ${d}${(nav = nav || (t.includes('Scoreboard') ? 'scoreboard' : t.includes('Network') ? 'network' : t.includes('Simulator') ? 'simulator' : t.includes('Levers') ? 'flow' : '')) ? ` <button type="button" class="btn btn-secondary guide-go" data-nav="${nav}">go ›</button>` : ''}</li>`).join('')}</ol>
+      <p><button type="button" class="btn btn-primary primary" id="usage-open">Open the manual</button></p>
       <h3>Today's insights from your data</h3>
       ${insights.map((i) => `
         <div class="insight">

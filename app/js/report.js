@@ -127,7 +127,7 @@ export function remediesSectionHTML(data) {
   if (!remedies.length) return `${warnings || ''}<p class="report-ok">No remedies — the engine sees nothing worth pulling.</p>`;
   return `<ul class="report-list">${remedies.map((r) => {
     const victims = (r.affectedInitiatives || []).length;
-    return `<li><b>${esc(remedyKindLabel(r.kind))}</b> — ${esc(r.target)} → ${esc(remedyLabelOf(r.resultingVerdict))}, ${Number.isFinite(r.unscheduledWeightDelta) ? `weighted unstarted work ${fmtDelta(r.unscheduledWeightDelta)}, ` : ''}weighted lateness ${fmtDelta(r.objectiveDelta)}${victims ? `, moves ${victims} other initiative${victims > 1 ? 's' : ''}` : ''} <button type="button" class="report-remedy-link" data-target="${esc(r.target)}">full options</button></li>`;
+    return `<li><b>${esc(remedyKindLabel(r.kind))}</b> — ${esc(r.target)} → ${esc(remedyLabelOf(r.resultingVerdict))}, ${Number.isFinite(r.unscheduledWeightDelta) ? `weighted unstarted work ${fmtDelta(r.unscheduledWeightDelta)}, ` : ''}weighted lateness ${fmtDelta(r.objectiveDelta)}${victims ? `, moves ${victims} other initiative${victims > 1 ? 's' : ''}` : ''} <button type="button" class="btn btn-secondary report-remedy-link" data-target="${esc(r.target)}">full options</button></li>`;
   }).join('')}</ul>${warnings}`;
 }
 

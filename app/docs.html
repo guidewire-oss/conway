@@ -28,10 +28,8 @@
   .reader-brand > a { font-weight: 700; text-decoration: none; }
   #current-section { display: block; font-size: 12px; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   .reader-search { position: relative; min-width: 0; }
-  .search-field { display: flex; align-items: center; border: 1px solid var(--border); background: var(--panel); border-radius: 7px; }
-  #manual-search { min-width: 0; width: 100%; padding: 9px 12px; color: var(--text); background: transparent; border: 0; border-radius: 7px; }
-  .reader-button { color: var(--text); background: var(--panel2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font: inherit; font-size: 14px; min-height: 42px; }
-  #search-clear { border: 0; background: transparent; padding: 6px 10px; font-size: 13px; }
+  #manual-search { min-width: 0; }
+  .reader-button { min-height: 42px; }
   #contents-toggle { display: none; }
   #reader-return { font-size: 13px; white-space: nowrap; }
   #manual-results { position: absolute; top: calc(100% + 8px); left: 0; right: 0; max-height: min(60vh, 440px); overflow: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); box-shadow: 0 12px 28px #0003; padding: 12px; }
@@ -87,6 +85,7 @@
     .manual-layout { display: block; padding: 0; } main { max-width: none; }
     .sidebar, .reader-toolbar, .skip-link, .guide-paths { display: none !important; }
     h2, h3 { break-after: avoid; } tr, .formula { break-inside: avoid; }
+    .table { --bs-table-color: #111; --bs-table-bg: #fff; --bs-table-border-color: #aaa; }
     table { font-size: 9pt; } th, td { border-color: #aaa; }
     a, code, caption, .lede, .eyebrow { color: #111; }
     th, code, .formula, .note, .caution { background: #f5f5f5; color: #111; }
@@ -100,10 +99,10 @@
     <div class="reader-brand"><a href="#docs-top">Conway guide</a><span id="current-section">Guide overview</span></div>
     <div class="reader-search" role="search">
       <label class="visually-hidden" for="manual-search">Search this guide</label>
-      <div class="search-field"><input id="manual-search" type="search" placeholder="Search concepts, settings or calculations" autocomplete="off" aria-controls="manual-results"><button id="search-clear" class="reader-button" type="button" aria-label="Clear search" hidden>Clear</button></div>
+      <div class="search-field input-group"><input class="form-control" id="manual-search" type="search" placeholder="Search concepts, settings or calculations" autocomplete="off" aria-controls="manual-results"><button id="search-clear" class="btn btn-secondary reader-button" type="button" aria-label="Clear search" hidden>Clear</button></div>
       <div id="manual-results" role="region" aria-label="Search results" hidden></div>
     </div>
-    <button id="contents-toggle" class="reader-button" type="button" aria-controls="manual-contents" aria-expanded="false">Contents</button>
+    <button id="contents-toggle" class="btn btn-secondary reader-button" type="button" aria-controls="manual-contents" aria-expanded="false">Contents</button>
     <a id="reader-return" href="./">Back to Conway</a>
   </div>
 </div>
@@ -162,7 +161,7 @@
 </header>
 
 <h2 id="what">1. What each part of Conway answers</h2>
-<div class="table-wrap" role="region" aria-label="1. What each part of Conway answers reference table"><table>
+<div class="table-wrap" role="region" aria-label="1. What each part of Conway answers reference table"><table class="table table-sm">
 <caption>Choose a view by the decision you need to make</caption>
 <thead><tr><th scope="col">Area</th><th scope="col">Question</th><th scope="col">Inputs and output</th></tr></thead>
 <tbody>
@@ -174,7 +173,7 @@
 <p>Use the models together, but keep their units and sources separate. Plan weeks, Jira item counts, simulation percentiles and game scores are not interchangeable. Start by naming the business outcome; a fuller chart or a lower utilization number is not itself the outcome.</p>
 
 <h2 id="concepts">2. Concepts and vocabulary</h2>
-<div class="table-wrap" role="region" aria-label="2. Concepts and vocabulary reference table"><table>
+<div class="table-wrap" role="region" aria-label="2. Concepts and vocabulary reference table"><table class="table table-sm">
 <thead><tr><th scope="col">Concept</th><th scope="col">Meaning in Conway</th><th scope="col">Example or distinction</th></tr></thead>
 <tbody>
 <tr><td data-label="Concept">Team / pod</td><td data-label="Meaning in Conway">A named group with its own capacity and assigned work.</td><td data-label="Example or distinction">Atlas and Beacon are teams. Use consistent names across rosters, imports and Jira assignments.</td></tr>
@@ -199,7 +198,7 @@
 
 <h2 id="foundations">3. The ideas behind the tool</h2>
 <p>Conway takes inspiration from the books below. The connections to controls are our application of those ideas. The implementation uses its own assumptions and heuristics; it is not a complete implementation of every method in these books.</p>
-<div class="table-wrap" role="region" aria-label="3. The ideas behind the tool reference table"><table>
+<div class="table-wrap" role="region" aria-label="3. The ideas behind the tool reference table"><table class="table table-sm">
 <thead><tr><th scope="col">Book</th><th scope="col">Management idea</th><th scope="col">Apply it in Conway</th></tr></thead>
 <tbody>
 <tr><td data-label="Book"><a href="https://northriverpress.com/the-goal-30th-anniversary-edition/" target="_blank" rel="noopener noreferrer">The Goal</a><br>Eliyahu M. Goldratt and Jeff Cox</td><td data-label="Management idea">Understand the system's constraint and improve the flow of outcomes through the whole system.</td><td data-label="Apply it in Conway">Inspect the drum and its dependent work before adding capacity. Compare portfolio consequences, not how busy one team looks.</td></tr>
@@ -228,7 +227,7 @@
 
 <h2 id="howto">5. Choose settings for your situation</h2>
 <p>These are starting recommendations for a discussion, not automatic best settings. Preserve the meaning of your input estimates and test alternatives in a scenario.</p>
-<div class="table-wrap" role="region" aria-label="5. Choose settings for your situation reference table"><table>
+<div class="table-wrap" role="region" aria-label="5. Choose settings for your situation reference table"><table class="table table-sm">
 <thead><tr><th scope="col">Situation</th><th scope="col">Start with</th><th scope="col">Why; what to check</th></tr></thead>
 <tbody>
 <tr><td data-label="Situation">Your estimates are total pair-weeks or track-weeks.</td><td data-label="Start with"><b>Effort</b>.</td><td data-label="Why; what to check">Work divides across selected lanes. Confirm it can actually run in parallel; see <a href="#capacity-calculations">duration calculations</a>.</td></tr>
@@ -253,7 +252,7 @@
 <p><b>Refresh saved evidence</b> rereads the selected snapshot. For newer observations, use <b>Measure → Import from Jira</b>, then explicitly select the new capture in Review execution. Do not replace the agreement merely to make variance disappear.</p>
 
 <h2 id="snapshots-picker">7. Sources, associations and switching</h2>
-<div class="table-wrap" role="region" aria-label="7. Sources, associations and switching reference table"><table><thead><tr><th scope="col">Object</th><th scope="col">Where to choose it</th><th scope="col">What changes</th></tr></thead><tbody>
+<div class="table-wrap" role="region" aria-label="7. Sources, associations and switching reference table"><table class="table table-sm"><thead><tr><th scope="col">Object</th><th scope="col">Where to choose it</th><th scope="col">What changes</th></tr></thead><tbody>
 <tr><td data-label="Object">Working plan</td><td data-label="Where to choose it">Plan → My plans</td><td data-label="What changes">The planning roster, initiatives, assumptions and agreement history.</td></tr>
 <tr><td data-label="Object">Plan roster</td><td data-label="Where to choose it">Plan setup → roster</td><td data-label="What changes">A frozen copy of team structure. Reapplying a roster can change capacity; review the resulting schedule.</td></tr>
 <tr><td data-label="Object">Measure snapshot</td><td data-label="Where to choose it"><b>Viewing org snapshot</b> in the source panel</td><td data-label="What changes">All Measure views reload. The simulator's unsaved task scenario resets. A single available snapshot remains named even when switching is disabled.</td></tr>
@@ -268,7 +267,7 @@
 
 <h2 id="plan-setup">8. Prepare and validate a workbook</h2>
 <p>Attach a roster first. Use unique team names and unique initiative names. Prefer the names exactly as they appear in the roster; do not rely on capitalization differences being resolved consistently.</p>
-<div class="table-wrap" role="region" aria-label="8. Prepare and validate a workbook reference table"><table><thead><tr><th scope="col">Input</th><th scope="col">Content</th><th scope="col">Manager check</th></tr></thead><tbody>
+<div class="table-wrap" role="region" aria-label="8. Prepare and validate a workbook reference table"><table class="table table-sm"><thead><tr><th scope="col">Input</th><th scope="col">Content</th><th scope="col">Manager check</th></tr></thead><tbody>
 <tr><td data-label="Input">Teams CSV/XLSX</td><td data-label="Content">Team name, developers, location; optional pairing, explicit tracks and Capacity Loss %.</td><td data-label="Manager check">Tracks reflect usable parallel work, not just headcount. Remove duplicate team rows.</td></tr>
 <tr><td data-label="Input">Initiatives matrix</td><td data-label="Content">One row per initiative, with paired columns such as <code>Atlas Sequence</code> and <code>Atlas</code> for dependencies and estimate.</td><td data-label="Manager check">Use one estimate column per team. Inspect every retained team assignment in the preview.</td></tr>
 <tr><td data-label="Input">Optional initiative fields</td><td data-label="Content">Priority, tier, cost of delay, dates, progress, readiness, ownership and locks where supported by the template.</td><td data-label="Manager check">Importing an optional field does not prove the value is current. Review it with its owner.</td></tr>
@@ -281,7 +280,7 @@
 <p>Use a linked sheet when people maintain planning inputs together and repeated workbook uploads are becoming hard to track. Open a saved plan and choose <b>Linked Google Sheets</b>. An administrator must first configure the connection; share the spreadsheet with the service-account email displayed in the dialog.</p>
 <ol><li>Choose <b>Teams</b> or <b>Initiatives</b>, paste the Google spreadsheet link and enter the tab or range containing the table, including its header row. Use the workbook columns described above.</li><li>Start in <b>Review</b> mode. Run a check, inspect the captured version and its validation messages, then apply the version you intend to use.</li><li>Recompute and inspect the timeline after applying changed inputs. Save a new agreement only when stakeholders accept the revised plan.</li></ol>
 <p>A Teams source updates this plan's roster. It does not change the shared roster library or other plans. An Initiatives source updates this plan's initiative inputs. Neither source supplies Jira delivery evidence or changes the snapshot selected in Measure.</p>
-<div class="table-wrap" role="region" aria-label="Linked sheet update choices"><table><thead><tr><th scope="col">Choice</th><th scope="col">Behavior</th><th scope="col">Choose it when</th></tr></thead><tbody>
+<div class="table-wrap" role="region" aria-label="Linked sheet update choices"><table class="table table-sm"><thead><tr><th scope="col">Choice</th><th scope="col">Behavior</th><th scope="col">Choose it when</th></tr></thead><tbody>
 <tr><td data-label="Choice">Review</td><td data-label="Behavior">Checks capture changes for inspection. Applying a version is a separate action.</td><td data-label="Choose it when">The plan contains commitments or several people negotiate changes.</td></tr>
 <tr><td data-label="Choice">Automatic apply</td><td data-label="Behavior">Eligible valid changes apply only while the plan still matches the source's checkpoint. Local divergence and removals require review.</td><td data-label="Choose it when">The spreadsheet is the agreed source and the team accepts routine updates to working inputs.</td></tr>
 <tr><td data-label="Choice">Pause</td><td data-label="Behavior">Stops periodic checks while retaining the connection and history.</td><td data-label="Choose it when">You need a stable working period or are reorganizing the sheet.</td></tr>
@@ -303,7 +302,7 @@
 <p><b>Example:</b> 6 developers pairing give 3 tracks. Over 10 weeks with 20% loss, nominal capacity is <code>3 × 10 × 0.8 = 24</code> track-weeks. Demand of 30 gives utilization <code>30 / 24 = 1.25</code>. This period-total ratio does not prove when capacity is available; the scheduler also checks week-by-week constraints.</p>
 <p>A positive per-team loss overrides global loss. Blank or zero at team level currently inherits the global value, so zero cannot express a zero-loss exception to a positive global loss. Set recurring allowances deliberately; use calendars for dated interruptions.</p>
 <h3>Estimate model</h3>
-<div class="table-wrap" role="region" aria-label="9. Capacity, effort and duration calculations reference table"><table><thead><tr><th scope="col">Choice</th><th scope="col">Ordinary duration calculation</th><th scope="col">Choose when</th></tr></thead><tbody>
+<div class="table-wrap" role="region" aria-label="9. Capacity, effort and duration calculations reference table"><table class="table table-sm"><thead><tr><th scope="col">Choice</th><th scope="col">Ordinary duration calculation</th><th scope="col">Choose when</th></tr></thead><tbody>
 <tr><td data-label="Choice">Effort</td><td data-label="Ordinary duration calculation"><code>ceil(remaining effort / (selected lanes × (1 − loss)))</code></td><td data-label="Choose when">The estimate is total work and can be shared across lanes. Selected lanes may be fewer than the team's physical tracks.</td></tr>
 <tr><td data-label="Choice">Wall-clock</td><td data-label="Ordinary duration calculation"><code>ceil(remaining estimate / (1 − loss))</code>, normally on one lane.</td><td data-label="Choose when">The estimate describes one work-stream's duration. If it already includes leave/support allowances, review loss to avoid counting them twice. Optional splitting can change placement.</td></tr>
 </tbody></table></div>
@@ -316,7 +315,7 @@
 
 <h2 id="assumptions">10. Scheduling option reference</h2>
 <p>Open <b>Assumptions</b> from Plan commitments. Save one deliberate change and inspect its consequences. Existing plans retain their stored policy; an unchosen WIP model is evaluated as strict, and an unspecified estimate model is wall-clock. Do not assume suggested setup defaults are already saved.</p>
-<div class="table-wrap" role="region" aria-label="10. Scheduling option reference reference table"><table><thead><tr><th scope="col">Option</th><th scope="col">Calculation or scheduling effect</th><th scope="col">When to use it</th></tr></thead><tbody>
+<div class="table-wrap" role="region" aria-label="10. Scheduling option reference reference table"><table class="table table-sm"><thead><tr><th scope="col">Option</th><th scope="col">Calculation or scheduling effect</th><th scope="col">When to use it</th></tr></thead><tbody>
 <tr><td data-label="Option">Period start</td><td data-label="Calculation or scheduling effect">Defines week 0 for calendar labels and conversion of target dates to weeks.</td><td data-label="When to use it">Set it for a real planning period. Without it, relative scheduling can proceed, but target-date verdicts lack a calendar basis.</td></tr>
 <tr><td data-label="Option">Horizon</td><td data-label="Calculation or scheduling effect">The period length, normally 26 weeks for a new plan. The weekly scheduler rounds a fractional horizon up. Work must start within the release horizon; its finish may extend beyond it.</td><td data-label="When to use it">Match the review/commitment period, not the length needed to hide overruns.</td></tr>
 <tr><td data-label="Option">Global capacity loss</td><td data-label="Calculation or scheduling effect">New plans normally start at 10%. Effective delivery per track-week is <code>1 − loss</code>.</td><td data-label="When to use it">Allow for recurring non-project time. Reconcile per-team overrides and dated calendars.</td></tr>
@@ -338,7 +337,7 @@
 <p>With positive splitting tax and a positive <b>chunk size</b>, lane selection uses approximately <code>ceil(remaining effort / chunk size)</code>, bounded by available team lanes. Work is then shared evenly across the selected lanes. It is not a hard maximum size per track when capacity is insufficient, and it does not create literal uneven chunks.</p>
 <p><b>Example:</b> 45 track-weeks, chunk size 20 and three available lanes select three lanes, then share the work as 15 each before loss and overhead. With only two available lanes, their shares exceed 20. With splitting tax disabled, the chunk threshold is inactive.</p>
 <h3>Dates, locks and carryover</h3>
-<div class="table-wrap" role="region" aria-label="10. Scheduling option reference reference table"><table><thead><tr><th scope="col">Control</th><th scope="col">Meaning</th><th scope="col">Use when</th></tr></thead><tbody>
+<div class="table-wrap" role="region" aria-label="10. Scheduling option reference reference table"><table class="table table-sm"><thead><tr><th scope="col">Control</th><th scope="col">Meaning</th><th scope="col">Use when</th></tr></thead><tbody>
 <tr><td data-label="Control">Target finish / date lock</td><td data-label="Meaning">The target is evaluated against buffered commitment. A date lock increases its penalty weight; it does not force an impossible deadline to be met.</td><td data-label="Use when">The requested date carries a stronger business obligation. Inspect feasibility and negotiate tradeoffs.</td></tr>
 <tr><td data-label="Control">Earliest start / manual start pin</td><td data-label="Meaning">A lower bound or reservation constrains placement; other constraints still apply.</td><td data-label="Use when">Work genuinely cannot begin earlier, or an agreed team-track reservation must be represented.</td></tr>
 <tr><td data-label="Control">Priority lock</td><td data-label="Meaning">Protects a position in the ordering proposal, rather than inventing capacity.</td><td data-label="Use when">Some sequencing is already agreed. Avoid locking everything before comparing alternatives.</td></tr>
@@ -349,7 +348,7 @@
 <h2 id="sites">11. Sites and calendar windows</h2>
 <p>Plan's Sites &amp; capacity editor records locations, IANA timezones and work hours. The site-overlap utility can calculate shared working hours for a modeled date, including daylight-saving offsets. Review ambiguous inferred zones and missing information.</p>
 <p><b>Current scheduling limit:</b> the finite scheduler adds <b>zero handoff weeks</b> between team slices. Entering timezones does not currently lengthen its commitments for cross-site coordination. Represent material coordination work explicitly and discuss the allowance; do not assume the timeline has priced it. Measure uses separate overlap proxies and handoff assumptions.</p>
-<div class="table-wrap" role="region" aria-label="11. Sites and calendar windows reference table"><table><thead><tr><th scope="col">Calendar effect</th><th scope="col">What happens</th><th scope="col">Example use</th></tr></thead><tbody>
+<div class="table-wrap" role="region" aria-label="11. Sites and calendar windows reference table"><table class="table table-sm"><thead><tr><th scope="col">Calendar effect</th><th scope="col">What happens</th><th scope="col">Example use</th></tr></thead><tbody>
 <tr><td data-label="Calendar effect">Block starts</td><td data-label="What happens">Blocks new starts in the covered interval; it does not stop work already running.</td><td data-label="Example use">A release freeze or a period when onboarding a new initiative is impractical.</td></tr>
 <tr><td data-label="Calendar effect">Block completions</td><td data-label="What happens">Moves a modeled completion to a week in which completion is allowed.</td><td data-label="Example use">A deployment or acceptance freeze where work may continue but cannot complete.</td></tr>
 <tr><td data-label="Calendar effect">Reduce capacity</td><td data-label="What happens">Currently sets the scoped team's tracks to zero during the covered weeks; partial percentage reductions are not supported by this window.</td><td data-label="Example use">A holiday or shutdown. Use normal capacity-loss settings for a recurring partial reduction.</td></tr>
@@ -361,7 +360,7 @@
 
 <h2 id="order">12. Plan commitments: ordering and optimization</h2>
 <p>The Order view shows the schedule under the working order. <b>Optimize order</b> compares dispatch rules and proposes a different order; accepting the proposal is explicit. A dispatch rule is a heuristic, not proof of a globally optimal schedule.</p>
-<div class="table-wrap" role="region" aria-label="12. Plan commitments: ordering and optimization reference table"><table><thead><tr><th scope="col">Rule</th><th scope="col">Ordering idea</th><th scope="col">Useful comparison</th></tr></thead><tbody>
+<div class="table-wrap" role="region" aria-label="12. Plan commitments: ordering and optimization reference table"><table class="table table-sm"><thead><tr><th scope="col">Rule</th><th scope="col">Ordering idea</th><th scope="col">Useful comparison</th></tr></thead><tbody>
 <tr><td data-label="Rule">Stated priority</td><td data-label="Ordering idea">Your entered order, with deterministic tie handling.</td><td data-label="Useful comparison">Start here to assess the sequence stakeholders requested.</td></tr>
 <tr><td data-label="Rule">Minimum slack</td><td data-label="Ordering idea">Earlier pressure from dates relative to required work.</td><td data-label="Useful comparison">Compare a date-sensitive portfolio.</td></tr>
 <tr><td data-label="Rule">Value per constraint week</td><td data-label="Ordering idea">Delay weight per week of scarce constraint time.</td><td data-label="Useful comparison">Compare outcomes competing for a shared bottleneck.</td></tr>
@@ -376,7 +375,7 @@
 <p><b>Example:</b> cost of delay 10, tier 2 and priority 1 produce weight <code>10 × 3 × 2 = 60</code>. Two weeks late cost 120 before a date-lock multiplier. An unstarted initiative of the same weight contributes 60 to the separate unstarted-work cost.</p>
 
 <h2 id="order-cols">13. Read the results and choose an action</h2>
-<div class="table-wrap" role="region" aria-label="13. Read the results and choose an action reference table"><table><thead><tr><th scope="col">Result or action</th><th scope="col">Interpretation</th></tr></thead><tbody>
+<div class="table-wrap" role="region" aria-label="13. Read the results and choose an action reference table"><table class="table table-sm"><thead><tr><th scope="col">Result or action</th><th scope="col">Interpretation</th></tr></thead><tbody>
 <tr><td data-label="Result or action">Rank / stated / suggested rank</td><td data-label="Interpretation">Distinguishes requested order from an engine proposal. A rank change is not a date change by itself.</td></tr>
 <tr><td data-label="Result or action">Start / raw finish / commit</td><td data-label="Interpretation">Start is first placed work; raw finish is the chain end; commitment adds protective buffer.</td></tr>
 <tr><td data-label="Result or action">Binding constraint</td><td data-label="Interpretation">A reason the modeled start could not be earlier, such as capacity, dependency, readiness, WIP, calendar or a pin.</td></tr>
@@ -390,7 +389,7 @@
 <h2 id="plan-network">14. Plan Dependencies and what-if levers</h2>
 <p>This network uses the open plan's team estimates and dependency cells. <b>Org Network</b> under Measure uses a selected snapshot. Their numbers may differ because their source and model differ.</p>
 <p>Plan's dependency view first computes period-total demand/capacity. Its directional lead-time calculation multiplies each team's estimate by <code>1 / (1 − utilization)</code>, with utilization bounded to 0–0.95, then follows the longest dependent chain. At utilization 0.8 the multiplier is 5; at 0.95 it is 20. This is a sensitivity model, not the finite-track schedule or a promised date.</p>
-<div class="table-wrap" role="region" aria-label="14. Plan Dependencies and what-if levers reference table"><table><thead><tr><th scope="col">Lever</th><th scope="col">Model change</th><th scope="col">Decision to confirm</th></tr></thead><tbody>
+<div class="table-wrap" role="region" aria-label="14. Plan Dependencies and what-if levers reference table"><table class="table table-sm"><thead><tr><th scope="col">Lever</th><th scope="col">Model change</th><th scope="col">Decision to confirm</th></tr></thead><tbody>
 <tr><td data-label="Lever">Add capacity</td><td data-label="Model change">Adds explicit tracks to the selected team.</td><td data-label="Decision to confirm">Can the extra capacity really do this work, and when will it be effective?</td></tr>
 <tr><td data-label="Lever">Unpair</td><td data-label="Model change">Doubles the current effective track count and clears pairing, including when tracks were explicitly overridden.</td><td data-label="Decision to confirm">What happens to quality, learning and coordination? The capacity arithmetic does not settle that tradeoff.</td></tr>
 <tr><td data-label="Lever">Descope / drop team</td><td data-label="Model change">Reduces estimates or removes a team's contribution.</td><td data-label="Decision to confirm">Is the removed scope genuinely optional? Check dependencies and readiness.</td></tr>
@@ -422,7 +421,7 @@
 <h3 id="weekly-review">Run a weekly review and follow through</h3>
 <p>A <b>weekly review</b> records one team's or plan's review conversation: the evidence considered, exceptions, action states and conclusion. An <b>action</b> is an accountable follow-up with an owner and review date. A completed review preserves what was known then; actions continue to evolve separately.</p>
 <ol><li>Open <b>Review execution</b> for the intended plan. Select its snapshot and team, then set the review date and timezone. Choose <b>Manual review (no snapshot)</b> when you only have qualitative updates; you can still record actions and a conclusion.</li><li>Select <b>Prepare review</b>. Discuss <b>Delivery exceptions</b> separately from <b>Data gaps</b>. Missing evidence is a request to investigate, not a finding that a team is late.</li><li>Use <b>Action follow-up</b> to inspect earlier commitments. Open <b>Update status or view history</b>, choose a state and save an explanation. Open <b>Record the next action</b> to add a new follow-up with its owner, next review date and rationale.</li><li>After action or context changes, prepare the agenda again. Review the final action states, write the <b>Review conclusion</b> and optionally choose a <b>Next checkpoint</b>. Select <b>Complete review</b>.</li><li>Use <b>Completed reviews</b> to reopen the frozen summary. Its link opens the same authorized plan record; possession of the link does not grant access. If its capture is no longer available, the requested source stays explicit instead of switching to unrelated evidence. The saved summary remains read-only.</li></ol>
-<div class="table-wrap" role="region" aria-label="Weekly review choices"><table><thead><tr><th scope="col">Choose</th><th scope="col">When to use it</th><th scope="col">Meaning</th></tr></thead><tbody>
+<div class="table-wrap" role="region" aria-label="Weekly review choices"><table class="table table-sm"><thead><tr><th scope="col">Choose</th><th scope="col">When to use it</th><th scope="col">Meaning</th></tr></thead><tbody>
 <tr><td data-label="Choose">Open</td><td data-label="When to use it">An action has been agreed, or needs reopening.</td><td data-label="Meaning">The follow-up is outstanding. Reopening retains earlier resolution history.</td></tr>
 <tr><td data-label="Choose">In progress</td><td data-label="When to use it">Its owner has begun the follow-up.</td><td data-label="Meaning">Still outstanding; this is a declared action state, not measured initiative progress.</td></tr>
 <tr><td data-label="Choose">Resolved</td><td data-label="When to use it">The requested follow-up has been addressed.</td><td data-label="Meaning">Requires evidence explaining the result. It does not mark the initiative complete.</td></tr>
@@ -438,7 +437,7 @@
 <h3 id="next-work">Choose the team's next work</h3>
 <p>Open a saved plan and select <b>Next work</b>, or follow the team's link from its capacity queue or timeline sheet. Select the <b>Team</b> and <b>As-of planning week</b>. If a link requests a team outside this plan, choose a valid team explicitly; Conway does not silently assess a different team. Successful assessments preserve the team and week in the link, while a failed refresh retains the last accepted link context. The team selection is shared when moving between Next work and Review execution. Week 0 is the plan's period start. This view assesses operational release against the current working plan; it does not infer today's team activity from scheduled dates or the selected execution snapshot.</p>
 <ol><li>Review <b>In progress</b> first. These are initiatives declared in flight in the plan; the label does not confirm that this particular team has started.</li><li>Read the reasons in <b>Waiting</b>. Prepare missing evidence or use <b>Inspect in timeline</b> to address placement, estimates, dependencies or capacity.</li><li>Open <b>Confirm full kit</b>. Record scope readiness, accepted dependencies and team availability, with a responsible owner and evidence for each checked condition. You may save incomplete preparation.</li><li>When all current checks and scheduling gates pass, the item appears in <b>Ready to pull</b>. Record <b>Release</b> with an accountable owner and evidence. This records permission to begin; it does not claim an observed start.</li><li>Choose <b>Defer</b> when you deliberately want to hold an item. Later, <b>Reconsider</b> removes that deliberate hold and checks all current gates again. It never releases work automatically.</li><li>Use <b>Review execution</b> to discuss observed delivery and accountable follow-up. Expand <b>Readiness and release history</b> to inspect earlier confirmations and decisions.</li></ol>
-<div class="table-wrap" role="region" aria-label="Next work groups and choices"><table><thead><tr><th scope="col">Group or situation</th><th scope="col">Meaning</th><th scope="col">Manager's next choice</th></tr></thead><tbody>
+<div class="table-wrap" role="region" aria-label="Next work groups and choices"><table class="table table-sm"><thead><tr><th scope="col">Group or situation</th><th scope="col">Meaning</th><th scope="col">Manager's next choice</th></tr></thead><tbody>
 <tr><td data-label="Group or situation">Ready to pull</td><td data-label="Meaning">The team's accepted planned start equals the selected week, the whole-chain placement is known, capacity is contiguous and all operational checks match this context.</td><td data-label="Manager's next choice">Record release or a deliberate deferral.</td></tr>
 <tr><td data-label="Group or situation">Waiting</td><td data-label="Meaning">Future placement, a past start without confirmed activity, held or unknown work, missing confirmation, or a release whose start is still unconfirmed.</td><td data-label="Manager's next choice">Read the specific reasons. Prepare evidence, inspect the plan or review execution.</td></tr>
 <tr><td data-label="Group or situation">Deliberately deferred</td><td data-label="Meaning">A manager's latest hold remains in effect, including after plan edits.</td><td data-label="Manager's next choice">Reconsider when the reason changes; recheck readiness before releasing.</td></tr>
@@ -452,7 +451,7 @@
 
 <h2 id="execution-calculations">18. Execution calculations and their assumptions</h2>
 <p>Weeks are elapsed 168-hour intervals from the active agreement's period start. Snapshot-based forecasts describe the capture date; snapshot age continues to increase afterward. Missing evidence is not evidence of zero delay.</p>
-<div class="table-wrap" role="region" aria-label="18. Execution calculations and their assumptions reference table"><table><thead><tr><th scope="col">Metric</th><th scope="col">Calculation</th><th scope="col">Interpretation</th></tr></thead><tbody>
+<div class="table-wrap" role="region" aria-label="18. Execution calculations and their assumptions reference table"><table class="table table-sm"><thead><tr><th scope="col">Metric</th><th scope="col">Calculation</th><th scope="col">Interpretation</th></tr></thead><tbody>
 <tr><td data-label="Metric">Progress</td><td data-label="Calculation"><code>100 × done children / captured children</code></td><td data-label="Interpretation">Issue count, not effort weighting. Unknown statuses can withhold progress. Equal counts can represent very different amounts of work.</td></tr>
 <tr><td data-label="Metric">Inferred start</td><td data-label="Calculation">Earliest Created timestamp among captured done or in-progress children; Updated is a fallback if Created is absent.</td><td data-label="Interpretation">Not an observed transition into work. A backlog item's creation date can make elapsed duration look long.</td></tr>
 <tr><td data-label="Metric">Actual finish</td><td data-label="Calculation">Latest resolved timestamp when all captured children in scope are done and required timestamps exist.</td><td data-label="Interpretation">Initiative completion also requires represented team slices to finish and children to be assigned. Reconcile missing scope separately.</td></tr>
@@ -488,7 +487,7 @@
 
 <h2 id="scoreboard">21. Measure: WIP Scoreboard</h2>
 <p>The scoreboard summarizes team flow in the selected snapshot. Start with scope and sample count, then compare WIP, throughput and cycle-time spread. Use it to ask which queues need attention and whether comparable work is flowing more predictably.</p>
-<div class="table-wrap" role="region" aria-label="21. Measure: WIP Scoreboard reference table"><table><thead><tr><th scope="col">Metric</th><th scope="col">Current calculation / unit</th><th scope="col">Use and limit</th></tr></thead><tbody>
+<div class="table-wrap" role="region" aria-label="21. Measure: WIP Scoreboard reference table"><table class="table table-sm"><thead><tr><th scope="col">Metric</th><th scope="col">Current calculation / unit</th><th scope="col">Use and limit</th></tr></thead><tbody>
 <tr><td data-label="Metric">WIP</td><td data-label="Current calculation / unit">Issues in Jira's in-progress status category, counted using the selected import mode.</td><td data-label="Use and limit">Review started work. Leaf and epic/parentless imports are different counting units.</td></tr>
 <tr><td data-label="Metric">Throughput per week</td><td data-label="Current calculation / unit">Retained completed cycle-time sample count divided by 26 weeks.</td><td data-label="Use and limit">Approximate recent completion rate. It is not necessarily every completion in the project.</td></tr>
 <tr><td data-label="Metric">Cycle P50 / P85</td><td data-label="Current calculation / unit">50th / 85th percentile of retained Created-to-Resolved calendar days.</td><td data-label="Use and limit">Historical single-item elapsed times. P85 is not an 85% promise for an initiative or portfolio.</td></tr>
@@ -510,7 +509,7 @@
 <ol><li>Confirm the selected snapshot, team sample counts and WIP counting mode.</li><li>Enter tasks or import an epic, assign each task to a team and review sizes.</li><li>Confirm prerequisite links. Missing links allow modeled parallelism that may not be possible.</li><li>Review scenario assumptions, then choose <b>Forecast completion</b>.</li><li>Read the percentile range, criticality and sensitivity. Compare alternative scope or dependency assumptions before communicating a date.</li></ol>
 <h3>Full kit and suggested dependencies</h3>
 <p>The imported-epic checklist gives each of seven checks 1 for pass, 0.5 for warning or 0 for failure, then averages them. Green means at least 80%, amber at least 50%, red below 50%. These thresholds describe checklist coverage, not a probability of successful delivery.</p>
-<div class="table-wrap" role="region" aria-label="23. Measure: Feature Simulator reference table"><table><thead><tr><th scope="col">Check</th><th scope="col">Rule</th></tr></thead><tbody>
+<div class="table-wrap" role="region" aria-label="23. Measure: Feature Simulator reference table"><table class="table table-sm"><thead><tr><th scope="col">Check</th><th scope="col">Rule</th></tr></thead><tbody>
 <tr><td data-label="Check">Assigned team</td><td data-label="Rule">Fails if any task lacks a team field.</td></tr><tr><td data-label="Check">Estimates</td><td data-label="Rule">Fails when more than 20% lack points; warns if any remain.</td></tr><tr><td data-label="Check">Business outcome</td><td data-label="Rule">Passes an explicit outcome flag, fails an explicit absence and warns when unknown.</td></tr><tr><td data-label="Check">External blockers</td><td data-label="Rule">Warns about prerequisite keys outside the imported task set; it does not establish whether they are resolved.</td></tr><tr><td data-label="Check">Production readiness</td><td data-label="Rule">Passes if a task belongs to a roster team marked SRE. That assignment does not prove readiness work is complete.</td></tr><tr><td data-label="Check">Queue headroom</td><td data-label="Rule">Fails if a known involved team's WIP is at least twice its streams, or developers when streams are absent. Missing statistics do not fail this check.</td></tr><tr><td data-label="Check">Sequencing</td><td data-label="Rule">Warns when multiple teams participate with no internal prerequisite link. A passing result does not prove that every required cross-team link exists.</td></tr>
 </tbody></table></div>
 <p>Suggested dependencies use historical directed team pairs with at least two links, both teams present and no already declared prerequisite between that pair. The UI shows up to five suggestions in descending link count, using the first task for each team as representative endpoints. Confirm the actual task relationship before accepting a suggestion.</p>
@@ -519,7 +518,7 @@
 <div class="formula"><code>queue scale = [rho / (1 − rho)] / [baseline rho / (1 − baseline rho)]</code><br><code>adjusted duration = sampled duration × size × (0.15 + 0.85 × queue scale)</code></div>
 <p>Utilization is capped at 0.97. The default 15% touch / 85% waiting split is a model assumption, not measured flow efficiency. Task start follows the latest predecessor finish plus modeled handoff. Each trial's finish is the latest task finish. Percentiles interpolate through the sorted trial finishes.</p>
 <p>Handoff per round trip is 0.25 day for at least 4 hours of overlap, 0.5 for at least 2, 1 for positive overlap below 2, and 1.5 for zero overlap; the default is three round trips. Imported overlap currently defaults to 8 hours within a team, 6 for matching known locations and 2 otherwise. Those are location proxies; they are not Plan's date-aware site calendars.</p>
-<div class="table-wrap" role="region" aria-label="23. Measure: Feature Simulator reference table"><table><thead><tr><th scope="col">Output</th><th scope="col">How to read it</th></tr></thead><tbody>
+<div class="table-wrap" role="region" aria-label="23. Measure: Feature Simulator reference table"><table class="table table-sm"><thead><tr><th scope="col">Output</th><th scope="col">How to read it</th></tr></thead><tbody>
 <tr><td data-label="Output">P50 / P85 / P95</td><td data-label="How to read it">50%, 85% or 95% of model trials finish by that point under the supplied assumptions. Higher percentiles allow more modeled uncertainty; none is a guarantee.</td></tr>
 <tr><td data-label="Output">CDF</td><td data-label="How to read it">Share of trials finishing by each modeled duration/date. Use it to discuss the risk of a proposed date.</td></tr>
 <tr><td data-label="Output">Representative timeline</td><td data-label="How to read it">The trial nearest P85 among the first 500 replayed trials. It is not a resource-leveled portfolio agreement.</td></tr>
@@ -536,7 +535,7 @@
 
 <h2 id="fever">25. Buffer and fever charts: three different calculations</h2>
 <p>These views share the idea of protection relative to progress, but use different inputs and thresholds. Read the view and source before interpreting a color. The equations below are Conway's implementations, inspired by buffer management; they are not prescribed formulas from the books.</p>
-<div class="table-wrap" role="region" aria-label="25. Buffer and fever charts: three different calculations reference table"><table><thead><tr><th scope="col">View</th><th scope="col">Calculation</th><th scope="col">Question answered</th></tr></thead><tbody>
+<div class="table-wrap" role="region" aria-label="25. Buffer and fever charts: three different calculations reference table"><table class="table table-sm"><thead><tr><th scope="col">View</th><th scope="col">Calculation</th><th scope="col">Question answered</th></tr></thead><tbody>
 <tr><td data-label="View">Plan target fever</td><td data-label="Calculation"><code>p = clamp((target − start) / raw duration, 0, 1)</code><br><code>b = max(0, (commit − target) / buffer)</code><br><code>ratio = b / p</code> when p &gt; 0, otherwise b.</td><td data-label="Question answered">How exposed is the proposed commitment at the requested target? This is modeled target progress, not observed completion.</td></tr>
 <tr><td data-label="View">Measure modeled fever</td><td data-label="Calculation"><code>buffer = max(P85 − P50, 0.000000001)</code><br><code>b = max(0, (elapsed − P50 × p) / buffer)</code><br><code>ratio = b / max(p, 0.05)</code></td><td data-label="Question answered">How does an assumed progress fraction compare with the simulated duration range? Green &lt; 0.5; yellow from 0.5 to below 1; red at least 1.</td></tr>
 <tr><td data-label="View">Execution risk</td><td data-label="Calculation"><code>b = max(0, (T − (S + D × p)) / B)</code><br><code>buffer consumed % = 100 × b</code><br><code>risk ratio = b / max(p, 0.01)</code></td><td data-label="Question answered">How much agreed protection has elapsed relative to captured child progress? On track at most 0.67; at risk above 0.67 through 1; late above 1.</td></tr>
@@ -552,7 +551,7 @@
 <p>The game blends value, trust, readiness, team health, innovation and longer-term effects. Its scoring and event rules are intentionally separate from the planning scheduler and Measure's probability model. Do not transfer game percentages into staffing or delivery promises.</p>
 
 <h2 id="warnings">27. Troubleshoot unexpected results</h2>
-<div class="table-wrap" role="region" aria-label="27. Troubleshoot unexpected results reference table"><table><thead><tr><th scope="col">Symptom</th><th scope="col">Check first</th><th scope="col">Next action</th></tr></thead><tbody>
+<div class="table-wrap" role="region" aria-label="27. Troubleshoot unexpected results reference table"><table class="table table-sm"><thead><tr><th scope="col">Symptom</th><th scope="col">Check first</th><th scope="col">Next action</th></tr></thead><tbody>
 <tr><td data-label="Symptom">No period start</td><td data-label="Check first">Calendar dates need a week-zero origin.</td><td data-label="Next action">Set period start for dated targets and review. Undated relative-week scheduling can still use capacity.</td></tr>
 <tr><td data-label="Symptom">Missing team / estimate</td><td data-label="Check first">Roster names, positive numeric effort and unknown-estimate markers.</td><td data-label="Next action">Reconcile import preview against the source and enter the missing data.</td></tr>
 <tr><td data-label="Symptom">Idle team but no scheduled bar</td><td data-label="Check first">Readiness, predecessor commitments, WIP release, lead policy, calendar and contiguous lane space.</td><td data-label="Next action">Inspect the unscheduled reason and the team timeline; free headcount alone is insufficient.</td></tr>

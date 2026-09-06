@@ -221,7 +221,11 @@ const syncMeasureContext = () => {
   measureContext?.setView(active?.id.replace('view-', '') || 'home');
 };
 document.querySelectorAll('.tab[data-view]').forEach((b) => b.addEventListener('click', () => {
-  document.querySelectorAll('.tab[data-view]').forEach((x) => x.classList.toggle('active', x === b));
+  document.querySelectorAll('.tab[data-view]').forEach((x) => {
+    x.classList.toggle('active', x === b);
+    if (x === b) x.setAttribute('aria-current', 'page');
+    else x.removeAttribute('aria-current');
+  });
   document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === `view-${b.dataset.view}`));
   syncMeasureContext();
   writeRoute({view:b.dataset.view, ...(b.dataset.view === 'network' ? {networkLens:b.id === 'net-plan' ? 'what-if' : 'observe'} : {})});

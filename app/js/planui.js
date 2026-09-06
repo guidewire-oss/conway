@@ -28,7 +28,7 @@ let root, current = null;
 let pendingPlanDestination = '';
 const planDestinations = { setup: 'plan setup', order: 'Plan commitments', timeline: 'Timeline', ready: 'Next work', execution: 'Review execution', 'linked-sheets': 'Linked Google Sheets' };
 function pendingDestinationHTML() {
-  return pendingPlanDestination ? `<p data-pending-destination role="status">${current ? 'Complete this plan’s inputs' : 'Choose a plan'} to open ${esc(planDestinations[pendingPlanDestination])}. <button type="button" data-cancel-destination>Cancel</button></p>` : '';
+  return pendingPlanDestination ? `<p data-pending-destination role="status">${current ? 'Complete this plan’s inputs' : 'Choose a plan'} to open ${esc(planDestinations[pendingPlanDestination])}. <button class="btn btn-secondary" type="button" data-cancel-destination>Cancel</button></p>` : '';
 }
 function wirePendingDestination() {
   root.querySelector('[data-cancel-destination]')?.addEventListener('click', () => {
@@ -269,17 +269,17 @@ async function renderList() {
   const plans = await r.json();
   if (ticket !== planLoadTicket) return;
   root.innerHTML = `
-    <div class="plan-head"><h2>Your plans</h2><button id="plan-new" class="primary">+ New plan</button><button id="plan-demo">Load demo plan</button></div>
+    <div class="plan-head"><h2>Your plans</h2><button id="plan-new" class="btn btn-primary primary">+ New plan</button><button class="btn btn-secondary" id="plan-demo">Load demo plan</button></div>
     ${pendingDestinationHTML()}
     <p class="hint">Sample files to try the upload path: <a href="/api/sample/teams.csv" download>teams.csv</a> · <a href="/api/sample/initiatives.xlsx" download>initiatives.xlsx</a> (same data as the demo).</p>
-    <table class="wip-table">
+    <table class="table table-sm wip-table">
       <thead><tr><th>Name</th><th>Pods</th><th>Initiatives</th><th>Health</th><th>Updated</th><th></th></tr></thead>
       <tbody>${(plans || []).map((p) => `<tr>
-        <td><button type="button" class="plan-open" data-id="${esc(p.id)}">${esc(p.name)}</button></td>
+        <td><button type="button" class="btn btn-secondary plan-open" data-id="${esc(p.id)}">${esc(p.name)}</button></td>
         <td>${p.teamCount || 0}</td><td>${p.initiativeCount || 0}</td>
-        <td><span class="tag">${p.estimateModel === 'effort' ? 'effort' : 'wall-clock'}</span> ${p.periodStart ? '<span class="tag" style="color:var(--green)">dates set</span>' : '<span class="hint">no dates</span>'} ${p.baselineCount ? `<span class="tag">${p.baselineCount} baseline${p.baselineCount > 1 ? 's' : ''}</span>` : ''}</td>
+        <td><span class="badge text-bg-secondary tag">${p.estimateModel === 'effort' ? 'effort' : 'wall-clock'}</span> ${p.periodStart ? '<span class="badge bg-success-subtle text-success-emphasis tag">dates set</span>' : '<span class="hint">no dates</span>'} ${p.baselineCount ? `<span class="badge text-bg-secondary tag">${p.baselineCount} baseline${p.baselineCount > 1 ? 's' : ''}</span>` : ''}</td>
         <td>${fmtDate(p.updatedAt)}</td>
-        <td><button class="plan-del" data-id="${p.id}">delete</button></td></tr>`).join('')
+        <td><button class="btn btn-secondary plan-del" data-id="${p.id}">delete</button></td></tr>`).join('')
       || '<tr><td colspan="6" class="hint">No plans yet — create one, then upload your teams and initiatives or link Google Sheets.</td></tr>'}
       </tbody></table>`;
   root.querySelector('#plan-new').addEventListener('click', createPlan);
@@ -332,8 +332,8 @@ async function openPlan(id, route = null) {
 }
 
 function uploadField(kind, label, count) {
-  return `<div class="plan-up">
-    <label class="plan-upbtn">${label}<input type="file" accept=".csv,.xlsx" data-kind="${kind}" hidden></label>
+  return `<div class="plan-up d-flex flex-wrap gap-2 align-items-end mw-100">
+    <label class="form-label mb-0 mw-100 plan-upbtn">${label}<input class="form-control" type="file" accept=".csv,.xlsx" data-kind="${kind}"></label>
     <span class="hint">${count ? `${count} loaded` : 'none yet'}</span>
   </div>`;
 }
@@ -344,11 +344,11 @@ function renderPlan() {
   const unknown = p.unknownTeams || [];
   root.innerHTML = `
     <div class="plan-head">
-      <nav class="plan-crumbs" aria-label="You are here"><button type="button" class="plan-back">Plans</button><span class="hint">›</span><b>${esc(p.name)}</b></nav>
+      <nav class="plan-crumbs" aria-label="You are here"><button type="button" class="btn btn-link p-0 plan-back">Plans</button><span class="hint">›</span><b>${esc(p.name)}</b></nav>
       <h2>${esc(p.name)}</h2>
       <span class="hint">${esc(p.scheduling?.periodStart || 'Period start not set')} · ${p.horizonWeeks} weeks</span>
-      <button type="button" id="plan-scenario" ${p.isDraft ? 'disabled' : ''}>${icon('copy')}Create scenario copy</button>
-      <button type="button" id="plan-linked-sheets" ${p.isDraft ? 'disabled' : ''}>Linked Google Sheets</button>
+      <button class="btn btn-secondary" type="button" id="plan-scenario" ${p.isDraft ? 'disabled' : ''}>${icon('copy')}Create scenario copy</button>
+      <button class="btn btn-secondary" type="button" id="plan-linked-sheets" ${p.isDraft ? 'disabled' : ''}>Linked Google Sheets</button>
       <span id="plan-save-status" role="status" aria-live="polite" class="hint ${p.saveNotice?.error ? 'plan-warn' : ''}">${esc(p.saveNotice?.message || 'Working plan · saved. Edits autosave; baselines change only when you save an agreement.')}</span>
     </div>
     ${pendingDestinationHTML()}
@@ -356,9 +356,9 @@ function renderPlan() {
       <summary>Plan setup <span class="hint">${nTeams} pods · ${nInit} initiatives · ${(Math.round((p.capacityLoss || 0) * 100))}% capacity loss</span></summary>
       <p class="hint">Use the inputs below, or choose Linked Google Sheets above to maintain this plan from shared sheet ranges. For a new plan, link and apply the team roster before its initiatives.</p>
       <div class="row-actions">
-        <label>Period length <input id="plan-horizon" type="number" min="1" max="104" value="${p.horizonWeeks}"> weeks</label>
-        <label>Capacity loss <input id="plan-loss" type="number" min="0" max="90" value="${Math.round((p.capacityLoss || 0) * 100)}">%</label>
-        <button id="plan-save">${icon('save')}Save settings</button>
+        <label>Period length <input class="form-control" id="plan-horizon" type="number" min="1" max="104" value="${p.horizonWeeks}"> weeks</label>
+        <label>Capacity loss <input class="form-control" id="plan-loss" type="number" min="0" max="90" value="${Math.round((p.capacityLoss || 0) * 100)}">%</label>
+        <button class="btn btn-secondary" id="plan-save">${icon('save')}Save settings</button>
       </div>
       <div class="plan-uploads">
         <div class="plan-step"><span class="plan-step-num">1</span>
@@ -371,13 +371,13 @@ function renderPlan() {
           <div class="plan-step-body">
             <div class="plan-up-init">
             ${uploadField('initiatives', `${icon('upload')}Initiatives (XLSX/CSV)`, nInit)}
-            <button type="button" id="plan-init-preview" class="secondary" disabled
+            <button type="button" id="plan-init-preview" class="btn btn-secondary secondary" disabled
               title="render the network and order from this sheet, without saving">Preview</button>
             <span class="hint" id="plan-init-file"></span>
             <span class="plan-warn" id="plan-preview-warn" hidden></span>
           </div>
             <label class="hint plan-up" title="Drops dependency cells that don't match roster pods">
-              <input type="checkbox" id="plan-strict-deps" ${current.strictDeps ? 'checked' : ''}> strict: match dependencies to roster
+              <input class="form-check-input" type="checkbox" id="plan-strict-deps" ${current.strictDeps ? 'checked' : ''}> strict: match dependencies to roster
             </label>
             <p class="hint">strict drops dependency cells that don't match a roster pod name (case/whitespace-insensitive) — free text like "Requirements unknown" won't become a fake node in the network.</p>
             ${nTeams === 0 ? '<p class="plan-warn">Attach a roster first — dependency cells match pod names from the roster, so initiatives uploaded before one cannot resolve their deps.</p>' : ''}
@@ -388,19 +388,19 @@ function renderPlan() {
       <p class="hint">Need samples? <a href="/api/sample/teams.csv" download>teams.csv</a> · <a href="/api/sample/initiatives.xlsx" download>initiatives.xlsx</a></p>
     </details>
     ${current.isDraft ? `<p class="plan-warn">Previewing an unsaved initiatives upload — nothing is saved yet.
-      <button id="plan-draft-save" class="primary">Save initiatives</button>
-      <button id="plan-draft-discard">Discard</button></p>` : ''}
-    ${unknown.length ? `<p class="plan-warn">${icon('warning')} ${unknown.length} pod(s) referenced by initiatives but missing from the roster: ${unknown.map(esc).join(', ')} — <button type="button" id="unknown-fix" class="warn-act">switch roster</button> or fix the sheet. <button type="button" class="usage-link" data-anchor="warnings">learn more</button></p>` : ''}
-    ${nTeams > 0 && nInit > 0 ? `<div class="plan-views"><div class="btn-group" role="group">
-      <button class="btn ${view() === 'order' ? 'active' : ''}" id="view-order">Plan commitments</button><button class="btn ${view() === 'network' ? 'active' : ''}" id="plan-view-network">Dependencies</button><button class="btn ${view() === 'timeline' ? 'active' : ''}" id="view-timeline">Timeline</button><button class="btn ${view() === 'ready' ? 'active' : ''}" id="view-ready">Next work</button><button class="btn ${view() === 'execution' ? 'active' : ''}" id="view-execution">Review execution</button><button class="btn" id="view-report" title="one printable card: verdicts, capacity, conflicts, remedies (spec 013)">${icon('report')}Report</button>
+      <button id="plan-draft-save" class="btn btn-primary primary">Save initiatives</button>
+      <button class="btn btn-secondary" id="plan-draft-discard">Discard</button></p>` : ''}
+    ${unknown.length ? `<p class="plan-warn">${icon('warning')} ${unknown.length} pod(s) referenced by initiatives but missing from the roster: ${unknown.map(esc).join(', ')} — <button type="button" id="unknown-fix" class="btn btn-secondary warn-act">switch roster</button> or fix the sheet. <button type="button" class="btn btn-link p-0 usage-link" data-anchor="warnings">learn more</button></p>` : ''}
+    ${nTeams > 0 && nInit > 0 ? `<div class="plan-views"><div class="btn-group" role="group" aria-label="Plan workspace">
+      <button class="btn-secondary btn ${view() === 'order' ? 'active' : ''}" id="view-order" aria-pressed="${view() === 'order'}">Plan commitments</button><button class="btn-secondary btn ${view() === 'network' ? 'active' : ''}" id="plan-view-network" aria-pressed="${view() === 'network'}">Dependencies</button><button class="btn-secondary btn ${view() === 'timeline' ? 'active' : ''}" id="view-timeline" aria-pressed="${view() === 'timeline'}">Timeline</button><button class="btn-secondary btn ${view() === 'ready' ? 'active' : ''}" id="view-ready" aria-pressed="${view() === 'ready'}">Next work</button><button class="btn-secondary btn ${view() === 'execution' ? 'active' : ''}" id="view-execution" aria-pressed="${view() === 'execution'}">Review execution</button><button class="btn-secondary btn" id="view-report" title="one printable card: verdicts, capacity, conflicts, remedies (spec 013)">${icon('report')}Report</button>
     </div>${baselineChipHTML(current.baselines)}</div>` : ''}
     ${nTeams === 0 ? `
-      <div class="panel-card plan-start">
+      <div class="card p-3 panel-card plan-start">
         <h3>A plan is a roster + the initiatives you intend to run, sequenced by capacity.</h3>
         <p class="hint">Four steps: attach a roster (team composition, pinned as of today) → upload the initiatives matrix →
           review the proposed order and its verdicts → save the agreed order as a baseline. Nothing here writes to Jira.</p>
         <div class="plan-start-row">
-          <button type="button" id="plan-start-demo" class="primary">Start from the demo plan</button>
+          <button type="button" id="plan-start-demo" class="btn btn-primary primary">Start from the demo plan</button>
           <span class="hint">— or attach your own roster and upload your initiatives below, exactly as they are today.</span>
         </div>
       </div>` : ''
@@ -511,7 +511,7 @@ function proposalModal(title, content) {
   let ov = document.getElementById('plan-proposal-overlay');
   if (!ov) { ov = document.createElement('div'); ov.id = 'plan-proposal-overlay'; ov.className = 'modal-overlay'; document.body.appendChild(ov); }
   ov.proposalToken = Symbol('proposal');
-  ov.innerHTML = `<div class="modal-box"><div class="modal-head"><h2 id="plan-proposal-title">${esc(title)}</h2><button type="button" class="proposal-close">${icon('close')}Close</button></div>${content}</div>`;
+  ov.innerHTML = `<div class="modal-box"><div class="modal-head"><h2 id="plan-proposal-title">${esc(title)}</h2><button type="button" class="btn btn-secondary proposal-close">${icon('close')}Close</button></div>${content}</div>`;
   ov.setAttribute('aria-labelledby', 'plan-proposal-title');
   ov.querySelector('.proposal-close').addEventListener('click',()=>closeModal(ov));
   openModal(ov);
@@ -521,7 +521,7 @@ function proposalModal(title, content) {
 async function createScenario() {
   if (!current || current.isDraft) return;
   const planId = current.id;
-  const ov = proposalModal('Create scenario copy', `<p>A scenario starts with this working plan’s saved inputs. It has its own changes and no inherited agreement.</p><form id="scenario-form"><label>Scenario name <input name="name" required maxlength="100" value="${esc(current.name.slice(0,80))} — scenario"></label><p class="proposal-status" role="status" aria-live="polite"></p><button type="submit" class="primary">Create and open scenario</button></form>`);
+  const ov = proposalModal('Create scenario copy', `<p>A scenario starts with this working plan’s saved inputs. It has its own changes and no inherited agreement.</p><form id="scenario-form"><label>Scenario name <input class="form-control" name="name" required maxlength="100" value="${esc(current.name.slice(0,80))} — scenario"></label><p class="proposal-status" role="status" aria-live="polite"></p><button type="submit" class="btn btn-primary primary">Create and open scenario</button></form>`);
   const token = ov.proposalToken;
   ov.querySelector('form').addEventListener('submit',async ev=>{
     ev.preventDefault(); const form=ev.currentTarget, button=form.querySelector('button'), status=form.querySelector('.proposal-status');
@@ -550,7 +550,7 @@ async function previewRemedy(remedy) {
   const result=await r.json();
   if(!live()) return;
   const status=ov.querySelector('.proposal-status');
-  status.outerHTML=`<p>${esc(remedy.note || remedy.kind)} · target ${esc(remedy.target)}</p><p class="hint">Review every affected commitment. Applying saves the working inputs; your agreed baseline stays unchanged.</p>${compareTableHTML({baseline:{name:'Current working plan'},to:{name:'Proposed change'},comparison:result.comparison})}<p class="proposal-status" role="status" aria-live="polite">Preview only. Nothing has been applied.</p><button type="button" class="primary" id="remedy-apply">Apply to working plan</button>`;
+  status.outerHTML=`<p>${esc(remedy.note || remedy.kind)} · target ${esc(remedy.target)}</p><p class="hint">Review every affected commitment. Applying saves the working inputs; your agreed baseline stays unchanged.</p>${compareTableHTML({baseline:{name:'Current working plan'},to:{name:'Proposed change'},comparison:result.comparison})}<p class="proposal-status" role="status" aria-live="polite">Preview only. Nothing has been applied.</p><button type="button" class="btn btn-primary primary" id="remedy-apply">Apply to working plan</button>`;
   ov.querySelector('#remedy-apply').addEventListener('click',async ev=>{
     const button=ev.currentTarget, note=ov.querySelector('.proposal-status');
     if(!live()) { note.textContent='The working plan changed. Close and preview this remedy again.'; return; }
@@ -1051,7 +1051,7 @@ async function renderTimeline() {
     const k = `conway-callout-${key}`;
     if (sessionStorage.getItem(k)) return '';
     return `<p class="plan-warn callout" data-callout="${key}">${text}
-      <button type="button" class="callout-dismiss" data-dismiss="${key}">got it</button></p>`;
+      <button type="button" class="btn btn-secondary callout-dismiss" data-dismiss="${key}">got it</button></p>`;
   };
   if (!current.schedule) {
     host.innerHTML = '<p class="hint">Working out the order…</p>';
@@ -1106,7 +1106,7 @@ async function renderTimeline() {
   const spanWeeks = (spans.find((sp) => sp.id === spanSel) || spans[0]).weeks;
   host.innerHTML = `
     ${timelineControlsHTML({ lens, horizon, spans, spanSel, initiativeFilter: current.tlInitiativeFilter, teamFilter: current.tlTeamFilter, hideEmpty: current.tlHideEmpty, ghost: current.tlGhost })}
-    <p class="hint">Edits autosave to the working plan. <button type="button" id="tl-undo" ${!dragHistory.length || current.isDraft ? 'disabled' : ''}>${icon('undo')} Undo last edit${dragHistory.length ? ` (${dragHistory.length} available)` : ''}</button></p>
+    <p class="hint">Edits autosave to the working plan. <button class="btn btn-secondary" type="button" id="tl-undo" ${!dragHistory.length || current.isDraft ? 'disabled' : ''}>${icon('undo')} Undo last edit${dragHistory.length ? ` (${dragHistory.length} available)` : ''}</button></p>
     <p id="tl-drag-note" role="status" hidden></p>
     <div id="tl-main"></div>
     <div id="tl-inspector"></div>
@@ -1235,7 +1235,7 @@ async function renderTimeline() {
     // timeline, or a fresh plan renders two bars and reads as a broken filter.
     document.getElementById('tl-wip-banner')?.remove();
     if (sched.wipLimit?.model === 'unchosen') {
-      main.insertAdjacentHTML('beforebegin', `<p class="plan-warn callout" id="tl-wip-banner">The WIP model hasn't been chosen for this plan — the scheduler is holding all but ${sched.wipLimit.value} concurrent initiatives, so most bars are missing. <button type="button" class="usage-link" id="tl-choose-wip">choose it now</button></p>`);
+      main.insertAdjacentHTML('beforebegin', `<p class="plan-warn callout" id="tl-wip-banner">The WIP model hasn't been chosen for this plan — the scheduler is holding all but ${sched.wipLimit.value} concurrent initiatives, so most bars are missing. <button type="button" class="btn btn-link p-0 usage-link" id="tl-choose-wip">choose it now</button></p>`);
       document.getElementById('tl-choose-wip')?.addEventListener('click', () => {
         current.setupFocus = true;
         setView('order');
@@ -1372,7 +1372,7 @@ async function renderTimeline() {
     holder.innerHTML = ps ? podSheetHTML(ps, sched, { horizonWeeks: horizon, span: spanWeeks, planInitiatives: current.initiatives || [] }) : '';
     if (ps) {
       const next = document.createElement('button');
-      next.type = 'button'; next.textContent = `Next work for ${pod}`;
+      next.type = 'button'; next.className = 'btn btn-secondary'; next.textContent = `Next work for ${pod}`;
       next.addEventListener('click', () => openTeamReady(pod));
       holder.prepend(next);
     }
@@ -1415,8 +1415,8 @@ async function openHealthReport() {
   overlay.setAttribute('aria-label', 'Plan health report');
   overlay.innerHTML = `
     <div class="report-actions no-print">
-      <button type="button" id="report-print">${icon('report')}Print</button>
-      <button type="button" id="report-close">Close</button>
+      <button class="btn btn-secondary" type="button" id="report-print">${icon('report')}Print</button>
+      <button class="btn btn-secondary" type="button" id="report-close">Close</button>
     </div>
     ${healthReportHTML(current.schedule, {
       planName: current.name, baselines: current.baselines,
@@ -1489,7 +1489,7 @@ async function renderOrder() {
     const k = `conway-callout-${key}`;
     if (sessionStorage.getItem(k)) return '';
     return `<p class="plan-warn callout" data-callout="${key}">${text}
-      <button type="button" class="callout-dismiss" data-dismiss="${key}">got it</button></p>`;
+      <button type="button" class="btn btn-secondary callout-dismiss" data-dismiss="${key}">got it</button></p>`;
   };
   if (!current.schedule) {
     host.innerHTML = '<p class="hint">Working out the order…</p>';
@@ -1631,7 +1631,7 @@ async function renderOrder() {
     const queue = host.querySelector('.ord-queue');
     if (queue) {
       const next = document.createElement('button');
-      next.type = 'button'; next.textContent = `Next work for ${current.orderPod}`;
+      next.type = 'button'; next.className = 'btn btn-secondary'; next.textContent = `Next work for ${current.orderPod}`;
       next.addEventListener('click', () => openTeamReady(current.orderPod));
       queue.prepend(next);
     }
@@ -1751,8 +1751,8 @@ async function renderOrder() {
         <span class="hint">Weighted unstarted work: yours ${esc(String(current.schedule.unscheduledWeight ?? 'unknown'))} → proposed ${esc(String(best?.unscheduledWeight ?? 'unknown'))}. Weighted lateness: yours ${esc(String(current.schedule.objectiveScore))} → proposed ${esc(String(best?.objective ?? 'unknown'))}. Lower unstarted work takes priority; lateness breaks ties.</span>
         ${moves ? `<ul class="hint">${moves}</ul>` : '<p class="hint">no moves — your order already matches the best rule found</p>'}
         <div class="sched-row" style="gap:8px">
-          <button type="button" class="primary" id="ord-accept">Accept the engine's order</button>
-          <button type="button" id="ord-reject">Keep my order</button>
+          <button type="button" class="btn btn-primary primary" id="ord-accept">Accept the engine's order</button>
+          <button class="btn btn-secondary" type="button" id="ord-reject">Keep my order</button>
         </div>
       </div>`);
     document.getElementById('ord-accept')?.addEventListener('click', () => setAcceptedOrdering('engine'));
@@ -1958,7 +1958,7 @@ async function renderPlanSites(nTeams) {
     <div class="plan-sites plan-note">
       <span class="hint">🌐 Sites: ${withTz.length} of ${sites.length} have a timezone.
       ${missing ? 'Complete missing timezone information for site analysis.' : 'Site working-hour information is recorded.'} The finite scheduler currently adds no timezone handoff delay.</span>
-      ${missing ? '<button type="button" id="sites-fix" class="usage-link">set the missing timezones</button>' : ''}
+      ${missing ? '<button type="button" id="sites-fix" class="btn btn-link p-0 usage-link">set the missing timezones</button>' : ''}
       <span class="hint">Timezones can also ride the roster itself — a Timezone column on the teams sheet.</span>
     </div>`;
   document.getElementById('sites-fix')?.addEventListener('click', () => openSitesModal(sites.filter((st) => !st.timezone)));
@@ -1976,17 +1976,17 @@ function openSitesModal(missing) {
   const options = (tz) => ['<option value="">pick a timezone…</option>']
     .concat(TZ_CHOICES.map((z) => `<option value="${z}" ${z === tz ? 'selected' : ''}>${z}</option>`)).join('');
   overlay.innerHTML = `
-    <div class="sites-modal panel-card">
+    <div class="card p-3 sites-modal panel-card">
       <h3>Set the missing timezones</h3>
       <p class="hint">These sites need timezone information. The roster's Timezone column fills it on the next upload. The finite scheduler currently adds no timezone handoff delay.</p>
       ${missing.map((st) => `<div class="sites-row" data-site="${esc(st.name)}">
         <b>${esc(st.name)}</b>
-        <select class="site-tz">${options(st.timezone)}</select>
+        <select class="form-select site-tz">${options(st.timezone)}</select>
       </div>`).join('')}
       <p class="plan-warn" id="sites-error" hidden></p>
       <div class="sites-actions">
-        <button type="button" id="sites-cancel">Cancel</button>
-        <button type="button" id="sites-saveall" class="primary">Save</button>
+        <button class="btn btn-secondary" type="button" id="sites-cancel">Cancel</button>
+        <button type="button" id="sites-saveall" class="btn btn-primary primary">Save</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -2037,7 +2037,7 @@ async function renderRosterPicker(nTeams) {
   // orphan dependency cells — confirm only then; cancel restores the select.
   const prevRoster = current.rosterId || '';
   box.innerHTML = `<label class="hint">roster (applies on selection)
-      <select id="plan-roster-sel">
+      <select class="form-select" id="plan-roster-sel">
         <option value="" ${!current.rosterId ? 'selected' : ''}>none selected</option>
         ${rosters.map((r) => `<option value="${r.id}" ${r.id === current.rosterId ? 'selected' : ''}>${esc(r.name)} (${r.podCount} pods)</option>`).join('')}
       </select>
@@ -2166,18 +2166,18 @@ function paintDash() {
     const tm = teamByName[l.team] || {};
     if (current.editPod === l.team) {
       return `<tr><td>${esc(l.team)}</td><td colspan="4">
-        tracks <input id="pe-tracks" type="number" min="0" max="50" value="${tm.tracks || ''}" placeholder="${l.tracks} (auto)" style="width:84px">
-        <label><input id="pe-pairs" type="checkbox" ${tm.pairs ? 'checked' : ''}> pairs</label>
+        tracks <input class="form-control" id="pe-tracks" type="number" min="0" max="50" value="${tm.tracks || ''}" placeholder="${l.tracks} (auto)" style="width:84px">
+        <label><input class="form-check-input" id="pe-pairs" type="checkbox" ${tm.pairs ? 'checked' : ''}> pairs</label>
         <span class="hint">${tm.devs || 0} devs</span>
-        <button class="pod-save" data-pod="${esc(l.team)}">save</button>
-        <button class="pod-cancel">cancel</button></td></tr>`;
+        <button class="btn btn-secondary pod-save" data-pod="${esc(l.team)}">save</button>
+        <button class="btn btn-secondary pod-cancel">cancel</button></td></tr>`;
     }
     return `<tr>
       <td>${esc(l.team)}</td>
       <td><b style="color:${rhoColor(l.rho)}">${rhoTxt(l.rho)}</b></td>
       <td>${hasLevers ? `<b style="color:${rhoColor(a.rho)}">${rhoTxt(a.rho)}</b>` : '<span class="hint">—</span>'}</td>
       <td>${Math.round(l.demandWeeks)} / ${Math.round(l.capacityWeeks)}</td>
-      <td>${l.tracks}${hasLevers && a.tracks !== l.tracks ? ` → ${a.tracks}` : ''} <button type="button" class="pod-edit" data-pod="${esc(l.team)}">${icon('edit')}Edit capacity</button></td></tr>`;
+      <td>${l.tracks}${hasLevers && a.tracks !== l.tracks ? ` → ${a.tracks}` : ''} <button type="button" class="btn btn-secondary pod-edit" data-pod="${esc(l.team)}">${icon('edit')}Edit capacity</button></td></tr>`;
   }).join('');
 
   const initB = {}; sim.before.initiatives.forEach((i) => initB[i.name] = i);
@@ -2195,10 +2195,10 @@ function paintDash() {
     Median lead ${leadDelta(sim.before.medianLeadWeeks, sim.after.medianLeadWeeks)}`;
 
   document.getElementById('plan-dash').innerHTML = `
-    <div class="plan-net panel-card">
+    <div class="card p-3 plan-net panel-card">
       <div class="plan-net-head"><b>Dependency network</b>
         <span>
-          <div class="btn-group" role="group"><button class="btn ${mode === 'before' ? 'active' : ''}" id="net-before">Current inputs</button><button class="btn ${mode === 'after' ? 'active' : ''}" id="net-after">with levers</button></div>
+          <div class="btn-group" role="group" aria-label="Network scenario"><button class="btn-secondary btn ${mode === 'before' ? 'active' : ''}" id="net-before" aria-pressed="${mode === 'before'}">Current inputs</button><button class="btn-secondary btn ${mode === 'after' ? 'active' : ''}" id="net-after" aria-pressed="${mode === 'after'}">with levers</button></div>
         </span></div>
       <div class="plan-net-wrap">
         <svg id="plan-svg"></svg>
@@ -2206,18 +2206,18 @@ function paintDash() {
       </div>
       <p class="hint">flow runs left→right · node size = demand · ring = ρ (heat) · showing <b>${mode === 'after' ? 'with levers' : 'baseline'}</b></p>
     </div>
-    <div class="plan-constraints panel-card" style="margin-top:12px">
+    <div class="card p-3 plan-constraints panel-card" style="margin-top:12px">
       <b>Constraints <span class="hint">(hottest first)</span></b>
-      <table class="wip-table"><thead><tr><th>Pod</th><th>ρ now</th><th>ρ after</th><th>demand/cap</th><th>tracks</th></tr></thead>
+      <table class="table table-sm wip-table"><thead><tr><th>Pod</th><th>ρ now</th><th>ρ after</th><th>demand/cap</th><th>tracks</th></tr></thead>
         <tbody>${constraintRows}</tbody></table>
       <p class="hint">ρ: red ≥1 · amber ≥.85 · green &lt;.85 — utilization is the signal; lead time is directional.</p>
     </div>
-    <div class="plan-levers panel-card">
+    <div class="card p-3 plan-levers panel-card">
       <b>Levers — what-if</b>
       <div class="plan-summary">${summary}</div>
       <div class="lever-chips">${(current.levers || []).map((lv, i) => `<span class="chip">${esc(leverLabel(lv))} <a class="chip-x" data-lev="${i}">✕</a></span>`).join('') || '<span class="hint">no levers yet</span>'}</div>
       <div class="lever-add">
-        <select id="lev-type">
+        <select class="form-select" id="lev-type">
           <option value="addCapacity">Add capacity</option>
           <option value="unpair">Un-pair a pod</option>
           <option value="descope">Descope an initiative</option>
@@ -2227,12 +2227,12 @@ function paintDash() {
           <option value="dropPod">Drop a pod from an initiative</option>
         </select>
         <span id="lev-target"></span>
-        <button id="lev-add" class="primary">Add lever</button>
+        <button id="lev-add" class="btn btn-primary primary">Add lever</button>
       </div>
     </div>
-    <div class="panel-card" style="margin-top:12px">
+    <div class="card p-3 panel-card" style="margin-top:12px">
       <b>Initiatives</b>
-      <table class="wip-table"><thead><tr><th>Initiative</th><th>Pods in path</th><th>Lead time (directional)</th><th>Bottleneck</th></tr></thead>
+      <table class="table table-sm wip-table"><thead><tr><th>Initiative</th><th>Pods in path</th><th>Lead time (directional)</th><th>Bottleneck</th></tr></thead>
         <tbody>${initRows}</tbody></table>
     </div>`;
 
@@ -2288,13 +2288,13 @@ function renderLeverTarget() {
   const podOpts = PODS().map((n) => `<option>${esc(n)}</option>`).join('');
   const initOpts = INITS().map((n) => `<option>${esc(n)}</option>`).join('');
   const el = document.getElementById('lev-target');
-  if (t === 'addCapacity') el.innerHTML = `<select id="lev-pod">${podOpts}</select> +<input id="lev-n" type="number" min="1" max="10" value="2" style="width:48px"> tracks`;
-  else if (t === 'unpair') el.innerHTML = `<select id="lev-pod">${podOpts}</select>`;
-  else if (t === 'descope') el.innerHTML = `<select id="lev-init">${initOpts}</select> −<input id="lev-n" type="number" min="5" max="90" value="40" style="width:48px">%`;
-  else if (t === 'defer') el.innerHTML = `<select id="lev-init">${initOpts}</select>`;
-  else if (t === 'reduceWip') el.innerHTML = `−<input id="lev-n" type="number" min="5" max="40" value="15" style="width:48px">% multitasking`;
-  else if (t === 'reassign') el.innerHTML = `<select id="lev-pod">${podOpts}</select> → <select id="lev-topod">${podOpts}</select>`;
-  else if (t === 'dropPod') el.innerHTML = `<select id="lev-pod">${podOpts}</select> from <select id="lev-init">${initOpts}</select>`;
+  if (t === 'addCapacity') el.innerHTML = `<select class="form-select" id="lev-pod">${podOpts}</select> +<input class="form-control" id="lev-n" type="number" min="1" max="10" value="2" style="width:48px"> tracks`;
+  else if (t === 'unpair') el.innerHTML = `<select class="form-select" id="lev-pod">${podOpts}</select>`;
+  else if (t === 'descope') el.innerHTML = `<select class="form-select" id="lev-init">${initOpts}</select> −<input class="form-control" id="lev-n" type="number" min="5" max="90" value="40" style="width:48px">%`;
+  else if (t === 'defer') el.innerHTML = `<select class="form-select" id="lev-init">${initOpts}</select>`;
+  else if (t === 'reduceWip') el.innerHTML = `−<input class="form-control" id="lev-n" type="number" min="5" max="40" value="15" style="width:48px">% multitasking`;
+  else if (t === 'reassign') el.innerHTML = `<select class="form-select" id="lev-pod">${podOpts}</select> → <select class="form-select" id="lev-topod">${podOpts}</select>`;
+  else if (t === 'dropPod') el.innerHTML = `<select class="form-select" id="lev-pod">${podOpts}</select> from <select class="form-select" id="lev-init">${initOpts}</select>`;
 }
 
 function addLever() {
@@ -2396,9 +2396,9 @@ function showPlanPodPanel(n, p, loads, net) {
   const outAll = (net.edges || []).filter((e) => e.from === n.name);
   const inits = (p.initiatives || []).filter((i) => i.work?.[n.name]?.inPath);
   const flags = [];
-  if (n.rho >= 1e8) flags.push('<span class="flag red">demand with zero capacity</span>');
-  else if (n.rho >= 1) flags.push('<span class="flag red">over capacity (ρ≥1)</span>');
-  else if (n.rho >= 0.85) flags.push('<span class="flag amber">queue hot (ρ≥0.85)</span>');
+  if (n.rho >= 1e8) flags.push('<span class="badge bg-danger-subtle text-danger-emphasis flag red">demand with zero capacity</span>');
+  else if (n.rho >= 1) flags.push('<span class="badge bg-danger-subtle text-danger-emphasis flag red">over capacity (ρ≥1)</span>');
+  else if (n.rho >= 0.85) flags.push('<span class="badge bg-warning-subtle text-warning-emphasis flag amber">queue hot (ρ≥0.85)</span>');
   const initRows = inits.map((i, idx) => {
     const w = i.work[n.name];
     const weeks = (w?.estimated && w?.weeks > 0)
@@ -2408,7 +2408,7 @@ function showPlanPodPanel(n, p, loads, net) {
   }).join('');
   document.getElementById('plan-netpanel').innerHTML = `
     <h2>${esc(n.name)}</h2>
-    <div>${flags.join(' ') || '<span class="flag" style="color:var(--green)">healthy</span>'}</div>
+    <div>${flags.join(' ') || '<span class="badge bg-success-subtle text-success-emphasis flag">healthy</span>'}</div>
     <dl>
       <dt>Demand / capacity</dt><dd>${Math.round(l.demandWeeks ?? n.weeks ?? 0)}w / ${Math.round(l.capacityWeeks ?? 0)}w · tracks ${l.tracks ?? '—'}</dd>
       <dt>Utilization</dt><dd>ρ ${rhoTxt(n.rho)}</dd>

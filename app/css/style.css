@@ -10,25 +10,11 @@ h1 { font-size: 20px; margin: 0; font-weight: 700; letter-spacing: -.01em; }
 h2 { font-size: 16px; margin: 0 0 10px; font-weight: 600; }
 h3 { font-size: 13px; margin: 14px 0 6px; color: var(--muted); font-weight: 600; }
 .brand { display: flex; align-items: center; gap: 12px; }
-.badge { font-size: 11px; padding: 2px 9px; border-radius: 10px; background: var(--panel2); color: var(--muted); border: 1px solid var(--border); }
-.badge.ok { color: var(--green); border-color: var(--green); }
-.badge.warn { color: var(--amber); border-color: var(--amber); }
 nav { display: flex; gap: 6px; }
-.tab { background: transparent; color: var(--muted); border: 1px solid transparent; padding: 7px 14px; border-radius: 7px; cursor: pointer; font-size: 13px; }
-.tab.active { background: var(--panel2); color: var(--text); border-color: var(--border); }
 /* Explore ▾ grouped dropdown — keeps the analytics views off the main bar */
 .nav-group { position: relative; display: inline-block; }
 .nav-menu { position: absolute; top: calc(100% + 4px); right: 0; min-width: 200px; }
-/* Visuals come from Bootstrap's .dropdown-menu (dark-theme aware via
-   [data-bs-theme=dark]); this class only positions it under our nav.
-   Items carry .tab for the app's tab logic AND .dropdown-item for the
-   framework's look; because style.css loads after bootstrap, .tab would win
-   the cascade, so .dropdown-item re-asserts the framework's spec here. */
-.nav-menu .dropdown-item { padding: 6px 14px; color: var(--text);
-  border: 0; background: transparent; border-radius: 4px; width: 100%; text-align: left; }
-.nav-menu .dropdown-item:hover, .nav-menu .dropdown-item:focus { background: var(--panel2); color: var(--text); }
-.nav-menu .dropdown-item.active { background: var(--panel2); color: var(--text); box-shadow: inset 2px 0 0 var(--bs-primary); }
-#explore-btn[aria-expanded="true"] { background: var(--panel2); color: var(--text); border-color: var(--border); }
+/* Navigation visuals and focus states are owned by Bootstrap. */
 /* full player briefing embedded in the "How to play" modal */
 .briefing-frame { width: 100%; height: 72vh; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
 /* Plan pillar */
@@ -36,9 +22,7 @@ nav { display: flex; gap: 6px; }
 .plan-head h2 { margin: 0; font-size: 16px; }
 .plan-back, .plan-open { color: var(--accent); cursor: pointer; }
 .plan-uploads { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
-.plan-up { display: flex; align-items: center; gap: 8px; }
-.plan-upbtn { background: var(--panel2); border: 1px solid var(--border); border-radius: 7px; padding: 7px 12px; cursor: pointer; font-size: 13px; color: var(--text); }
-.plan-upbtn:hover { border-color: var(--accent); }
+.plan-up { min-width: 0; }
 .plan-warn { color: var(--amber); background: rgba(var(--c-warning), .08); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin: 6px 0; }
 .plan-net-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
 /* same left-to-right layered layout + inspector-panel format as Observe's Org Network (.net-wrap) */
@@ -54,7 +38,6 @@ nav { display: flex; gap: 6px; }
 .plan-summary { margin: 8px 0; font-size: 14px; }
 .lever-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .lever-add { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
-.lever-add select, .lever-add input { padding: 5px 8px; }
 /* login: sign-in vs join-a-game tabs */
 .login-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
 .login-tabs .tab { flex: 1; }
@@ -62,46 +45,19 @@ nav { display: flex; gap: 6px; }
 #games-overlay { --bs-modal-width: min(1120px, 100%); }
 #games-modal { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; max-width: 1120px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 22px 28px; font-size: 15px; }
 .games-create { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 10px 0; }
-.games-create input, .games-create select { padding: 8px 10px; font-size: 14px; }
 .btn-row { display: flex; flex-wrap: wrap; gap: 6px; }
 #games-list { margin-top: 8px; }
 main { padding: 16px 20px; }
 .view { display: none; }
 .view.active { display: block; }
-.panel-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
 .hint { color: var(--muted); font-size: 12px; }
 
-/* Inputs: bare input/select/textarea match .form-control's spec through the
-   token layer — the ~40 generated templates inherit the system look without
-   markup changes; new markup uses .form-control/.form-select directly. */
-input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),
-select, textarea { background: var(--bg); color: var(--text);
-  border: 1px solid var(--border); border-radius: var(--bs-border-radius-sm);
-  padding: 6px 10px; font-size: 13px; font-family: inherit; line-height: 1.5; }
-input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):focus,
-select:focus, textarea:focus { border-color: var(--bs-primary);
-  outline: 0; box-shadow: 0 0 0 .2rem var(--bs-focus-ring-color); }
-input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file])::placeholder { color: var(--muted); opacity: 1; }
-/* Checkboxes/radios/ranges keep their native controls; only the accent
-   follows the system. */
-input[type=checkbox], input[type=radio] { accent-color: var(--bs-primary); width: 14px; height: 14px; }
-input[type=range] { accent-color: var(--bs-primary); padding: 0; }
-
-/* Tables: the app's one table spec (Bootstrap .table's shape via tokens).
-   Generated templates emit bare <table class="wip-table|score-table|..."> —
-   they inherit this base; new markup uses .table + .table-sm directly. */
-table { width: 100%; border-collapse: collapse; font-size: 13px;
-  font-variant-numeric: tabular-nums; }
-th { text-align: left; color: var(--muted); text-transform: uppercase;
-  font-size: 10.5px; letter-spacing: .05em; font-weight: 600;
-  padding: 6px 8px; border-bottom: 1px solid var(--border); }
+/* Generic tables use Bootstrap; domain tables keep their geometry below. */
+th { text-transform: uppercase; font-size: 10.5px; letter-spacing: .05em; font-weight: 600; }
 /* Sticky headers only inside scroll containers — a page-scrolling table
    pinned at top:0 would slide under the app header. */
 .wip-drill th, .ord-heatwrap th,
 #admin-modal th, #games-modal th { position: sticky; top: 0; background: var(--panel); z-index: 1; }
-td { padding: 6px 8px; border-bottom: 1px solid var(--bs-border-color-translucent);
-  vertical-align: top; }
-tbody tr:hover td { background: var(--panel2); }
 /* Dense variant: opt-in per container for the genuinely wide grids (the WIP
    drill, the pod heatmap). Most wip-tables are short lists (games, baselines)
    and read at body size — the old class-based denseness squeezed them all. */
@@ -117,19 +73,16 @@ tbody tr:hover td { background: var(--panel2); }
 /* gap adds to (not replaces) the hint <p>'s Bootstrap 1rem bottom margin —
    zero it so hint->input matches the 10px input rhythm. */
 #login-box form .hint { margin-bottom: 0; }
-#login-box input { padding: 9px 11px; font-size: 14px; }
 .login-err { color: var(--red); font-size: 12px; min-height: 14px; }
 .sso-btn { width: 100%; }
 .sso-divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; margin: 2px 0; }
 .sso-divider::before, .sso-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
 .auth-chip { color: var(--muted); font-size: 12px; padding: 7px 4px 7px 12px; }
-.auth-chip a, .auth-chip button { color: var(--accent); cursor: pointer; }
-.auth-chip button { background: transparent; border: 0; padding: 0; font-size: inherit; }
+.auth-chip a { color: var(--accent); }
 .admin-tab { color: var(--amber); border-color: var(--amber) !important; }
 #admin-overlay { --bs-modal-width: min(1120px, 100%); }
 #admin-modal { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; max-width: 1120px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 22px 28px; font-size: 15px; }
 .admin-create { display: flex; gap: 12px; align-items: center; margin: 12px 0; flex-wrap: wrap; }
-.admin-create input { padding: 8px 10px; font-size: 14px; }
 .admin-new { font-size: 12px; }
 .admin-new code { background: var(--panel2); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
 
@@ -147,7 +100,7 @@ tbody tr:hover td { background: var(--panel2); }
 .lever-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin: 10px 0; }
 .lever { background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; font-size: 12.5px; }
 .lever .ap { color: var(--accent); font-size: 11px; }
-.lever select, .lever input { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 2px 4px; font-size: 12px; margin: 3px 2px; }
+.lever select, .lever input { margin: 3px 2px; }
 .lever button { padding: 3px 9px; font-size: 12px; margin-top: 4px; }
 .report { background: var(--panel2); }
 .report-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
@@ -183,7 +136,6 @@ tbody tr:hover td { background: var(--panel2); }
 #guide-modal { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; max-width: 1040px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 22px 28px; font-size: 15px; }
 .guide-head { display: flex; justify-content: space-between; align-items: center; }
 .guide-head h2 { margin: 0; }
-#guide-close { background: none; border: none; color: var(--muted); font-size: 16px; cursor: pointer; }
 .guide-personas { display: flex; gap: 6px; margin: 14px 0; }
 .guide-intro { color: var(--muted); font-style: italic; }
 .guide-path li { margin: 8px 0; line-height: 1.5; }
@@ -192,12 +144,7 @@ tbody tr:hover td { background: var(--panel2); }
 .insight .i-obs { margin-bottom: 6px; }
 .insight .i-act { color: var(--green); margin-bottom: 6px; }
 .insight .i-why { color: var(--muted); font-size: 12.5px; }
-.help { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px;
-  border-radius: 50%; background: var(--panel2); border: 1px solid var(--border); color: var(--muted);
-  font-size: 11px; cursor: help; vertical-align: 2px; margin-left: 6px; }
-/* As <button> (terms.js), the global button padding would shrink the 16px
-   circle's content box to nothing — reset it so the ? stays centered. */
-button.help { padding: 0; line-height: 1; font-family: inherit; }
+.help { width: 1.25rem; height: 1.25rem; vertical-align: 2px; }
 #tooltip { position: fixed; max-width: 340px; background: #0b1117; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text); font-size: 12px; line-height: 1.5; z-index: 100; pointer-events: none; font-weight: 400; text-transform: none; letter-spacing: 0; box-shadow: 0 4px 18px rgba(0,0,0,.5); }
 #tooltip[hidden] { display: none; }
 
@@ -233,7 +180,6 @@ button.help { padding: 0; line-height: 1; font-family: inherit; }
 .sim-score b { font-size: 16px; }
 .sim-score b.good { color: var(--green); }
 .sim-controls { display: flex; gap: 7px; align-items: center; margin-left: auto; }
-.sim-controls select { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 5px; padding: 4px 6px; font-size: 12px; }
 .sim-controls button { padding: 4px 10px; font-size: 12px; }
 .sim-chips { margin: -2px 0 8px; }
 .chip { display: inline-block; background: rgba(181,140,255,.13); color: #d8c7ff; border: 1px solid rgba(181,140,255,.4); border-radius: 12px; padding: 2px 10px; font-size: 12px; margin-right: 6px; }
@@ -281,8 +227,7 @@ table.sortable thead th.sort-desc::after { content: " ▼"; font-size: 9px; opac
 @media (max-width: 720px) { .home-cols { grid-template-columns: 1fr; } }
 .home-list { margin: 6px 0 0; padding-left: 18px; line-height: 1.7; }
 .home-acts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
-.home-act { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 11px 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 9px; cursor: pointer; }
-.home-act:hover { border-color: var(--accent); }
+.home-act { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; }
 .home-act .hint { font-weight: 400; }
 /* Observe shows the network read-only; the what-if simulation panel is a Plan tool */
 #view-network.readonly #org-sim { display: none; }
@@ -297,16 +242,12 @@ table.sortable thead th.sort-desc::after { content: " ▼"; font-size: 9px; opac
 .admin-session { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0; padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
 .pods-toggle { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
 .pods-toggle-lbl { font-weight: 600; }
-.btn-group .btn { font-size: 12px; padding: 5px 12px; border: 0; color: var(--muted); background: transparent; cursor: pointer; }
-.btn-group .btn.active { background: var(--panel2); color: var(--text); }
 #netpanel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; overflow-y: auto; max-height: calc(100vh - 175px); }
 #netpanel h2 { color: var(--accent); }
 #netpanel dl { margin: 8px 0; }
 #netpanel dt { color: var(--muted); font-size: 11px; text-transform: uppercase; margin-top: 9px; }
 #netpanel dd { margin: 1px 0 0; }
-.flag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 8px; margin: 2px 3px 0 0; }
-.flag.red { background: rgba(var(--c-danger), .15); color: var(--red); }
-.flag.amber { background: rgba(var(--c-warning), .15); color: var(--amber); }
+.flag { margin: 2px 3px 0 0; }
 .legend { margin-top: 8px; color: var(--muted); font-size: 12px; display: flex; gap: 18px; }
 .legend .sw { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
 
@@ -315,9 +256,9 @@ table.sortable thead th.sort-desc::after { content: " ▼"; font-size: 9px; opac
 #task-table { width: 100%; border-collapse: collapse; }
 #task-table th { text-align: left; color: var(--muted); font-size: 11px; text-transform: uppercase; padding: 4px 6px; }
 #task-table td { padding: 3px 4px; }
-#task-table input, #task-table select { width: 100%; background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 5px; padding: 4px 6px; font-size: 13px; }
+#task-table input, #task-table select { width: 100%; }
 #task-table .del { width: auto; background: none; border: none; color: var(--muted); cursor: pointer; }
-.row-actions { display: flex; gap: 8px; margin: 12px 0; }
+.row-actions:not(.row) { display: flex; gap: 8px; margin: 12px 0; }
 .epic-import { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
 .epic-import input { padding: 6px 8px; }
 .suggestion { background: rgba(var(--c-warning), .08); border: 1px solid rgba(var(--c-warning), .35); border-radius: 7px; padding: 8px 10px; margin: 6px 0; font-size: 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
@@ -334,31 +275,11 @@ table.sortable thead th.sort-desc::after { content: " ▼"; font-size: 9px; opac
 .kit-item.warn .ki { color: var(--amber); }
 .kit-item.fail .ki { color: var(--red); }
 .kit-item .kd { color: var(--muted); }
-#kit-template { width: 100%; height: 220px; background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 7px; font: 11.5px monospace; padding: 8px; }
-/* Buttons: bare <button> matches Bootstrap's .btn.btn-secondary spec via the
-   token layer (templates emit bare buttons; new markup uses .btn classes and
-   gets the identical look). .primary matches .btn-primary. */
-button { background: var(--bs-secondary-bg); color: var(--text); border: 1px solid var(--border);
-  border-radius: var(--bs-border-radius-sm); padding: 6px 12px; cursor: pointer;
-  font-size: 13px; font-family: inherit; line-height: 1.4; }
-button.primary { background: var(--bs-primary); color: #04222f; font-weight: 600; border-color: var(--bs-primary); }
-button.primary:hover:not(:disabled) { background: var(--bs-primary-text-emphasis); border-color: var(--bs-primary-text-emphasis); }
-button:hover:not(.primary):not(:disabled) { border-color: var(--bs-primary-text-emphasis); }
-button:disabled { opacity: .55; cursor: not-allowed; }
-/* The framework's own classes, for new markup. */
-.btn { font-size: 13px; }
-.btn-primary { --bs-btn-bg: var(--bs-primary); --bs-btn-color: #04222f;
-  --bs-btn-border-color: var(--bs-primary); --bs-btn-hover-bg: var(--bs-primary-text-emphasis);
-  --bs-btn-hover-color: #04222f; --bs-btn-hover-border-color: var(--bs-primary-text-emphasis);
-  --bs-btn-active-color: #04222f; --bs-btn-active-bg: var(--bs-primary-text-emphasis);
-  --bs-btn-active-border-color: var(--bs-primary-text-emphasis); }
-.btn-secondary { --bs-btn-bg: var(--bs-secondary-bg); --bs-btn-color: var(--text);
-  --bs-btn-border-color: var(--border); --bs-btn-hover-bg: var(--panel2);
-  --bs-btn-hover-color: var(--text); --bs-btn-hover-border-color: var(--bs-primary-text-emphasis); }
+#kit-template { width: 100%; height: 220px; font: 11.5px var(--bs-font-monospace); }
 .whatif label { display: block; margin: 8px 0 2px; font-size: 12px; color: var(--muted); }
 .whatif input[type=range] { width: 100%; }
 .stat-cards { display: flex; gap: 12px; }
-.stat { flex: 1; background: var(--panel2); border: 1px solid var(--border); border-radius: 9px; padding: 10px 14px; }
+.stat { flex: 1; }
 .stat .v { font-size: 22px; font-weight: 700; }
 .stat .l { font-size: 11px; color: var(--muted); text-transform: uppercase; }
 .stat.p85 .v { color: var(--accent); }
@@ -376,7 +297,6 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .plan-views { display: flex; gap: 0; margin: 10px 0 4px; }
 .ord-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
 .ord-card { margin-top: 12px; }
-.tag { font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em; padding: 1px 6px; border-radius: 8px; background: var(--panel2); color: var(--muted); border: 1px solid var(--border); }
 
 .ord-table td { vertical-align: baseline; }
 .ord-table th { position: sticky; top: 0; z-index: 2; background: var(--bg); }
@@ -396,10 +316,6 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .ord-down { color: var(--amber); }
 /* Pin toggle in the Stated cell (spec 004 Story 1): small, quiet — it is an
    action on the deviation, not a row-level primary control. */
-.ord-pin { font-size: 10px; padding: 1px 7px; border-radius: 8px; background: var(--panel2);
-  color: var(--muted); border: 1px solid var(--border); cursor: pointer; margin-left: 6px; }
-.ord-pin:hover { color: var(--text); border-color: var(--accent); }
-.ord-pin:disabled { opacity: .5; cursor: wait; }
 
 /* Fever chart (FR-024, spec 004 Story 2): dot color follows the Observe zones,
    but the position carries the meaning (FR-044) — the zones are also drawn as
@@ -415,22 +331,14 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .fever-red { fill: var(--red); }
 
 /* PNG export buttons on the pod blocks (FR-043, spec 004 Story 3) */
-.pod-export { font-size: 10px; padding: 1px 7px; border-radius: 8px; background: var(--panel2);
-  color: var(--muted); border: 1px solid var(--border); cursor: pointer; margin-left: auto; }
-.pod-export:hover { color: var(--text); border-color: var(--accent); }
 .tl-pod .ord-head, [data-pod-sheet] .ord-head { display: flex; align-items: baseline; gap: 8px; }
 
 /* ✎ initiative editor button (spec 004) — same quiet register as the pin */
-.ord-edit { font-size: 10.5px; padding: 1px 8px; border-radius: 8px; background: var(--panel2);
-  color: var(--muted); border: 1px solid var(--border); cursor: pointer; margin-left: 6px; white-space: nowrap; }
-.ord-edit:hover { color: var(--text); border-color: var(--accent); }
 /* The tick hover date is the discoverable bridge between week numbers and the
    calendar; give the cursor a hint that there is something to read. */
 .tl-tick[data-tip], .tl-tick[title], .ord-wk[data-tip], .ord-wk[title] { cursor: help; }
 /* Your-order-first (spec 006): the ordering badge, the Optimize offer and the
    proposal panel. The panel is a decision, not a reading — visually distinct. */
-.ord-yourtag { background: var(--green); color: #fff; }
-.ord-enginetag { background: var(--panel2); color: var(--accent); }
 .ord-optimize-panel { margin: 8px 0; padding: 10px 12px; border: 1px solid var(--accent);
   border-radius: 8px; background: var(--panel2); display: flex; flex-direction: column; gap: 6px; }
 /* display:flex would override the UA's [hidden] display:none — the panel's
@@ -478,8 +386,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .sched-f { display: flex; flex-direction: column; gap: 3px; color: var(--text); font-size: 12px; }
 .sched-row { display: flex; align-items: center; gap: 5px; }
 /* Wide enough for the placeholders, which carry what a blank field means. */
-.sched-f input { background: var(--bg); color: var(--text); border: 1px solid var(--border);
-  border-radius: 5px; padding: 4px 6px; flex: 1 1 auto; min-width: 0; max-width: 190px; }
+.sched-f input { flex: 1 1 auto; min-width: 0; max-width: 190px; }
 .ord-sched .plan-warn { margin-top: 8px; }
 #sched-error { display: inline-block; margin-left: 8px; }
 
@@ -488,8 +395,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .ord-models tr.ord-inforce td { background: rgba(var(--c-primary), .10); }
 .ord-models-why { margin: 6px 0 0 18px; padding: 0; }
 .ord-models-why li { margin: 2px 0; }
-.sched-f select { background: var(--bg); color: var(--text); border: 1px solid var(--border);
-  border-radius: 5px; padding: 4px 6px; max-width: 190px; }
+.sched-f select { max-width: 190px; }
 
 /* Baselines (spec 001 Story 7): the chip is always visible, the panel lives in Order */
 .bl-chip { margin-left: 14px; font-size: 12px; color: var(--muted); align-self: center; }
@@ -500,17 +406,10 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .plan-views { align-items: center; }
 .bl-panel { margin-top: 12px; }
 .bl-table tr.bl-active td { background: rgba(var(--c-primary), .10); }
-.bl-table button { background: transparent; color: var(--accent); border: 1px solid var(--border);
-  border-radius: 5px; padding: 2px 8px; cursor: pointer; font-size: 11px; margin-right: 4px; }
-.bl-table button:hover { background: var(--panel2); }
 .bl-save { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-.bl-save input { background: var(--bg); color: var(--text); border: 1px solid var(--border);
-  border-radius: 5px; padding: 5px 8px; flex: 1 1 260px; max-width: 380px; }
+.bl-save input { flex: 1 1 260px; max-width: 380px; }
 .bl-compare-card { margin-top: 12px; }
 /* The chip is a button styled as a label: reachable, but not shouting */
-button.bl-chip { background: transparent; border: 1px solid transparent; border-radius: 7px;
-  padding: 3px 8px; cursor: pointer; font: inherit; font-size: 12px; color: var(--muted); }
-button.bl-chip:hover { border-color: var(--border); background: var(--panel2); }
 
 /* ── Timeline (spec 001 §13.3-§13.5) ────────────────────────────────────
    FR-035: every position is a percentage; the horizon always fits. */
@@ -649,12 +548,9 @@ button.bl-chip:hover { border-color: var(--border); background: var(--panel2); }
 
 /* ── IA #4: Home status alerts — the first thing a returning user reads ── */
 .home-alerts { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 4px; }
-.home-alert { display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
-  text-align: left; padding: 12px 16px; border-radius: 10px; cursor: pointer;
-  border: 1px solid var(--border); background: var(--bs-card-bg); min-width: 200px; flex: 1 1 240px; }
+.home-alert { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; min-width: 200px; flex: 1 1 240px; }
 .home-alert b { font-size: 14px; }
 .home-alert .hint { font-size: 12px; }
-.home-alert:hover { border-color: var(--bs-primary); }
 .home-alert-miss { background: rgba(var(--c-danger), .10); border-color: rgba(var(--c-danger), .45); }
 .home-alert-warn { background: rgba(var(--c-warning), .10); border-color: rgba(var(--c-warning), .45); }
 .home-alert-ok { background: rgba(var(--c-success), .08); border-color: rgba(var(--c-success), .4); }
@@ -665,24 +561,13 @@ button.bl-chip:hover { border-color: var(--border); background: var(--panel2); }
 .plan-start-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
 .plan-crumbs { display: inline-flex; align-items: baseline; gap: 6px; font-size: 15px; }
 .plan-crumbs b { font-weight: 600; }
-button.plan-back { background: none; border: 0; padding: 0; font: inherit; }
 
 /* ── Admin expiry: a date, not a +24h button ───────────────────────────── */
 .admin-ext { display: inline-flex; gap: 4px; align-items: center; }
-/* The global bare-input rule (13px/6px) outspecifies a plain attribute
-   selector — scope with the panel id so the compact size actually wins. */
-#admin-modal .admin-ext input[type=date] { background: var(--bg); color: var(--text);
-  border: 1px solid var(--border); border-radius: 5px; padding: 2px 6px; font-size: 12px; }
 
 /* ── UX-audit polish: numeric alignment, verdict badges, home mini-bars ──── */
 .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-.vbadge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 9px;
-  border-radius: 99px; white-space: nowrap; }
-.v-green { background: rgba(var(--c-success), .14); color: var(--bs-success); }
-.v-amber { background: rgba(var(--c-warning), .16); color: var(--bs-warning); }
-.v-red { background: rgba(var(--c-danger), .14); color: var(--bs-danger); }
-.v-idle { background: rgba(var(--c-primary), .10); color: var(--muted); }
 
 .home-bar-row { display: flex; align-items: center; gap: 8px; }
 .home-bar-row b { flex: 0 0 auto; }
@@ -712,15 +597,11 @@ button.plan-back { background: none; border: 0; padding: 0; font: inherit; }
 .plan-setup summary { cursor: pointer; font-size: 13px; color: var(--muted); }
 .plan-setup[open] summary { margin-bottom: 8px; }
 .plan-setup .plan-uploads { margin-top: 8px; }
-.warn-act { font-size: 11px; padding: 1px 8px; border-radius: 8px; background: var(--panel);
-  color: var(--amber); border: 1px solid var(--amber); cursor: pointer; }
 .ord-setup-card { border-color: var(--accent); display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
 .ord-setup-card .setup-item { border-top: 1px dashed var(--border); padding-top: 8px; display: flex;
   flex-direction: column; gap: 4px; align-items: flex-start; }
-.ord-setup-card .setup-dismiss { background: none; border: none; cursor: pointer; text-decoration: underline; }
 .ord-bl-head { display: inline-flex; gap: 6px; align-items: center; margin-left: auto; }
-.ord-bl-head input { width: 150px; background: var(--panel2); color: var(--text);
-  border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; font-size: 12px; }
+.ord-bl-head input { width: 150px; }
 
 /* Lens filters (spec 010): dimmed bars keep the capacity picture while the
    matches pop. Ghost bars are the same idea from the other side: under a
@@ -775,7 +656,6 @@ button.plan-back { background: none; border: 0; padding: 0; font: inherit; }
 .bl-drawer-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
 .bl-drawer-head b { font-size: 16px; }
 .bl-drawer-head .hint { flex: 1 1 auto; }
-.bl-drawer-close { background: none; border: 0; color: var(--text); font-size: 14px; cursor: pointer; }
 .bl-cta { border: 1px solid var(--amber); border-radius: 6px; padding: 8px 10px; }
 /* Horizontal save row: input and button side by side. The legacy
    .bl-save input flex-basis (260px) is a WIDTH here — in the drawer's old
@@ -809,9 +689,6 @@ button.plan-back { background: none; border: 0; padding: 0; font: inherit; }
 #usage-modal { max-width: 980px; margin: 30px auto; background: var(--panel);
   border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; }
 .usage-range { margin-left: auto; display: inline-flex; gap: 4px; }
-.usage-btn { background: transparent; border: 1px solid var(--border); color: var(--muted);
-  border-radius: 6px; padding: 2px 10px; cursor: pointer; font-size: 12px; }
-.usage-btn.active { color: var(--text); border-color: var(--accent); background: var(--panel2); }
 .usage-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px; margin: 14px 0; }
 .usage-kpi { background: var(--panel2); border: 1px solid var(--border); border-radius: 8px;
@@ -851,7 +728,7 @@ button.plan-back { background: none; border: 0; padding: 0; font: inherit; }
 
 /* specs/017-planning-and-execution-usability.md:104 — reachable controls at narrow widths. */
 .cv-icon { width: 1em; height: 1em; vertical-align: -.12em; flex-shrink: 0; }
-button:focus-visible, .btn:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+a:focus-visible, [tabindex]:not(.btn):focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 header nav { flex-wrap: wrap; align-items: center; }
 #help-menu .dropdown-item { min-height: 40px; white-space: normal; }
 .guide-personas { flex-wrap: wrap; }
@@ -888,3 +765,7 @@ header .brand { flex-wrap: wrap; min-width: 0; max-width: 100%; }
   header .snapshot-pick { flex: 1 1 100%; display: flex; flex-wrap: wrap; }
   header .snapshot-pick select { width: 100% !important; }
 }
+
+/* Heatmap cells are domain geometry, separate from generic Bootstrap tables. */
+.ord-heat { width: 100%; border-collapse: collapse; }
+.ord-heat th, .ord-heat td { border-bottom: 1px solid var(--bs-border-color); }

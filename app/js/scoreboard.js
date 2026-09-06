@@ -51,14 +51,14 @@ export function initScoreboard(state) {
   function flags(p, s, state2) {
     const out = [];
     const load = s.load ?? s.rho0;
-    if (depCount(p) >= 5) out.push('<span class="flag red">dependency hub</span>');
-    if (depCount(p) >= 3 && load >= 0.9) out.push('<span class="flag red">hub under load</span>');
-    if (load >= 1) out.push('<span class="flag red">over capacity</span>');
-    if (s.sigma > 1.2 && !s.synthetic) out.push('<span class="flag amber">high variance</span>');
-    if (s.synthetic) out.push('<span class="flag amber">no data</span>');
+    if (depCount(p) >= 5) out.push('<span class="badge bg-danger-subtle text-danger-emphasis flag red">dependency hub</span>');
+    if (depCount(p) >= 3 && load >= 0.9) out.push('<span class="badge bg-danger-subtle text-danger-emphasis flag red">hub under load</span>');
+    if (load >= 1) out.push('<span class="badge bg-danger-subtle text-danger-emphasis flag red">over capacity</span>');
+    if (s.sigma > 1.2 && !s.synthetic) out.push('<span class="badge bg-warning-subtle text-warning-emphasis flag amber">high variance</span>');
+    if (s.synthetic) out.push('<span class="badge bg-warning-subtle text-warning-emphasis flag amber">no data</span>');
     const blockedBy = state2.edges.filter((e) => e.to === p.name);
     const zero = blockedBy.filter((e) => (state2.overlap[p.name]?.[e.from] ?? 0) <= 0);
-    if (zero.length) out.push(`<span class="flag red">${zero.length} zero-overlap deps</span>`);
+    if (zero.length) out.push(`<span class="badge bg-danger-subtle text-danger-emphasis flag red">${zero.length} zero-overlap deps</span>`);
     return out.join(' ');
   }
 

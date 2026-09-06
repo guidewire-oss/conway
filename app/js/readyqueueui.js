@@ -17,16 +17,16 @@ const placement = (week, start) => Number.isInteger(week)
   ? `Week ${week}${start ? ` · ${weekToDate(week, start)}` : ''}` : 'Not placed';
 
 function checklistHTML(item) {
-  return `<details class="ready-checklist"><summary>Confirm full kit</summary>
+  return `<details class="ready-checklist border-top mt-3"><summary class="py-2">Confirm full kit</summary>
     <p class="hint">These operational confirmations do not change the plan's readiness percentage or bypass its release gate.</p>
     ${item.confirmation ? `<p class="hint">Last recorded ${esc(when(item.confirmation.createdAt))} by ${esc(item.confirmation.createdBy)} for week ${Number(item.confirmation.asOfWeek)}. ${item.confirmationCurrent ? 'Matches this planning context.' : 'Earlier context: review and reconfirm for this plan and week.'}</p>` : '<p class="hint">No operational confirmation recorded for this team and initiative.</p>'}
-    <form data-ready-confirmation>
-      ${(item.checklist || []).map(check => `<fieldset><legend>${esc(check.label)}</legend>
-        <label class="ready-check"><input type="checkbox" name="${esc(check.key)}_checked" ${check.checked ? 'checked' : ''}> Confirmed for this week</label>
-        <label>Responsible owner <input name="${esc(check.key)}_owner" value="${esc(check.owner || '')}" maxlength="200"></label>
-        <label>Evidence / acceptance <textarea name="${esc(check.key)}_evidence" rows="2" maxlength="10000">${esc(check.evidence || '')}</textarea></label>
+    <form data-ready-confirmation class="d-flex flex-column gap-3">
+      ${(item.checklist || []).map(check => `<fieldset class="border rounded p-3 d-flex flex-column gap-3"><legend class="float-none w-auto px-2 fs-6">${esc(check.label)}</legend>
+        <label class="ready-check form-check mb-0"><input class="form-check-input" type="checkbox" name="${esc(check.key)}_checked" ${check.checked ? 'checked' : ''}> Confirmed for this week</label>
+        <label class="form-label d-grid gap-1 mb-0">Responsible owner <input class="form-control" name="${esc(check.key)}_owner" value="${esc(check.owner || '')}" maxlength="200"></label>
+        <label class="form-label d-grid gap-1 mb-0">Evidence / acceptance <textarea class="form-control" name="${esc(check.key)}_evidence" rows="2" maxlength="10000">${esc(check.evidence || '')}</textarea></label>
       </fieldset>`).join('')}
-      <button type="submit" data-ready-write>Save full-kit confirmation</button>
+      <button class="btn btn-secondary text-wrap align-self-start" type="submit" data-ready-write>Save full-kit confirmation</button>
       <p class="ready-form-status" role="status" aria-live="polite"></p>
     </form>
   </details>`;
@@ -36,27 +36,27 @@ export function readyItemHTML(item, context) {
   const choices = item.state === 'deferred' ? ['reconsider']
     : ['in_progress','complete'].includes(item.state) ? []
       : item.canRelease ? ['release','defer'] : ['defer'];
-  return `<article class="panel-card ready-item" data-ready-initiative="${esc(item.initiative)}">
-    <div class="ready-item-heading"><h4>${esc(item.initiative)}</h4>${item.kind === 'milestone' ? '<span class="tag">Acceptance checkpoint</span>' : ''}</div>
+  return `<article class="card p-3 panel-card ready-item my-3" data-ready-initiative="${esc(item.initiative)}">
+    <div class="ready-item-heading d-flex flex-wrap align-items-baseline gap-2"><h4 class="fs-6 text-body">${esc(item.initiative)}</h4>${item.kind === 'milestone' ? '<span class="tag badge text-bg-secondary text-wrap text-start">Acceptance checkpoint</span>' : ''}</div>
     <p><b>Planned start:</b> ${esc(placement(item.plannedStartWeek, context.periodStart))}<br>
       <b>Planned finish:</b> ${esc(placement(item.plannedFinishWeek, context.periodStart))}</p>
     ${item.kind === 'milestone' ? '<p class="hint">Zero-effort checkpoint: no work week or lane is invented.</p>' : ''}
-    <ul class="ready-reasons">${(item.reasons || []).map(reason => `<li>${esc(reason.message)}${reason.owner ? ` <small>Owner: ${esc(reason.owner)}</small>` : ''}</li>`).join('')}</ul>
+    <ul class="ready-reasons ps-3">${(item.reasons || []).map(reason => `<li>${esc(reason.message)}${reason.owner ? ` <small class="d-block text-body-secondary">Owner: ${esc(reason.owner)}</small>` : ''}</li>`).join('')}</ul>
     ${item.lastDecision ? `<p class="hint">Last decision: ${esc(decisionLabels[item.lastDecision.decision] || item.lastDecision.decision)} · ${esc(item.lastDecision.owner)} · ${esc(when(item.lastDecision.createdAt))}${item.lastDecision.decision === 'release' ? item.releaseCurrent ? ' · Permission recorded; start unconfirmed.' : ' · Historical permission; recheck the current context.' : ''}</p>` : ''}
-    <div class="row-actions"><button type="button" data-ready-inspect>Inspect in timeline</button><button type="button" data-ready-review>Review execution</button></div>
+    <div class="row-actions d-flex flex-wrap gap-2"><button class="btn btn-secondary text-wrap" type="button" data-ready-inspect>Inspect in timeline</button><button class="btn btn-secondary text-wrap" type="button" data-ready-review>Review execution</button></div>
     ${!['in_progress','complete'].includes(item.state) ? checklistHTML(item) : ''}
-    ${choices.length ? `<details class="ready-decision"><summary>${item.canRelease ? 'Record release or defer' : item.state === 'deferred' ? 'Reconsider this deferral' : 'Record a deferral'}</summary>
-      <form data-ready-decision>
-        <label>Decision <select name="decision" required>${choices.map(value=>`<option value="${value}">${decisionLabels[value]}</option>`).join('')}</select></label>
-        <label>Accountable owner <input name="owner" maxlength="200" required></label>
-        <label>Decision evidence / reason <textarea name="evidence" maxlength="10000" rows="3" required></textarea></label>
+    ${choices.length ? `<details class="ready-decision border-top mt-3"><summary class="py-2">${item.canRelease ? 'Record release or defer' : item.state === 'deferred' ? 'Reconsider this deferral' : 'Record a deferral'}</summary>
+      <form data-ready-decision class="d-flex flex-column gap-3">
+        <label class="form-label d-grid gap-1 mb-0">Decision <select class="form-select" name="decision" required>${choices.map(value=>`<option value="${value}">${decisionLabels[value]}</option>`).join('')}</select></label>
+        <label class="form-label d-grid gap-1 mb-0">Accountable owner <input class="form-control" name="owner" maxlength="200" required></label>
+        <label class="form-label d-grid gap-1 mb-0">Decision evidence / reason <textarea class="form-control" name="evidence" maxlength="10000" rows="3" required></textarea></label>
         <p class="hint">Release records permission, not an observed start. Deferral changes this queue's recommendation; it does not move the forecast.</p>
-        <button type="submit" class="${item.canRelease ? 'primary' : ''}" data-ready-write>Record decision</button>
+        <button type="submit" class="btn ${item.canRelease ? 'btn-primary primary' : 'btn-secondary'} align-self-start text-wrap" data-ready-write>Record decision</button>
         <p class="ready-form-status" role="status" aria-live="polite"></p>
       </form>
     </details>` : ''}
-    <details class="ready-history"><summary>Readiness and release history</summary>
-      <button type="button" data-ready-history>Load history</button><div data-ready-events role="status"></div>
+    <details class="ready-history border-top mt-3"><summary class="py-2">Readiness and release history</summary>
+      <button class="btn btn-secondary text-wrap" type="button" data-ready-history>Load history</button><div data-ready-events role="status"></div>
     </details>
   </article>`;
 }
@@ -66,7 +66,7 @@ export function readyHistoryHTML(history) {
     ...(history.confirmations || []).map(record=>({...record, type:'confirmation'})),
     ...(history.decisions || []).map(record=>({...record, type:'decision'})),
   ].sort((a,b)=>(b.eventOrder || 0)-(a.eventOrder || 0) || (b.createdAt || 0)-(a.createdAt || 0));
-  return records.map(record=>`<article><h5>${record.type === 'confirmation' ? 'Full-kit confirmation' : esc(decisionLabels[record.decision] || record.decision)}</h5>
+  return records.map(record=>`<article class="py-3 border-top"><h5 class="fs-6">${record.type === 'confirmation' ? 'Full-kit confirmation' : esc(decisionLabels[record.decision] || record.decision)}</h5>
     <p>Week ${Number(record.asOfWeek)} · ${esc(when(record.createdAt))} · ${esc(record.createdBy)}</p>
     ${record.type === 'confirmation' ? `<ul>${(record.checks || []).map(check=>`<li>${esc(check.key.replaceAll('_',' '))}: ${check.checked ? 'Confirmed' : 'Not confirmed'} · ${esc(check.owner || 'Owner unassigned')}<p>${esc(check.evidence || '')}</p></li>`).join('')}</ul>` : `<p>${esc(record.owner)}: ${esc(record.evidence)}</p>`}
   </article>`).join('') || '<p class="hint">No readiness or release history yet.</p>';
@@ -81,14 +81,14 @@ export function mountReadyQueue(host, {plan, request, onContext, onInspect, onRe
   const requestedWeek = Number(route.get('readyWeek') || 0);
   const initialWeek = Number.isInteger(requestedWeek) && requestedWeek >= 0 && requestedWeek < horizon ? requestedWeek : 0;
   host.innerHTML = `<section class="ready-queue">
-    <div class="ready-heading"><div><h3>Next work</h3><p>Finish active work, prepare what is waiting, and release only what the current plan can support.</p></div><button class="usage-link" data-anchor="next-work" type="button">Next work guide</button></div>
-    <div class="ready-controls"><label>Team <select id="ready-team">${unavailableTeam && teams.length ? '<option value="" disabled selected>Choose a team from this plan</option>' : ''}${teams.length ? teams.map(team=>`<option>${esc(team)}</option>`).join('') : '<option value="">No teams in this plan</option>'}</select></label>
-      <label>As-of planning week <input type="number" id="ready-week" min="0" max="${horizon-1}" step="1" value="${initialWeek}" required></label>
-      <button type="button" id="ready-refresh">Refresh queue</button>
+    <div class="ready-heading d-flex flex-wrap justify-content-between align-items-start gap-3"><div><h3 class="fs-5 text-body">Next work</h3><p>Finish active work, prepare what is waiting, and release only what the current plan can support.</p></div><button class="btn btn-link usage-link text-wrap" data-anchor="next-work" type="button">Next work guide</button></div>
+    <div class="ready-controls row g-3 align-items-end mb-3"><label class="form-label d-grid gap-1 mb-0 col-12 col-md">Team <select class="form-select" id="ready-team">${unavailableTeam && teams.length ? '<option value="" disabled selected>Choose a team from this plan</option>' : ''}${teams.length ? teams.map(team=>`<option>${esc(team)}</option>`).join('') : '<option value="">No teams in this plan</option>'}</select></label>
+      <label class="form-label d-grid gap-1 mb-0 col-12 col-md">As-of planning week <input class="form-control" type="number" id="ready-week" min="0" max="${horizon-1}" step="1" value="${initialWeek}" required></label>
+      <div class="col-12 col-md-auto d-grid"><button class="btn btn-secondary text-wrap" type="button" id="ready-refresh">Refresh queue</button></div>
     </div>
     <p class="hint">Week 0 is the period start. Choose the week you want to assess; this view is not a live observation of team activity.</p>
     <p id="ready-status" role="status" aria-live="polite"></p><div id="ready-context"></div>
-    <div class="ready-filters"><label>Find an initiative <input type="search" id="ready-search" placeholder="Filter initiative names"></label><label class="ready-check"><input type="checkbox" id="ready-show-all"> Show all items in each group</label></div>
+    <div class="ready-filters row g-3 align-items-end mb-3"><label class="form-label d-grid gap-1 mb-0 col-12 col-md">Find an initiative <input class="form-control" type="search" id="ready-search" placeholder="Filter initiative names"></label><div class="col-12 col-md"><label class="ready-check form-check mb-0"><input class="form-check-input" type="checkbox" id="ready-show-all"> Show all items in each group</label></div></div>
     <div id="ready-items"></div>
   </section>`;
   const root = host.querySelector('.ready-queue');
@@ -123,10 +123,10 @@ export function mountReadyQueue(host, {plan, request, onContext, onInspect, onRe
     body.innerHTML = `<p class="hint">${items.length} of ${queue.counts.total} assigned items match. ${showAll.checked ? 'All matching items shown.' : 'Showing up to three per group; use Show all to see the rest.'}</p>` + groups.map(([key,label,hint])=>{
       const matches = items.filter(item=>item.state === key);
       const visible = showAll.checked ? matches : matches.slice(0,3);
-      if(!matches.length) return `<details class="ready-group ready-empty" data-ready-group="${key}"><summary>${label} <span class="tag">0</span><span class="hint">No matching items</span></summary><p class="hint">${hint}</p></details>`;
-      return `<section class="ready-group" data-ready-group="${key}"><h3>${label} <span class="tag">${matches.length}</span></h3><p class="hint">${hint}</p>
+      if(!matches.length) return `<details class="ready-group ready-empty mt-3 border-bottom" data-ready-group="${key}"><summary class="py-2">${label} <span class="tag badge text-bg-secondary text-wrap text-start">0</span><span class="hint ms-2 fw-normal">No matching items</span></summary><p class="hint">${hint}</p></details>`;
+      return `<section class="ready-group mt-4" data-ready-group="${key}"><h3 class="fs-5 text-body">${label} <span class="tag badge text-bg-secondary text-wrap text-start">${matches.length}</span></h3><p class="hint">${hint}</p>
         ${visible.map(item=>readyItemHTML(item,queue.context)).join('') || '<p class="hint">No matching items in this group.</p>'}
-        ${visible.length < matches.length ? `<button type="button" data-ready-show-rest>Show all ${matches.length} ${label.toLowerCase()} items</button>` : ''}</section>`;
+        ${visible.length < matches.length ? `<button class="btn btn-secondary text-wrap" type="button" data-ready-show-rest>Show all ${matches.length} ${label.toLowerCase()} items</button>` : ''}</section>`;
     }).join('');
     body.querySelectorAll('[data-ready-show-rest]').forEach(button=>button.addEventListener('click',()=>{showAll.checked = true; paint();}));
     body.querySelectorAll('[data-ready-initiative]').forEach(card=>wireCard(card));
@@ -228,7 +228,7 @@ export function mountReadyQueue(host, {plan, request, onContext, onInspect, onRe
       if(!live() || mine !== generation) return;
       queue = result;
       onContext?.(selected.team,selected.asOfWeek);
-      root.querySelector('#ready-context').innerHTML = `<div class="panel-card ready-context"><p><b>${esc(queue.context.team)}</b> · ${esc(placement(queue.context.asOfWeek,queue.context.periodStart))} · ${esc(queue.context.acceptedOrdering || 'stated')} ordering</p><p class="hint">${queue.counts.total} assigned initiatives · ${queue.counts.ready} ready · ${queue.counts.waiting} waiting · ${queue.counts.deferred} deferred.</p><details><summary>How this queue is assessed</summary><p>${esc(queue.context.basis)}</p><p class="hint">Free lanes alone do not establish permission to begin work.</p></details></div>`;
+      root.querySelector('#ready-context').innerHTML = `<div class="card p-3 panel-card ready-context border-start border-3 border-primary my-3"><p><b>${esc(queue.context.team)}</b> · ${esc(placement(queue.context.asOfWeek,queue.context.periodStart))} · ${esc(queue.context.acceptedOrdering || 'stated')} ordering</p><p class="hint">${queue.counts.total} assigned initiatives · ${queue.counts.ready} ready · ${queue.counts.waiting} waiting · ${queue.counts.deferred} deferred.</p><details><summary class="py-2">How this queue is assessed</summary><p>${esc(queue.context.basis)}</p><p class="hint">Free lanes alone do not establish permission to begin work.</p></details></div>`;
       status.textContent = success || 'Queue loaded. Confirm full kit before recording a release; inspect the timeline for changes to placement.';
       paint();
     } catch(error) {
