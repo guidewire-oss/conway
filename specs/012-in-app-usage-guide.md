@@ -51,6 +51,12 @@ verdicts and the interactions
 **I want** a "learn more" link that opens the docs at that section
 **So that** the fix comes with the why
 
+### Story 4: Choose a model with informed assumptions
+
+**As a** manager preparing a plan or reviewing delivery
+**I want** concepts, calculations, worked examples and situation-based guidance
+**So that** I choose settings consistent with my estimates and evidence
+
 ---
 
 ## 4. Acceptance Criteria
@@ -81,6 +87,27 @@ verdicts and the interactions
 > Then it does not re-appear for the rest of the session (sessionStorage —
 > a fresh session shows it again, which is intentional for new planners)
 
+**AC 4.1: Understand before choosing**
+
+> Given a manager comparing planning settings
+> When they read the assumptions reference
+> Then each option explains its inputs, units, effect and appropriate situation,
+> and simple worked examples distinguish effort, calendar duration and capacity.
+
+**AC 4.2: Distinguish models and evidence**
+
+> Given a manager reviewing Measure or Execution
+> When they consult the manual
+> Then the guide identifies the source, calculation and limits of each metric,
+> including synthetic evidence and known limitations that affect interpretation.
+
+**AC 4.3: Standard navigation stays usable**
+
+> Given an existing contextual help link
+> When the reorganized manual opens
+> Then its target exists and the reader can navigate tutorials, task recipes,
+> conceptual explanations and reference material without an external service.
+
 ---
 
 ## 5. Functional Requirements
@@ -92,6 +119,12 @@ verdicts and the interactions
 | FR-003 | Warnings (missing pods, no period start, beyond-horizon) MUST carry "learn more" deep links into the panel | MUST (beyond-horizon gets its own link: it fires alongside no-dates only when the plan also lacks a period start, so the two banners are not interchangeable) |
 | FR-004 | First-visit callouts on Order and Timeline MUST be dismissible and session-persistent | SHOULD |
 | FR-005 | The panel MUST cover: the planning ritual, effort model & chunking, verdicts & fever chart, baselines & comparison, pins/drags/filters, WIP models & stagger | MUST |
+| FR-006 | The manual MUST introduce plan, roster, snapshot, agreement, scenario, initiative, team, track, dependency and evidence before advanced options | MUST |
+| FR-007 | Settings and metric explanations MUST identify inputs, units, calculation effects, situation-based guidance and limitations | MUST |
+| FR-008 | The manual MUST distinguish Plan utilization, Measure load and probabilistic-model utilization; worked examples MUST state simplifying assumptions | MUST |
+| FR-009 | The guide MUST distinguish current behavior, recommended practice and unresolved product limitations, without promising unimplemented corrections | MUST |
+| FR-010 | Documentation MUST provide a first-plan tutorial, recurring review recipe, concept explanations and searchable reference sections with stable links | MUST |
+| FR-011 | The guide MUST credit The Goal, Critical Chain, Goldratt's Rules of Flow, The Phoenix Project and The Unicorn Project, distinguishing conceptual inspiration from Conway-specific calculations | MUST |
 
 ---
 
@@ -101,6 +134,7 @@ verdicts and the interactions
 |----|------------|-----------|---------------|
 | NFR-001 | No regression | suites green | `node --test`, `go test ./...` |
 | NFR-002 | Panel opens instantly, no network | offline render | in-browser |
+| NFR-003 | Link integrity | Every local manual anchor and contextual view mapping resolves | Static anchor scan and mapping tests |
 
 ---
 
@@ -122,6 +156,7 @@ None — all content ships in `app/docs.html`.
 - Interactive click-through tour libraries
 - Video embeds
 - Per-user server-persisted onboarding state
+- Changes to scheduling or analytics formulas in the documentation revision
 
 ---
 
@@ -146,6 +181,37 @@ the docs panel at an anchor. The panel is one overlay shipped offline.
 - Wiki-style separate docs view — rejected: fragments help content and
   duplicates navigation.
 - External wiki link — rejected: requires network, leaves the app.
+
+---
+
+### Decision 2: Teach concepts, tasks and calculations in one maintained manual
+
+**Context:** The existing manual mixes task instructions, model terminology and
+prescriptive claims. Managers cannot consistently tell which data drives a view,
+what a setting changes or whether a number is a measurement or a model output.
+
+**Decision:** Reorganize the offline manual into getting started, concepts,
+task guides and references. Keep existing section anchors and add explicit
+contextual mappings where view IDs differ from documentation IDs. Explain each
+major option through purpose, calculation, a generic worked example and when to
+choose it. State units and rounding; separate Plan, Measure and Execution math.
+Document current model limitations beside affected outputs. Add a repository
+documentation index that points to the manual rather than duplicating its prose.
+
+**Alternatives considered:** A second complete Markdown manual would diverge
+from in-app help. An external documentation platform adds hosting and runtime
+dependencies. Formula-only reference material does not teach the decision.
+
+**Consequences:** One manual remains the user-facing explanation. Source review
+and independent calculation checks are necessary when formulas change. Existing
+product defects remain separately tracked; clearer documentation does not repair
+their behavior. This decision was recorded on 2026-09-05 before the rewrite.
+
+The product owner also confirmed the five books named in FR-011 as inspiration.
+Introduce their management ideas before the option reference and connect each
+to a practical decision. Attribute the books to their authors with publisher
+links; do not describe Conway's heuristic formulas as formulas supplied by the
+books or imply a complete implementation of critical-chain project management.
 
 ---
 

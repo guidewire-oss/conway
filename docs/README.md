@@ -1,0 +1,73 @@
+# Conway documentation
+
+Start with the **[Planning and execution guide](../app/docs.html)**. It is the
+canonical user manual, also available through **Help** in the running app. Open
+`app/docs.html` in a browser to read it directly; its content and styles ship
+locally. Repository viewers may show the HTML source instead of rendering it.
+
+## Get started
+
+- [Concepts and vocabulary](../app/docs.html#concepts): teams, tracks, initiatives,
+  WIP, buffers, agreements, scenarios and evidence.
+- [Ideas behind Conway](../app/docs.html#foundations): The Goal, Critical Chain,
+  Goldratt's Rules of Flow, The Phoenix Project and The Unicorn Project, with
+  author credits and publisher references.
+- [First-plan tutorial](../app/docs.html#start): prepare inputs, choose assumptions,
+  review the schedule and save an agreement.
+
+## Choose a workflow
+
+| Your task | Guide |
+|---|---|
+| Choose settings for the way your teams work | [Situation-based choices](../app/docs.html#howto) |
+| Prepare planning and delivery reviews | [Planning and weekly review](../app/docs.html#planning-loop) |
+| Identify which data a view uses | [Sources and switching](../app/docs.html#snapshots-picker) |
+| Upload a roster and initiative matrix | [Workbook preparation](../app/docs.html#plan-setup) |
+| Inspect capacity or edit placement | [Timeline](../app/docs.html#timeline) |
+| Preserve and compare a commitment | [Agreements](../app/docs.html#baselines) |
+| Connect Jira evidence to initiatives | [Execution review](../app/docs.html#execution) |
+| Facilitate a learning session | [Flow Game](../app/docs.html#learning) |
+
+## Explain a calculation
+
+| Model | Reference |
+|---|---|
+| Tracks, loss, effort, duration and buffer | [Planning arithmetic](../app/docs.html#capacity-calculations) |
+| WIP, leads, readiness, splitting, dates and calendars | [Scheduling options](../app/docs.html#assumptions), [calendar effects](../app/docs.html#sites) |
+| Ordering rules and weighted costs | [Ordering](../app/docs.html#order) |
+| Progress, inferred dates, variance and calibration | [Execution calculations](../app/docs.html#execution-calculations) |
+| Queue proxy, dependency ranking and Org Flow Index | [Org Network](../app/docs.html#network) |
+| Throughput, sample filtering and cycle percentiles | [WIP Scoreboard](../app/docs.html#scoreboard) |
+| Missing evidence and quality scores | [Data Quality](../app/docs.html#hygiene) |
+| Full kit, sampled durations, dependencies and percentiles | [Feature Simulator](../app/docs.html#simulator) |
+| WIP reduction projections and buffer risk | [Flow Actions](../app/docs.html#flow-actions), [three fever calculations](../app/docs.html#fever) |
+
+The manual separates inputs, units, assumptions and current limitations.
+Conway's heuristics apply ideas from the books; the numeric defaults are not
+presented as formulas prescribed by those authors.
+
+## Administration and development
+
+- [Run locally and contribute](../README.md#run)
+- [Snapshots, scenario files and API](snapshots-and-scenarios.md)
+- [Single sign-on](sso-oidc.md)
+- [Feature specifications](../specs/): source of truth for requirements and decisions
+- [Factory rules](FACTORY_RULES.md) and [workflows](../workflows/README.md)
+
+When a model changes, update the relevant guide section and its contextual help
+together. Check the actual execution path, including server handlers: a utility
+function or database method alone may not describe the behavior users see.
+
+| Calculation source | Implementation |
+|---|---|
+| Finite scheduling, ranking, buffers and release limits | [schedule.go](../server/planning/schedule.go) |
+| Planning demand and what-if levers | [simulate.go](../server/planning/simulate.go) |
+| Weekly calendar enforcement | [calendars.go](../server/planning/calendars.go) |
+| Evidence-based execution proxies | [actuals.go](../server/planning/actuals.go) |
+| Historical cycle samples | [aggregate.go](../server/jira/aggregate.go) |
+| Data quality components | [enrich.go](../server/jira/enrich.go) |
+| Monte Carlo, full kit, merges and flow projections | [sim.js](../app/js/sim.js) |
+| Snapshot-to-view load preparation | [main.js](../app/js/main.js) |
+
+Keep the HTML guide as the single complete manual; this index provides routes
+into it rather than a second copy of the explanations.

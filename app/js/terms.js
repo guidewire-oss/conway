@@ -104,7 +104,7 @@ export const TERMS = {
   },
   siteOverlap: {
     label: 'Site overlap',
-    tip: 'How many working hours two sites share per day, from their real IANA timezones on the modelled date — daylight saving included. A handoff across zero shared hours costs more than one across eight.',
+    tip: 'Shared working hours from site timezones and the modeled date. The finite planning scheduler currently adds zero timezone handoff delay; represent material coordination work explicitly.',
   },
   objective: {
     label: 'Objective (coverage, then lateness)',
@@ -128,7 +128,7 @@ export const TERMS = {
   },
   kingman: {
     label: 'Wait multiplier',
-    tip: 'How much time-in-queue multiplies as utilisation rises (Kingman\u2019s formula): near full it explodes — at 90% load, work waits ~9\u00d7 its touch time. The reason "just one more thing" is so expensive.',
+    tip: 'Queueing-inspired sensitivity factor rho / (1 - rho): 90% modeled load gives 9. This is a heuristic using a concurrency proxy, not a measurement of waiting or the full Kingman formula.',
   },
   freeze: {
     label: 'Freeze window',

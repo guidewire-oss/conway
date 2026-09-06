@@ -102,6 +102,39 @@ test('all manual section links have real native destinations', () => {
   assert.doesNotMatch(manual, /data-anchor=/);
 });
 
+test('contextual help routes each view to its own existing manual section', () => {
+  const manual = readFileSync(new URL('../app/docs.html', import.meta.url), 'utf8');
+  const ids = new Set([...manual.matchAll(/id="([^"]+)"/g)].map((m) => m[1]));
+  let clicked;
+  let opened;
+  let view;
+  let planView;
+  const context = moduleContext('docs.js', {
+    document: {
+      addEventListener(type, handler) { if (type === 'click') clicked = handler; },
+      querySelector(selector) { return selector.startsWith('main') ? { id: view } : { id: planView }; },
+    },
+  });
+  context.openDocs = (section) => { opened = section; };
+  context.initDocs();
+  const routes = [
+    ['view-home', null, 'start'], ['view-network', null, 'network'],
+    ['view-scoreboard', null, 'scoreboard'], ['view-hygiene', null, 'hygiene'],
+    ['view-simulator', null, 'simulator'], ['view-flow', null, 'flow-actions'],
+    ['view-game', null, 'learning'], ['view-plan', 'view-order', 'order'],
+    ['view-plan', 'plan-view-network', 'plan-network'],
+    ['view-plan', 'view-timeline', 'timeline'], ['view-plan', 'view-execution', 'execution'],
+    ['view-plan', 'view-report', 'health-report'], ['view-plan', null, 'planning-loop'],
+    ['view-unknown', null, 'what'],
+  ];
+  for (const [main, subview, expected] of routes) {
+    view = main; planView = subview;
+    clicked({ target: { closest: () => ({ dataset: { docs: 'context' } }) }, preventDefault() {} });
+    assert.equal(opened, expected, `${main}/${subview}`);
+    assert.ok(ids.has(opened), `Missing destination ${opened}`);
+  }
+});
+
 test('manual Escape closes after both the initial document and later iframe navigations', () => {
   let load;
   let keydown;

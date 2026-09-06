@@ -1825,7 +1825,7 @@ async function renderPlanSites(nTeams) {
   host.innerHTML = `
     <div class="plan-sites plan-note">
       <span class="hint">🌐 Sites: ${withTz.length} of ${sites.length} have a timezone.
-      ${missing ? 'Cross-site handoffs touching the rest price at the pessimistic default until set.' : 'Every cross-site handoff is priced from real working-hours overlap.'}</span>
+      ${missing ? 'Complete missing timezone information for site analysis.' : 'Site working-hour information is recorded.'} The finite scheduler currently adds no timezone handoff delay.</span>
       ${missing ? '<button type="button" id="sites-fix" class="usage-link">set the missing timezones</button>' : ''}
       <span class="hint">Timezones can also ride the roster itself — a Timezone column on the teams sheet.</span>
     </div>`;
@@ -1846,7 +1846,7 @@ function openSitesModal(missing) {
   overlay.innerHTML = `
     <div class="sites-modal panel-card">
       <h3>Set the missing timezones</h3>
-      <p class="hint">These sites have none, so handoffs touching them price at the pessimistic default. The roster's Timezone column fills this automatically on the next upload.</p>
+      <p class="hint">These sites need timezone information. The roster's Timezone column fills it on the next upload. The finite scheduler currently adds no timezone handoff delay.</p>
       ${missing.map((st) => `<div class="sites-row" data-site="${esc(st.name)}">
         <b>${esc(st.name)}</b>
         <select class="site-tz">${options(st.timezone)}</select>

@@ -63,6 +63,17 @@ export function openDocs(section) {
 
 // initDocs wires the delegated entry: any [data-docs] button opens the
 // manual at its section. Called once from main.js at boot.
+// specs/012-in-app-usage-guide.md:195 — view IDs and manual anchors differ.
+export function manualSectionForView(view, planView) {
+  if (view === 'plan') return ({
+    'view-order': 'order', 'plan-view-network': 'plan-network',
+    'view-timeline': 'timeline', 'view-execution': 'execution', 'view-report': 'health-report',
+  }[planView] || 'planning-loop');
+  return ({ home: 'start', network: 'network', scoreboard: 'scoreboard',
+    hygiene: 'hygiene', simulator: 'simulator', flow: 'flow-actions', game: 'learning',
+  }[view] || 'what');
+}
+
 export function initDocs() {
   document.addEventListener('click', (ev) => {
     const b = ev.target.closest?.('[data-docs]');
@@ -71,9 +82,7 @@ export function initDocs() {
     let section = b.dataset.docs;
     if (section === 'context') {
       const view = document.querySelector('main > .view.active')?.id?.replace('view-', '');
-      section = view === 'plan'
-        ? (document.querySelector('.plan-views .btn.active')?.id?.replace('view-', '') || 'planning-loop')
-        : ({ home: 'start', flow: 'flow-actions', game: 'learning' }[view] || view || 'what');
+      section = manualSectionForView(view, document.querySelector('.plan-views .btn.active')?.id);
     }
     openDocs(section === 'docs-top' ? '' : section);
   });
