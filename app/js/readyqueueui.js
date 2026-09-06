@@ -82,7 +82,7 @@ export function mountReadyQueue(host, {plan, request, onContext, onInspect, onRe
   const initialWeek = Number.isInteger(requestedWeek) && requestedWeek >= 0 && requestedWeek < horizon ? requestedWeek : 0;
   host.innerHTML = `<section class="ready-queue">
     <div class="ready-heading"><div><h3>Next work</h3><p>Finish active work, prepare what is waiting, and release only what the current plan can support.</p></div><button class="usage-link" data-anchor="next-work" type="button">Next work guide</button></div>
-    <div class="ready-controls"><label>Team <select id="ready-team">${unavailableTeam ? '<option value="" disabled selected>Choose a team from this plan</option>' : ''}${teams.length ? teams.map(team=>`<option>${esc(team)}</option>`).join('') : '<option value="">No teams in this plan</option>'}</select></label>
+    <div class="ready-controls"><label>Team <select id="ready-team">${unavailableTeam && teams.length ? '<option value="" disabled selected>Choose a team from this plan</option>' : ''}${teams.length ? teams.map(team=>`<option>${esc(team)}</option>`).join('') : '<option value="">No teams in this plan</option>'}</select></label>
       <label>As-of planning week <input type="number" id="ready-week" min="0" max="${horizon-1}" step="1" value="${initialWeek}" required></label>
       <button type="button" id="ready-refresh">Refresh queue</button>
     </div>
@@ -217,7 +217,7 @@ export function mountReadyQueue(host, {plan, request, onContext, onInspect, onRe
     const mine = ++generation;
     queue = null; lockWrites();
     if(!team.value || !week.reportValidity()) {
-      status.textContent = !team.value && unavailableTeam ? `The requested team “${requestedTeam}” is not in this plan. Choose a team from this plan to assess its work.` : 'Choose a team and a valid planning week.';
+      status.textContent = !teams.length ? 'Add teams to this plan before assessing its work.' : !team.value && unavailableTeam ? `The requested team “${requestedTeam}” is not in this plan. Choose a team from this plan to assess its work.` : 'Choose a team and a valid planning week.';
       body.innerHTML = ''; root.querySelector('#ready-context').innerHTML = ''; return;
     }
     const selected = {team:team.value,asOfWeek:Number(week.value)};
