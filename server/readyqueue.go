@@ -51,6 +51,22 @@ func (s *server) handleReadyQueue(w http.ResponseWriter, r *http.Request, p *db.
 			return
 		}
 		if len(history.Confirmations) == 0 && len(history.Decisions) == 0 {
+			// Empty history needs both roster and work membership; retained
+			// events remain readable after removal. specs/025-team-ready-work-queue.md:229
+			var teams []planning.Team
+			if len(p.Teams) > 0 {
+				if err := json.Unmarshal(p.Teams, &teams); err != nil {
+					s.readyQueueFailure(w, err)
+					return
+				}
+			}
+			inRoster := false
+			for _, savedTeam := range teams {
+				if savedTeam.Name == team {
+					inRoster = true
+					break
+				}
+			}
 			var initiatives []planning.Initiative
 			if len(p.Initiatives) > 0 {
 				if err := json.Unmarshal(p.Initiatives, &initiatives); err != nil {
@@ -65,7 +81,7 @@ func (s *server) handleReadyQueue(w http.ResponseWriter, r *http.Request, p *db.
 					break
 				}
 			}
-			if !assigned {
+			if !inRoster || !assigned {
 				http.Error(w, "no current assignment or retained history exists for this team and initiative", http.StatusNotFound)
 				return
 			}

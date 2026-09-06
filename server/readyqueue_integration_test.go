@@ -275,6 +275,25 @@ var _ = Describe("team ready-work queue persistence", Label("database"), func() 
 			Expect(call("GET", base()+"/history"+query, nil, claims).Code).To(Equal(400))
 		}
 	})
+	// specs/025-team-ready-work-queue.md:229: a lingering work-map entry is
+	// not current membership after roster removal, but recorded history survives.
+	DescribeTable("handles history after roster removal with work retained", func(recorded bool) {
+		if recorded {
+			object(call("POST", base()+"/decisions", decideBody(queue()["fingerprint"], "defer"), claims))
+		}
+		before, err := database.GetPlan(plan.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(database.SavePlanTeams(plan.ID, []byte("[]"), time.Now().Unix())).To(Succeed())
+		after, err := database.GetPlan(plan.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(after.Initiatives).To(Equal(before.Initiatives))
+		response := call("GET", base()+"/history?team=Team%20A&initiative=Atlas", nil, claims)
+		if recorded {
+			Expect(object(response)["decisions"]).To(HaveLen(1))
+		} else {
+			Expect(response.Code).To(Equal(404), response.Body.String())
+		}
+	}, Entry("unrecorded pair is missing", false), Entry("recorded pair remains readable", true))
 	It("retains historical records when assignments are removed without allowing a new release", func() {
 		object(call("POST", base()+"/decisions", decideBody(queue()["fingerprint"], "defer"), claims))
 		Expect(database.SavePlanInitiatives(plan.ID, []byte("[]"), time.Now().Unix())).To(Succeed())

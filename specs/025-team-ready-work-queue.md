@@ -226,9 +226,9 @@ Successful mutations return 200 JSON. New mutations reject unknown fields,
 trailing JSON, duplicate/unknown checklist keys and invalid dates/weeks/names.
 Errors use 400 for invalid content or an ineligible release, 401/403 for account
 authorization, 404 for inaccessible/missing references and 409 for stale context.
-For history, an existing initiative/team assignment with no records returns empty
-arrays. A removed assignment with retained records remains readable. A pair with
-neither current membership nor retained records returns 404; blank coordinates
+For history, a roster team with initiative InPath work and no records returns empty
+arrays. If either membership is removed, retained records remain readable. A pair
+with neither current membership nor retained records returns 404; blank coordinates
 remain malformed requests (400).
 Requests cannot select their actor, timestamps, derived state or scheduling outcome.
 
