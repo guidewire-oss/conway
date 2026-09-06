@@ -1,3 +1,4 @@
+import { helpButton } from './terms.js';
 import { heatColor } from './graph.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -93,9 +94,9 @@ export function initScoreboard(state) {
       }
       return String(va).localeCompare(String(vb)) * sortDir;
     });
-    const help = (t) => (t ? ` <span class="help" data-tip="${t.replace(/"/g, '&quot;')}">?</span>` : '');
+    const help = (text, label) => helpButton(text, label);
     table.innerHTML = `<thead><tr>${cols.map(([h, , tip], i) =>
-      `<th data-i="${i}">${h}${i === sortKey ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}${help(tip)}</th>`).join('')}</tr></thead>` +
+      `<th data-i="${i}">${h}${i === sortKey ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}${help(tip, h)}</th>`).join('')}</tr></thead>` +
       `<tbody>${rows.map(({ p, s }) => `<tr>${cols.map(([h, fn], i) => {
         if (h === 'Load ρ') {
           const load = s.load ?? s.rho0;
@@ -104,7 +105,8 @@ export function initScoreboard(state) {
         const value = fn(p, s, state);
         return `<td>${h === 'Pod' || h === 'Site' ? esc(value) : value}</td>`;
       }).join('')}</tr>`).join('')}</tbody>`;
-    table.querySelectorAll('th').forEach((th) => th.addEventListener('click', () => {
+    table.querySelectorAll('th').forEach((th) => th.addEventListener('click', (event) => {
+      if (event.target.closest('.help')) return;
       const i = +th.dataset.i;
       if (i === sortKey) sortDir *= -1; else { sortKey = i; sortDir = -1; }
       render();

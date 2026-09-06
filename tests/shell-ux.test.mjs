@@ -2,13 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { helpButton } from '../app/js/terms.js';
 
 // Execute the real renderers against small DOM/network seams so unavailable
 // evidence cannot silently regress into an all-clear (spec 017 FR-002).
 function moduleContext(file, bindings) {
   const source = readFileSync(new URL('../app/js/' + file, import.meta.url), 'utf8')
     .replace(/^import .*?;\n/gm, '').replace(/export /g, '');
-  const context = vm.createContext({ console, Date, Number, String, ...bindings });
+  const context = vm.createContext({ console, Date, Number, String, helpButton, ...bindings });
   vm.runInContext(source, context); return context;
 }
 async function home({ stats = {}, hygiene = {}, manager = false, response } = {}) {

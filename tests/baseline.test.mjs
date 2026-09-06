@@ -67,10 +67,9 @@ test('the list shows every baseline, marking the active one', () => {
 
 test('the list offers make-active only for the ones that are not', () => {
   const html = baselineListHTML(saved);
-  const activateButtons = html.match(/class="(?:[^"<>]* )?bl-activate(?: [^"<>]*)?"/g) || [];
-  assert.equal(activateButtons.length, 1, 'exactly the inactive one');
-  assert.match(html, /data-id="b1"/);
-  assert.ok(!/bl-activate" data-id="b2"/.test(html));
+  const activateButtons = html.match(/<button\b[^>]*class="(?:[^"<>]* )?bl-activate(?: [^"<>]*)?"[^>]*>/g) || [];
+  assert.deepEqual(activateButtons.map(button => button.match(/\bdata-id="([^"]+)"/)?.[1]),
+    ['b1'], 'only the inactive baseline offers activation, regardless of class order');
 });
 
 test('the list explains itself when a plan has no baselines', () => {

@@ -40,7 +40,7 @@ var _ = Describe("linked features browser Bootstrap adoption", Label("browser"),
 <link rel="stylesheet" href="/css/planning-ux.css"><link rel="stylesheet" href="/css/execution.css">
 <link rel="stylesheet" href="/css/readyqueue.css"></head><body>
 <main class="container-fluid p-3"><div id="ready"></div><div id="evidence" class="execution-review"></div><div id="timeline"></div><div id="dynamic"></div><div id="badge-examples" class="d-flex flex-column gap-2"></div></main>
-<script src="/vendor/bootstrap/bootstrap.bundle.min.js"></script></body></html>`))
+<script src="/vendor/d3.min.js"></script><script src="/vendor/bootstrap/bootstrap.bundle.min.js"></script></body></html>`))
 			Expect(writeErr).NotTo(HaveOccurred())
 		})
 		mux.Handle("/", http.FileServer(http.Dir(app)))
@@ -50,12 +50,13 @@ var _ = Describe("linked features browser Bootstrap adoption", Label("browser"),
 		if node == "" {
 			node = "node"
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 		defer cancel()
 		cmd := exec.CommandContext(ctx, node, "--input-type=module", "-e", bootstrapAdoptionBrowser)
 		cmd.Env = append(os.Environ(), "CONWAY_TEST_BASE_URL="+host.URL)
 		output, err := cmd.CombinedOutput()
 		GinkgoWriter.Printf("%s", output)
+		Expect(ctx.Err()).NotTo(HaveOccurred(), "Bootstrap browser workload exceeded its three-minute execution limit; inspect browser output before attributing this to a product assertion.")
 		Expect(err).NotTo(HaveOccurred(), "%s", output)
 	})
 })
@@ -82,6 +83,7 @@ try {
     const {executionEvidenceHTML} = await import('/js/executionui.js');
     const {timelineControlsHTML,timelineRowHTML} = await import('/js/timeline.js');
     const {baselineListHTML} = await import('/js/baseline.js');
+    const {initScoreboard} = await import('/js/scoreboard.js');
     const {orderingBadge,verdictBadgeHTML} = await import('/js/order.js');
     initForms();
     const item = {initiative:'Atlas acceptance checkpoint',kind:'milestone',state:'ready',canRelease:true,
@@ -112,6 +114,16 @@ try {
     const baselines=document.createElement('div');baselines.id='baseline-examples';baselines.className='table-responsive';
     baselines.innerHTML=baselineListHTML([{id:'baseline-a',name:'Atlas agreement',active:true},{id:'baseline-b',name:'Beacon agreement'}]);
     document.querySelector('main').append(baselines);
+    const shell=new DOMParser().parseFromString(await (await fetch('/index.html')).text(),'text/html');
+    const help=document.createElement('div');help.id='legacy-help-example';
+    help.append(shell.querySelector('#view-scoreboard h2 .help'));
+    document.querySelector('main').append(help);
+    const scoreboard=document.createElement('div');scoreboard.className='table-responsive';
+    scoreboard.innerHTML='<table id="score-table" class="table"></table>';
+    document.querySelector('main').append(scoreboard);
+    const stats={wip:3,throughputWk:1,p50:5,load:0.5,rho0:0.5,sigma:0.5};
+    initScoreboard({edges:[],overlap:{},pods:['Atlas','Beacon'].map(name=>({name,location:'Central',devCount:4,streams:2})),stats:{Atlas:{...stats,p85:10},Beacon:{...stats,p85:20}}});
+    new bootstrap.Tooltip(document.body,{selector:'[data-bs-toggle="tooltip"], [data-tip], .help',title:el=>el.dataset.bsTitle??el.dataset.tip??'',trigger:'hover focus',placement:'bottom'});
   });
   await page.locator('#ready-search.form-control').waitFor();
   // per specs/011-bootstrap-adoption-debt.md:73
@@ -120,7 +132,27 @@ try {
   assert.ok(buttonSizes[0].height<buttonSizes[1].height && buttonSizes[1].height<buttonSizes[2].height,'Bootstrap size modifiers preserve distinct control heights');
   const labelGeometry=await page.locator('#timeline-label-example .tl-label').evaluate(label=>{const style=getComputedStyle(label);return {align:style.textAlign,padding:[style.paddingTop,style.paddingRight,style.paddingBottom,style.paddingLeft].map(parseFloat)};});
   assert.equal(labelGeometry.align,'left','Timeline labels stay aligned with their team rows');
-  assert.deepEqual(labelGeometry.padding,[0,0,0,0],'Timeline labels do not inherit generic action-button padding');
+  assert.deepEqual(labelGeometry.padding,[0,10,0,0],'Timeline labels keep their ten-pixel track gap without generic action-button padding');
+  const legacyHelp=page.locator('#legacy-help-example .help');
+  assert.equal(await legacyHelp.evaluate(el=>el instanceof HTMLButtonElement),true,'Legacy metric help remains a native keyboard action');
+  assert.equal(await legacyHelp.evaluate(el=>el.classList.contains('btn')),true,'Metric help adopts the same Bootstrap action primitive');
+  assert.ok((await legacyHelp.getAttribute('aria-label') || '').trim().length>1,'Metric help has an explanatory accessible name');
+  await legacyHelp.focus();
+  assert.equal(await legacyHelp.evaluate(el=>document.activeElement===el),true,'Metric help receives keyboard focus');
+  // per specs/011-bootstrap-adoption-debt.md:82
+  const scoreboardRows=()=>page.locator('#score-table tbody tr td:first-child').allTextContents();
+  const originalRows=await scoreboardRows();
+  assert.deepEqual(originalRows,['Beacon','Atlas'],'The scoreboard starts with descending cycle P85');
+  const cycleHelp=page.locator('#score-table th[data-i="7"] .help');
+  await cycleHelp.focus();
+  await page.waitForFunction(()=>!!document.querySelector('#score-table th[data-i="7"] .help')?.getAttribute('aria-describedby'));
+  const tooltipID=await cycleHelp.getAttribute('aria-describedby');
+  assert.match(await page.locator('#'+tooltipID).textContent(),/85th percentile/,'Keyboard focus exposes the real Bootstrap help tooltip');
+  await page.keyboard.press('Enter');
+  assert.deepEqual(await scoreboardRows(),originalRows,'Activating column help does not change the selected sort');
+  assert.equal(await cycleHelp.evaluate(el=>document.activeElement===el),true,'Help activation preserves focus instead of replacing the header');
+  await page.locator('#score-table th[data-i="7"]').click({position:{x:5,y:5}});
+  assert.deepEqual(await scoreboardRows(),['Atlas','Beacon'],'The surrounding column header still changes the sort direction');
   const comparisonGeometry=await page.locator('#baseline-examples .bl-compare').first().evaluate(button=>{
     const buttonRect=button.getBoundingClientRect(),selectRect=button.parentElement.querySelector('select').getBoundingClientRect();
     return {buttonTop:buttonRect.top,buttonBottom:buttonRect.bottom,selectTop:selectRect.top,selectBottom:selectRect.bottom};
@@ -178,6 +210,20 @@ try {
   const colors = [];
   for (const theme of ['dark','light']) {
     await page.evaluate(theme=>document.documentElement.dataset.bsTheme=theme,theme);
+    const cardTheme=await page.locator('.ready-item').evaluate(card=>{
+      const background=getComputedStyle(card).backgroundColor;
+      const canvas=document.createElement('canvas');canvas.width=canvas.height=1;
+      const context=canvas.getContext('2d');context.fillStyle=background;context.fillRect(0,0,1,1);
+      const alpha=context.getImageData(0,0,1,1).data[3];
+      const ancestor=card.parentElement;
+      const prior=ancestor.style.getPropertyValue('--bs-card-bg');
+      ancestor.style.setProperty('--bs-card-bg','rgb(24, 45, 68)');
+      const inherited=getComputedStyle(card).backgroundColor;
+      if(prior)ancestor.style.setProperty('--bs-card-bg',prior);else ancestor.style.removeProperty('--bs-card-bg');
+      return {background,alpha,inherited};
+    });
+    assert.equal(cardTheme.alpha,255,'Real operational cards stay opaque in '+theme+': '+cardTheme.background);
+    assert.equal(cardTheme.inherited,'rgb(24, 45, 68)','A themed ancestor can supply the Bootstrap card surface in '+theme);
     const badgeContrast = await measureContrast(page.locator('#badge-examples .badge'));
     assert.equal(badgeContrast.length,15,'Ordering and verdict badges render on body, card and raised surfaces');
     for(const badge of badgeContrast) assert.ok(badge.ratio>=4.5,theme+' '+badge.label+' badge contrast '+badge.ratio.toFixed(2)+' must reach 4.5:1 '+JSON.stringify(badge));
@@ -244,6 +290,8 @@ try {
   await page.emulateMedia({media:'screen'});
   for (const theme of ['dark','light']) {
     await page.evaluate(theme=>document.documentElement.dataset.bsTheme=theme,theme);
+    const mobileLabels=await page.locator('main table').first().evaluate(table=>{const cells=table.querySelectorAll('tbody tr:first-child td');return {label:getComputedStyle(cells[0]).backgroundColor,content:getComputedStyle(cells[1]).backgroundColor};});
+    assert.notEqual(mobileLabels.label,mobileLabels.content,'Mobile reference rows distinguish their label from content in '+theme);
     await search.fill('critical chain');
     await results.waitFor({state:'visible'});
     assert.ok(await results.locator('a').count()>0,'Guide search still finds its planning concepts');

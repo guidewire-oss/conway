@@ -1,3 +1,4 @@
+import { helpButton } from './terms.js';
 import { simulateFeature, suggestDeps, fullKitCheck, relativeSize } from './sim.js';
 import { apiGet } from './data.js';
 import { simulatorSourceHTML, simulatorTeamOptionsHTML } from './measure-context.js';
@@ -163,7 +164,7 @@ function renderKit(epic) {
     <div class="kit-head">
       <span class="kit-score ${cls}">kit ${(kit.score * 100).toFixed(0)}%</span>
       <b>Full-kit check — ${esc(epic.epic)}</b>
-      <span class="help" data-tip="Machine-checkable half of the full kit. The human half (business case, contracts, defrost criteria) is the template below — paste it into the epic description. Rule of thumb: don't start below 80%; a started epic without its kit becomes a stop-start zombie and burns buffer before progress (see the fever chart's top-left cluster).">?</span>
+      <button type="button" class="btn btn-secondary btn-sm p-0 rounded-circle d-inline-flex align-items-center justify-content-center ms-1 help" aria-label="Explain the full-kit check" data-tip="Machine-checkable half of the full kit. The human half (business case, contracts, defrost criteria) is the template below — paste it into the epic description. Rule of thumb: don't start below 80%; a started epic without its kit becomes a stop-start zombie and burns buffer before progress (see the fever chart's top-left cluster).">?</button>
       <button class="btn btn-secondary" id="kit-tmpl-btn">Jira template</button>
     </div>
     ${kit.items.map((i) => `<div class="kit-item ${i.status}">
@@ -300,14 +301,14 @@ function fmtDate(days) {
 }
 
 function renderStats(r) {
-  const hlp = (t) => ` <span class="help" data-tip="${t.replace(/"/g, '&quot;')}">?</span>`;
+  const hlp = (text, label) => helpButton(text, label);
   const cards = [
     ['P50', r.p50, '', '50% of simulated trials finished by this point. This percentile is conditional on the historical data and model assumptions.'],
     ['P85', r.p85, 'p85', '85% of simulated trials finished by this point. This is not a guaranteed commitment or measured real-world confidence; review data coverage and compare past forecasts with observed delivery.'],
     ['P95', r.p95, '', '95% of simulated trials finished by this point. Outcomes beyond P95 remain possible, including risks absent from the input model.'],
   ];
   document.getElementById('stat-cards').innerHTML = cards.map(([l, v, cls, tip]) => `
-    <div class="card p-3 stat ${cls}"><div class="l">${l}${hlp(tip)}</div>
+    <div class="card p-3 stat ${cls}"><div class="l">${l}${hlp(tip, l)}</div>
     <div class="v">${v.toFixed(0)}d</div>
     <div class="hint">~${fmtDate(v)}</div></div>`).join('') + '<p class="hint">Conditional forecast from the selected snapshot. Dates start today and use elapsed calendar days, matching the historical cycle-time samples; future changes are not included. Review data quality and calibration before agreeing a commitment.</p>';
 }

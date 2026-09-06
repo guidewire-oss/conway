@@ -209,7 +209,7 @@ async function refreshGames() {
       <td><b>${esc(g.joinCode)}</b> <button class="btn btn-secondary g-copy" data-code="${esc(g.joinCode)}">copy link</button></td>
       <td>${g.open ? `<span style="color:var(--green)">open · round ${g.openRound}</span>` : 'closed'}</td>
       <td class="btn-row">
-        <button class="btn btn-primary g-round primary" data-id="${g.id}">open next round ▶</button>
+        <button class="btn btn-primary g-round" data-id="${g.id}">open next round ▶</button>
         <button class="btn btn-secondary g-test" data-id="${g.id}">${icon('play')} Test game</button>
         <button class="btn btn-secondary g-edit" data-id="${g.id}">${icon('edit')} Edit game</button>
         <button class="btn btn-secondary g-teams" data-id="${g.id}" data-name="${esc(g.name)}">${icon('users')} Manage teams</button>

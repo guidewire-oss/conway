@@ -137,7 +137,7 @@ export function initGraph(state) {
     sim.innerHTML = `
       <div class="sim-bar ${active ? 'sim-active' : ''}">
         <span class="sim-title">${active ? '⚠ SIMULATION — org changes are hypothetical' : 'Org simulation'}
-          <span class="help" data-tip="Absorb one pod's entire scope into another (headcount-neutral — no hiring). The absorbed pod's dependencies re-point to the absorber; coupling between the two becomes internal and stops costing handoffs — unless their sites barely overlap, in which case half the cost remains (people did not move). Watch the Org Flow Index: baseline = 100, lower is better.">?</span></span>
+          <button type="button" class="btn btn-secondary btn-sm p-0 rounded-circle d-inline-flex align-items-center justify-content-center ms-1 help" aria-label="Explain organization simulation" data-tip="Absorb one pod's entire scope into another (headcount-neutral — no hiring). The absorbed pod's dependencies re-point to the absorber; coupling between the two becomes internal and stops costing handoffs — unless their sites barely overlap, in which case half the cost remains (people did not move). Watch the Org Flow Index: baseline = 100, lower is better.">?</button></span>
         <span class="sim-score">Org Flow Index <b class="${idx < 99.5 ? 'good' : ''}">${idx.toFixed(1)}</b>
           <span class="hint">(coord ${cur.coordTax.toFixed(0)}d + queue ${cur.queueTax.toFixed(0)}d · ${cur.edgeCount} edges${active ? ` · baseline 100 = coord ${base.coordTax.toFixed(0)}d + queue ${base.queueTax.toFixed(0)}d` : ''})</span></span>
         <span class="sim-controls">

@@ -32,3 +32,14 @@ control and render the real workflow. The game lever actions exposed this gap.
 Provenance: observed 2026-09-06 via PR 81 review and targeted inspection of
 `app/js/gameui.js` after commit `38ca822`; the independent review found 13
 buttons missing Bootstrap classes inside nested game templates.
+
+Check theme overrides on a containing element as well as the root palette.
+A locally reintroduced legacy alias can hide an ancestor's component variable;
+an inherited alias does not necessarily create the literal cycle suggested by
+a source-only review. The rendered card test now supplies an ancestor override
+and checks the actual background in both themes.
+
+Provenance: observed 2026-09-06 via `server/bootstrap_browser_test.go` in
+`go test -race -v -count=1 ./server -ginkgo.focus='linked features browser'
+-ginkgo.fail-on-empty -ginkgo.no-color -ginkgo.succinct -timeout=5m`:
+`ok conway/server 49.522s`. See the component contract in `docs/COMPONENTS.md`.

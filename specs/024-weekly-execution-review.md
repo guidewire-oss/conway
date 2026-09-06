@@ -273,7 +273,7 @@ an aggregate duplicate of the same dimension. Use an initiative-level fallback
 only for a positive aggregate dimension without a positively divergent slice.
 Filtering to another assigned team must not retain a generic duplicate of a
 team-attributed exception. Preserve the full underlying evidence in the summary.
-Compare only
+Decision 6 defines these terms and their filtering examples. Compare only
 available matching measures; changed agreement or working scope is an explicit
 comparability limitation. A reused capture says no new capture. A manual review
 retains actions and qualitative notes with a no-snapshot data gap.
@@ -354,7 +354,7 @@ manual evidence and keyboard/narrow-viewport interactions with generic data.
 while a completion increase is not itself a delivery exception.
 
 **Decision:** Apply team and initiative filters to agenda entries and
-initiative-linked actions using current plan membership, including manual and
+initiative-linked actions using current plan or captured slice membership, including manual and
 untracked work. Retain plan-wide gaps and actions when a filter is selected.
 Counts describe the filtered agenda/action set, and the summary displays its
 filters. Keep original actuals evidence in the frozen record for subsequent
@@ -373,6 +373,56 @@ because it hides assigned work precisely when its evidence is missing.
 
 **Consequences:** Filtered counts are not whole-plan totals. These rules provide
 explicit review context without introducing a new progress or priority model.
+
+### Decision 6: Define agreement divergence and filter scope
+
+**Context:** Decisions 1 and 5 need precise terms so an attributed team
+exception cannot reappear as an unrelated team's initiative-wide exception.
+
+**Definitions:** A team slice is one initiative's `SliceActual` record, keyed
+by its `Pod` (team). An initiative aggregate is the containing
+`InitiativeActual` record; its dates summarize the initiative and are not a
+sum of team variances. Start and finish are separate dimensions. A dimension
+is positively divergent only when its corresponding `StartVarianceWeeks` or
+`FinishVarianceWeeks` is known and strictly greater than zero. These values
+compare captured/inferred actual dates against the agreed dates; null means
+unknown, while zero and negative values do not establish later-than-agreed work.
+This test is independent of `late`/`at-risk` status: status produces a
+`delivery-risk` entry, while a positive variance produces `agreement-divergence`.
+Both kinds may be present because they explain different evidence.
+
+**Decision:** Attribute each positive variance dimension across all slices
+before applying filters. Emit team entries with initiative and team populated.
+An initiative-level fallback has its initiative populated and team empty; it
+exists only for a positive aggregate dimension with no positive team slice for
+that dimension. Suppress the aggregate for a dimension already attributed to a
+team. If one dimension has team evidence and the other has only aggregate
+evidence, retain both explanations. One entry can describe both start and
+finish when they have the same scope. Retain the unfiltered actuals in evidence.
+
+Then apply Decision 5: an explicitly attributed team entry matches that team;
+an initiative-only entry matches current plan assignment or a captured team slice.
+Captured membership retains applicable evidence even after a team is removed
+from the current assignment. Plan-wide entries
+have neither initiative nor team; examples include no snapshot, no agreement
+and missing snapshot measurements. These gaps and actions without an initiative
+remain visible under filters. An initiative-only fallback is not plan-wide.
+Filtering cannot recreate an aggregate that attribution already suppressed.
+
+| Captured evidence for Atlas | Unfiltered agreement-divergence agenda | Team B filter, when Atlas is assigned to both teams |
+|---|---|---|
+| Aggregate start +2; Team A start +2; Team B start 0 | Team A start entry only | No start-divergence entry |
+| Aggregate finish +1; all team finish variances unknown | Initiative finish fallback | Initiative finish fallback remains |
+| Aggregate start +2 and finish +1; only Team A start +2 | Team A start entry plus initiative finish fallback | Initiative finish fallback only |
+| Aggregate start 0; Team A start +2 | Team A start entry | No start-divergence entry |
+
+**Alternatives considered:** Treating an initiative-only entry as plan-wide
+would leak unrelated work into a team review. Computing attribution after
+filtering would manufacture duplicate fallback entries. Neither is adopted.
+
+**Consequences:** This clarifies existing behavior and terminology; it adds no
+new calculation or classification. Plan-wide context stays visible while team
+counts describe only applicable exceptions and initiative-linked actions.
 
 ---
 

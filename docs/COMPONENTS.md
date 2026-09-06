@@ -23,6 +23,7 @@ for how UI work happens:
 | Choice groups | `.btn-group` with named `role="group"` | Existing state owner maintains `.active` and `aria-pressed`; do not add a competing toggle controller |
 | Badges/pills | `.badge` with an appropriate color utility | State remains understandable from text |
 | Alerts/callouts | `.alert` | |
+| Contextual help | Named `.btn` with the delegated Bootstrap tooltip | `term(id)` for glossary entries; `helpButton(text, topic)` from `terms.js` for other explanations. Table help must not trigger sorting. |
 | Progress | `.progress` / `.progress-bar` | |
 | Layout and spacing | Grid, flex, gap, padding and margin utilities | Use responsive variants; keep only necessary domain sizing rules |
 | Evidence tables | `.table` inside `.table-responsive` | Wide data scrolls within its container |

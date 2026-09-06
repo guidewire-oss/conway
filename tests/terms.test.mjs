@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TERMS, term } from '../app/js/terms.js';
+import { TERMS, term, helpButton } from '../app/js/terms.js';
 
 test('every glossary entry has a label and a plain-language first sentence', () => {
   for (const [id, t] of Object.entries(TERMS)) {
@@ -41,4 +41,12 @@ test('tooltip text stays a well-formed attribute value', () => {
 test('inherited keys (toString, constructor) render nothing', () => {
   assert.equal(term('toString'), '');
   assert.equal(term('constructor'), '');
+});
+
+test('contextual help escapes topic names and explanations in their attributes', () => {
+  const html = helpButton('An "estimate" <script>alert(1)</script>', 'Team "A" <img src=x>');
+  assert.match(html, /aria-label="Explain Team &quot;A&quot; &lt;img src=x&gt;"/);
+  assert.match(html, /data-bs-title="An &quot;estimate&quot; &lt;script&gt;alert\(1\)&lt;\/script&gt;"/);
+  assert.doesNotMatch(html, /<script|<img/);
+  assert.equal(helpButton('', 'missing explanation'), '');
 });

@@ -139,6 +139,12 @@ export const TERMS = {
 // term(id) renders the affordance for a glossary entry: the visible label is
 // optional (use it beside a bare column header; omit when the term itself is
 // already on screen — then only the ? button appears).
+// specs/011-bootstrap-adoption-debt.md:82: every help affordance remains keyboard reachable.
+export function helpButton(text, label) {
+  if (!text) return '';
+  return ` <button type="button" class="btn btn-secondary btn-sm p-0 rounded-circle d-inline-flex align-items-center justify-content-center ms-1 help" data-bs-toggle="tooltip" data-bs-title="${esc(text)}" aria-label="Explain ${esc(label)}">?</button>`;
+}
+
 export function term(id, label) {
   // Own-property only: an inherited key like 'toString' would otherwise render
   // a broken affordance from a non-entry.

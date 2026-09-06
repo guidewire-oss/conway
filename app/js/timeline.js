@@ -179,7 +179,7 @@ export function timelineRowHTML(si, opts = {}) {
   // starts carry zero sentinels, not week-zero dates or an empty chart row.
   if (unplaced(si)) {
     return `<div class="tl-row tl-unplaced" data-init="${esc(si.name)}" data-expandable="0">
-      <button type="button" class="btn btn-secondary p-0 text-start border-0 tl-label tl-trunc" data-select-init="${esc(si.name)}" aria-pressed="${opts.selected === si.name}">${esc(si.name)}</button>
+      <button type="button" class="btn btn-secondary py-0 ps-0 text-start border-0 tl-label tl-trunc" data-select-init="${esc(si.name)}" aria-pressed="${opts.selected === si.name}">${esc(si.name)}</button>
       <div class="tl-track"><p>${esc(unscheduledReason(si))}</p></div></div>`;
   }
   const horizon = opts.horizonWeeks || 26;
@@ -224,7 +224,7 @@ export function timelineRowHTML(si, opts = {}) {
 
   const expandMark = (si.slices || []).length > 1 ? '▸ ' : '';
   return `<div class="tl-row" data-init="${esc(si.name)}" data-expandable="${(si.slices || []).length > 1 ? 1 : 0}">
-    <button type="button" class="btn btn-secondary p-0 text-start border-0 tl-label tl-trunc" data-select-init="${esc(si.name)}" aria-pressed="${opts.selected === si.name}" ${(si.slices || []).length > 1 ? `aria-expanded="${!!opts.expand}"` : ''} title="Select ${esc(si.name)}">${expandMark}${esc(si.name)}</button>
+    <button type="button" class="btn btn-secondary py-0 ps-0 text-start border-0 tl-label tl-trunc" data-select-init="${esc(si.name)}" aria-pressed="${opts.selected === si.name}" ${(si.slices || []).length > 1 ? `aria-expanded="${!!opts.expand}"` : ''} title="Select ${esc(si.name)}">${expandMark}${esc(si.name)}</button>
     <div class="tl-track${subrows ? ' tl-expanded' : ''}">${bar}${buffer}${target}${subrows}</div>
   </div>`;
 }

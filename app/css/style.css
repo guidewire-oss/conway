@@ -428,6 +428,7 @@ table.sortable thead th.sort-desc::after { content: " ▼"; font-size: 9px; opac
 .tl-row { display: flex; align-items: center; min-height: 26px; }
 .tl-label { flex: 0 0 160px; font-size: 12px; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; padding-right: 10px; }
+.tl-label.btn { padding-right: 10px; }
 .tl-track { position: relative; flex: 1 1 auto; min-height: 22px; } /* grows with expanded sub-rows */
 .tl-bar { position: absolute; top: 4px; height: 14px; border-radius: 3px;
   background: var(--accent); color: var(--bg); font-size: 10px; line-height: 14px;
