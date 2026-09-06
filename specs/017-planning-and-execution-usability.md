@@ -219,6 +219,10 @@ remains immediate, and subsequent frames prepare newly rendered headers.
 Linked-source mutation completions refresh their original dialog view only when
 the user has not navigated elsewhere within that dialog while awaiting the
 response. Saving data does not authorize replacing a later history or preview.
+This includes the callback that reloads the surrounding plan. Draft-blocked
+feature actions render their pending destination and cancellation control in
+place. Restored what-if routes honor the same manager access as menu navigation;
+non-manager staff retain the observed network lens.
 
 ## 12. Success Metrics
 

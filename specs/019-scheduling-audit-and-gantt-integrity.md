@@ -46,7 +46,7 @@ so missing bars do not conceal missing work or misleading dates.
 - Splitting must not delay completion when legal contiguous work finishes sooner.
 - Lead role limits are visible and editable; unrelated assumption edits preserve
   settings that are not represented by the form.
-- Duplicate initiative identifiers are reported rather than silently replacing
+- Blank or duplicate initiative identifiers are reported rather than silently replacing
   a row's work with another row's schedule.
 
 ### Story 2
@@ -68,7 +68,7 @@ so missing bars do not conceal missing work or misleading dates.
 | FR-003 | Pins and dependency-ready times MUST remain start lower bounds. | MUST |
 | FR-004 | Calendar rules MUST apply equally to split and contiguous work. | MUST |
 | FR-005 | Split ramp costs MUST account for actual lane growth across gaps. | MUST |
-| FR-006 | Ambiguous initiative identities MUST produce an explicit input error. | MUST |
+| FR-006 | Blank or ambiguous initiative identities MUST produce an explicit input error. | MUST |
 | FR-007 | Unresolved dependency evidence MUST remain visible. | MUST |
 | FR-008 | Gantt geometry MUST preserve each work interval's occupancy and dates. | MUST |
 | FR-009 | Lead capacity limits MUST be inspectable and preserved across unrelated edits. | MUST |

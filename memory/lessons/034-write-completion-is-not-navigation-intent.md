@@ -8,6 +8,10 @@ survive the earlier write's eventual completion.
 Capture the dialog generation when starting the mutation, and refresh only if
 that generation is still current. Test the ordering by holding the real write
 response, navigating, and then releasing it; do not hide the race with a delay.
+Apply the same guard before callbacks that reload the surrounding workspace,
+not only before the dialog refresh itself. The callback is another visible
+effect of the old action (`app/js/linksheets.js:101`, `app/js/linksheets.js:130`
+and `app/js/linksheets.js:174`; reviewed 2026-09-06).
 
 Provenance: observed 2026-09-06 in the failed browser acceptance job
 https://github.com/guidewire-oss/conway/actions/runs/34045140515/job/101518756935.

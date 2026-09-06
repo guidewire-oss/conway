@@ -44,7 +44,13 @@ export async function openPlanDestination(destination) {
 async function resumePlanDestination() {
   const destination = pendingPlanDestination;
   if (!destination || !current) return false;
-  if (current.isDraft) { planNotice('Save or discard the upload preview before opening this feature.'); return false; }
+  if (current.isDraft) {
+    root.querySelector('[data-pending-destination]')?.remove();
+    root.querySelector('.plan-head')?.insertAdjacentHTML('afterend', pendingDestinationHTML());
+    wirePendingDestination();
+    planNotice('Save or discard the upload preview before opening this feature.');
+    return false;
+  }
   if (destination === 'linked-sheets') {
     pendingPlanDestination = '';
     root.querySelector('[data-pending-destination]')?.remove();

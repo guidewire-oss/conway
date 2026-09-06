@@ -98,7 +98,7 @@ export async function openLinkedSheets(planID, onApplied = async () => {}) {
         const ownTicket = ++ticket;
         status('Checking the linked range…');
         const checked = await request(`${sourcePath(source)}/check`, { method: 'POST', body: '{}' });
-        if (!live()) return;
+        if (!live() || ownTicket !== ticket) return;
         if (checked.applied) await onApplied();
         await refreshAfterWrite(ownTicket, checked.source.lastError || (checked.applied ? 'Captured changes applied to the working plan.' : checked.unchanged ? 'The sheet content is unchanged.' : 'A new capture is ready to inspect.'), !!checked.source.lastError);
       }));
@@ -127,7 +127,7 @@ export async function openLinkedSheets(planID, onApplied = async () => {}) {
         const ownTicket = ++ticket;
         status('Connecting and capturing the sheet…');
         const linked = await request(base, { method: 'POST', body: JSON.stringify({ kind: form.elements.kind.value, spreadsheetUrl: form.elements.spreadsheetUrl.value, range: form.elements.range.value, mode: form.elements.mode.value, pollMinutes: Number(form.elements.pollMinutes.value) }) });
-        if (!live()) return;
+        if (!live() || ownTicket !== ticket) return;
         if (linked.applied) await onApplied();
         await refreshAfterWrite(ownTicket, linked.source.lastError || 'Source linked. Inspect its captured version before applying changes.', !!linked.source.lastError);
       });
@@ -171,7 +171,7 @@ export async function openLinkedSheets(planID, onApplied = async () => {}) {
       const ownTicket = ++ticket;
       status('Applying the reviewed capture…');
       await request(`${sourcePath(source)}/apply`, { method: 'POST', body: JSON.stringify({ versionId: v.id, expectedFingerprint: result.planFingerprint, allowRemovals: !!overlay.querySelector('[data-removals]')?.checked }) });
-      if (!live()) return;
+      if (!live() || ownTicket !== ticket) return;
       await onApplied(); await refreshAfterWrite(ownTicket, 'Captured inputs applied. Saved agreements and earlier captures are unchanged.');
     }));
   }

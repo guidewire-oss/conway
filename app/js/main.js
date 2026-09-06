@@ -161,7 +161,7 @@ async function restoreWorkspace() {
   else if(target === 'plan' && authMode() === 'auth' && !hasRole('manager')) target='home';
   await restoringRoute(async()=>{
     const selector = target === 'network'
-      ? (route.networkLens === 'what-if' ? '#net-plan' : '#net-observe')
+      ? (route.networkLens === 'what-if' && (authMode() !== 'auth' || hasRole('manager')) ? '#net-plan' : '#net-observe')
       : `.tab[data-view="${target}"]`;
     document.querySelector(selector)?.click();
     if(target === 'plan') await restorePlanLocation(route);

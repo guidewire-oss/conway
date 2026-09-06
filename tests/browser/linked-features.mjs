@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {checkAnnouncementRecovery} from './announcement-recovery.mjs';
+import {checkLinkedSourceRaces} from './linked-source-races.mjs';
 const {chromium} = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const base = process.env.CONWAY_TEST_BASE_URL, plan = process.env.CONWAY_TEST_PLAN_ID;
 if (!base || !plan) throw new Error('Run the linked features browser Go acceptance harness.');
@@ -101,6 +102,7 @@ try {
   await overlay.locator('[data-close]').click();await overlay.waitFor({state:'hidden'});
   assert.deepEqual(errors,[]);
   await checkAnnouncementRecovery(browser,base);
+  await checkLinkedSourceRaces(browser,base);
   console.log(JSON.stringify({announcedOnce:true,replay:true,visitedAfterOpen:true,reviewApply:true,lateCheckPreservesHistory:true,staleConflict:true,restore:true,immutableCaptureCount:2,mobileOverflow:false,pageErrors:errors}));
 } catch(error) {
   await page.screenshot({path:join(process.env.CONWAY_TEST_ARTIFACT_DIR||tmpdir(),'conway-linked-features-failure.png'),fullPage:true});

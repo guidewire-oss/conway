@@ -3,6 +3,7 @@ package planning
 import (
 	"bytes"
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"time"
@@ -294,9 +295,10 @@ var _ = Describe("ComputeRemedies", func() {
 		// lateness alone would reject the actual portfolio ranking contract.
 		for i := 1; i < len(fixture.Remedies); i++ {
 			previous, current := fixture.Remedies[i-1], fixture.Remedies[i]
-			Expect(current.UnscheduledWeightDelta).To(BeNumerically(">=", previous.UnscheduledWeightDelta))
-			if current.UnscheduledWeightDelta == previous.UnscheduledWeightDelta {
-				Expect(current.ObjectiveDelta).To(BeNumerically(">=", previous.ObjectiveDelta))
+			const tolerance = 1e-9
+			Expect(current.UnscheduledWeightDelta).To(BeNumerically(">=", previous.UnscheduledWeightDelta-tolerance))
+			if math.Abs(current.UnscheduledWeightDelta-previous.UnscheduledWeightDelta) <= tolerance {
+				Expect(current.ObjectiveDelta).To(BeNumerically(">=", previous.ObjectiveDelta-tolerance))
 			}
 		}
 	})

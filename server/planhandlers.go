@@ -576,21 +576,9 @@ func (s *server) uploadPlanInitiatives(w http.ResponseWriter, r *http.Request, p
 		http.Error(w, "Saved initiative bindings are unreadable; upload was not applied.", 500)
 		return
 	}
-	for i := range plan.Initiatives {
-		if plan.Initiatives[i].EpicKeys == nil {
-			for _, old := range previous {
-				if old.Name == plan.Initiatives[i].Name {
-					plan.Initiatives[i].EpicKeys = append([]string(nil), old.EpicKeys...)
-					break
-				}
-			}
-		}
-		keys, err := planning.NormalizeEpicKeys(plan.Initiatives[i].EpicKeys)
-		if err != nil {
-			http.Error(w, plan.Initiatives[i].Name+": "+err.Error(), 400)
-			return
-		}
-		plan.Initiatives[i].EpicKeys = keys
+	if err := normalizeInitiativeBindings(plan.Initiatives, previous); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 	b, _ := json.Marshal(plan.Initiatives)
 	if err := s.db.SavePlanInitiatives(p.ID, b, time.Now().Unix()); err != nil {
@@ -635,29 +623,14 @@ func (s *server) previewPlanInitiatives(w http.ResponseWriter, r *http.Request, 
 		http.Error(w, "no initiatives found — expected the FullKit matrix", 400)
 		return
 	}
-	// Preview applies the same binding preservation and validation as upload;
-	// reviewing a draft must not promise a save that would be refused.
-	// specs/017-planning-and-execution-usability.md:200
 	var previous []planning.Initiative
 	if len(p.Initiatives) > 0 && json.Unmarshal(p.Initiatives, &previous) != nil {
 		http.Error(w, "Saved initiative bindings are unreadable; preview was not created.", http.StatusInternalServerError)
 		return
 	}
-	for i := range parsed.Initiatives {
-		if parsed.Initiatives[i].EpicKeys == nil {
-			for _, old := range previous {
-				if old.Name == parsed.Initiatives[i].Name {
-					parsed.Initiatives[i].EpicKeys = append([]string(nil), old.EpicKeys...)
-					break
-				}
-			}
-		}
-		keys, err := planning.NormalizeEpicKeys(parsed.Initiatives[i].EpicKeys)
-		if err != nil {
-			http.Error(w, parsed.Initiatives[i].Name+": "+err.Error(), http.StatusBadRequest)
-			return
-		}
-		parsed.Initiatives[i].EpicKeys = keys
+	if err := normalizeInitiativeBindings(parsed.Initiatives, previous); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 	net, unknowns := planNetwork(teams, parsed.Initiatives)
 	before, after := planning.Simulate(teams, parsed.Initiatives,
@@ -666,6 +639,28 @@ func (s *server) previewPlanInitiatives(w http.ResponseWriter, r *http.Request, 
 		"initiatives": parsed.Initiatives, "network": net, "unknownTeams": unknowns,
 		"sim": map[string]any{"before": before, "after": after, "levers": []planning.Lever{}},
 	})
+}
+
+// normalizeInitiativeBindings keeps preview and upload binding rules identical.
+// An absent column preserves matching saved bindings; a present blank clears
+// them. specs/017-planning-and-execution-usability.md:200
+func normalizeInitiativeBindings(inits, previous []planning.Initiative) error {
+	for i := range inits {
+		if inits[i].EpicKeys == nil {
+			for _, old := range previous {
+				if old.Name == inits[i].Name {
+					inits[i].EpicKeys = append([]string(nil), old.EpicKeys...)
+					break
+				}
+			}
+		}
+		keys, err := planning.NormalizeEpicKeys(inits[i].EpicKeys)
+		if err != nil {
+			return fmt.Errorf("%s: %w", inits[i].Name, err)
+		}
+		inits[i].EpicKeys = keys
+	}
+	return nil
 }
 
 // planNetwork builds the directed dependency network for a team/initiative
