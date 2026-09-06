@@ -204,6 +204,13 @@ func (d *DB) ReplaceSnapshotData(snapshotID string, data SnapshotData) error {
 
 // writeSnapshotData clears and bulk-loads (COPY) the six per-snapshot data tables.
 func writeSnapshotData(ctx context.Context, tx pgx.Tx, snapshotID string, d SnapshotData) error {
+	// Review completion holds this same parent row for reading, preventing
+	// replacements (including inserts into empty evidence) during its guard.
+	// specs/024-weekly-execution-review.md:305
+	var locked string
+	if err := tx.QueryRow(ctx, `SELECT id FROM snapshots WHERE id=$1 FOR UPDATE`, snapshotID).Scan(&locked); err != nil {
+		return err
+	}
 	for _, t := range []string{"snapshot_issues", "snapshot_issue_links", "snapshot_pods",
 		"snapshot_pod_stats", "snapshot_edges", "snapshot_pod_hygiene"} {
 		if _, err := tx.Exec(ctx, "DELETE FROM "+t+" WHERE snapshot_id=$1", snapshotID); err != nil {

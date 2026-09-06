@@ -42,6 +42,11 @@ func (s *server) announcementCatalog(c auth.Claims) []featureAnnouncement {
 			Description: "Open a plan's Review execution view to compare its baseline with an imported snapshot, inspect evidence gaps, and record review decisions.",
 			Action:      announcementAction{Type: "route", Route: "?view=plan&planView=execution", Target: "view-execution", Parent: "plan-btn"},
 		})
+		features = append(features, featureAnnouncement{
+			ID: "weekly-execution-review-v1", Title: "Complete a weekly execution review",
+			Description: "Complete a weekly agenda, follow actions through resolution, and keep an immutable record of each review's evidence and outcomes.",
+			Action:      announcementAction{Type: "route", Route: "?view=plan&planView=execution", Target: "view-execution", Parent: "plan-btn"},
+		})
 		if s.sheetsProvider != nil {
 			features = append(features, featureAnnouncement{
 				ID: "linked-sheet-import-v1", Title: "Refresh planning inputs from linked sheets",

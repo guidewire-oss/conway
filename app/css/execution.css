@@ -21,8 +21,30 @@
 .execution-decision-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .execution-rationale, #execution-decision-status { grid-column: 1 / -1; }
 .execution-decision { padding: 14px 0; border-top: 1px solid var(--border); }
+/* specs/024-weekly-execution-review.md:167 — an accessible in-plan review. */
+.weekly-review { margin: 16px 0; }
+.weekly-heading, .weekly-controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: end; }
+.weekly-heading { justify-content: space-between; align-items: start; }
+.weekly-heading h3 { margin-top: 0; font-size: 1.2rem; color: inherit; }
+.weekly-review h4 { font-size: 1rem; }
+.weekly-new-action { margin: 16px 0; border-top: 1px solid var(--border); }
+.weekly-new-action > summary { font-weight: 600; }
+.weekly-controls > label { flex: 1 1 180px; }
+.weekly-context { border-left: 3px solid var(--accent); padding-left: 14px; }
+.weekly-counts { display: flex; flex-wrap: wrap; gap: 12px 24px; padding: 14px 0; }
+.weekly-counts span { display: flex; gap: 6px; align-items: baseline; }
+.weekly-agenda { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.weekly-agenda ul { padding-left: 20px; }
+.weekly-agenda li { margin-bottom: 10px; }
+.weekly-review details > summary, .execution-decision details > summary { cursor: pointer; padding: 12px 0; }
+#weekly-completion, .weekly-transition { display: grid; gap: 12px; margin: 16px 0; }
+#weekly-completion button, .weekly-transition button { justify-self: start; }
+.weekly-history { border-top: 1px solid var(--border); margin-top: 16px; }
+.weekly-note, .execution-decision p { white-space: pre-wrap; }
+.weekly-review a { overflow-wrap: anywhere; }
 @media (max-width: 600px) {
   .execution-decision-form { grid-template-columns: minmax(0, 1fr); }
+  .weekly-agenda { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .execution-review > .row-actions > label { flex-basis: 100%; }
   .execution-review > .row-actions > button { flex: 1 1 140px; }
   .execution-review .panel-card { padding: 12px; }

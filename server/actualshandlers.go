@@ -23,57 +23,72 @@ func (s *server) planActuals(w http.ResponseWriter, r *http.Request, p *db.PlanR
 		http.Error(w, "Choose an imported snapshot to review execution.", 400)
 		return
 	}
-	snap, err := s.db.GetSnapshot(id)
-	if err != nil {
-		http.Error(w, "Could not load snapshot.", 500)
+	loaded, status, message := s.loadExecutionEvidence(p, c, id)
+	if status != http.StatusOK {
+		http.Error(w, message, status)
 		return
 	}
-	if !canReadExecutionSnapshot(snap, c) {
-		http.Error(w, "Snapshot not found or inaccessible.", 404)
-		return
+	snap := loaded.Snapshot
+	var baseline any
+	if loaded.Baseline != nil {
+		baseline = map[string]any{"id": loaded.Baseline.ID, "name": loaded.Baseline.Name, "createdAt": loaded.Baseline.CreatedAt, "periodStart": loaded.Schedule.PeriodStart, "horizonWeeks": loaded.Schedule.HorizonWeeks}
 	}
-	issues, err := s.db.ExecutionIssues(id)
-	if err != nil {
-		http.Error(w, "Could not read snapshot issue evidence.", 500)
-		return
+	actuals := loaded.Actuals
+	writeJSON(w, map[string]any{"snapshot": map[string]any{"id": snap.ID, "name": snap.Name, "source": snap.Source, "createdAt": snap.CreatedAt, "ageDays": math.Max(0, time.Since(time.Unix(snap.CreatedAt, 0)).Hours()/24)}, "baseline": baseline, "coverage": actuals.Coverage, "initiatives": actuals.Initiatives, "calibration": actuals.Calibration, "adherence": actuals.Adherence, "gaps": actuals.Gaps})
+}
+
+type executionEvidence struct {
+	Snapshot *db.SnapshotRow
+	Baseline *db.BaselineRow
+	Schedule *planning.Schedule
+	Issues   []db.IssueRow
+	Actuals  *planning.ExecutionActuals
+}
+
+// Both live inspection and completed reviews use this evidence path. A manual
+// review has no derived measurements. specs/024-weekly-execution-review.md:265
+func (s *server) loadExecutionEvidence(p *db.PlanRow, c auth.Claims, id string) (executionEvidence, int, string) {
+	loaded := executionEvidence{}
+	var err error
+	if id != "" {
+		loaded.Snapshot, err = s.db.GetSnapshot(id)
+		if err != nil {
+			return loaded, http.StatusInternalServerError, "Could not load snapshot."
+		}
+		if !canReadExecutionSnapshot(loaded.Snapshot, c) {
+			return loaded, http.StatusNotFound, "Snapshot not found or inaccessible."
+		}
+		loaded.Issues, err = s.db.ExecutionIssues(id)
+		if err != nil {
+			return loaded, http.StatusInternalServerError, "Could not read snapshot issue evidence."
+		}
 	}
 	var current []planning.Initiative
-	if err = json.Unmarshal(p.Initiatives, &current); err != nil {
-		http.Error(w, "Plan initiatives are unreadable.", 500)
-		return
+	if len(p.Initiatives) > 0 && json.Unmarshal(p.Initiatives, &current) != nil {
+		return loaded, http.StatusInternalServerError, "Plan initiatives are unreadable."
 	}
-	rows, err := s.db.ListBaselines(p.ID)
+	loaded.Baseline, err = s.db.ActiveBaseline(p.ID)
 	if err != nil {
-		http.Error(w, "Could not load agreed baselines.", 500)
-		return
+		return loaded, http.StatusInternalServerError, "Could not load agreed baselines."
 	}
 	var base *planning.BaselineInputs
-	var schedule *planning.Schedule
-	var baseline any
-	for _, b := range rows {
-		if !b.Active {
-			continue
-		}
-		stored, err := s.db.GetBaseline(p.ID, b.ID)
-		if err != nil || stored == nil {
-			http.Error(w, "Could not read active baseline.", 500)
-			return
-		}
+	if loaded.Baseline != nil {
 		base = &planning.BaselineInputs{}
-		schedule = &planning.Schedule{}
-		if json.Unmarshal(stored.Inputs, base) != nil || json.Unmarshal(stored.Schedule, schedule) != nil {
-			http.Error(w, "Agreed baseline is unreadable.", 500)
-			return
+		loaded.Schedule = &planning.Schedule{}
+		if json.Unmarshal(loaded.Baseline.Inputs, base) != nil || json.Unmarshal(loaded.Baseline.Schedule, loaded.Schedule) != nil {
+			return loaded, http.StatusInternalServerError, "Agreed baseline is unreadable."
 		}
-		baseline = map[string]any{"id": b.ID, "name": b.Name, "createdAt": b.CreatedAt, "periodStart": schedule.PeriodStart, "horizonWeeks": schedule.HorizonWeeks}
-		break
 	}
-	evidence := make([]planning.ExecutionIssue, 0, len(issues))
-	for _, i := range issues {
+	if loaded.Snapshot == nil {
+		return loaded, http.StatusOK, ""
+	}
+	evidence := make([]planning.ExecutionIssue, 0, len(loaded.Issues))
+	for _, i := range loaded.Issues {
 		evidence = append(evidence, planning.ExecutionIssue{Key: i.Key, ParentKey: i.ParentKey, Pod: i.Pod, Type: i.IssueType, Summary: i.Summary, StatusCategory: i.StatusCat, Created: i.Created, Updated: i.Updated, Resolved: i.Resolved})
 	}
-	actuals := planning.DeriveActuals(current, base, schedule, evidence, time.Unix(snap.CreatedAt, 0))
-	writeJSON(w, map[string]any{"snapshot": map[string]any{"id": snap.ID, "name": snap.Name, "source": snap.Source, "createdAt": snap.CreatedAt, "ageDays": math.Max(0, time.Since(time.Unix(snap.CreatedAt, 0)).Hours()/24)}, "baseline": baseline, "coverage": actuals.Coverage, "initiatives": actuals.Initiatives, "calibration": actuals.Calibration, "adherence": actuals.Adherence, "gaps": actuals.Gaps})
+	actuals := planning.DeriveActuals(current, base, loaded.Schedule, evidence, time.Unix(loaded.Snapshot.CreatedAt, 0))
+	loaded.Actuals = &actuals
+	return loaded, http.StatusOK, ""
 }
 
 func validateExecutionDecision(v *db.ExecutionDecision, inits []planning.Initiative) error {
@@ -108,6 +123,10 @@ func validateExecutionDecision(v *db.ExecutionDecision, inits []planning.Initiat
 // Review history appends; no request can rewrite a previous review or agreement.
 // specs/017-planning-and-execution-usability.md:90
 func (s *server) planDecisions(w http.ResponseWriter, r *http.Request, p *db.PlanRow, c auth.Claims) {
+	if (!c.Has("manager") && !c.Has("admin")) || c.GameID != "" {
+		http.Error(w, "manager access is required", http.StatusForbidden)
+		return
+	}
 	if r.Method == http.MethodGet {
 		rows, err := s.db.ExecutionDecisions(p.ID)
 		if err != nil {
@@ -157,6 +176,8 @@ func (s *server) planDecisions(w http.ResponseWriter, r *http.Request, p *db.Pla
 	v.PlanID = p.ID
 	v.CreatedBy = c.Sub
 	v.CreatedAt = time.Now().Unix()
+	v.Status = "open"
+	v.Version = 1
 	if err := s.db.AppendExecutionDecision(v); err != nil {
 		http.Error(w, "Could not save review decision.", 500)
 		return

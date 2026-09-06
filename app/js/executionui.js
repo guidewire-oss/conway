@@ -2,6 +2,7 @@
 // specs/017-planning-and-execution-usability.md:87
 import { esc, weekToDate } from './order.js';
 import { icon } from './icons.js';
+import { actionCardsHTML, bindActionCards, mountWeeklyReview } from './weeklyreview.js';
 
 const num = (n, suffix = '') => Number.isFinite(n) ? `${Math.round(n * 10) / 10}${suffix}` : 'Unknown';
 const delta = n => Number.isFinite(n) ? `${n > 0 ? '+' : ''}${num(n)} weeks` : 'Unknown';
@@ -71,7 +72,7 @@ export function confirmedEpicKeys(form) {
 }
 
 export async function mountExecution(host, {plan, request, onBindingsSaved, onImport, onAgreement, onSnapshot, onTeam}) {
-  let ticket = 0, data = null, snapshots = [], mountedRoot;
+  let decisionTicket = 0, ticket = 0, data = null, snapshots = [], mountedRoot, weekly;
   const requestedTeam = new URL(location.href).searchParams.get('team') || '';
   const drafts = new Map();
   const draftFrom = form => ({ text: form.elements.epicKeys.value, suggestions: [...form.querySelectorAll('[name="suggestion"]')].filter(input => input.checked).map(input => input.value) });
@@ -81,13 +82,20 @@ export async function mountExecution(host, {plan, request, onBindingsSaved, onIm
     if (!r?.ok) throw new Error(r ? (await r.text()).slice(0,250) || `Server returned ${r.status}; please retry.` : 'Could not reach the server. Try again.');
     return r.json();
   };
-  host.innerHTML = `<section class="execution-review"><div class="row-actions"><label>Execution snapshot <select id="execution-snapshot"><option value="">Loading snapshots…</option></select></label><button id="execution-refresh">Refresh saved evidence</button><button id="execution-import">${icon('upload')}Import new snapshot</button><button id="execution-agreement">Review agreement</button><label>Team <select id="execution-team"><option value="">All teams, including untracked</option></select></label></div><p id="execution-status" role="status" aria-live="polite"></p><div id="execution-evidence"></div>
-    <section class="panel-card"><h3>Record the next action</h3><p class="hint">Capture a decision with an owner and review date. This app records the action; it does not send notifications or change Jira.</p><form id="execution-decision-form" class="execution-decision-form">
+  host.innerHTML = `<section class="execution-review"><div class="row-actions"><label>Execution snapshot <select id="execution-snapshot" disabled><option value="">Loading snapshots…</option></select></label><button id="execution-refresh">Refresh saved evidence</button><button id="execution-import">${icon('upload')}Import new snapshot</button><button id="execution-agreement">Review agreement</button><label>Team <select id="execution-team"><option value="">All teams, including untracked</option></select></label></div><p id="execution-status" role="status" aria-live="polite"></p><div id="execution-weekly"></div><div id="execution-evidence"></div>
+    <section id="execution-actions-panel"><details class="weekly-new-action"><summary>Record the next action</summary><p class="hint">Capture a decision with an owner and review date. This app records the action; it does not send notifications or change Jira.</p><form id="execution-decision-form" class="execution-decision-form">
       <label>Action <input name="action" required maxlength="1000"></label><label>Owner <input name="owner" required maxlength="200"></label><label>Review date <input name="reviewDate" type="date" required></label>
       <label>Initiative <select name="initiative"><option value="">Whole plan</option>${(plan.initiatives || []).map(it=>`<option>${esc(it.name)}</option>`).join('')}</select></label>
-      <label class="execution-rationale">Rationale / evidence <textarea name="rationale" required maxlength="10000" rows="3"></textarea></label><button type="submit">${icon('save')}Record decision</button><p id="execution-decision-status" role="status" aria-live="polite"></p></form><h3>Previous decisions</h3><div id="execution-decisions">Loading decisions…</div></section></section>`;
+      <label class="execution-rationale">Rationale / evidence <textarea name="rationale" required maxlength="10000" rows="3"></textarea></label><button type="submit">${icon('save')}Record action</button><p id="execution-decision-status" role="status" aria-live="polite"></p></form></details><h3>Action follow-up</h3><button type="button" id="execution-reload-actions">Reload actions</button><div id="execution-decisions">Loading decisions…</div></section></section>`;
   mountedRoot = host.querySelector('.execution-review');
   const select = host.querySelector('#execution-snapshot'), teamSelect = host.querySelector('#execution-team'), status = host.querySelector('#execution-status');
+  weekly = mountWeeklyReview(host.querySelector('#execution-weekly'), {plan,json,live,ready:false,getContext:()=>({snapshotId:select.value,filters:{team:teamSelect.value}})});
+  host.querySelector('[data-weekly-actions]').append(host.querySelector('#execution-actions-panel'));
+  const actionsPanel = host.querySelector('#execution-actions-panel');
+  actionsPanel.append(actionsPanel.querySelector('.weekly-new-action'));
+  const initialTeams = [...new Set((plan.initiatives || []).flatMap(it=>Object.entries(it.work || {}).filter(([,s])=>s.inPath).map(([name])=>name)))].sort();
+  teamSelect.innerHTML += initialTeams.map(t=>`<option>${esc(t)}</option>`).join('');
+  if(initialTeams.includes(requestedTeam)) teamSelect.value = requestedTeam;
   const paint = () => {
     if (!live()) return;
     host.querySelector('#execution-evidence').innerHTML = data ? executionEvidenceHTML(data,{team:teamSelect.value,plan}) : '';
@@ -113,7 +121,7 @@ export async function mountExecution(host, {plan, request, onBindingsSaved, onIm
           if (!live()) return;
           // Preserve edits typed after this request was dispatched.
           if (JSON.stringify(drafts.get(name)) === JSON.stringify(pendingDraft)) drafts.delete(name);
-          onBindingsSaved?.(result); await refresh();
+          onBindingsSaved?.(result); weekly.invalidate(); await refresh();
           if (live()) status.textContent += ` Bindings saved for ${name}.${drafts.has(name) ? ' Newer unsaved edits remain in the form.' : ''}`;
         } catch (e) { if(live()) { note.textContent = `Could not save: ${e.message}. Your input is retained.`; note.setAttribute('role','alert'); } }
         finally { button.disabled = false; }
@@ -123,7 +131,7 @@ export async function mountExecution(host, {plan, request, onBindingsSaved, onIm
   async function refresh() {
     if (!live()) return;
     const mine = ++ticket; data = null; paint(); status.setAttribute('role','status');
-    if (!select.value) { status.textContent = 'Choose a snapshot, or import one to review execution.'; return; }
+    if (!select.value) { status.textContent = 'Manual review: actions and conclusions are available. Measured execution remains unknown until you select a snapshot.'; return; }
     status.textContent = 'Loading snapshot evidence…';
     try {
       const result = await json(`/api/plan/${encodeURIComponent(plan.id)}/actuals?snapshot=${encodeURIComponent(select.value)}`);
@@ -136,35 +144,52 @@ export async function mountExecution(host, {plan, request, onBindingsSaved, onIm
       paint();
     } catch (e) { if(live() && mine === ticket) { status.textContent = `Execution evidence unavailable: ${e.message}`; status.setAttribute('role','alert'); } }
   }
-  select.addEventListener('change',()=>{onSnapshot?.(select.value); refresh();});
-  teamSelect.addEventListener('change',()=>{teamSelect.dataset.chosen='1'; onTeam?.(teamSelect.value); paint();});
-  host.querySelector('#execution-refresh').addEventListener('click',refresh);
+  select.addEventListener('change',()=>{onSnapshot?.(select.value || 'manual'); weekly.invalidate(); refresh();});
+  teamSelect.addEventListener('change',()=>{teamSelect.dataset.chosen='1'; onTeam?.(teamSelect.value); weekly.invalidate(); paint();});
+  host.querySelector('#execution-refresh').addEventListener('click',()=>{weekly.invalidate(); refresh();});
   host.querySelector('#execution-import').addEventListener('click',()=>onImport?.());
   host.querySelector('#execution-agreement').addEventListener('click',()=>onAgreement?.());
   async function loadDecisions() {
-    try { const result = await json(`/api/plan/${encodeURIComponent(plan.id)}/decisions`); if(live()) host.querySelector('#execution-decisions').innerHTML = decisionsHTML(result.decisions); }
-    catch(e) { if(live()) host.querySelector('#execution-decisions').textContent = `Decision history unavailable: ${e.message}`; }
+    const mine = ++decisionTicket;
+    try {
+      const result = await json(`/api/plan/${encodeURIComponent(plan.id)}/decisions`);
+      if(!live() || mine !== decisionTicket) return;
+      const target = host.querySelector('#execution-decisions');
+      const retained = new Map([...target.querySelectorAll('[data-action-id]')].map(card=>[card.dataset.actionId,{status:card.querySelector('select').value,evidence:card.querySelector('textarea').value,open:card.querySelector('details').open}]));
+      target.innerHTML = actionCardsHTML(result.decisions);
+      bindActionCards(target,{json,base:`/api/plan/${encodeURIComponent(plan.id)}`,live,onChanged:async()=>{weekly.invalidate(); await loadDecisions();}});
+      target.querySelectorAll('[data-action-id]').forEach(card=>{
+        const draft = retained.get(card.dataset.actionId); if(!draft) return;
+        const form = card.querySelector('form');
+        if([...form.elements.status.options].some(o=>o.value === draft.status)) form.elements.status.value = draft.status;
+        form.elements.status.dispatchEvent(new Event('change')); form.elements.evidence.value = draft.evidence; card.querySelector('details').open = draft.open;
+      });
+    }
+    catch(e) { if(live() && mine === decisionTicket) {const note=host.querySelector('#execution-decision-status'); note.textContent = `Could not reload actions: ${e.message}. Existing action inputs are retained.`; note.setAttribute('role','alert');} }
   }
+  host.querySelector('#execution-reload-actions').addEventListener('click',()=>{weekly.invalidate(); loadDecisions();});
   host.querySelector('#execution-decision-form').addEventListener('submit',async ev=>{
     ev.preventDefault(); const form=ev.currentTarget, button=form.querySelector('button'), note=host.querySelector('#execution-decision-status');
     if (button.disabled) return;
-    if (!data) { note.textContent='Load execution evidence before recording a decision, so its source is retained.'; return; }
+    if (select.value && !data) { note.textContent='Wait for the selected evidence to load, or select a manual review before recording an action.'; return; }
+    const submitted = JSON.stringify(Object.fromEntries(new FormData(form)));
     button.disabled=true; note.setAttribute('role','status'); note.textContent='Recording decision…';
     try {
       const values=Object.fromEntries(new FormData(form));
-      await json(`/api/plan/${encodeURIComponent(plan.id)}/decisions`,{method:'POST',body:JSON.stringify({...values,snapshotId:data.snapshot.id,baselineId:data.baseline?.id || ''})});
-      if(!live()) return; form.reset(); note.textContent='Decision recorded. Previous decisions are preserved.'; await loadDecisions();
+      await json(`/api/plan/${encodeURIComponent(plan.id)}/decisions`,{method:'POST',body:JSON.stringify({...values,snapshotId:data?.snapshot?.id || '',baselineId:data?.baseline?.id || ''})});
+      if(!live()) return; if(JSON.stringify(Object.fromEntries(new FormData(form))) === submitted) form.reset(); weekly.invalidate(); note.textContent='Action recorded. Previous decisions are preserved.'; await loadDecisions();
     } catch(e) { note.textContent=`Could not record decision: ${e.message}`; note.setAttribute('role','alert'); }
     finally {button.disabled=false;}
   });
   const decisions = loadDecisions();
   try {
     snapshots = await json('/api/snapshots'); if(!live()) return;
-    select.innerHTML = '<option value="">Choose a snapshot</option>' + (snapshots || []).map(s=>`<option value="${esc(s.id)}">${esc(s.name || s.id)} · ${esc(s.source === 'jira' ? 'Jira import' : s.source === 'baseline' || s.source === 'template' ? 'Synthetic example' : 'Source unknown')} · ${esc(when(s.createdAt))}</option>`).join('');
+    select.innerHTML = '<option value="">Manual review (no snapshot)</option>' + (snapshots || []).map(s=>`<option value="${esc(s.id)}">${esc(s.name || s.id)} · ${esc(s.source === 'jira' ? 'Jira import' : s.source === 'baseline' || s.source === 'template' ? 'Synthetic example' : 'Source unknown')} · ${esc(when(s.createdAt))}</option>`).join('');
     const requested = new URL(location.href).searchParams.get('executionSnapshot');
     if((snapshots || []).some(s=>s.id === requested)) select.value=requested;
-    else if(snapshots?.length) select.value=[...snapshots].sort((a,b)=>(Number(b.source === 'jira') - Number(a.source === 'jira')) || (b.createdAt || 0) - (a.createdAt || 0))[0].id;
-    await refresh();
+    else if(requested !== 'manual' && snapshots?.length) select.value=[...snapshots].sort((a,b)=>(Number(b.source === 'jira') - Number(a.source === 'jira')) || (b.createdAt || 0) - (a.createdAt || 0))[0].id;
+    weekly.invalidate(); await refresh();
   } catch(e) { if(live()) { select.innerHTML='<option value="">Snapshots unavailable</option>'; status.textContent=`Could not load snapshots: ${e.message}`; status.setAttribute('role','alert'); } }
+  if(live()) { select.disabled = false; weekly.ready(); }
   await decisions;
 }

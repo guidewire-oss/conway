@@ -6,6 +6,25 @@ This project uses the software factory scaffold (`opencode.json`, `.opencode/`, 
 
 ## Long-term rules
 
+### Deliver coherent, usable product increments
+
+- Design every feature around a complete manager or team workflow, with clear
+  navigation, plain action labels, accessible controls and responsive layouts.
+- Reuse the existing theme, components, terminology, permissions and planning
+  functions. Extend established workflows instead of adding competing controls,
+  duplicate sources of truth or inconsistent calculations.
+- Specify behavior before implementation. Use Ginkgo/Gomega for Go behavioral
+  tests and Playwright for meaningful end-to-end user journeys, including
+  failure recovery, access boundaries and interactions with existing features.
+- Update user documentation in the same increment: explain concepts, when to
+  choose an option, its calculations and limits, and provide contextual help.
+  Register user-visible launches in the feature announcement system.
+- After completing each roadmap item, report what was completed and show the
+  remaining items in an ordered table with their status and dependencies.
+
+Provenance: product delivery requirements confirmed by the maintainer on
+2026-09-06 during the weekly execution review implementation request.
+
 ### Always verify the latest version of any tool, library, or framework against its authoritative source — never rely on training data alone
 
 When the task touches versions, release notes, current APIs, or "the latest" anything, **search the web first** (via `webfetch` on the official docs/release page). Training-data priors go stale. The rule:

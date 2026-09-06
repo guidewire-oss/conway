@@ -382,3 +382,18 @@ would silently stop protecting anything. Per-slice buffers (SSQ-style, §10 Q5)
 a single reverse walk — the slices are already topologically sorted), and the
 `WorkSlice` shape grows three fields (dependsOn, latestStartWeek, slackWeeks),
 recorded in spec 001 §7 alongside.
+
+## Decision 15
+
+**Weekly reviews extend the existing execution workflow and preserve its evidence.**
+
+The feature decisions were recorded before implementation in
+[specification 024](../specs/024-weekly-execution-review.md#11-decision-record).
+That specification remains canonical for manual review, action transitions,
+immutable completion, comparison limits and independent acceptance tests.
+
+Retain the existing plan, snapshot, agreement and action identities. Surface the
+increment through the existing feature-announcement and documentation routes.
+The maintainer's 2026-09-06 request also establishes durable delivery conventions
+in AGENTS.md: coherent interaction design, behavioral tests, documentation in the
+same increment, and an updated ordered roadmap after completion.
