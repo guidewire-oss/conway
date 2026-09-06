@@ -32,7 +32,7 @@ func decodeReadyQueueBody(w http.ResponseWriter, r *http.Request, body any) bool
 }
 
 // Queue decisions authorize an operational choice; they never save schedule
-// inputs or imply observed starts. specs/025-team-ready-work-queue.md:305
+// inputs or imply observed starts. specs/025-team-ready-work-queue.md:318
 func (s *server) handleReadyQueue(w http.ResponseWriter, r *http.Request, p *db.PlanRow, c auth.Claims, sub string) {
 	if (!c.Has("manager") && !c.Has("admin")) || c.GameID != "" || (p.Owner != c.Sub && !c.Has("admin")) {
 		http.Error(w, "manager access to this plan is required", http.StatusForbidden)
@@ -49,6 +49,26 @@ func (s *server) handleReadyQueue(w http.ResponseWriter, r *http.Request, p *db.
 		if err != nil {
 			s.readyQueueFailure(w, err)
 			return
+		}
+		if len(history.Confirmations) == 0 && len(history.Decisions) == 0 {
+			var initiatives []planning.Initiative
+			if len(p.Initiatives) > 0 {
+				if err := json.Unmarshal(p.Initiatives, &initiatives); err != nil {
+					s.readyQueueFailure(w, err)
+					return
+				}
+			}
+			assigned := false
+			for _, it := range initiatives {
+				if it.Name == initiative && it.Work[team].InPath {
+					assigned = true
+					break
+				}
+			}
+			if !assigned {
+				http.Error(w, "no current assignment or retained history exists for this team and initiative", http.StatusNotFound)
+				return
+			}
 		}
 		writeJSON(w, history)
 		return
@@ -188,7 +208,7 @@ func (s *server) prepareReadyQueue(ctx context.Context, p *db.PlanRow, team stri
 	}
 	// Confirmation freshness and optimistic writes use the same complete saved
 	// planning context, including site hours and the containing plan identity.
-	// specs/025-team-ready-work-queue.md:333
+	// specs/025-team-ready-work-queue.md:346
 	planRaw, err := json.Marshal(struct {
 		ID                                    string
 		Teams, Initiatives, Scheduling, Sites json.RawMessage

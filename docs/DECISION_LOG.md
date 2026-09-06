@@ -421,3 +421,25 @@ acceptance and accountability.
 
 *Cost:* Context-bound confirmations, append-only decisions and atomic stale-write
 guards add persistence and require deliberate reconfirmation after plan changes.
+
+## Decision 17
+
+**Governance records delivery conventions; feature specifications remain canonical.**
+
+*Context:* Decisions 15 and 16 mixed repository delivery conventions with product
+design summaries. Their specification links were intended to point to canon, but
+the repeated design prose made the boundary unclear during review.
+
+*Decision:* This entry supersedes Decisions 15 and 16 as governance guidance.
+Keep the maintainer's durable delivery conventions in AGENTS.md: coherent user
+workflows, independent behavioral coverage, accompanying documentation and an
+ordered completion roadmap. Specifications 024 and 025 alone define their feature
+behavior and design alternatives. Further feature corrections update those
+specifications; this log records only changes to repository practice. Preserve
+published Decision numbers so existing commit references remain resolvable.
+
+*Rejected:* Deleting published entries would break historical references. Copying
+feature algorithms or alternatives here would create another source of truth.
+
+*Cost:* Readers of older commits must follow this superseding entry and the
+numbered feature specifications for current decisions.

@@ -41,6 +41,16 @@ var _ = Describe("team ready-work queue", func() {
 		Expect(err).NotTo(HaveOccurred())
 		return strings.ToLower(string(b))
 	}
+	// specs/025-team-ready-work-queue.md:264: the omitted ordering has the
+	// same stated-priority meaning in the queue and accepted scheduler.
+	It("labels an omitted accepted ordering as stated priority", func() {
+		in := input()
+		in.Inputs.Scheduling.AcceptedOrdering = ""
+		in.Schedule = in.Inputs.RecomputeWith(ScheduleOptions{})
+		queue, err := BuildReadyQueue(in)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(queue.Context.AcceptedOrdering).To(Equal("stated"))
+	})
 	It("requires operational evidence before the current scheduled start is ready", func() {
 		in := input()
 		queue, err := BuildReadyQueue(in)
@@ -180,6 +190,21 @@ var _ = Describe("team ready-work queue", func() {
 				Expect(week.Busy).To(Equal(0))
 			}
 		}
+	})
+	// specs/025-team-ready-work-queue.md:333: explicit-zero exceptions cannot
+	// bypass a self-dependency that the accepted scheduler marks unresolved.
+	It("keeps a zero-effort self-dependent checkpoint provisional and unreleasable", func() {
+		in := input()
+		in.Inputs.Initiatives = []Initiative{{Name: "Atlas", Work: map[string]TeamWork{"Team A": {Weeks: 0, Estimated: true, InPath: true, DependsOn: []string{"Team A"}}}}}
+		in.Schedule = in.Inputs.RecomputeWith(ScheduleOptions{})
+		Expect(in.Schedule.Initiatives).To(HaveLen(1))
+		Expect(in.Schedule.Initiatives[0].Provisional).To(BeTrue())
+		Expect(strings.ToLower(strings.Join(in.Schedule.Initiatives[0].Assumptions, " "))).To(ContainSubstring("dependency"))
+		confirm(&in, "Atlas")
+		queue, err := BuildReadyQueue(in)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(item(queue, "Atlas").CanRelease).To(BeFalse())
+		Expect(item(queue, "Atlas").State).To(Equal("waiting"))
 	})
 	// specs/025-team-ready-work-queue.md:267: phase growth may use contiguous
 	// occupied weeks; lane-weeks of effort are not the same as elapsed weeks.

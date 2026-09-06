@@ -267,7 +267,13 @@ screens or invented progress would obscure the current evidence limitations.
 **Decision:** Keep reviews within Review execution. Reuse the existing actuals
 derivation with the selected accessible snapshot and active agreement. Classify
 measured late/at-risk or agreement divergence and scope changes as delivery
-exceptions, while preserving derivation gaps in a separate section. Compare only
+exceptions, while preserving derivation gaps in a separate section.
+For start and finish divergence, prefer the positively divergent team slices over
+an aggregate duplicate of the same dimension. Use an initiative-level fallback
+only for a positive aggregate dimension without a positively divergent slice.
+Filtering to another assigned team must not retain a generic duplicate of a
+team-attributed exception. Preserve the full underlying evidence in the summary.
+Compare only
 available matching measures; changed agreement or working scope is an explicit
 comparability limitation. A reused capture says no new capture. A manual review
 retains actions and qualitative notes with a no-snapshot data gap.

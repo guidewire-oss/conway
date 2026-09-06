@@ -21,7 +21,7 @@ type ReadyQueueGuard struct {
 }
 
 // ReadyQueueHistory retains removed membership and selects latest records by
-// persisted insertion order, not timestamps. specs/025-team-ready-work-queue.md:339
+// persisted insertion order, not timestamps. specs/025-team-ready-work-queue.md:352
 func (d *DB) ReadyQueueHistory(ctx context.Context, planID, team, initiative string) (ReadyQueueState, error) {
 	out := ReadyQueueState{Confirmations: []planning.ReadyConfirmation{}, Decisions: []planning.ReleaseDecision{}}
 	rows, err := d.pool.Query(ctx, `SELECT event_order,kind,data FROM plan_ready_queue_events WHERE plan_id=$1 AND ($2='' OR team=$2) AND ($3='' OR initiative=$3) ORDER BY event_order`, planID, team, initiative)
@@ -65,10 +65,16 @@ func (d *DB) AppendReadyQueueEvent(ctx context.Context, confirmation *planning.R
 	var id, planID, team, initiative, kind string
 	var at int64
 	var value any
+	// SQL owns event order; immutable payloads omit this derived field.
+	// specs/025-team-ready-work-queue.md:353
 	if confirmation != nil {
-		id, planID, team, initiative, kind, at, value = confirmation.ID, confirmation.PlanID, confirmation.Team, confirmation.Initiative, "confirmation", confirmation.CreatedAt, confirmation
+		stored := *confirmation
+		stored.EventOrder = 0
+		id, planID, team, initiative, kind, at, value = confirmation.ID, confirmation.PlanID, confirmation.Team, confirmation.Initiative, "confirmation", confirmation.CreatedAt, stored
 	} else {
-		id, planID, team, initiative, kind, at, value = decision.ID, decision.PlanID, decision.Team, decision.Initiative, decision.Decision, decision.CreatedAt, decision
+		stored := *decision
+		stored.EventOrder = 0
+		id, planID, team, initiative, kind, at, value = decision.ID, decision.PlanID, decision.Team, decision.Initiative, decision.Decision, decision.CreatedAt, stored
 	}
 	if planID != guard.Plan.ID {
 		return false, fmt.Errorf("queue event must belong to its guarded plan")

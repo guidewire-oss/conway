@@ -22,7 +22,7 @@ type ReadyChecklistItem struct {
 	Required bool   `json:"required"`
 }
 type ReadyConfirmation struct {
-	EventOrder      int64        `json:"eventOrder"`
+	EventOrder      int64        `json:"eventOrder,omitempty"`
 	ID              string       `json:"id"`
 	PlanID          string       `json:"planId"`
 	Team            string       `json:"team"`
@@ -34,7 +34,7 @@ type ReadyConfirmation struct {
 	CreatedAt       int64        `json:"createdAt"`
 }
 type ReleaseDecision struct {
-	EventOrder      int64  `json:"eventOrder"`
+	EventOrder      int64  `json:"eventOrder,omitempty"`
 	ID              string `json:"id"`
 	PlanID          string `json:"planId"`
 	Team            string `json:"team"`
@@ -111,7 +111,7 @@ var readyCheckDefinitions = []struct{ key, label string }{
 }
 
 // ValidateReadyChecks preserves partial progress without inventing confirmation.
-// specs/025-team-ready-work-queue.md:281
+// specs/025-team-ready-work-queue.md:294
 func ValidateReadyChecks(checks []ReadyCheck) ([]ReadyCheck, error) {
 	known := map[string]bool{}
 	for _, def := range readyCheckDefinitions {
@@ -144,7 +144,7 @@ func ValidateReadyChecks(checks []ReadyCheck) ([]ReadyCheck, error) {
 }
 
 // BuildReadyQueue reads accepted placement; it never fills a local gap by moving
-// another slice. specs/025-team-ready-work-queue.md:259
+// another slice. specs/025-team-ready-work-queue.md:263
 func BuildReadyQueue(in ReadyQueueInput) (ReadyQueue, error) {
 	horizon := int(math.Ceil(in.Inputs.Params.HorizonWeeks))
 	if in.Schedule != nil {
@@ -167,9 +167,7 @@ func BuildReadyQueue(in ReadyQueueInput) (ReadyQueue, error) {
 		fingerprint = in.PlanFingerprint
 	}
 	out := ReadyQueue{Context: ReadyQueueContext{PlanID: in.PlanID, PlanFingerprint: fingerprint, Team: in.Team, AsOfWeek: in.AsOfWeek, PeriodStart: in.Inputs.Scheduling.PeriodStart, HorizonWeeks: horizon, AcceptedOrdering: in.Inputs.Scheduling.AcceptedOrdering, Basis: "Current saved schedule and operational confirmations; planning weeks and release decisions are not observed starts."}, Items: []ReadyQueueItem{}}
-	if out.Context.AcceptedOrdering == "" {
-		out.Context.AcceptedOrdering = "engine"
-	}
+	out.Context.AcceptedOrdering = in.Inputs.Scheduling.acceptedOrdering()
 	scheduled := map[string]ScheduledInitiative{}
 	var teamSchedule *PodSchedule
 	if in.Schedule != nil {
@@ -409,7 +407,7 @@ func readyReservationContinuous(pod *PodSchedule, sl WorkSlice) bool {
 }
 
 // Explicit zero effort is an acceptance checkpoint, while unresolved graphs
-// and genuinely missing estimates still block it. specs/025-team-ready-work-queue.md:316
+// and genuinely missing estimates still block it. specs/025-team-ready-work-queue.md:329
 func readyOnlyZeroProvisional(name string, inputs BaselineInputs, scheduled map[string]ScheduledInitiative) bool {
 	byName := map[string]Initiative{}
 	teams := map[string]bool{}

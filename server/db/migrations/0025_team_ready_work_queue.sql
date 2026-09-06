@@ -1,5 +1,5 @@
 -- +goose Up
--- specs/025-team-ready-work-queue.md:339: immutable decisions use monotonic ordering.
+-- specs/025-team-ready-work-queue.md:352: immutable decisions use monotonic ordering.
 CREATE TABLE plan_ready_queue_events (
  id text PRIMARY KEY,
  event_order bigserial NOT NULL,

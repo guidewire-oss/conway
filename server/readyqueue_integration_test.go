@@ -12,6 +12,7 @@ import (
 	"conway/server/auth"
 	"conway/server/db"
 	"conway/server/planning"
+	"github.com/jackc/pgx/v5/pgxpool"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -125,6 +126,33 @@ var _ = Describe("team ready-work queue persistence", Label("database"), func() 
 		Expect(refused.Code).To(Equal(409), refused.Body.String())
 		Expect(history()["confirmations"]).To(BeEmpty())
 	})
+	// specs/025-team-ready-work-queue.md:352: event order has one persisted
+	// source; API projection must not leave a contradictory zero in event JSON.
+	It("derives event ordering from its column instead of immutable event JSON", func() {
+		object(call("POST", base()+"/confirmations", confirmBody(queue()["fingerprint"]), claims))
+		object(call("POST", base()+"/decisions", decideBody(queue()["fingerprint"], "release"), claims))
+		pool, err := pgxpool.New(context.Background(), os.Getenv("CONWAY_TEST_DATABASE_URL"))
+		Expect(err).NotTo(HaveOccurred())
+		defer pool.Close()
+		rows, err := pool.Query(context.Background(), `SELECT event_order,data FROM plan_ready_queue_events WHERE plan_id=$1 ORDER BY event_order`, plan.ID)
+		Expect(err).NotTo(HaveOccurred())
+		defer rows.Close()
+		orders := []int64{}
+		for rows.Next() {
+			var order int64
+			var raw []byte
+			Expect(rows.Scan(&order, &raw)).To(Succeed())
+			var stored map[string]any
+			Expect(json.Unmarshal(raw, &stored)).To(Succeed())
+			Expect(stored).NotTo(HaveKey("eventOrder"))
+			orders = append(orders, order)
+		}
+		Expect(rows.Err()).NotTo(HaveOccurred())
+		Expect(orders).To(HaveLen(2))
+		result := history()
+		Expect(result["confirmations"].([]any)[0].(map[string]any)["eventOrder"]).To(Equal(float64(orders[0])))
+		Expect(result["decisions"].([]any)[0].(map[string]any)["eventOrder"]).To(Equal(float64(orders[1])))
+	})
 	It("appends current checklist and release evidence without changing source inputs or agreement", func() {
 		before, err := database.GetPlan(plan.ID)
 		Expect(err).NotTo(HaveOccurred())
@@ -233,6 +261,19 @@ var _ = Describe("team ready-work queue persistence", Label("database"), func() 
 		}
 		Expect(codes).To(ConsistOf(200, 409))
 		Expect(history()["confirmations"]).To(HaveLen(1))
+	})
+	// specs/025-team-ready-work-queue.md:229: absence of events is an empty
+	// history only for a current assignment, not an invented team/initiative pair.
+	It("distinguishes an empty assigned history from a nonexistent pair", func() {
+		Expect(history()["confirmations"]).To(BeEmpty())
+		Expect(history()["decisions"]).To(BeEmpty())
+		for _, query := range []string{"?team=Team%20Z&initiative=Atlas", "?team=Team%20A&initiative=Missing"} {
+			response := call("GET", base()+"/history"+query, nil, claims)
+			Expect(response.Code).To(Equal(404), response.Body.String())
+		}
+		for _, query := range []string{"?team=Team%20A", "?initiative=Atlas"} {
+			Expect(call("GET", base()+"/history"+query, nil, claims).Code).To(Equal(400))
+		}
 	})
 	It("retains historical records when assignments are removed without allowing a new release", func() {
 		object(call("POST", base()+"/decisions", decideBody(queue()["fingerprint"], "defer"), claims))

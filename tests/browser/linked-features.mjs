@@ -111,6 +111,7 @@ try {
   await checkLinkedSourceRaces(browser,base);
   await checkWeeklyReview(page,base,plan);
   await checkReadyQueue(page,base,plan);
+  assert.deepEqual(errors,[]);
   await page.waitForFunction(async()=>{
     const r=await fetch('/api/announcements',{headers:{Authorization:'Bearer '+localStorage.getItem('conway_token')}});
     const features=(await r.json()).features;

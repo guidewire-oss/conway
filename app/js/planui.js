@@ -593,7 +593,11 @@ function renderExecution() {
   if(plan.isDraft) { host.innerHTML='<p class="plan-warn">Save or discard the upload preview before reviewing execution against saved inputs.</p>'; return; }
   mountExecution(host,{plan,request:req,onImport:openImport,onAgreement:()=>setView('order'),
     onSnapshot:id=>writeRoute({executionSnapshot:id}),
-    onTeam:team=>writeRoute({team}),
+    onTeam:team=>{
+      if(current?.id !== plan.id) return;
+      current.tlTeamFilter = team;
+      writeRoute({team});
+    },
     onBindingsSaved:result=>{
       if(current?.id !== plan.id) return;
       if(Array.isArray(result.initiatives)) current.initiatives=result.initiatives;

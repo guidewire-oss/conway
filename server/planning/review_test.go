@@ -92,6 +92,24 @@ var _ = Describe("weekly execution review agenda", func() {
 		}
 		Expect(teams).To(ConsistOf("Team A", "Team B"))
 	})
+	// specs/024-weekly-execution-review.md:271: attribute matching aggregate
+	// divergence to causal teams without counting the same evidence twice.
+	DescribeTable("attributes aggregate divergence without generic team duplicates", func(team string, expected []string) {
+		in := input()
+		in.Snapshot = &ReviewSnapshot{ID: "snapshot-a", Source: "jira"}
+		in.Initiatives = []Initiative{{Name: "Atlas", Work: map[string]TeamWork{"Team A": {InPath: true}, "Team B": {InPath: true}}}}
+		in.Filters.Team = team
+		in.Actuals = &ExecutionActuals{Initiatives: []InitiativeActual{{Name: "Atlas", StartVarianceWeeks: number(2), FinishVarianceWeeks: number(1), Slices: []SliceActual{{Pod: "Team A", StartVarianceWeeks: number(2), FinishVarianceWeeks: number(1)}, {Pod: "Team B", StartVarianceWeeks: number(0), FinishVarianceWeeks: number(0)}}}}}
+		summary, err := BuildWeeklyReview(in)
+		Expect(err).NotTo(HaveOccurred())
+		teams := []string{}
+		for _, entry := range summary.Agenda.Delivery {
+			if entry.Kind == "agreement-divergence" {
+				teams = append(teams, entry.Team)
+			}
+		}
+		Expect(teams).To(ConsistOf(expected))
+	}, Entry("all teams", "", []string{"Team A"}), Entry("causal team", "Team A", []string{"Team A"}), Entry("unaffected assigned team", "Team B", []string{}))
 	It("labels the same captured evidence instead of inventing progress since last review", func() {
 		in := input()
 		in.Snapshot = &ReviewSnapshot{ID: "snapshot-a", Source: "jira"}

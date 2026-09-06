@@ -165,7 +165,7 @@ func BuildWeeklyReview(in ReviewInput) (ReviewSummary, error) {
 	if in.Snapshot != nil && in.Previous != nil && in.Previous.Snapshot != nil && in.Snapshot.ID == in.Previous.Snapshot.ID && !strings.Contains(out.Context.ComparisonLabel, "No new capture") {
 		out.Context.ComparisonLabel = "No new capture: the snapshot is unchanged. " + out.Context.ComparisonLabel
 	}
-	// Different IDs alone cannot establish forward movement. specs/024-weekly-execution-review.md:358
+	// Different IDs alone cannot establish forward movement. specs/024-weekly-execution-review.md:366
 	if in.Snapshot != nil && in.Previous != nil && in.Previous.Snapshot != nil && in.Snapshot.ID != in.Previous.Snapshot.ID && in.Snapshot.CreatedAt > 0 && in.Previous.Snapshot.CreatedAt > 0 && in.Snapshot.CreatedAt <= in.Previous.Snapshot.CreatedAt {
 		label := "The selected capture is not newer than the preceding review's capture; directional movement is unavailable."
 		if comparable {
@@ -191,11 +191,19 @@ func BuildWeeklyReview(in ReviewInput) (ReviewSummary, error) {
 				add(ReviewEntry{Kind: "evidence-gap", Reason: gap}, true)
 			}
 			for _, it := range in.Actuals.Initiatives {
+				// Prefer causal team evidence per dimension. specs/024-weekly-execution-review.md:271
+				sliceStart, sliceFinish := false, false
+				for _, sl := range it.Slices {
+					sliceStart = sliceStart || (sl.StartVarianceWeeks != nil && *sl.StartVarianceWeeks > 0)
+					sliceFinish = sliceFinish || (sl.FinishVarianceWeeks != nil && *sl.FinishVarianceWeeks > 0)
+				}
 				if it.Status == "late" || it.Status == "at-risk" {
 					add(ReviewEntry{Kind: "delivery-risk", Initiative: it.Name, Reason: "Captured evidence reports " + it.Status + " against agreement."}, false)
 				}
-				if (it.StartVarianceWeeks != nil && *it.StartVarianceWeeks > 0) || (it.FinishVarianceWeeks != nil && *it.FinishVarianceWeeks > 0) {
-					add(ReviewEntry{Kind: "agreement-divergence", Initiative: it.Name, Reason: "Available start or finish evidence is later than the agreed schedule; inferred dates retain their original limitations."}, false)
+				aggregateStart := !sliceStart && it.StartVarianceWeeks != nil && *it.StartVarianceWeeks > 0
+				aggregateFinish := !sliceFinish && it.FinishVarianceWeeks != nil && *it.FinishVarianceWeeks > 0
+				if aggregateStart || aggregateFinish {
+					add(ReviewEntry{Kind: "agreement-divergence", Initiative: it.Name, Reason: reviewDivergenceReason("initiative", aggregateStart, aggregateFinish)}, false)
 				}
 				if len(it.AddedEpics)+len(it.RemovedEpics)+len(it.UnplannedPods) > 0 {
 					add(ReviewEntry{Kind: "scope-change", Initiative: it.Name, Reason: "Epic bindings or assigned teams differ from the agreed scope."}, false)
@@ -204,8 +212,10 @@ func BuildWeeklyReview(in ReviewInput) (ReviewSummary, error) {
 					add(ReviewEntry{Kind: "evidence-gap", Initiative: it.Name, Reason: gap}, true)
 				}
 				for _, sl := range it.Slices {
-					if (sl.StartVarianceWeeks != nil && *sl.StartVarianceWeeks > 0) || (sl.FinishVarianceWeeks != nil && *sl.FinishVarianceWeeks > 0) {
-						add(ReviewEntry{Kind: "agreement-divergence", Initiative: it.Name, Team: sl.Pod, Reason: "Available team start or finish evidence is later than the agreed schedule; inferred dates retain their original limitations."}, false)
+					start := sl.StartVarianceWeeks != nil && *sl.StartVarianceWeeks > 0
+					finish := sl.FinishVarianceWeeks != nil && *sl.FinishVarianceWeeks > 0
+					if start || finish {
+						add(ReviewEntry{Kind: "agreement-divergence", Initiative: it.Name, Team: sl.Pod, Reason: reviewDivergenceReason("team", start, finish)}, false)
 					}
 					if sl.Status == "late" || sl.Status == "at-risk" {
 						add(ReviewEntry{Kind: "delivery-risk", Initiative: it.Name, Team: sl.Pod, Reason: "Captured team evidence reports " + sl.Status + " against agreement."}, false)
@@ -301,4 +311,15 @@ func BuildWeeklyReview(in ReviewInput) (ReviewSummary, error) {
 	out.Counts.Delivery = len(out.Agenda.Delivery)
 	out.Counts.Gaps = len(out.Agenda.Gaps)
 	return out, nil
+}
+
+func reviewDivergenceReason(scope string, start, finish bool) string {
+	dimension := "finish"
+	if start {
+		dimension = "start"
+		if finish {
+			dimension = "start and finish"
+		}
+	}
+	return "Available " + scope + " " + dimension + " evidence is later than the agreed schedule; inferred dates retain their original limitations."
 }

@@ -226,6 +226,10 @@ Successful mutations return 200 JSON. New mutations reject unknown fields,
 trailing JSON, duplicate/unknown checklist keys and invalid dates/weeks/names.
 Errors use 400 for invalid content or an ineligible release, 401/403 for account
 authorization, 404 for inaccessible/missing references and 409 for stale context.
+For history, an existing initiative/team assignment with no records returns empty
+arrays. A removed assignment with retained records remains readable. A pair with
+neither current membership nor retained records returns 404; blank coordinates
+remain malformed requests (400).
 Requests cannot select their actor, timestamps, derived state or scheduling outcome.
 
 ---
@@ -257,7 +261,8 @@ Requests cannot select their actor, timestamps, derived state or scheduling outc
 WIP, leads and physical tracks. Past planned work does not establish actual state.
 
 **Decision:** Recompute saved inputs through the existing accepted-order scheduler;
-do not build a parallel planner. A new work item may become ready only at its
+when no ordering is saved, the effective default and displayed label are stated
+priority, matching the scheduler. Do not build a parallel planner. A new work item may become ready only at its
 actual scheduled team start week, with estimated, nonprovisional whole-chain
 placement and a valid positive-work reservation. Consecutive phase growth is
 allowed; interrupted work reservations require review/replanning. Administrative
@@ -272,6 +277,14 @@ it can bypass whole-chain reservations and operational uncertainty.
 
 **Consequences:** This queue is deliberately conservative. Its earliest feasible
 week is the schedule's existing placement, never a newly optimized promise.
+
+An explicitly requested team absent from the plan remains an invalid choice:
+show its name in a notice and select an empty Choose a team from this plan option.
+Do not silently choose a different team or request a queue for that invalid value.
+Only a successful queue response persists the chosen team/week to navigation;
+a failed request preserves the last accepted route. Refreshing the same context
+does not create another history entry. Team changes in Review execution also
+update the plan's shared team filter so Next work and timeline retain the choice.
 
 ### Decision 2: Keep operational evidence separate from numeric full-kit readiness
 
@@ -337,7 +350,9 @@ freshness uses the same complete plan scope. Identical plans have distinct token
 Append writes lock the plan and
 revalidate the same scope and eligibility atomically; no stale write may append
 history. A monotonic persisted order selects the latest event even within one
-timestamp. Use pure Go queue tests, Ginkgo/Gomega isolated database integration,
+timestamp. Its database column is authoritative: immutable event JSON omits
+eventOrder, and API responses derive that field from the persisted column.
+Use pure Go queue tests, Ginkgo/Gomega isolated database integration,
 JS rendering tests and the existing real-server Playwright harness with generic
 fixtures. No new dependencies or production fixture endpoints are introduced.
 

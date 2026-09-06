@@ -1,5 +1,5 @@
 // Operational release decisions reuse the accepted schedule, not a second planner.
-// specs/025-team-ready-work-queue.md:254
+// specs/025-team-ready-work-queue.md:263
 import {esc, weekToDate} from './order.js';
 import {initiativeMatch} from './filter.js';
 
@@ -76,13 +76,13 @@ export function mountReadyQueue(host, {plan, request, onContext, onInspect, onRe
   const teams = (plan.teams || []).map(team=>typeof team === 'string' ? team : team.name).filter(Boolean);
   const route = new URL(location.href).searchParams;
   const requestedTeam = route.get('team') || '';
-  if(requestedTeam && !teams.includes(requestedTeam)) teams.push(requestedTeam);
+  const unavailableTeam = requestedTeam && !teams.includes(requestedTeam);
   const horizon = Math.max(1,Math.ceil(plan.horizonWeeks || 26));
   const requestedWeek = Number(route.get('readyWeek') || 0);
   const initialWeek = Number.isInteger(requestedWeek) && requestedWeek >= 0 && requestedWeek < horizon ? requestedWeek : 0;
   host.innerHTML = `<section class="ready-queue">
     <div class="ready-heading"><div><h3>Next work</h3><p>Finish active work, prepare what is waiting, and release only what the current plan can support.</p></div><button class="usage-link" data-anchor="next-work" type="button">Next work guide</button></div>
-    <div class="ready-controls"><label>Team <select id="ready-team">${teams.length ? teams.map(team=>`<option>${esc(team)}</option>`).join('') : '<option value="">No teams in this plan</option>'}</select></label>
+    <div class="ready-controls"><label>Team <select id="ready-team">${unavailableTeam ? '<option value="" disabled selected>Choose a team from this plan</option>' : ''}${teams.length ? teams.map(team=>`<option>${esc(team)}</option>`).join('') : '<option value="">No teams in this plan</option>'}</select></label>
       <label>As-of planning week <input type="number" id="ready-week" min="0" max="${horizon-1}" step="1" value="${initialWeek}" required></label>
       <button type="button" id="ready-refresh">Refresh queue</button>
     </div>
@@ -99,7 +99,7 @@ export function mountReadyQueue(host, {plan, request, onContext, onInspect, onRe
   const body = root.querySelector('#ready-items');
   const search = root.querySelector('#ready-search');
   const showAll = root.querySelector('#ready-show-all');
-  if(requestedTeam) team.value = requestedTeam;
+  if(requestedTeam && !unavailableTeam) team.value = requestedTeam;
   let queue = null, generation = 0, busy = false;
   const drafts = new Map();
   const base = `/api/plan/${encodeURIComponent(plan.id)}/ready-queue`;
@@ -217,17 +217,17 @@ export function mountReadyQueue(host, {plan, request, onContext, onInspect, onRe
     const mine = ++generation;
     queue = null; lockWrites();
     if(!team.value || !week.reportValidity()) {
-      status.textContent = 'Choose a team and a valid planning week.';
+      status.textContent = !team.value && unavailableTeam ? `The requested team “${requestedTeam}” is not in this plan. Choose a team from this plan to assess its work.` : 'Choose a team and a valid planning week.';
       body.innerHTML = ''; root.querySelector('#ready-context').innerHTML = ''; return;
     }
     const selected = {team:team.value,asOfWeek:Number(week.value)};
     status.setAttribute('role','status'); status.textContent = 'Evaluating the current plan and readiness evidence…';
     body.innerHTML = ''; root.querySelector('#ready-context').innerHTML = '';
-    onContext?.(selected.team,selected.asOfWeek);
     try {
       const result = await json(`${base}?team=${encodeURIComponent(selected.team)}&asOfWeek=${selected.asOfWeek}`);
       if(!live() || mine !== generation) return;
       queue = result;
+      onContext?.(selected.team,selected.asOfWeek);
       root.querySelector('#ready-context').innerHTML = `<div class="panel-card ready-context"><p><b>${esc(queue.context.team)}</b> · ${esc(placement(queue.context.asOfWeek,queue.context.periodStart))} · ${esc(queue.context.acceptedOrdering || 'stated')} ordering</p><p class="hint">${queue.counts.total} assigned initiatives · ${queue.counts.ready} ready · ${queue.counts.waiting} waiting · ${queue.counts.deferred} deferred.</p><details><summary>How this queue is assessed</summary><p>${esc(queue.context.basis)}</p><p class="hint">Free lanes alone do not establish permission to begin work.</p></details></div>`;
       status.textContent = success || 'Queue loaded. Confirm full kit before recording a release; inspect the timeline for changes to placement.';
       paint();
