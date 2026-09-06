@@ -125,6 +125,9 @@ verdicts and the interactions
 | FR-009 | The guide MUST distinguish current behavior, recommended practice and unresolved product limitations, without promising unimplemented corrections | MUST |
 | FR-010 | Documentation MUST provide a first-plan tutorial, recurring review recipe, concept explanations and searchable reference sections with stable links | MUST |
 | FR-011 | The guide MUST credit The Goal, Critical Chain, Goldratt's Rules of Flow, The Phoenix Project and The Unicorn Project, distinguishing conceptual inspiration from Conway-specific calculations | MUST |
+| FR-012 | Readers MUST retain access to search and contents while reading, with a visible current section and keyboard-operable navigation | MUST |
+| FR-013 | Narrow-screen readers MUST reach the content without a full contents list above it and read table entries without mandatory horizontal scrolling | MUST |
+| FR-014 | In-app help MUST offer contextual guidance first and allow the full guide to open separately without replacing the working plan | MUST |
 
 ---
 
@@ -212,6 +215,33 @@ Introduce their management ideas before the option reference and connect each
 to a practical decision. Attribute the books to their authors with publisher
 links; do not describe Conway's heuristic formulas as formulas supplied by the
 books or imply a complete implementation of critical-chain project management.
+
+---
+
+### Decision 3: Keep help close to the decision and navigation close to the reader
+
+**Context:** The long manual has complete reference content, but search is only
+at the top, mobile contents displace the introduction, and wide tables require
+sideways reading. The app's help overlay also needs a clear route to independent
+reading while retaining the working plan.
+
+**Decision:** Keep contextual help first in the global Help menu. Offer the
+full guide separately in the overlay header. Give the guide a persistent search
+and contents toolbar, concise grouped navigation with current-section feedback,
+and task-oriented entry links. Collapse contents on narrow screens and display
+table rows as labeled blocks on phones. Retain all section anchors and the
+complete printable/offline document. Escape dismisses reader navigation before
+closing an embedded guide; subsequent Escape returns to the application.
+
+**Alternatives considered:** A separate documentation platform duplicates content
+and adds dependencies. A permanent full contents list on phones delays access
+to the answer. Hiding every section behind a client-side router makes printing,
+native links and no-script reading unnecessarily fragile.
+
+**Consequences:** Progressive enhancement preserves a readable document without
+JavaScript. Search and mobile controls need behavioral checks; responsive
+formatting needs visual review. Existing formulas and task instructions remain
+unchanged. Recorded before implementation on 2026-09-05.
 
 ---
 

@@ -5,6 +5,13 @@ canonical user manual, also available through **Help** in the running app. Open
 `app/docs.html` in a browser to read it directly; its content and styles ship
 locally. Repository viewers may show the HTML source instead of rendering it.
 
+In the app, use **Help → Help with this view** for the current task or
+**Browse or search the guide** for the full reference. The overlay's **Open
+guide in new tab** keeps the selected section available alongside your plan.
+Search stays visible while reading; on smaller screens, **Contents** opens the
+section menu. Tables become labeled rows on phones. Escape dismisses search or
+contents first, then closes the embedded guide on a subsequent press.
+
 ## Get started
 
 - [Concepts and vocabulary](../app/docs.html#concepts): teams, tracks, initiatives,

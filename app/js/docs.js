@@ -16,9 +16,12 @@ function ensureOverlay() {
   overlay.innerHTML = `
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable" style="max-width: 1140px;">
       <div class="modal-content" style="background: var(--bg); color: var(--text);">
-        <div class="modal-header" style="border-bottom: 1px solid var(--border);">
-          <h5 class="modal-title">Conway — in-app manual</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        <div class="modal-header" style="border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 12px;">
+          <h5 class="modal-title">Conway guide</h5>
+          <div class="d-flex align-items-center gap-3">
+            <a id="docs-separate" href="docs.html" target="_blank" rel="noopener" class="small">Open guide in new tab</a>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal" aria-label="Close guide and return to your work">Close</button>
+          </div>
         </div>
         <div class="modal-body" style="padding: 0;">
           <iframe id="docs-frame" src="about:blank" title="Conway in-app manual"
@@ -32,11 +35,15 @@ function ensureOverlay() {
   const frame = overlay.querySelector('#docs-frame');
   frame.addEventListener('load', () => {
     const doc = frame.contentDocument;
+    delete frame.dataset.loaded;
     if (!doc) return;
     if (frame.contentWindow.location.pathname.endsWith('/docs.html')) frame.dataset.loaded = '1';
+    frame.contentWindow.addEventListener?.('hashchange', () => {
+      overlay.querySelector('#docs-separate').href = `docs.html${frame.contentWindow.location.hash}`;
+    });
     doc.documentElement.setAttribute('data-bs-theme', document.documentElement.getAttribute('data-bs-theme') || 'dark');
     doc.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Escape') { ev.preventDefault(); closeModal(overlay); }
+      if (ev.key === 'Escape' && !ev.defaultPrevented) { ev.preventDefault(); closeModal(overlay); }
     });
   });
   return overlay;
@@ -49,8 +56,9 @@ export function openDocs(section) {
   openModal(ov);
   const frame = ov.querySelector('#docs-frame');
   const target = `docs.html${section ? `#${section}` : ''}`;
+  ov.querySelector('#docs-separate').href = target;
   // setting the hash on a loaded frame scrolls it; a fresh load picks it up
-  if (frame.dataset.loaded === '1') {
+  if (frame.dataset.loaded === '1' && frame.contentDocument) {
     frame.contentWindow.location.hash = section || '';
     // Re-apply theme on every open — a theme toggle between opens would
     // leave the iframe in its old palette (cubic P2).
@@ -63,7 +71,7 @@ export function openDocs(section) {
 
 // initDocs wires the delegated entry: any [data-docs] button opens the
 // manual at its section. Called once from main.js at boot.
-// specs/012-in-app-usage-guide.md:195 — view IDs and manual anchors differ.
+// specs/012-in-app-usage-guide.md:198 — view IDs and manual anchors differ.
 export function manualSectionForView(view, planView) {
   if (view === 'plan') return ({
     'view-order': 'order', 'plan-view-network': 'plan-network',

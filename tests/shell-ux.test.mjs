@@ -138,22 +138,34 @@ test('contextual help routes each view to its own existing manual section', () =
 test('manual Escape closes after both the initial document and later iframe navigations', () => {
   let load;
   let keydown;
+  let hashChanged;
   let closed = 0;
   const frameDocument = { documentElement: { setAttribute() {} }, addEventListener(type, handler) { if (type === 'keydown') keydown = handler; } };
-  const frame = { dataset: {}, contentDocument: frameDocument, contentWindow: { location: { pathname: '/docs.html' }, document: frameDocument }, addEventListener(type, handler) { if (type === 'load') load = handler; } };
-  const overlay = { querySelector: () => frame };
+  const frame = { dataset: {}, contentDocument: frameDocument, contentWindow: { location: { pathname: '/docs.html' }, document: frameDocument, addEventListener(type, handler) { if (type === 'hashchange') hashChanged = handler; } }, addEventListener(type, handler) { if (type === 'load') load = handler; } };
+  const separate = {};
+  const overlay = { querySelector: (selector) => selector === '#docs-separate' ? separate : frame };
   const context = moduleContext('docs.js', {
     document: { createElement: () => overlay, body: { appendChild() {} }, documentElement: { getAttribute: () => 'dark' } },
     openModal() {}, closeModal(target) { assert.equal(target, overlay); closed++; },
   });
   context.openDocs('timeline');
   assert.equal(frame.src, 'docs.html#timeline');
+  assert.equal(separate.href, 'docs.html#timeline');
   load(); keydown({ key: 'Escape', preventDefault() {} });
   assert.equal(closed, 1);
   context.openDocs('execution');
   assert.equal(frame.contentWindow.location.hash, 'execution');
   load(); keydown({ key: 'Escape', preventDefault() {} });
   assert.equal(closed, 2);
+  keydown({ key: 'Escape', defaultPrevented: true, preventDefault() {} });
+  assert.equal(closed, 2, 'reader Escape dismisses search or contents before the outer guide');
+  frame.contentWindow.location.hash = '#sites';
+  hashChanged();
+  assert.equal(separate.href, 'docs.html#sites', 'independent reading preserves the section selected inside the guide');
+  frame.contentDocument = null;
+  load();
+  context.openDocs('concepts');
+  assert.equal(frame.src, 'docs.html#concepts', 'an inaccessible frame is reloaded instead of reused');
 });
 
 test('closing a programmatically opened dialog returns focus to its invoker', () => {
