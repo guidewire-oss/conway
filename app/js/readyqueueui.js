@@ -51,7 +51,7 @@ export function readyItemHTML(item, context) {
         <label class="form-label d-grid gap-1 mb-0">Accountable owner <input class="form-control" name="owner" maxlength="200" required></label>
         <label class="form-label d-grid gap-1 mb-0">Decision evidence / reason <textarea class="form-control" name="evidence" maxlength="10000" rows="3" required></textarea></label>
         <p class="hint">Release records permission, not an observed start. Deferral changes this queue's recommendation; it does not move the forecast.</p>
-        <button type="submit" class="btn ${item.canRelease ? 'btn-primary primary' : 'btn-secondary'} align-self-start text-wrap" data-ready-write>Record decision</button>
+        <button type="submit" class="btn ${item.canRelease ? 'btn-primary' : 'btn-secondary'} align-self-start text-wrap" data-ready-write>Record decision</button>
         <p class="ready-form-status" role="status" aria-live="polite"></p>
       </form>
     </details>` : ''}

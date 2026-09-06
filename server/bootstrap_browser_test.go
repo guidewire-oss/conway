@@ -66,7 +66,8 @@ var _ = Describe("linked features browser Bootstrap adoption", Label("browser"),
 const bootstrapAdoptionBrowser = `
 import assert from 'node:assert/strict';
 import {tmpdir} from 'node:os';
-import {join} from 'node:path';
+import {join,resolve} from 'node:path';
+import {pathToFileURL} from 'node:url';
 const {chromium} = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const channel = process.env.PLAYWRIGHT_BROWSER_CHANNEL;
 const browser = await chromium.launch({headless:true, ...(channel ? {channel} : {})});
@@ -79,7 +80,8 @@ try {
     const {initForms} = await import('/js/forms.js');
     const {mountReadyQueue} = await import('/js/readyqueueui.js');
     const {executionEvidenceHTML} = await import('/js/executionui.js');
-    const {timelineControlsHTML} = await import('/js/timeline.js');
+    const {timelineControlsHTML,timelineRowHTML} = await import('/js/timeline.js');
+    const {baselineListHTML} = await import('/js/baseline.js');
     const {orderingBadge,verdictBadgeHTML} = await import('/js/order.js');
     initForms();
     const item = {initiative:'Atlas acceptance checkpoint',kind:'milestone',state:'ready',canRelease:true,
@@ -101,8 +103,29 @@ try {
     document.querySelector('#timeline').innerHTML = timelineControlsHTML({lens:'pod',spans:[{id:'all',label:'Whole period'},{id:'short',label:'Next weeks'}],spanSel:'all',initiativeFilter:'Atlas',teamFilter:'Team A'});
     const badges=orderingBadge()+orderingBadge({acceptedOrdering:'engine'})+['on-time','at-risk','late'].map(verdict=>verdictBadgeHTML({verdict,weeksLate:2})).join('');
     document.querySelector('#badge-examples').innerHTML = ['', 'card p-3', 'bg-body-tertiary p-3'].map(surface=>'<div class="d-flex flex-wrap gap-2 '+surface+'">'+badges+'</div>').join('');
+    const sizing=document.createElement('div');sizing.id='framework-sizes';sizing.className='d-flex align-items-center gap-2';
+    sizing.innerHTML=['btn-sm','','btn-lg'].map(size=>'<button class="btn btn-secondary '+size+'">Action</button>').join('');
+    document.querySelector('main').append(sizing);
+    const row=document.createElement('div');row.id='timeline-label-example';
+    row.innerHTML=timelineRowHTML({name:'Atlas unavailable',verdict:'unschedulable',slices:[]});
+    document.querySelector('main').append(row);
+    const baselines=document.createElement('div');baselines.id='baseline-examples';baselines.className='table-responsive';
+    baselines.innerHTML=baselineListHTML([{id:'baseline-a',name:'Atlas agreement',active:true},{id:'baseline-b',name:'Beacon agreement'}]);
+    document.querySelector('main').append(baselines);
   });
   await page.locator('#ready-search.form-control').waitFor();
+  // per specs/011-bootstrap-adoption-debt.md:73
+  const buttonSizes=await page.locator('#framework-sizes button').evaluateAll(buttons=>buttons.map(button=>({font:parseFloat(getComputedStyle(button).fontSize),height:button.getBoundingClientRect().height})));
+  assert.ok(buttonSizes[0].font<buttonSizes[1].font && buttonSizes[1].font<buttonSizes[2].font,'Bootstrap small, default and large button text sizes remain distinct: '+JSON.stringify(buttonSizes));
+  assert.ok(buttonSizes[0].height<buttonSizes[1].height && buttonSizes[1].height<buttonSizes[2].height,'Bootstrap size modifiers preserve distinct control heights');
+  const labelGeometry=await page.locator('#timeline-label-example .tl-label').evaluate(label=>{const style=getComputedStyle(label);return {align:style.textAlign,padding:[style.paddingTop,style.paddingRight,style.paddingBottom,style.paddingLeft].map(parseFloat)};});
+  assert.equal(labelGeometry.align,'left','Timeline labels stay aligned with their team rows');
+  assert.deepEqual(labelGeometry.padding,[0,0,0,0],'Timeline labels do not inherit generic action-button padding');
+  const comparisonGeometry=await page.locator('#baseline-examples .bl-compare').first().evaluate(button=>{
+    const buttonRect=button.getBoundingClientRect(),selectRect=button.parentElement.querySelector('select').getBoundingClientRect();
+    return {buttonTop:buttonRect.top,buttonBottom:buttonRect.bottom,selectTop:selectRect.top,selectBottom:selectRect.bottom};
+  });
+  assert.ok(comparisonGeometry.buttonTop<comparisonGeometry.selectBottom && comparisonGeometry.selectTop<comparisonGeometry.buttonBottom,'Saved-agreement compare controls stay on the same desktop action row: '+JSON.stringify(comparisonGeometry));
   // per specs/011-bootstrap-adoption-debt.md:67
   const group = page.getByRole('group',{name:'Timeline grouping',exact:true});
   assert.equal(await group.locator('button:not(.btn)').count(),0,'Every grouping option must adopt the Bootstrap button primitive');
@@ -195,6 +218,13 @@ try {
   const contents = page.locator('#contents-toggle');
   const results = page.getByRole('region',{name:'Search results'});
   await page.locator('html.reader-ready').waitFor();
+  await page.setViewportSize({width:1280,height:960});
+  for(const theme of ['dark','light']) {
+    await page.evaluate(theme=>document.documentElement.dataset.bsTheme=theme,theme);
+    const shading=await page.locator('main table').first().evaluate(table=>({header:getComputedStyle(table.querySelector('thead th')).backgroundColor,body:getComputedStyle(table.querySelector('tbody td')).backgroundColor}));
+    assert.notEqual(shading.header,shading.body,'Guide table headings remain visually distinct in '+theme);
+  }
+  await page.setViewportSize({width:360,height:800});
   assert.equal(await page.locator('.input-group #manual-search.form-control').count(),1,'Reader search uses a Bootstrap input group');
   assert.equal(await page.locator('#contents-toggle.btn').count(),1);
   assert.equal(await page.locator('#search-clear.btn').count(),1);
@@ -241,6 +271,8 @@ try {
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'Guide content fits in '+theme);
     await page.screenshot({path:join(process.env.CONWAY_TEST_ARTIFACT_DIR||tmpdir(),'conway-bootstrap-guide-'+theme+'-360.png')});
   }
+  const {checkGameBootstrap}=await import(pathToFileURL(resolve('../tests/browser/game-bootstrap.mjs')).href);
+  await checkGameBootstrap(page);
   assert.deepEqual(errors,[]);
   console.log(JSON.stringify({bootstrapControls:true,dynamicInsertion:true,selectedGroups:true,nativeDisclosureKeyboard:true,draftsRetained:true,guideSearchAndContents:true,readablePrint:true,badgeContrast:true,themes:['dark','light'],mobileOverflow:false,pageErrors:errors}));
 } catch (error) {

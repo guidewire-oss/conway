@@ -374,7 +374,7 @@ export function podHeatmapHTML(sched, horizonWeeks) {
       return `<td class="ord-cell ord-${zone}" title="${title}">${wk.busy || ''}</td>`;
     }).join('');
     const drum = drums.has(ps.pod) ? ' <span class="badge text-bg-secondary tag">drum</span>' : '';
-    return `<tr><th class="ord-pod"><button type="button" class="btn btn-secondary ord-podlink" data-pod="${esc(ps.pod)}">${esc(ps.pod)}</button>
+    return `<tr><th class="ord-pod"><button type="button" class="btn btn-link p-0 text-start ord-podlink" data-pod="${esc(ps.pod)}">${esc(ps.pod)}</button>
       <span class="hint">${ps.tracks}t</span>${drum}</th>${cells}</tr>`;
   }).join('');
 
@@ -584,7 +584,7 @@ export function orderHeaderHTML(sched, opts = {}) {
     <span class="hint">rule: ${esc(sched.rule || '—')}${rules ? ` (best of ${rules})` : ''}${term('objective')}</span>
     <span class="hint">${wipLimitNote(sched.wipLimit)}</span>
     ${yours ? optimizeOfferHTML(sched) : ''}
-    ${yours ? `${term('optimize')}<button type="button" class="btn btn-primary primary" id="ord-optimize" title="Run every dispatch rule and present the best ordering beside yours, priced. Accepting it is always your call — this is an optimization, not the solution.">${icon('play')}Preview optimized order</button>`
+    ${yours ? `${term('optimize')}<button type="button" class="btn btn-primary" id="ord-optimize" title="Run every dispatch rule and present the best ordering beside yours, priced. Accepting it is always your call — this is an optimization, not the solution.">${icon('play')}Preview optimized order</button>`
       : `<button class="btn btn-secondary" type="button" id="ord-unoptimize" title="Return to your stated order. The engine's proposal stays available.">${icon('undo')}Use stated order</button>`}
     <button type="button" class="btn btn-link p-0 docs-link" data-docs="order" title="how the Order view works — every column and action">${icon('book')}Help with commitments</button>
     <button class="btn btn-secondary" type="button" id="sched-open" title="period start, WIP model, buffers, freezes — set once">${icon('settings')}Assumptions</button>
@@ -643,7 +643,7 @@ export function initiativeEditDialogHTML(it) {
       </div>
       <span id="ie-error" class="login-err"></span>
       <div class="sched-row" style="gap:8px; margin-top:8px">
-        <button type="button" class="btn btn-primary primary" id="ie-save">Save</button>
+        <button type="button" class="btn btn-primary" id="ie-save">Save</button>
         <button class="btn btn-secondary" type="button" id="ie-cancel">Cancel</button>
       </div>
     </div>
@@ -772,7 +772,7 @@ export function setupCardHTML(sp = {}, dated = 0) {
     ${items.map((it, i) => `<div class="setup-item">
       <div><b>${esc(it.field)}</b> <span class="hint">— ${esc(it.why)}</span></div>
       <div class="hint">recommended: ${esc(it.rec)}</div>
-      <button type="button" class="btn btn-primary primary setup-apply" data-setup="${i === 0 && !wipChosen ? 'wip' : 'estimate'}">use recommended</button>
+      <button type="button" class="btn btn-primary setup-apply" data-setup="${i === 0 && !wipChosen ? 'wip' : 'estimate'}">use recommended</button>
       ${it.key === 'estimate' ? '<button type="button" class="btn btn-secondary setup-keep hint">keep wall-clock</button>' : ''}
     </div>`).join('')}
     <button type="button" class="btn btn-link p-0 setup-dismiss hint">dismiss — keep the defaults silently</button>
@@ -950,7 +950,7 @@ export function schedulingFormHTML(sp = {}, wip, sched) {
         sp.leadCapacity?.[role] == null ? '' : String(sp.leadCapacity[role]), String(limit), `Default: ${limit} concurrent initiatives`)).join('')}</div>
     </fieldset>
     ${calendarWindowsHTML(sp.calendars || [])}
-    <button type="button" id="sched-save" class="btn btn-primary primary">Save assumptions</button>
+    <button type="button" id="sched-save" class="btn btn-primary">Save assumptions</button>
     <button class="btn btn-secondary" type="button" id="sched-cancel">Cancel</button>
     <!-- Always present, even when empty: the comparison is fetched only when this
          dialog opens (it costs three extra schedules server-side), and planui fills

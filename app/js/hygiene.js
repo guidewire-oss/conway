@@ -166,7 +166,7 @@ function renderCats(pod, openCat) {
     <p class="hint">Issue lists show up to 300 records per category. Summary counts cover the whole selected snapshot.</p><div style="margin:6px 0">${CATS.map(([cat, label, why]) => {
     const n = data[cat]?.length ?? 0;
     const active = cat === openCat;
-    return `<button class="btn hyg-cat ${active ? 'btn-primary primary' : 'btn-secondary'}" aria-pressed="${active}" data-cat="${cat}" ${n ? '' : 'disabled'}
+    return `<button class="btn hyg-cat ${active ? 'btn-primary' : 'btn-secondary'}" aria-pressed="${active}" data-cat="${cat}" ${n ? '' : 'disabled'}
         style="margin-right:8px">${label}: <b>${n}</b></button>
         ${active ? `<span class="hint">— ${why}</span>` : ''}`;
   }).join('')}</div>

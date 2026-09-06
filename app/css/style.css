@@ -366,13 +366,8 @@ table.sortable thead th.sort-desc::after { content: " ▼"; font-size: 9px; opac
 .ord-cell.ord-green { background: var(--tint-strong-green); }
 .ord-cell.ord-amber { background: var(--tint-strong-amber); }
 .ord-cell.ord-red { background: var(--tint-strong-red); }
-/* A real button, so it is keyboard-reachable and announced as a control, styled
-   as a link so the grid stays a grid. focus-visible matters here: the outline is
-   the only thing telling a keyboard user where they are. */
-.ord-podlink { background: none; border: 0; padding: 0; margin: 0; font: inherit;
-  color: var(--accent); cursor: pointer; text-align: left; }
-.ord-podlink:hover { text-decoration: underline; }
-.ord-podlink:focus-visible { border-radius: 3px; }
+/* The team selector uses Bootstrap link-button interaction with the grid typography. */
+.ord-podlink { font: inherit; }
 .ord-terms { margin-left: 14px; }
 .ord-terms summary { cursor: pointer; }
 .ord-queue { margin-top: 12px; }
@@ -551,9 +546,30 @@ table.sortable thead th.sort-desc::after { content: " ▼"; font-size: 9px; opac
 .home-alert { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; min-width: 200px; flex: 1 1 240px; }
 .home-alert b { font-size: 14px; }
 .home-alert .hint { font-size: 12px; }
-.home-alert-miss { background: rgba(var(--c-danger), .10); border-color: rgba(var(--c-danger), .45); }
-.home-alert-warn { background: rgba(var(--c-warning), .10); border-color: rgba(var(--c-warning), .45); }
-.home-alert-ok { background: rgba(var(--c-success), .08); border-color: rgba(var(--c-success), .4); }
+.home-alert-miss {
+  --bs-btn-bg: var(--bs-danger-bg-subtle);
+  --bs-btn-border-color: var(--bs-danger-border-subtle);
+  --bs-btn-hover-bg: var(--bs-danger-bg-subtle);
+  --bs-btn-hover-border-color: var(--bs-danger);
+  --bs-btn-active-bg: var(--bs-danger-bg-subtle);
+  --bs-btn-active-border-color: var(--bs-danger);
+}
+.home-alert-warn {
+  --bs-btn-bg: var(--bs-warning-bg-subtle);
+  --bs-btn-border-color: var(--bs-warning-border-subtle);
+  --bs-btn-hover-bg: var(--bs-warning-bg-subtle);
+  --bs-btn-hover-border-color: var(--bs-warning);
+  --bs-btn-active-bg: var(--bs-warning-bg-subtle);
+  --bs-btn-active-border-color: var(--bs-warning);
+}
+.home-alert-ok {
+  --bs-btn-bg: var(--bs-success-bg-subtle);
+  --bs-btn-border-color: var(--bs-success-border-subtle);
+  --bs-btn-hover-bg: var(--bs-success-bg-subtle);
+  --bs-btn-hover-border-color: var(--bs-success);
+  --bs-btn-active-bg: var(--bs-success-bg-subtle);
+  --bs-btn-active-border-color: var(--bs-success);
+}
 
 /* ── IA closeout: plan empty-state starting line + breadcrumbs ─────────── */
 .plan-start { margin: 4px 0 14px; }
@@ -688,7 +704,7 @@ table.sortable thead th.sort-desc::after { content: " ▼"; font-size: 9px; opac
 #usage-overlay.open { display: block; }
 #usage-modal { max-width: 980px; margin: 30px auto; background: var(--panel);
   border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; }
-.usage-range { margin-left: auto; display: inline-flex; gap: 4px; }
+.usage-range { margin-left: auto; }
 .usage-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px; margin: 14px 0; }
 .usage-kpi { background: var(--panel2); border: 1px solid var(--border); border-radius: 8px;

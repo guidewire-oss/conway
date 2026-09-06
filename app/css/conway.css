@@ -161,8 +161,8 @@
   --bs-primary: #3564f0;
   --bs-primary-rgb: 53, 100, 240;
   --bs-primary-text-emphasis: #2b52cc;
-  --bs-primary-bg-subtle: rgba(59, 108, 255, .08);
-  --bs-primary-border-subtle: rgba(59, 108, 255, .35);
+  --bs-primary-bg-subtle: rgba(var(--bs-primary-rgb), .08);
+  --bs-primary-border-subtle: rgba(var(--bs-primary-rgb), .35);
   --bs-link-color: var(--bs-primary);
   --bs-link-hover-color: #2b52cc;
   --bs-link-color-rgb: 53, 100, 240;
@@ -190,17 +190,17 @@
   --bs-form-valid-border-color: #0e9f6e;
   --bs-form-invalid-border-color: #dc2f3e;
 
-  --bs-info: #3b6cff;
-  --bs-info-rgb: 59, 108, 255;
+  --bs-info: var(--bs-primary);
+  --bs-info-rgb: var(--bs-primary-rgb);
 
-  --bs-focus-ring-color: rgba(59, 108, 255, .3);
+  --bs-focus-ring-color: rgba(var(--bs-primary-rgb), .3);
 
   --bs-body-bg-rgb: 244, 245, 247;
   --bs-body-color-rgb: 25, 27, 35;
   --bs-secondary-bg-rgb: 238, 240, 243;
   --bs-secondary-color-rgb: 92, 98, 115;
 
-  --c-primary: 59, 108, 255;
+  --c-primary: var(--bs-primary-rgb);
   --c-success: 14, 159, 110;
   --c-warning: 192, 120, 7;
   --c-danger: 220, 47, 62;
@@ -286,7 +286,6 @@ code { font-size: .92em; color: var(--bs-primary-text-emphasis); }
 /* Bootstrap primitives adopt Conway colors; interaction behavior stays in the framework.
  * specs/011-bootstrap-adoption-debt.md:163 records the adoption decision. */
 /* The framework's own classes, for new markup. */
-.btn { font-size: 13px; }
 .btn-primary { --bs-btn-bg: var(--bs-primary); --bs-btn-color: #04222f;
   --bs-btn-border-color: var(--bs-primary); --bs-btn-hover-bg: var(--bs-primary-text-emphasis);
   --bs-btn-hover-color: #04222f; --bs-btn-hover-border-color: var(--bs-primary-text-emphasis);

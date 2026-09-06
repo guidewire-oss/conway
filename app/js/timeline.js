@@ -179,7 +179,7 @@ export function timelineRowHTML(si, opts = {}) {
   // starts carry zero sentinels, not week-zero dates or an empty chart row.
   if (unplaced(si)) {
     return `<div class="tl-row tl-unplaced" data-init="${esc(si.name)}" data-expandable="0">
-      <button type="button" class="btn btn-secondary tl-label tl-trunc" data-select-init="${esc(si.name)}" aria-pressed="${opts.selected === si.name}">${esc(si.name)}</button>
+      <button type="button" class="btn btn-secondary p-0 text-start border-0 tl-label tl-trunc" data-select-init="${esc(si.name)}" aria-pressed="${opts.selected === si.name}">${esc(si.name)}</button>
       <div class="tl-track"><p>${esc(unscheduledReason(si))}</p></div></div>`;
   }
   const horizon = opts.horizonWeeks || 26;
@@ -224,7 +224,7 @@ export function timelineRowHTML(si, opts = {}) {
 
   const expandMark = (si.slices || []).length > 1 ? '▸ ' : '';
   return `<div class="tl-row" data-init="${esc(si.name)}" data-expandable="${(si.slices || []).length > 1 ? 1 : 0}">
-    <button type="button" class="btn btn-secondary tl-label tl-trunc" data-select-init="${esc(si.name)}" aria-pressed="${opts.selected === si.name}" ${(si.slices || []).length > 1 ? `aria-expanded="${!!opts.expand}"` : ''} title="Select ${esc(si.name)}">${expandMark}${esc(si.name)}</button>
+    <button type="button" class="btn btn-secondary p-0 text-start border-0 tl-label tl-trunc" data-select-init="${esc(si.name)}" aria-pressed="${opts.selected === si.name}" ${(si.slices || []).length > 1 ? `aria-expanded="${!!opts.expand}"` : ''} title="Select ${esc(si.name)}">${expandMark}${esc(si.name)}</button>
     <div class="tl-track${subrows ? ' tl-expanded' : ''}">${bar}${buffer}${target}${subrows}</div>
   </div>`;
 }
@@ -529,7 +529,7 @@ export function podLensHTML(sched, opts = {}) {
     return `<div class="tl-pod" data-pod="${esc(ps.pod)}">
       <div class="ord-head"><b>${esc(ps.pod)}</b>
         <span class="hint">ρ ${rho.toFixed(2)} · ${ps.tracks} track${ps.tracks > 1 ? 's' : ''} · ${(ps.slices || []).length} slice${(ps.slices || []).length === 1 ? '' : 's'}${loss}</span>
-        <button class="btn btn-secondary" type="button" data-open-pod="${esc(ps.pod)}">View team sheet</button>
+        <button class="btn btn-secondary btn-sm" type="button" data-open-pod="${esc(ps.pod)}">View team sheet</button>
         <button type="button" class="btn btn-secondary btn-sm pod-export" data-export-pod="${esc(ps.pod)}" title="download this pod's timeline as a PNG">${icon('download')} Download PNG</button></div>
       ${timeAxisHTML(span, sched.periodStart || opts.periodStart)}
       <div class="tl-body">${podLanesHTML(ps, { ...opts, horizonWeeks: span, includeOutside: false, pinnedLanes: (opts.pinnedLanes || {})[ps.pod] || null })}${contextHTML(sched, opts, horizon, span)}</div>

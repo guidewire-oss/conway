@@ -269,7 +269,7 @@ async function renderList() {
   const plans = await r.json();
   if (ticket !== planLoadTicket) return;
   root.innerHTML = `
-    <div class="plan-head"><h2>Your plans</h2><button id="plan-new" class="btn btn-primary primary">+ New plan</button><button class="btn btn-secondary" id="plan-demo">Load demo plan</button></div>
+    <div class="plan-head"><h2>Your plans</h2><button id="plan-new" class="btn btn-primary">+ New plan</button><button class="btn btn-secondary" id="plan-demo">Load demo plan</button></div>
     ${pendingDestinationHTML()}
     <p class="hint">Sample files to try the upload path: <a href="/api/sample/teams.csv" download>teams.csv</a> · <a href="/api/sample/initiatives.xlsx" download>initiatives.xlsx</a> (same data as the demo).</p>
     <table class="table table-sm wip-table">
@@ -388,7 +388,7 @@ function renderPlan() {
       <p class="hint">Need samples? <a href="/api/sample/teams.csv" download>teams.csv</a> · <a href="/api/sample/initiatives.xlsx" download>initiatives.xlsx</a></p>
     </details>
     ${current.isDraft ? `<p class="plan-warn">Previewing an unsaved initiatives upload — nothing is saved yet.
-      <button id="plan-draft-save" class="btn btn-primary primary">Save initiatives</button>
+      <button id="plan-draft-save" class="btn btn-primary">Save initiatives</button>
       <button class="btn btn-secondary" id="plan-draft-discard">Discard</button></p>` : ''}
     ${unknown.length ? `<p class="plan-warn">${icon('warning')} ${unknown.length} pod(s) referenced by initiatives but missing from the roster: ${unknown.map(esc).join(', ')} — <button type="button" id="unknown-fix" class="btn btn-secondary warn-act">switch roster</button> or fix the sheet. <button type="button" class="btn btn-link p-0 usage-link" data-anchor="warnings">learn more</button></p>` : ''}
     ${nTeams > 0 && nInit > 0 ? `<div class="plan-views"><div class="btn-group" role="group" aria-label="Plan workspace">
@@ -400,7 +400,7 @@ function renderPlan() {
         <p class="hint">Four steps: attach a roster (team composition, pinned as of today) → upload the initiatives matrix →
           review the proposed order and its verdicts → save the agreed order as a baseline. Nothing here writes to Jira.</p>
         <div class="plan-start-row">
-          <button type="button" id="plan-start-demo" class="btn btn-primary primary">Start from the demo plan</button>
+          <button type="button" id="plan-start-demo" class="btn btn-primary">Start from the demo plan</button>
           <span class="hint">— or attach your own roster and upload your initiatives below, exactly as they are today.</span>
         </div>
       </div>` : ''
@@ -521,7 +521,7 @@ function proposalModal(title, content) {
 async function createScenario() {
   if (!current || current.isDraft) return;
   const planId = current.id;
-  const ov = proposalModal('Create scenario copy', `<p>A scenario starts with this working plan’s saved inputs. It has its own changes and no inherited agreement.</p><form id="scenario-form"><label>Scenario name <input class="form-control" name="name" required maxlength="100" value="${esc(current.name.slice(0,80))} — scenario"></label><p class="proposal-status" role="status" aria-live="polite"></p><button type="submit" class="btn btn-primary primary">Create and open scenario</button></form>`);
+  const ov = proposalModal('Create scenario copy', `<p>A scenario starts with this working plan’s saved inputs. It has its own changes and no inherited agreement.</p><form id="scenario-form"><label>Scenario name <input class="form-control" name="name" required maxlength="100" value="${esc(current.name.slice(0,80))} — scenario"></label><p class="proposal-status" role="status" aria-live="polite"></p><button type="submit" class="btn btn-primary">Create and open scenario</button></form>`);
   const token = ov.proposalToken;
   ov.querySelector('form').addEventListener('submit',async ev=>{
     ev.preventDefault(); const form=ev.currentTarget, button=form.querySelector('button'), status=form.querySelector('.proposal-status');
@@ -550,7 +550,7 @@ async function previewRemedy(remedy) {
   const result=await r.json();
   if(!live()) return;
   const status=ov.querySelector('.proposal-status');
-  status.outerHTML=`<p>${esc(remedy.note || remedy.kind)} · target ${esc(remedy.target)}</p><p class="hint">Review every affected commitment. Applying saves the working inputs; your agreed baseline stays unchanged.</p>${compareTableHTML({baseline:{name:'Current working plan'},to:{name:'Proposed change'},comparison:result.comparison})}<p class="proposal-status" role="status" aria-live="polite">Preview only. Nothing has been applied.</p><button type="button" class="btn btn-primary primary" id="remedy-apply">Apply to working plan</button>`;
+  status.outerHTML=`<p>${esc(remedy.note || remedy.kind)} · target ${esc(remedy.target)}</p><p class="hint">Review every affected commitment. Applying saves the working inputs; your agreed baseline stays unchanged.</p>${compareTableHTML({baseline:{name:'Current working plan'},to:{name:'Proposed change'},comparison:result.comparison})}<p class="proposal-status" role="status" aria-live="polite">Preview only. Nothing has been applied.</p><button type="button" class="btn btn-primary" id="remedy-apply">Apply to working plan</button>`;
   ov.querySelector('#remedy-apply').addEventListener('click',async ev=>{
     const button=ev.currentTarget, note=ov.querySelector('.proposal-status');
     if(!live()) { note.textContent='The working plan changed. Close and preview this remedy again.'; return; }
@@ -1751,7 +1751,7 @@ async function renderOrder() {
         <span class="hint">Weighted unstarted work: yours ${esc(String(current.schedule.unscheduledWeight ?? 'unknown'))} → proposed ${esc(String(best?.unscheduledWeight ?? 'unknown'))}. Weighted lateness: yours ${esc(String(current.schedule.objectiveScore))} → proposed ${esc(String(best?.objective ?? 'unknown'))}. Lower unstarted work takes priority; lateness breaks ties.</span>
         ${moves ? `<ul class="hint">${moves}</ul>` : '<p class="hint">no moves — your order already matches the best rule found</p>'}
         <div class="sched-row" style="gap:8px">
-          <button type="button" class="btn btn-primary primary" id="ord-accept">Accept the engine's order</button>
+          <button type="button" class="btn btn-primary" id="ord-accept">Accept the engine's order</button>
           <button class="btn btn-secondary" type="button" id="ord-reject">Keep my order</button>
         </div>
       </div>`);
@@ -1986,7 +1986,7 @@ function openSitesModal(missing) {
       <p class="plan-warn" id="sites-error" hidden></p>
       <div class="sites-actions">
         <button class="btn btn-secondary" type="button" id="sites-cancel">Cancel</button>
-        <button type="button" id="sites-saveall" class="btn btn-primary primary">Save</button>
+        <button type="button" id="sites-saveall" class="btn btn-primary">Save</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -2227,7 +2227,7 @@ function paintDash() {
           <option value="dropPod">Drop a pod from an initiative</option>
         </select>
         <span id="lev-target"></span>
-        <button id="lev-add" class="btn btn-primary primary">Add lever</button>
+        <button id="lev-add" class="btn btn-primary">Add lever</button>
       </div>
     </div>
     <div class="card p-3 panel-card" style="margin-top:12px">

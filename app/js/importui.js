@@ -55,7 +55,7 @@ export async function openImport() {
         </div>
         <div id="imp-projects" class="imp-projects"></div>
         <div class="row-actions">
-          <button id="imp-go" class="btn btn-primary primary">Import snapshot</button>
+          <button id="imp-go" class="btn btn-primary">Import snapshot</button>
           <span id="imp-status" class="hint" role="status" aria-live="polite"></span>
         </div>
       </div>
@@ -86,7 +86,7 @@ async function renderAuth(ov) {
   }
   if (st.configured) {
     box.innerHTML = `<div class="games-create">
-        <button id="imp-connect" class="btn btn-primary primary">Connect Jira (SSO)</button>
+        <button id="imp-connect" class="btn btn-primary">Connect Jira (SSO)</button>
         <span class="hint">Sign in through your org's single sign-on — no token needed.</span>
       </div>`;
     box.querySelector('#imp-connect').addEventListener('click', () => startOAuth(ov));
@@ -98,7 +98,7 @@ async function renderAuth(ov) {
       <label>Jira site URL <input class="form-control" id="imp-url" placeholder="https://yourorg.atlassian.net" value="${esc(jiraBase)}" style="min-width:260px"></label>
       <label>Jira email <input class="form-control" id="imp-email" placeholder="email" autocomplete="username" style="min-width:200px"></label>
       <label>Jira API token <input class="form-control" id="imp-token" type="password" placeholder="API token" autocomplete="off" style="min-width:200px"></label>
-      <button id="imp-load" class="btn btn-primary primary">Load projects</button>
+      <button id="imp-load" class="btn btn-primary">Load projects</button>
     </div>
     <p class="hint">Create a token at id.atlassian.com → Security → API tokens. Used for this import only — never stored.</p>`;
   box.querySelector('#imp-load').addEventListener('click', () => loadProjects(ov, true));

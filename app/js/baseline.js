@@ -61,7 +61,7 @@ export function baselineListHTML(baselines) {
   const vsSelect = (b) => {
     const others = list.filter((o) => o.id !== b.id);
     if (!others.length) return '';
-    return `<select aria-label="Compare ${esc(b.name)} against another baseline" class="form-select bl-vs-sel" data-from="${esc(b.id)}" title="compare this baseline against another saved one">
+    return `<select aria-label="Compare ${esc(b.name)} against another baseline" class="form-select form-select-sm w-auto d-inline-block bl-vs-sel" data-from="${esc(b.id)}" title="compare this baseline against another saved one">
       <option value="">vs…</option>
       ${others.map((o) => `<option value="${esc(o.id)}">${esc(o.name)}</option>`).join('')}
     </select>`;
@@ -78,7 +78,7 @@ export function baselineListHTML(baselines) {
       <button type="button" class="btn btn-secondary bl-delete" data-id="${esc(b.id)}" title="delete this baseline">Delete</button>
     </td>
   </tr>`).join('');
-  return `<table class="table table-sm wip-table bl-table"><thead><tr>
+  return `<table class="table wip-table bl-table"><thead><tr>
       <th>Baseline${term('baseline')}</th><th>Saved</th><th>By</th><th>Against this plan</th><th></th>
     </tr></thead><tbody>${rows}</tbody></table>
     <p class="hint">Actuals and variance are measured against the active one. The others stay readable as history.</p>`;
@@ -128,7 +128,7 @@ export function compareTableHTML(result) {
   return `<div class="card p-3 panel-card bl-compare-card">
     <div class="plan-summary">${summary}${result.diverged
     ? ' <span class="badge text-bg-secondary tag">inputs moved</span>' : ''}</div>
-    ${rows ? `<table class="table table-sm wip-table"><thead><tr>
+    ${rows ? `<table class="table wip-table"><thead><tr>
       <th>Initiative</th><th>Start</th><th>Δ</th><th>Commit</th><th>Δ</th><th>Verdict</th>
     </tr></thead><tbody>${rows}</tbody></table>` : '<p class="hint">No initiatives in common with this baseline.</p>'}
     ${listed('Added since', cmp.added)}
@@ -158,7 +158,7 @@ export function baselinesDrawerHTML(baselines, compare, { draft = false } = {}) 
     <p class="bl-drawer-error plan-warn" role="alert" aria-live="assertive" hidden></p>
     <div class="bl-save">
       <input class="form-control" id="bl-drawer-name" type="text" placeholder="name this order, e.g. v2 agreed 12 Jan" maxlength="25" ${draft ? 'disabled' : ''} aria-label="baseline name">
-      <button type="button" id="bl-save" class="btn btn-primary primary" ${draft ? 'disabled' : ''}>Save current order</button>
+      <button type="button" id="bl-save" class="btn btn-primary" ${draft ? 'disabled' : ''}>Save current order</button>
       ${draft ? '<span class="plan-warn">Save the uploaded initiatives first — a baseline freezes what is stored, not the preview you are looking at.</span>' : ''}
     </div>
     ${baselineListHTML(baselines)}

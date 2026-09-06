@@ -110,17 +110,17 @@ function showLogin(cfg = {}) {
         </div>
         <form id="signin-form" ${joinFirst ? 'hidden' : ''}>
           <p class="hint">Facilitators, managers &amp; admins.</p>
-          ${cfg.oidc ? `<button type="button" id="login-sso" class="btn btn-primary primary sso-btn">Sign in with SSO</button>
+          ${cfg.oidc ? `<button type="button" id="login-sso" class="btn btn-primary sso-btn">Sign in with SSO</button>
           <div class="sso-divider"><span>or</span></div>` : ''}
           <input class="form-control" id="login-user" aria-label="Username" placeholder="username" autocomplete="username">
           <input class="form-control" id="login-pass" aria-label="Password" type="password" placeholder="password" autocomplete="current-password">
-          <button type="submit" class="btn btn-primary primary">Sign in</button>
+          <button type="submit" class="btn btn-primary">Sign in</button>
         </form>
         <form id="join-form" ${joinFirst ? '' : 'hidden'}>
           <p class="hint">Enter your join code. A team name is only needed for a shared game code.</p>
           <input class="form-control" id="join-code" aria-label="Join code" placeholder="join code" value="${safeCode}" style="text-transform:uppercase">
           <input class="form-control" id="join-team" aria-label="Team name (optional)" placeholder="team name (optional)">
-          <button type="submit" class="btn btn-primary primary">Join</button>
+          <button type="submit" class="btn btn-primary">Join</button>
         </form>
         <div id="login-err" class="login-err"></div>
       </div>`;
@@ -252,7 +252,7 @@ function openAdmin() {
               <label><input type="checkbox" class="form-check-input role-cb" value="admin"> Admin</label>
             </span>
             <label class="hint">expires <input class="form-control" id="admin-exp" type="date" value="${defaultExpiry()}" style="width:140px"></label>
-            <button id="admin-add" class="btn btn-primary primary">Create user</button>
+            <button id="admin-add" class="btn btn-primary">Create user</button>
             <span id="admin-new" class="admin-new"></span>
           </div>
           <table id="admin-users" class="table table-sm wip-table"></table>

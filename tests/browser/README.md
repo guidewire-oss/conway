@@ -63,12 +63,18 @@ CI provisions PostgreSQL, Go, Node and Playwright/Chromium before running this
 opt-in command. The ordinary Go suite skips the browser test unless explicitly
 enabled; an enabled browser run fails if its dependencies or database are absent.
 
+The authenticated linked-feature journey additionally switches timeline lenses
+using the keyboard and checks that selected state and the initiative filter
+survive the real application rerender.
+
 ## Bootstrap adoption acceptance
 
 The same CI browser command also selects the Bootstrap adoption Ginkgo spec.
 It mounts actual operational view modules in a temporary HTTP server, checks
 framework controls, keyboard disclosures and retained drafts, and exercises
-the documentation reader's search and contents navigation. It checks light and
+the documentation reader's search and contents navigation. The game helper
+uses the actual renderer with sanitized API fixtures to exercise keyboard
+staging, round submission and result/pause dialogs. It checks light and
 dark themes at desktop and 360px widths and writes `conway-bootstrap-*.png`
 screenshots to the artifact directory. This focused spec needs Playwright but
 no database:
@@ -76,7 +82,3 @@ no database:
 ```sh
 CONWAY_TEST_BROWSER=1 go test ./server -ginkgo.focus='Bootstrap adoption' -ginkgo.fail-on-empty -timeout 5m
 ```
-
-The authenticated linked-feature journey additionally switches timeline lenses
-using the keyboard and checks that selected state and the initiative filter
-survive the real application rerender.

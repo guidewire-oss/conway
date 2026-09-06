@@ -33,7 +33,7 @@ export async function openGames() {
         <label class="hint">Action points / round <input class="form-control" id="g-ap" type="number" min="2" max="6" value="5" style="width:42px"></label>
         <label class="hint">Round timer (seconds) <input class="form-control" id="g-timer" type="number" min="30" max="3600" value="300" style="width:62px"></label>
         <select class="form-select" id="g-scenario" aria-label="Scenario" title="Scenario / difficulty (seed)"></select>
-        <button id="g-create" class="btn btn-primary primary">Create game</button>
+        <button id="g-create" class="btn btn-primary">Create game</button>
       </div>
       <p id="game-duration" class="hint" aria-live="polite"></p>
       <p class="hint">Balanced: practise ordinary tradeoffs. Constrained: higher load and less morale, to practise protecting a bottleneck. Crisis: heavier load and interruptions, to practise recovery. Default uses the Balanced difficulty. Snapshot and plan seeds start from their own inputs.</p>
@@ -132,7 +132,7 @@ async function editGame(gid) {
       <label class="hint">Action points / round <input class="form-control" id="eg-ap" type="number" min="2" max="6" value="${g.ap}" style="width:42px"></label>
       <label class="hint">Round timer (seconds) <input class="form-control" id="eg-timer" type="number" min="30" max="3600" value="${g.timerSecs}" style="width:62px"></label>
       <select class="form-select" id="eg-scenario" aria-label="Scenario" title="Scenario / difficulty (seed)"></select>
-      <button id="eg-save" class="btn btn-primary primary">Save</button>
+      <button id="eg-save" class="btn btn-primary">Save</button>
     </div>
     <p class="hint">Changing the scenario only re-seeds teams that begin play afterward.</p>`;
   populateScenario(box.querySelector('#eg-scenario'), g.scenario || 'default');
@@ -165,10 +165,10 @@ async function renderRoster(gid, name) {
     <h3 style="margin-top:16px">Teams in “${esc(name)}” <a class="plan-back" id="roster-close">✕ close</a></h3>
     <div class="games-create">
       <input class="form-control" id="rt-name" aria-label="Team name" placeholder="Team name (e.g. Team 1)">
-      <button id="rt-add" class="btn btn-primary primary">Add team</button>
+      <button id="rt-add" class="btn btn-primary">Add team</button>
       <span class="hint">each team gets its own join link to share</span>
     </div>
-    <table class="table table-sm wip-table"><thead><tr><th>Team</th><th>Join code</th><th>Status</th><th></th></tr></thead>
+    <table class="table wip-table"><thead><tr><th>Team</th><th>Join code</th><th>Status</th><th></th></tr></thead>
       <tbody>${(teams || []).map((t) => `<tr>
         <td>${esc(t.name)}</td>
         <td><b>${esc(t.code)}</b> <button class="btn btn-secondary rt-copy" data-code="${esc(t.code)}">copy link</button></td>
@@ -201,7 +201,7 @@ async function refreshGames() {
   if (!r || !r.ok) { list.innerHTML = '<p class="hint">Could not load games.</p>'; return; }
   const games = await r.json();
   if (!games || !games.length) { list.innerHTML = '<p class="hint">No games yet — create one above.</p>'; return; }
-  list.innerHTML = `<table class="table table-sm wip-table">
+  list.innerHTML = `<table class="table wip-table">
     <thead><tr><th>Game</th><th>Scenario</th><th>Join code</th><th>Status</th><th></th></tr></thead>
     <tbody>${games.map((g) => `<tr>
       <td>${esc(g.name)}</td>
@@ -298,10 +298,10 @@ async function renderScenarios() {
     <div class="games-create">
       <button class="btn btn-secondary" id="sc-upload">${icon('upload')} Upload network file</button>
       <button class="btn btn-secondary" id="sc-sample">${icon('download')} Download sample format</button>
-      <input class="form-control" id="sc-file" type="file" accept="application/json,.json" hidden>
+      <input id="sc-file" type="file" accept="application/json,.json" hidden>
       <span class="hint">Download a network → edit the JSON → upload it as a reusable template. Pods in the file are the teams.</span>
     </div>
-    <table class="table table-sm wip-table sortable"><thead><tr><th>Name</th><th>Type</th><th>Visibility</th><th data-nosort></th></tr></thead>
+    <table class="table wip-table sortable"><thead><tr><th>Name</th><th>Type</th><th>Visibility</th><th data-nosort></th></tr></thead>
       <tbody>${rows || '<tr><td colspan="4" class="hint">No templates or shared snapshots yet — upload one, or duplicate a snapshot.</td></tr>'}</tbody></table>`;
 
   box.querySelector('#sc-sample').addEventListener('click', () => downloadAuthed('/api/sample/network.json', 'conway-sample.network.json'));

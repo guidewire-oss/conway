@@ -90,7 +90,7 @@ export async function openLinkedSheets(planID, onApplied = async () => {}) {
       <p class="hint">Include the header row. Use the same roster and initiative columns as Conway’s upload templates. Link the team roster first if this plan has no teams.</p>
       <label>Update mode<select class="form-select" name="mode"><option value="review">Review every update (default)</option><option value="auto_apply">Apply safe updates automatically</option></select></label>
       <p class="hint">Automatic mode applies only valid updates without scope removal, while the working plan still matches this source’s checkpoint. Local edits require review.</p>
-      <label>Check interval (minutes)<input class="form-control" name="pollMinutes" type="number" min="5" max="1440" value="15" required></label><button type="submit" class="btn btn-primary primary">Link and capture</button></form></details>` : ''}`);
+      <label>Check interval (minutes)<input class="form-control" name="pollMinutes" type="number" min="5" max="1440" value="15" required></label><button type="submit" class="btn btn-primary">Link and capture</button></form></details>` : ''}`);
     for (const source of sources) {
       const section = [...overlay.querySelectorAll('[data-source]')].find(el => el.dataset.source === source.id);
       section.querySelector('[data-history]').addEventListener('click', ev => action(ev.currentTarget, () => history(source)));
@@ -158,7 +158,7 @@ export async function openLinkedSheets(planID, onApplied = async () => {}) {
       ${removals.length ? `<h3>Scope that will be removed</h3><ul>${list(removals)}</ul><label><input class="form-check-input" type="checkbox" data-removals> I reviewed and accept these removals.</label>` : ''}
       <details open><summary>Inspect proposed planning inputs</summary>${inputTable(source.kind, candidate)}</details>
       <details><summary>Inspect original captured cells</summary><p>Showing up to 100 rows and 24 columns. Download the complete captured cells to inspect a larger range.</p><button class="btn btn-secondary" type="button" data-download>Download captured cells (JSON)</button><div style="overflow:auto;max-height:28rem"><table class="table table-sm"><tbody>${(v.rows || []).slice(0, 100).map(row => `<tr>${row.slice(0, 24).map(value => `<td>${esc(value)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details>
-      <p class="hint">This preview is checked against the current working plan. Any later local edit will refuse this application and require a fresh preview.</p><button type="button" class="btn btn-primary primary" data-apply ${!valid || removals.length ? 'disabled' : ''}>${v.id === source.latestVersionId ? 'Apply capture to working plan' : 'Restore this capture to working plan'}</button>`);
+      <p class="hint">This preview is checked against the current working plan. Any later local edit will refuse this application and require a fresh preview.</p><button type="button" class="btn btn-primary" data-apply ${!valid || removals.length ? 'disabled' : ''}>${v.id === source.latestVersionId ? 'Apply capture to working plan' : 'Restore this capture to working plan'}</button>`);
     overlay.querySelector('[data-back]').addEventListener('click', ev => action(ev.currentTarget, () => history(source)));
     overlay.querySelector('[data-download]').addEventListener('click', () => {
       const url = URL.createObjectURL(new Blob([JSON.stringify(v.rows || [], null, 2)], { type: 'application/json' }));

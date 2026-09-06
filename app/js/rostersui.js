@@ -54,10 +54,10 @@ async function renderList(ov) {
   const fmt = (ts) => (ts ? new Date(ts * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }) : '');
   box.innerHTML = `
     <div class="games-create">
-      <button id="ros-new" class="btn btn-primary primary">+ New roster</button>
+      <button id="ros-new" class="btn btn-primary">+ New roster</button>
       <button class="btn btn-secondary" id="ros-upload">${icon('upload')}New from CSV/XLSX</button>
       <a class="hint" href="/api/sample/roster.csv">Download sample format</a>
-      <input class="form-control" id="ros-file" type="file" accept=".csv,.xlsx" hidden>
+      <input id="ros-file" type="file" accept=".csv,.xlsx" hidden>
     </div>
     <table class="table table-sm wip-table"><thead><tr><th>Name</th><th>Pods</th><th>Visibility</th><th>Updated</th><th></th></tr></thead>
       <tbody>${rosters.map((r) => {
@@ -119,7 +119,7 @@ function editRoster(ov, roster) {
   box.innerHTML = `
     <div class="games-create">
       <label>Roster name <input class="form-control" id="ros-name" value="${esc(roster.name || '')}" placeholder="Roster name" style="min-width:220px" ${readOnly ? 'disabled' : ''}></label>
-      ${readOnly ? '' : '<button class="btn btn-secondary" id="ros-add">+ Add pod</button> <button id="ros-save" class="btn btn-primary primary">Save roster</button>'}
+      ${readOnly ? '' : '<button class="btn btn-secondary" id="ros-add">+ Add pod</button> <button id="ros-save" class="btn btn-primary">Save roster</button>'}
       <button type="button" class="btn btn-link p-0 plan-back" id="ros-back">Back to rosters</button>
       <span id="ros-status" class="hint" role="status" aria-live="polite">${readOnly ? `read-only — shared by ${roster.owner ? 'another manager' : 'system'}` : ''}</span>
     </div>

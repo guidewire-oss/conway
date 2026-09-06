@@ -352,7 +352,7 @@ export function initGuide(state) {
       <p class="guide-intro">${p.intro}</p>
       <h3>Where to look, in order</h3>
       <ol class="guide-path">${p.path.map(([t, d, nav]) => `<li><b>${t}</b> — ${d}${(nav = nav || (t.includes('Scoreboard') ? 'scoreboard' : t.includes('Network') ? 'network' : t.includes('Simulator') ? 'simulator' : t.includes('Levers') ? 'flow' : '')) ? ` <button type="button" class="btn btn-secondary guide-go" data-nav="${nav}">go ›</button>` : ''}</li>`).join('')}</ol>
-      <p><button type="button" class="btn btn-primary primary" id="usage-open">Open the manual</button></p>
+      <p><button type="button" class="btn btn-primary" id="usage-open">Open the manual</button></p>
       <h3>Today's insights from your data</h3>
       ${insights.map((i) => `
         <div class="insight">
