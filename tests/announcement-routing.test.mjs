@@ -26,6 +26,28 @@ function announcementsHarness(){
 }
 const guide={id:'guide',action:{target:'docs-btn'}};
 
+test('view navigation keeps aria-current aligned with the active destination',()=>{
+  const handlers=new Map(),routes=[];
+  const tabs=['home','network','plan','game'].map(view=>{
+    const attributes=new Map(view==='home'?[['aria-current','page']]:[]);
+    const tab={id:view+'-tab',dataset:{view},active:view==='home',attributes,
+      classList:{toggle:(_name,value)=>{tab.active=value;}},
+      setAttribute:(key,value)=>attributes.set(key,value),removeAttribute:key=>attributes.delete(key),
+      addEventListener:(_event,fn)=>handlers.set(view,fn)};
+    return tab;
+  });
+  const views=tabs.map(tab=>{const view={id:'view-'+tab.dataset.view,active:tab.active};view.classList={toggle:(_name,value)=>{view.active=value;}};return view;});
+  const scope=vm.createContext({document:{querySelectorAll:selector=>selector==='.tab[data-view]'?tabs:views},syncMeasureContext(){},writeRoute:route=>routes.push(route.view)});
+  vm.runInContext(sourceSection(main,"document.querySelectorAll('.tab[data-view]').forEach((b)",'// Explore ▾ dropdown'),scope);
+  for(const destination of ['network','plan','game','home']) {
+    handlers.get(destination)();
+    assert.deepEqual(tabs.filter(tab=>tab.attributes.has('aria-current')).map(tab=>tab.dataset.view),[destination]);
+    assert.deepEqual(tabs.filter(tab=>tab.active).map(tab=>tab.dataset.view),[destination]);
+    assert.deepEqual(views.filter(view=>view.active).map(view=>view.id),['view-'+destination]);
+  }
+  assert.deepEqual(routes,['network','plan','game','home']);
+});
+
 test('an actual feature opened before catalog readiness is acknowledged after loading',async()=>{
   const h=announcementsHarness();h.listeners.get('conway:feature-opened')({detail:{action:'guide'}});
   const mounted=h.scope.mountNews();assert.deepEqual(h.visits,[]);

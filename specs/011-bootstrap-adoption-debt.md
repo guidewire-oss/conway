@@ -183,14 +183,12 @@ the same increment. No library version change is required.
 **Context:** Framework defaults can override compact selectors, status text,
 and the guide's editorial spacing even when controls adopt the right classes.
 
-**Decision:** Keep calendar and inline metric selectors intrinsically sized
-using Bootstrap utilities. Status buttons retain readable body foregrounds in
-normal, hover and active states, and button focus rings use the theme primary
-color. Fixed-size help controls use a one-line-height utility. Non-submit
-actions declare their button type; block-level provenance text needs no extra
-blank line. Guide table cells retain 12px desktop padding and 10px by 14px
-mobile padding through scoped table styling. Keep browser acceptance in a
-standalone module executed by the existing Ginkgo host.
+**Decision:** Adopt framework primitives while preserving the control's context:
+embedded selectors stay compact, evidence remains readable, and state and focus
+remain accessible across themes. Use framework utilities and variables for
+generic behavior; reserve scoped styling for domain geometry and editorial
+reading density. Keep browser acceptance independently executable while the
+Ginkgo harness owns its isolated server and lifetime.
 
 **Alternatives considered:** Accepting all framework defaults would change
 reading density and domain layout; restoring generic custom component styles
@@ -203,6 +201,11 @@ The existing theme and state owners remain authoritative; no version changes.
 
 | Metric | Current | Target | How to Measure |
 |--------|---------|--------|----------------|
-| Duplicated global input/button/card base rules | 0 | 0 | source inspection |
+| Ready queue and execution actions missing Bootstrap button classes | 0 in rendered acceptance fixtures | 0; regression guard | `#ready button:not(.btn), #evidence button:not(.btn)` count in `tests/browser/bootstrap-adoption.mjs` |
 | Tooltip systems | Bootstrap + native chart titles | Unchanged | code |
 | Operational workflow regression | Existing acceptance suite | Pass in both themes and at 360px | Ginkgo/Playwright |
+
+The class-coverage count is a regression guard over the named rendered fixtures,
+not a claim that every scoped application style has been removed. A count above
+zero fails acceptance even when the previous run met the target. The component
+registry governs review of controls outside these fixtures.
