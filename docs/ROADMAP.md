@@ -13,7 +13,7 @@ is a separate release check.
 |---|---|---|---|
 | 0 | Release validation | Pending external setup | Live Google service-account round trip; review local startup changes |
 | 1 | Weekly execution review and action follow-up | Implemented; local acceptance passed | Spec 024; manual/evidence agendas, action history and immutable summaries |
-| 2 | Team ready-work queue | Planned | Release eligibility and readiness decisions |
+| 2 | Team ready-work queue | Implemented; local acceptance passed | Spec 025; release eligibility, full-kit evidence and decision history |
 | 3 | Reliable evidence foundation | Planned | Scheduled captures, recovery and stable team/initiative identities |
 | 4 | Dependency agreements | Planned | Shared identities, accountable providers and acceptance conditions |
 | 5 | Shared capacity across plans | Planned | Canonical teams and accepted plan allocations |

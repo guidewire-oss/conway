@@ -204,6 +204,9 @@ func BuildWeeklyReview(in ReviewInput) (ReviewSummary, error) {
 					add(ReviewEntry{Kind: "evidence-gap", Initiative: it.Name, Reason: gap}, true)
 				}
 				for _, sl := range it.Slices {
+					if (sl.StartVarianceWeeks != nil && *sl.StartVarianceWeeks > 0) || (sl.FinishVarianceWeeks != nil && *sl.FinishVarianceWeeks > 0) {
+						add(ReviewEntry{Kind: "agreement-divergence", Initiative: it.Name, Team: sl.Pod, Reason: "Available team start or finish evidence is later than the agreed schedule; inferred dates retain their original limitations."}, false)
+					}
 					if sl.Status == "late" || sl.Status == "at-risk" {
 						add(ReviewEntry{Kind: "delivery-risk", Initiative: it.Name, Team: sl.Pod, Reason: "Captured team evidence reports " + sl.Status + " against agreement."}, false)
 					}

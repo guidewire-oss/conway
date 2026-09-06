@@ -301,6 +301,26 @@ var _ = Describe("weekly execution review persistence", Label("database"), func(
 		Expect(reviews).To(HaveLen(2))
 		Expect(reviews[0].ID).To(Equal(second.ID))
 	})
+	// specs/024-weekly-execution-review.md:149: the atomic completion boundary
+	// must guard the same plan it writes, including internal callers.
+	It("refuses completion when the guarded plan differs from the written plan", func() {
+		other := plan
+		other.ID, other.Name = newID(), "Beacon guarded plan"
+		Expect(database.CreatePlan(other)).To(Succeed())
+		DeferCleanup(func() { Expect(database.DeletePlan(other.ID)).To(Succeed()) })
+		guarded, err := database.GetPlan(plan.ID)
+		Expect(err).NotTo(HaveOccurred())
+		actions, err := database.ExecutionDecisions(plan.ID)
+		Expect(err).NotTo(HaveOccurred())
+		review := db.ExecutionReview{ID: newID(), PlanID: other.ID, ReviewDate: "2026-11-01", Timezone: "UTC", CreatedBy: claims.Sub, CreatedAt: time.Now().Unix(), OutcomeNote: "This must not be written under another plan's guard."}
+		ok, _ := database.CompleteExecutionReview(context.Background(), review, db.ReviewGuard{Plan: guarded, Actions: actions})
+		Expect(ok).To(BeFalse())
+		for _, id := range []string{plan.ID, other.ID} {
+			rows, err := database.ExecutionReviews(context.Background(), id)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rows).To(BeEmpty())
+		}
+	})
 })
 
 var _ = Describe("weekly execution review authentication", func() {

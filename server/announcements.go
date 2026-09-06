@@ -38,6 +38,11 @@ func (s *server) announcementCatalog(c auth.Claims) []featureAnnouncement {
 	})
 	if c.Has("manager") || c.Has("admin") {
 		features = append(features, featureAnnouncement{
+			ID: "team-ready-work-v1", Title: "Review your team's next work",
+			Description: "See the scheduled release window, confirm operational prerequisites, and record release or deferral decisions without changing the plan.",
+			Action:      announcementAction{Type: "route", Route: "?view=plan&planView=ready", Target: "view-ready", Parent: "plan-btn"},
+		})
+		features = append(features, featureAnnouncement{
 			ID: "execution-review-v1", Title: "Review execution against your plan",
 			Description: "Open a plan's Review execution view to compare its baseline with an imported snapshot, inspect evidence gaps, and record review decisions.",
 			Action:      announcementAction{Type: "route", Route: "?view=plan&planView=execution", Target: "view-execution", Parent: "plan-btn"},

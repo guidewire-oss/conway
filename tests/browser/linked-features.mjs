@@ -5,6 +5,7 @@ import {join} from 'node:path';
 import {checkAnnouncementRecovery} from './announcement-recovery.mjs';
 import {checkLinkedSourceRaces} from './linked-source-races.mjs';
 import {checkWeeklyReview} from './weekly-review.mjs';
+import {checkReadyQueue} from './ready-queue.mjs';
 const {chromium} = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const base = process.env.CONWAY_TEST_BASE_URL, plan = process.env.CONWAY_TEST_PLAN_ID;
 if (!base || !plan) throw new Error('Run the linked features browser Go acceptance harness.');
@@ -24,10 +25,11 @@ try {
   await page.locator('#signin-form button[type=submit]').click();
   const announcements=page.locator('#announcements-overlay');
   await announcements.waitFor({state:'visible'});
-  assert.equal(await announcements.locator('[data-announcement-action]').count(),4);
+  assert.equal(await announcements.locator('[data-announcement-action]').count(),5);
   assert.equal(await announcements.locator('[data-announcement-action="weekly-execution-review-v1"]').count(),1);
   const weeklyFeature=(await api('/api/announcements')).features.find(f=>f.id==='weekly-execution-review-v1');
   assert.equal(weeklyFeature.action.target,'view-execution');
+  assert.equal((await api('/api/announcements')).features.find(f=>f.id==='team-ready-work-v1')?.action.target,'view-ready');
   await page.waitForFunction(async()=>{const r=await fetch('/api/announcements',{headers:{Authorization:'Bearer '+localStorage.getItem('conway_token')}});return r.ok&&(await r.json()).features.every(f=>f.announced);});
   assert.equal((await api('/api/announcements')).features.some(f=>f.visited),false);
   await page.keyboard.press('Escape'); await announcements.waitFor({state:'hidden'});
@@ -35,7 +37,7 @@ try {
   assert.equal(await announcements.isVisible(),false,'automatic introduction must not recur');
   assert.ok(await page.locator('#plan-linked-sheets [data-announcement-indicator]').count());
   await page.locator('#help-btn').click(); await page.locator('#whats-new-btn').click();
-  await announcements.waitFor({state:'visible'}); assert.equal(await announcements.locator('[data-announcement-action]').count(),4);
+  await announcements.waitFor({state:'visible'}); assert.equal(await announcements.locator('[data-announcement-action]').count(),5);
   await page.setViewportSize({width:360,height:800});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await page.screenshot({path:join(process.env.CONWAY_TEST_ARTIFACT_DIR||tmpdir(),'conway-announcements-mobile.png'),fullPage:true});
@@ -108,6 +110,7 @@ try {
   await checkAnnouncementRecovery(browser,base);
   await checkLinkedSourceRaces(browser,base);
   await checkWeeklyReview(page,base,plan);
+  await checkReadyQueue(page,base,plan);
   await page.waitForFunction(async()=>{
     const r=await fetch('/api/announcements',{headers:{Authorization:'Bearer '+localStorage.getItem('conway_token')}});
     const features=(await r.json()).features;

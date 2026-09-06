@@ -187,7 +187,12 @@ export async function mountExecution(host, {plan, request, onBindingsSaved, onIm
     select.innerHTML = '<option value="">Manual review (no snapshot)</option>' + (snapshots || []).map(s=>`<option value="${esc(s.id)}">${esc(s.name || s.id)} · ${esc(s.source === 'jira' ? 'Jira import' : s.source === 'baseline' || s.source === 'template' ? 'Synthetic example' : 'Source unknown')} · ${esc(when(s.createdAt))}</option>`).join('');
     const requested = new URL(location.href).searchParams.get('executionSnapshot');
     if((snapshots || []).some(s=>s.id === requested)) select.value=requested;
-    else if(requested !== 'manual' && snapshots?.length) select.value=[...snapshots].sort((a,b)=>(Number(b.source === 'jira') - Number(a.source === 'jira')) || (b.createdAt || 0) - (a.createdAt || 0))[0].id;
+    else if(requested && requested !== 'manual') {
+      // Preserve an explicit source even when discovery no longer lists it.
+      // specs/024-weekly-execution-review.md:305
+      select.insertAdjacentHTML('beforeend', `<option value="${esc(requested)}">Requested snapshot (not in available list)</option>`);
+      select.value = requested;
+    } else if(!requested && snapshots?.length) select.value=[...snapshots].sort((a,b)=>(Number(b.source === 'jira') - Number(a.source === 'jira')) || (b.createdAt || 0) - (a.createdAt || 0))[0].id;
     weekly.invalidate(); await refresh();
   } catch(e) { if(live()) { select.innerHTML='<option value="">Snapshots unavailable</option>'; status.textContent=`Could not load snapshots: ${e.message}`; status.setAttribute('role','alert'); } }
   if(live()) { select.disabled = false; weekly.ready(); }

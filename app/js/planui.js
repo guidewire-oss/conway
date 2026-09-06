@@ -6,6 +6,7 @@ import { readRoute, writeRoute } from './navigation.js';
 import { icon } from './icons.js';
 import { openModal, closeModal, containFocus } from './modal.js';
 import { mountExecution } from './executionui.js';
+import { mountReadyQueue } from './readyqueueui.js';
 import { openImport } from './importui.js';
 import { openLinkedSheets } from './linksheets.js';
 import {
@@ -25,7 +26,7 @@ import { healthReportHTML, remediesSectionHTML } from './report.js';
 
 let root, current = null;
 let pendingPlanDestination = '';
-const planDestinations = { setup: 'plan setup', order: 'Plan commitments', timeline: 'Timeline', execution: 'Review execution', 'linked-sheets': 'Linked Google Sheets' };
+const planDestinations = { setup: 'plan setup', order: 'Plan commitments', timeline: 'Timeline', ready: 'Next work', execution: 'Review execution', 'linked-sheets': 'Linked Google Sheets' };
 function pendingDestinationHTML() {
   return pendingPlanDestination ? `<p data-pending-destination role="status">${current ? 'Complete this plan’s inputs' : 'Choose a plan'} to open ${esc(planDestinations[pendingPlanDestination])}. <button type="button" data-cancel-destination>Cancel</button></p>` : '';
 }
@@ -391,7 +392,7 @@ function renderPlan() {
       <button id="plan-draft-discard">Discard</button></p>` : ''}
     ${unknown.length ? `<p class="plan-warn">${icon('warning')} ${unknown.length} pod(s) referenced by initiatives but missing from the roster: ${unknown.map(esc).join(', ')} — <button type="button" id="unknown-fix" class="warn-act">switch roster</button> or fix the sheet. <button type="button" class="usage-link" data-anchor="warnings">learn more</button></p>` : ''}
     ${nTeams > 0 && nInit > 0 ? `<div class="plan-views"><div class="btn-group" role="group">
-      <button class="btn ${view() === 'order' ? 'active' : ''}" id="view-order">Plan commitments</button><button class="btn ${view() === 'network' ? 'active' : ''}" id="plan-view-network">Dependencies</button><button class="btn ${view() === 'timeline' ? 'active' : ''}" id="view-timeline">Timeline</button><button class="btn ${view() === 'execution' ? 'active' : ''}" id="view-execution">Review execution</button><button class="btn" id="view-report" title="one printable card: verdicts, capacity, conflicts, remedies (spec 013)">${icon('report')}Report</button>
+      <button class="btn ${view() === 'order' ? 'active' : ''}" id="view-order">Plan commitments</button><button class="btn ${view() === 'network' ? 'active' : ''}" id="plan-view-network">Dependencies</button><button class="btn ${view() === 'timeline' ? 'active' : ''}" id="view-timeline">Timeline</button><button class="btn ${view() === 'ready' ? 'active' : ''}" id="view-ready">Next work</button><button class="btn ${view() === 'execution' ? 'active' : ''}" id="view-execution">Review execution</button><button class="btn" id="view-report" title="one printable card: verdicts, capacity, conflicts, remedies (spec 013)">${icon('report')}Report</button>
     </div>${baselineChipHTML(current.baselines)}</div>` : ''}
     ${nTeams === 0 ? `
       <div class="panel-card plan-start">
@@ -467,6 +468,7 @@ function renderPlan() {
   document.getElementById('view-order')?.addEventListener('click', () => setView('order'));
   document.getElementById('view-timeline')?.addEventListener('click', () => setView('timeline'));
   document.getElementById('view-report')?.addEventListener('click', openHealthReport);
+  document.getElementById('view-ready')?.addEventListener('click', () => setView('ready'));
   document.getElementById('view-execution')?.addEventListener('click', () => setView('execution'));
   // The chip summarises a panel that only exists in the Order view, so it has to be
   // able to get there — otherwise it is a status message with no way through. The
@@ -478,11 +480,11 @@ function renderPlan() {
   if (nTeams > 0 && nInit > 0) {
     current.levers = current.levers || [];
     current.netMode = current.netMode || 'after';
-    if (view() === 'order') renderOrder(); else if (view() === 'timeline') renderTimeline(); else if (view() === 'execution') renderExecution(); else renderDash();
+    if (view() === 'order') renderOrder(); else if (view() === 'timeline') renderTimeline(); else if (view() === 'ready') renderReadyQueue(); else if (view() === 'execution') renderExecution(); else renderDash();
   }
 }
 
-const view = () => ['network', 'timeline', 'execution'].includes(current && current.view) ? current.view : 'order';
+const view = () => ['network', 'timeline', 'ready', 'execution'].includes(current && current.view) ? current.view : 'order';
 
 // specs/023-linked-google-sheets.md:241 — a late apply must not replace a
 // different plan or an unsaved local draft when its source dialog finishes.
@@ -558,6 +560,31 @@ async function previewRemedy(remedy) {
     await applied.json(); if (ov.proposalToken === token && !ov.hidden) closeModal(ov);
     if(current?.id === planId) { dragUndo=null; dragHistory=[]; await openPlan(planId); }
   });
+}
+
+function openTeamReady(team) {
+  current.tlTeamFilter = team;
+  setView('ready');
+}
+
+function renderReadyQueue() {
+  const host = document.getElementById('plan-dash'), plan = current;
+  if (!host || !plan) return;
+  if (plan.isDraft) { host.innerHTML = '<p class="plan-warn">Save or discard the upload preview before assessing release decisions against saved inputs.</p>'; return; }
+  mountReadyQueue(host, {plan, request:req,
+    onContext:(team, week) => {
+      if (current?.id !== plan.id) return;
+      current.tlTeamFilter = team;
+      writeRoute({team, readyWeek:week});
+    },
+    onInspect:(team, initiative) => {
+      current.tlLens = 'pod'; current.tlTeamFilter = team;
+      current.tlInitiativeFilter = initiative; current.selectedInitiative = initiative;
+      setView('timeline');
+    },
+    onReview:team => { current.tlTeamFilter = team; setView('execution'); }
+  });
+  window.dispatchEvent(new CustomEvent('conway:feature-opened', {detail:{action:'ready'}}));
 }
 
 function renderExecution() {
@@ -1159,7 +1186,7 @@ async function renderTimeline() {
       dragHistory.push(undo);
       dragUndo = undo;
       staleOrder();
-      if (view() === 'order') await renderOrder(); else if (view() === 'timeline') await renderTimeline(); else if (view() === 'execution') renderExecution(); else await renderDash();
+      if (view() === 'order') await renderOrder(); else if (view() === 'timeline') await renderTimeline(); else if (view() === 'ready') renderReadyQueue(); else if (view() === 'execution') renderExecution(); else await renderDash();
       return true;
     } catch (error) {
       if (current?.id === forPlan) dragNote(error.message || 'The edit could not be saved. Your inputs remain available to retry.');
@@ -1339,6 +1366,12 @@ async function renderTimeline() {
     if (!holder) return;
     const ps = (sched.podWeeks || []).find((p) => p.pod === pod);
     holder.innerHTML = ps ? podSheetHTML(ps, sched, { horizonWeeks: horizon, span: spanWeeks, planInitiatives: current.initiatives || [] }) : '';
+    if (ps) {
+      const next = document.createElement('button');
+      next.type = 'button'; next.textContent = `Next work for ${pod}`;
+      next.addEventListener('click', () => openTeamReady(pod));
+      holder.prepend(next);
+    }
     holder.querySelectorAll('.pod-export[data-export-sheet]').forEach((b) =>
       b.addEventListener('click', () => {
         exportBlockPNG(b.closest('[data-pod-sheet]'), `conway-${pod.replace(/\W+/g, '-').toLowerCase()}-sheet.png`).then((ok) => {
@@ -1590,6 +1623,15 @@ async function renderOrder() {
       document.getElementById('sched-open')?.focus();
     });
   });
+  if (current.orderPod && !current.isDraft) {
+    const queue = host.querySelector('.ord-queue');
+    if (queue) {
+      const next = document.createElement('button');
+      next.type = 'button'; next.textContent = `Next work for ${current.orderPod}`;
+      next.addEventListener('click', () => openTeamReady(current.orderPod));
+      queue.prepend(next);
+    }
+  }
   host.querySelectorAll('.ord-podlink').forEach((a) => a.addEventListener('click', () => {
     // Clicking the open pod again closes it, so the grid is never stuck behind a panel.
     current.orderPod = current.orderPod === a.dataset.pod ? null : a.dataset.pod;
@@ -1736,7 +1778,7 @@ async function renderOrder() {
     current.scheduling = { ...(current.scheduling || {}), ...body };
     dragUndo = null; dragHistory = [];
     current.schedule = null;
-    if (view() === 'order') await renderOrder(); else if (view() === 'timeline') await renderTimeline(); else if (view() === 'execution') renderExecution(); else await renderDash();
+    if (view() === 'order') await renderOrder(); else if (view() === 'timeline') await renderTimeline(); else if (view() === 'ready') renderReadyQueue(); else if (view() === 'execution') renderExecution(); else await renderDash();
     if (ordering === 'engine' && current?.id === forPlan && orderEpoch === atEpoch && view() === 'order') {
       // Q1: ask to baseline AFTER the re-render — the drawer opens pre-filled
       // with a dated name, one click away from freezing the accepted order.

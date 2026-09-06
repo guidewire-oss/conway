@@ -32,6 +32,10 @@ The same harness runs `weekly-review.mjs` inside Review execution: manual review
 action creation, delayed catalog/preview responses, a real completion conflict,
 evidence-preserving action conflicts, resolution, immutable completed summaries,
 review-link reload, and older review selection during a delayed history refresh.
+The `ready-queue.mjs` workflow uses the same real server to assess team/week
+context, confirm full kit, release/defer/reconsider work, inspect history, and
+retain decision evidence across conflicts and delayed responses. Desktop and
+360px screenshots cover the queue in the existing plan theme.
 The provider seam exists only in the test binary; no production fixture routes
 or Google credentials are required. This does not test live Google access.
 
@@ -52,7 +56,8 @@ Chrome; leave it unset for Playwright's bundled Chromium, as CI does.
 `CONWAY_TEST_ARTIFACT_DIR` selects an existing screenshot directory; otherwise
 screenshots use the system temporary directory. Successful runs produce
 `conway-announcements-mobile.png`, `conway-linked-sources-mobile.png`,
-`conway-weekly-review-desktop.png` and `conway-weekly-review-mobile.png`.
+`conway-weekly-review-desktop.png`, `conway-weekly-review-mobile.png`,
+`conway-ready-queue-desktop.png` and `conway-ready-queue-mobile.png`.
 
 CI provisions PostgreSQL, Go, Node and Playwright/Chromium before running this
 opt-in command. The ordinary Go suite skips the browser test unless explicitly

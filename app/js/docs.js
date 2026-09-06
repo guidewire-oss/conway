@@ -91,7 +91,7 @@ export function openDocs(section) {
 export function manualSectionForView(view, planView) {
   if (view === 'plan') return ({
     'view-order': 'order', 'plan-view-network': 'plan-network',
-    'view-timeline': 'timeline', 'view-execution': 'execution', 'view-report': 'health-report',
+    'view-timeline': 'timeline', 'view-execution': 'execution', 'view-ready': 'next-work', 'view-report': 'health-report',
   }[planView] || 'planning-loop');
   return ({ home: 'start', network: 'network', scoreboard: 'scoreboard',
     hygiene: 'hygiene', simulator: 'simulator', flow: 'flow-actions', game: 'learning',

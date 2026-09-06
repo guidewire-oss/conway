@@ -150,6 +150,9 @@ type ReviewGuard struct {
 }
 
 func (d *DB) CompleteExecutionReview(ctx context.Context, review ExecutionReview, guard ReviewGuard) (bool, error) {
+	if guard.Plan == nil || review.PlanID != guard.Plan.ID {
+		return false, errors.New("review must belong to its guarded plan")
+	}
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
 		return false, err
@@ -247,7 +250,7 @@ func (d *DB) CompleteExecutionReview(ctx context.Context, review ExecutionReview
 	if err != nil {
 		return false, err
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO plan_execution_reviews(id,plan_id,created_at,data) VALUES($1,$2,$3,$4)`, review.ID, review.PlanID, review.CreatedAt, raw)
+	_, err = tx.Exec(ctx, `INSERT INTO plan_execution_reviews(id,plan_id,created_at,data) VALUES($1,$2,$3,$4)`, review.ID, p.ID, review.CreatedAt, raw)
 	if err != nil {
 		return false, err
 	}

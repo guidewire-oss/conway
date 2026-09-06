@@ -1,0 +1,41 @@
+/* Operational decisions share the existing plan's cards, colors and controls. */
+.ready-queue { min-width: 0; }
+.ready-heading, .ready-controls, .ready-filters, .ready-item-heading { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: end; }
+.ready-heading { justify-content: space-between; align-items: start; }
+.ready-heading h3 { margin-top: 0; }
+.ready-queue h3 { font-size: 1.2rem; color: inherit; }
+.ready-queue h4 { font-size: 1.05rem; margin: 0; }
+.ready-queue h5 { font-size: 1rem; }
+.ready-queue label { display: grid; gap: 5px; min-width: 0; }
+.ready-controls > label, .ready-filters > label { flex: 1 1 200px; }
+.ready-queue .ready-check { display: flex; align-items: center; gap: 8px; }
+.ready-check input { flex: 0 0 auto; }
+.ready-queue input, .ready-queue textarea, .ready-queue select { min-width: 0; max-width: 100%; }
+.ready-queue button { min-height: 40px; white-space: normal; }
+.ready-queue p, .ready-queue li, .ready-queue h4 { overflow-wrap: anywhere; }
+.ready-context { border-left: 3px solid var(--accent); margin: 16px 0; }
+.ready-group { margin-top: 24px; }
+.ready-empty { margin-top: 12px; border-bottom: 1px solid var(--border); }
+.ready-empty summary { padding: 12px 0; cursor: pointer; font-weight: 600; }
+.ready-empty summary .hint { margin-left: 10px; font-weight: 400; }
+.ready-context summary { cursor: pointer; padding-bottom: 8px; }
+.ready-item { margin: 12px 0; }
+.ready-item-heading { align-items: baseline; }
+.ready-reasons { padding-left: 20px; }
+.ready-reasons small { display: block; color: var(--muted); }
+.ready-queue .row-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ready-item details { border-top: 1px solid var(--border); margin-top: 12px; }
+.ready-item summary { cursor: pointer; padding: 12px 0; }
+.ready-item form { display: grid; gap: 12px; max-width: 780px; }
+.ready-item fieldset { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; min-width: 0; padding: 14px; border: 1px solid var(--border); border-radius: 6px; }
+.ready-item legend { float: none; width: auto; padding: 0 6px; font-size: 1rem; }
+.ready-item fieldset .ready-check, .ready-item fieldset label:last-child { grid-column: 1 / -1; }
+.ready-item form > button { justify-self: start; }
+.ready-history article { padding: 12px 0; border-top: 1px solid var(--border); }
+.ready-history article p { white-space: pre-wrap; }
+@media (max-width: 600px) {
+  .ready-item { padding: 12px; }
+  .ready-controls > label, .ready-filters > label { flex-basis: 100%; }
+  .ready-item fieldset { grid-template-columns: minmax(0, 1fr); }
+  .ready-queue .row-actions button { flex: 1 1 140px; }
+}

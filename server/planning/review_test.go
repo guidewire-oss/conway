@@ -76,6 +76,22 @@ var _ = Describe("weekly execution review agenda", func() {
 		Expect(summary.Evidence.Initiatives[1].PercentComplete).To(BeNil())
 		Expect(summary.Evidence.Initiatives[1].ActualFinishWeek).To(BeNil())
 	})
+	// specs/024-weekly-execution-review.md:56: a late team slice remains an
+	// agreement exception even when the initiative aggregate is on time.
+	It("retains team-level agreement divergence when aggregate variance is zero", func() {
+		in := input()
+		in.Snapshot = &ReviewSnapshot{ID: "snapshot-a", Source: "jira"}
+		in.Actuals = &ExecutionActuals{Initiatives: []InitiativeActual{{Name: "Atlas", StartVarianceWeeks: number(0), FinishVarianceWeeks: number(0), Slices: []SliceActual{{Pod: "Team A", Status: "on-track", StartVarianceWeeks: number(2), FinishVarianceWeeks: number(0)}, {Pod: "Team B", Status: "on-track", StartVarianceWeeks: number(0), FinishVarianceWeeks: number(1)}}}}}
+		summary, err := BuildWeeklyReview(in)
+		Expect(err).NotTo(HaveOccurred())
+		teams := []string{}
+		for _, entry := range summary.Agenda.Delivery {
+			if entry.Kind == "agreement-divergence" {
+				teams = append(teams, entry.Team)
+			}
+		}
+		Expect(teams).To(ConsistOf("Team A", "Team B"))
+	})
 	It("labels the same captured evidence instead of inventing progress since last review", func() {
 		in := input()
 		in.Snapshot = &ReviewSnapshot{ID: "snapshot-a", Source: "jira"}

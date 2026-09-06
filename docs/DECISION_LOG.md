@@ -387,13 +387,37 @@ recorded in spec 001 §7 alongside.
 
 **Weekly reviews extend the existing execution workflow and preserve its evidence.**
 
-The feature decisions were recorded before implementation in
-[specification 024](../specs/024-weekly-execution-review.md#11-decision-record).
-That specification remains canonical for manual review, action transitions,
-immutable completion, comparison limits and independent acceptance tests.
+*Context:* Managers need durable execution follow-up within the plan they are
+already reviewing. The maintainer also requested coherent interaction design,
+behavioral tests, accompanying documentation and an ordered completion roadmap.
 
-Retain the existing plan, snapshot, agreement and action identities. Surface the
-increment through the existing feature-announcement and documentation routes.
-The maintainer's 2026-09-06 request also establishes durable delivery conventions
-in AGENTS.md: coherent interaction design, behavioral tests, documentation in the
-same increment, and an updated ordered roadmap after completion.
+*Decision:* Extend existing plan, snapshot, agreement and action identities.
+The feature decisions were recorded before implementation in
+[specification 024](../specs/024-weekly-execution-review.md#11-decision-record),
+which remains canonical for behavior and implementation alternatives. Record
+the durable delivery conventions in AGENTS.md.
+
+*Rejected:* A separate review dashboard and replacement action catalog would
+split the established workflow and duplicate evidence ownership. Detailed
+alternatives remain in specification 024 rather than a second decision source.
+
+*Cost:* Immutable summaries and append-only action history require storage,
+concurrency guards and recovery paths. Manual reviews retain unknown measures.
+
+## Decision 16
+
+**Team release decisions use the accepted plan and retain accountable evidence.**
+
+*Context:* Managers need to decide what a team can start without creating a
+competing schedule or mistaking planned placement for observed progress.
+
+*Decision:* Keep Next work inside the selected plan. The canonical requirements,
+calculation boundaries and alternatives were recorded before implementation in
+[specification 025](../specs/025-team-ready-work-queue.md#11-decision-record).
+
+*Rejected:* A separate queue scheduler would conflict with accepted ordering and
+shared constraints. Implicit release from free capacity would omit operational
+acceptance and accountability.
+
+*Cost:* Context-bound confirmations, append-only decisions and atomic stale-write
+guards add persistence and require deliberate reconfirmation after plan changes.

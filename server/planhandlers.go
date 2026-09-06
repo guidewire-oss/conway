@@ -168,6 +168,8 @@ func (s *server) handlePlanItem(w http.ResponseWriter, r *http.Request, c auth.C
 		return
 	}
 	switch {
+	case sub == "ready-queue" || strings.HasPrefix(sub, "ready-queue/"):
+		s.handleReadyQueue(w, r, p, c, sub)
 	case sub == "reviews" || strings.HasPrefix(sub, "reviews/") || strings.HasPrefix(sub, "decisions/"):
 		s.handleWeeklyReview(w, r, p, c, sub)
 	case sub == "sources" || strings.HasPrefix(sub, "sources/"):

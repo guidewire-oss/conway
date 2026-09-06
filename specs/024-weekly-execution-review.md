@@ -192,7 +192,9 @@ no captured epic; a review must distinguish those two conversations.
 - agenda: delivery and gaps arrays of entries with kind, reason, optional initiative
   and team, and available supporting values where comparison is justified.
 - actions: action state/version observations with overdue flags for this review date.
-- counts: delivery, gaps, openActions, overdueActions and resolvedActions counts.
+- counts: delivery, gaps, openActions (open plus in_progress), overdueActions and
+  resolvedActions counts. All four individual states remain in actions; a separate
+  per-state metric is not required by this increment.
 - filters: optional team and initiative selections retained as presentation context.
 - evidence: optional existing ExecutionActuals used to preserve comparable observed
   values for a subsequent review; absent evidence remains absent.

@@ -4,6 +4,7 @@ import {tmpdir} from 'node:os';
 
 // Invoked by the existing isolated real-server acceptance harness after login.
 export async function checkWeeklyReview(page,base,plan){
+  const releases=[];
   const within=(promise,label)=>{
     let timer;
     return Promise.race([promise,new Promise((_resolve,reject)=>{timer=setTimeout(()=>reject(new Error('Timed out waiting for '+label)),15000);})]).finally(()=>clearTimeout(timer));
@@ -12,12 +13,13 @@ export async function checkWeeklyReview(page,base,plan){
     const response=await fetch(path,{...options,headers:{'Content-Type':'application/json',Authorization:'Bearer '+localStorage.getItem('conway_token')}});
     const body=await response.text();if(!response.ok)throw new Error(response.status+' '+body);return JSON.parse(body);
   },{path,options});
+  try {
   // Let application bootstrap finish; only execution's own initial discovery
   // should be delayed, not the earlier global snapshot selection.
   await page.goto(base+'?view=plan&plan='+plan);
   await page.locator('#view-execution').waitFor();await page.waitForLoadState('networkidle');
   let releaseCatalog,catalogReady;
-  const heldCatalog=new Promise(resolve=>{releaseCatalog=resolve;});
+  const heldCatalog=new Promise(resolve=>{releaseCatalog=resolve;releases.push(resolve);});
   const catalogPending=new Promise(resolve=>{catalogReady=resolve;});
   await page.route('**/api/snapshots',async route=>{
     const response=await route.fetch();catalogReady();await heldCatalog;await route.fulfill({response});
@@ -43,7 +45,7 @@ export async function checkWeeklyReview(page,base,plan){
   const prepare=page.locator('[data-weekly-preview]');
   const previewURL=base+'/api/plan/'+plan+'/reviews/preview';
   let releasePreview,previewReady;
-  const heldPreview=new Promise(resolve=>{releasePreview=resolve;});
+  const heldPreview=new Promise(resolve=>{releasePreview=resolve;releases.push(resolve);});
   const prepared=new Promise(resolve=>{previewReady=resolve;});
   await page.route(previewURL,async route=>{
     const response=await route.fetch();previewReady();await heldPreview;await route.fulfill({response});
@@ -108,7 +110,7 @@ export async function checkWeeklyReview(page,base,plan){
   await page.locator('#weekly-outcome-note').fill('The action was resolved with acceptance evidence.');
   const reviewsURL=base+'/api/plan/'+plan+'/reviews';
   let releaseHistory,historyReady;
-  const heldHistory=new Promise(resolve=>{releaseHistory=resolve;});
+  const heldHistory=new Promise(resolve=>{releaseHistory=resolve;releases.push(resolve);});
   const historyPending=new Promise(resolve=>{historyReady=resolve;});
   await page.route(reviewsURL,async route=>{
     if(route.request().method()!=='GET'){await route.continue();return;}
@@ -136,5 +138,20 @@ export async function checkWeeklyReview(page,base,plan){
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await page.screenshot({path:join(process.env.CONWAY_TEST_ARTIFACT_DIR||tmpdir(),'conway-weekly-review-mobile.png'),fullPage:true});
   await page.setViewportSize({width:1280,height:960});
+  await page.goto(base+'?view=plan&plan='+plan+'&planView=execution&executionSnapshot=missing-generic-capture');
+  await page.locator('#execution-status[role=alert]').waitFor();
+  assert.equal(await page.locator('#execution-snapshot').inputValue(),'missing-generic-capture','an unavailable explicit capture must not silently select other evidence');
+  assert.match(await page.locator('#execution-status').textContent(),/unavailable/i);
+  await page.locator('#execution-snapshot').selectOption('');
+  assert.equal(await page.locator('#execution-snapshot').inputValue(),'');
+  await page.locator('#execution-status').filter({hasText:'Manual review'}).waitFor();
   console.log(JSON.stringify({weeklyManualReview:true,completionConflictRetainsNote:true,evidencedResolution:true,immutableReview:true,authorizedReviewLink:true,weeklyMobileOverflow:false}));
+  } finally {
+    for(const release of releases)release();
+    if(!page.isClosed()){
+      await page.unroute('**/api/snapshots');
+      await page.unroute(base+'/api/plan/'+plan+'/reviews/preview');
+      await page.unroute(base+'/api/plan/'+plan+'/reviews');
+    }
+  }
 }

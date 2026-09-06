@@ -243,6 +243,8 @@ See [specs/002-factory-adoption.md](specs/002-factory-adoption.md) for adoption 
 
 ## Views
 
+- **Next work**, inside a saved plan — team readiness, accountable full-kit confirmations and release/defer/reconsider history; see the [workflow and calculations](app/docs.html#next-work).
+
 - **Flow Actions** — the constraint (five focusing steps), WIP freeze
   candidates with per-issue drill-down, CCPM buffer fever chart
 - **Network** — layered DAG of mined blocking edges + org-merge simulation
