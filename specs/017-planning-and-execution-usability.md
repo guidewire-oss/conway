@@ -212,6 +212,14 @@ For a rejected schedule identity, return the always-present `ScheduleFit` with
 counts as null rather than zero; consumers show the reason instead of a fit
 verdict. Valid schedule responses retain their existing numeric shape.
 
+Batch dynamic sortable-header preparation to one animation frame so a burst of
+DOM updates does not repeatedly scan the entire document. Initial preparation
+remains immediate, and subsequent frames prepare newly rendered headers.
+
+Linked-source mutation completions refresh their original dialog view only when
+the user has not navigated elsewhere within that dialog while awaiting the
+response. Saving data does not authorize replacing a later history or preview.
+
 ## 12. Success Metrics
 
 | Metric | Current | Target | How to Measure |

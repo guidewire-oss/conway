@@ -57,6 +57,12 @@ export async function openLinkedSheets(planID, onApplied = async () => {}) {
     finally { if (button.isConnected) button.disabled = false; }
   }
   function sourcePath(source) { return `${base}/${encodeURIComponent(source.id)}`; }
+  // specs/017-planning-and-execution-usability.md:219: a completed write must
+  // not replace history or a preview selected while that write was pending.
+  async function refreshAfterWrite(ownTicket, message = '', error = false) {
+    if (!live() || ownTicket !== ticket) return;
+    if (await load()) status(message, error);
+  }
   async function load() {
     const ownTicket = ++ticket;
     const result = await request(base);
@@ -89,39 +95,44 @@ export async function openLinkedSheets(planID, onApplied = async () => {}) {
       const section = [...overlay.querySelectorAll('[data-source]')].find(el => el.dataset.source === source.id);
       section.querySelector('[data-history]').addEventListener('click', ev => action(ev.currentTarget, () => history(source)));
       section.querySelector('[data-check]')?.addEventListener('click', ev => action(ev.currentTarget, async () => {
+        const ownTicket = ++ticket;
         status('Checking the linked range…');
         const checked = await request(`${sourcePath(source)}/check`, { method: 'POST', body: '{}' });
         if (!live()) return;
         if (checked.applied) await onApplied();
-        await load();
-        status(checked.source.lastError || (checked.applied ? 'Captured changes applied to the working plan.' : checked.unchanged ? 'The sheet content is unchanged.' : 'A new capture is ready to inspect.'), !!checked.source.lastError);
+        await refreshAfterWrite(ownTicket, checked.source.lastError || (checked.applied ? 'Captured changes applied to the working plan.' : checked.unchanged ? 'The sheet content is unchanged.' : 'A new capture is ready to inspect.'), !!checked.source.lastError);
       }));
       section.querySelector('[data-pause]')?.addEventListener('click', ev => action(ev.currentTarget, async () => {
+        const ownTicket = ++ticket;
         await request(sourcePath(source), { method: 'PATCH', body: JSON.stringify({ status: source.status === 'paused' ? 'active' : 'paused' }) });
-        await load();
+        await refreshAfterWrite(ownTicket);
       }));
       section.querySelector('[data-disconnect]')?.addEventListener('click', ev => action(ev.currentTarget, async () => {
+        const ownTicket = ++ticket;
         await request(sourcePath(source), { method: 'DELETE' });
-        await load(); status('Source disconnected. Its captured history remains available.');
+        await refreshAfterWrite(ownTicket, 'Source disconnected. Its captured history remains available.');
       }));
       section.querySelector('[data-settings]')?.addEventListener('submit', ev => {
         ev.preventDefault(); const form = ev.currentTarget;
         action(form.querySelector('button'), async () => {
+          const ownTicket = ++ticket;
           await request(sourcePath(source), { method: 'PATCH', body: JSON.stringify({ mode: form.elements.mode.value, pollMinutes: Number(form.elements.pollMinutes.value) }) });
-          await load(); status('Source settings saved.');
+          await refreshAfterWrite(ownTicket, 'Source settings saved.');
         });
       });
     }
     overlay.querySelector('[data-link]')?.addEventListener('submit', ev => {
       ev.preventDefault(); const form = ev.currentTarget;
       action(form.querySelector('button'), async () => {
+        const ownTicket = ++ticket;
         status('Connecting and capturing the sheet…');
         const linked = await request(base, { method: 'POST', body: JSON.stringify({ kind: form.elements.kind.value, spreadsheetUrl: form.elements.spreadsheetUrl.value, range: form.elements.range.value, mode: form.elements.mode.value, pollMinutes: Number(form.elements.pollMinutes.value) }) });
         if (!live()) return;
         if (linked.applied) await onApplied();
-        await load(); status(linked.source.lastError || 'Source linked. Inspect its captured version before applying changes.', !!linked.source.lastError);
+        await refreshAfterWrite(ownTicket, linked.source.lastError || 'Source linked. Inspect its captured version before applying changes.', !!linked.source.lastError);
       });
     });
+    return true;
   }
   async function history(source) {
     const ownTicket = ++ticket;
@@ -157,10 +168,11 @@ export async function openLinkedSheets(planID, onApplied = async () => {}) {
     const apply = overlay.querySelector('[data-apply]');
     overlay.querySelector('[data-removals]')?.addEventListener('change', ev => { apply.disabled = !valid || !ev.currentTarget.checked; });
     apply.addEventListener('click', () => action(apply, async () => {
+      const ownTicket = ++ticket;
       status('Applying the reviewed capture…');
       await request(`${sourcePath(source)}/apply`, { method: 'POST', body: JSON.stringify({ versionId: v.id, expectedFingerprint: result.planFingerprint, allowRemovals: !!overlay.querySelector('[data-removals]')?.checked }) });
       if (!live()) return;
-      await onApplied(); await load(); status('Captured inputs applied. Saved agreements and earlier captures are unchanged.');
+      await onApplied(); await refreshAfterWrite(ownTicket, 'Captured inputs applied. Saved agreements and earlier captures are unchanged.');
     }));
   }
   frame('Linked Google Sheets', '<p>Loading linked sources…</p>');

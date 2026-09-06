@@ -67,5 +67,13 @@ if (typeof document !== 'undefined') {
     }
   });
   prepareSortable();
-  new MutationObserver(() => prepareSortable()).observe(document.documentElement, { childList: true, subtree: true });
+  let preparationPending = false;
+  new MutationObserver(() => {
+    if (preparationPending) return;
+    preparationPending = true;
+    requestAnimationFrame(() => {
+      preparationPending = false;
+      prepareSortable();
+    });
+  }).observe(document.documentElement, { childList: true, subtree: true });
 }

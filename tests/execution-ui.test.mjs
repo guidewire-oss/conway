@@ -15,6 +15,7 @@ test('missing execution evidence remains unknown rather than a measured zero', (
 
 test('synthetic snapshot sources are distinguished from organizational observations', () => {
   assert.match(executionEvidenceHTML(evidence({ snapshot: { source: 'template' } })), /Synthetic example evidence/);
+  assert.match(executionEvidenceHTML(evidence({ snapshot: { source: 'baseline' } })), /Synthetic example evidence/);
   assert.match(executionEvidenceHTML(evidence({ snapshot: {} })), /source type is unknown/);
   assert.doesNotMatch(executionEvidenceHTML(evidence({})), /Synthetic example evidence/);
 });

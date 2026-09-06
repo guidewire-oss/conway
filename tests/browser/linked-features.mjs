@@ -50,8 +50,27 @@ try {
   const first=await overlay.locator('[data-version]').first().getAttribute('data-version');
   await overlay.locator('[data-version]').first().click(); await overlay.locator('[data-apply]').click();
   await overlay.locator('[data-source]').waitFor(); assert.equal(await tracks(),3);
-  await overlay.locator('[data-check]').click(); await page.waitForFunction(async({plan,sid})=>{const r=await fetch('/api/plan/'+plan+'/sources/'+sid+'/versions',{headers:{Authorization:'Bearer '+localStorage.getItem('conway_token')}});return (await r.json()).versions.length===2;},{plan,sid});
+  // The server capture can exist before the Check now response reaches the UI.
+  // Navigating to history during that interval must survive the earlier write.
+  const checkURL = base+'/api/plan/'+plan+'/sources/'+sid+'/check';
+  let releaseCheck, captureReady;
+  const checkHeld = new Promise(resolve => { releaseCheck = resolve; });
+  const captured = new Promise(resolve => { captureReady = resolve; });
+  await page.route(checkURL, async route => {
+    const response = await route.fetch();
+    captureReady();
+    await checkHeld;
+    await route.fulfill({response});
+  });
+  await overlay.locator('[data-check]').click(); await captured;
+  assert.equal((await api('/api/plan/'+plan+'/sources/'+sid+'/versions')).versions.length,2);
   await overlay.locator('[data-history]').click(); await overlay.locator('[data-version]').first().waitFor();
+  const delivered = page.waitForResponse(checkURL);
+  releaseCheck(); await delivered;
+  await page.waitForLoadState('networkidle');
+  assert.equal(await overlay.locator('[data-version]').count(),2,'late Check now completion must preserve the newer history destination');
+  assert.match(await overlay.locator('#linked-sheets-title').textContent(),/captured versions/);
+  await page.unroute(checkURL);
   const versions=(await api('/api/plan/'+plan+'/sources/'+sid+'/versions')).versions;
   const next=versions.find(v=>v.id!==first).id;
   await overlay.locator(`[data-version="${next}"]`).click(); await overlay.locator('[data-apply]').waitFor();
@@ -82,7 +101,7 @@ try {
   await overlay.locator('[data-close]').click();await overlay.waitFor({state:'hidden'});
   assert.deepEqual(errors,[]);
   await checkAnnouncementRecovery(browser,base);
-  console.log(JSON.stringify({announcedOnce:true,replay:true,visitedAfterOpen:true,reviewApply:true,staleConflict:true,restore:true,immutableCaptureCount:2,mobileOverflow:false,pageErrors:errors}));
+  console.log(JSON.stringify({announcedOnce:true,replay:true,visitedAfterOpen:true,reviewApply:true,lateCheckPreservesHistory:true,staleConflict:true,restore:true,immutableCaptureCount:2,mobileOverflow:false,pageErrors:errors}));
 } catch(error) {
   await page.screenshot({path:join(process.env.CONWAY_TEST_ARTIFACT_DIR||tmpdir(),'conway-linked-features-failure.png'),fullPage:true});
   console.error(await page.locator('body').innerText()); throw error;
