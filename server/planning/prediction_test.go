@@ -4,6 +4,7 @@ import (
 	"fmt"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"math"
 	"time"
 )
 
@@ -41,6 +42,20 @@ var _ = Describe("prospective forecast assessment", func() {
 		Expect(pending.Eligible).To(BeZero())
 		Expect(pending.CoveragePercent).To(BeNil())
 		Expect(p.Forecast).To(Equal(forecast))
+	})
+	It("excludes inputs when both recorded and current scope cannot be serialized", func() {
+		p := prediction(in, forecast, initial, issued)
+		current := NewBaselineInputs(in.Teams, in.Initiatives, in.Params, in.Scheduling)
+		for _, item := range []*Initiative{&p.Inputs.Initiatives[0], &current.Initiatives[0]} {
+			work := item.Work["Atlas"]
+			work.Weeks = math.NaN()
+			item.Work["Atlas"] = work
+		}
+		current.Initiatives[0].KitPct = .5
+		value := AssessPrediction(p, current.Initiatives, stamp, later)
+		Expect(value.Excluded).To(Equal(1))
+		Expect(value.Eligible).To(BeZero())
+		Expect(value.Rows[0].Reason).To(ContainSubstring("could not be compared"))
 	})
 	It("withholds unplanned team work even when all captured children finish", func() {
 		initial = append(initial, ExecutionIssue{Key: "PROJ-3", ParentKey: "PROJ-1", Type: "Story", Pod: "Other team", StatusCategory: "indeterminate"})

@@ -165,7 +165,11 @@ func (s *server) recordPrediction(w http.ResponseWriter, r *http.Request, p *db.
 		http.Error(w, "Name the prediction (up to 120 characters), choose a capture and compare saved inputs first.", 400)
 		return
 	}
-	raw, _ := json.Marshal(req)
+	raw, err := json.Marshal(req)
+	if err != nil {
+		http.Error(w, "Prediction settings could not be encoded. Compare again with valid settings.", http.StatusBadRequest)
+		return
+	}
 	sum := sha256.Sum256(raw)
 	hash := hex.EncodeToString(sum[:])
 	existing, err := s.db.Prediction(r.Context(), p.ID, req.ID)

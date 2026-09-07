@@ -243,6 +243,9 @@ GET `/api/plan/{id}/predictions/{predictionId}` reads a record, and POST to its
 `/assessment` subroute accepts `{snapshotId}` for a read-only comparison.
 Responses use 400 for invalid inputs, 403/404 for access, 409 for a changed
 comparison or reused key, and generic 500 for storage errors.
+Inputs that cannot be serialized must never count as matching scope. Exclude
+such assessments explicitly, and reject a request whose idempotency payload
+cannot be encoded before attempting to record anything.
 
 ## 12. Success Metrics
 

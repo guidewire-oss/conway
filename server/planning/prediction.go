@@ -147,8 +147,11 @@ func assessPredictionInitiative(p ForecastPrediction, it, current Initiative, ev
 	if ev.StartedAt <= p.IssuedAt || ev.CapturedAt < ev.StartedAt {
 		return exclude("Choose a capture started after this prediction was recorded.")
 	}
-	a, _ := json.Marshal(it)
-	b, _ := json.Marshal(current)
+	a, recordedErr := json.Marshal(it)
+	b, currentErr := json.Marshal(current)
+	if recordedErr != nil || currentErr != nil {
+		return exclude("Initiative inputs could not be compared because they contain invalid values.")
+	}
 	if !reflect.DeepEqual(a, b) {
 		return exclude("Initiative inputs changed or the initiative was removed since prediction.")
 	}
