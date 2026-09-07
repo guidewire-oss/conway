@@ -14,7 +14,7 @@ try {
     const {initForms} = await import('/js/forms.js');
     const {mountReadyQueue} = await import('/js/readyqueueui.js');
     const {executionEvidenceHTML} = await import('/js/executionui.js');
-    const {timelineControlsHTML,timelineRowHTML} = await import('/js/timeline.js');
+    const {timelineControlsHTML,timelineRowHTML,timelineInspectorHTML} = await import('/js/timeline.js');
     const {baselineListHTML} = await import('/js/baseline.js');
     const {initScoreboard} = await import('/js/scoreboard.js');
     const {orderingBadge,verdictBadgeHTML,schedulingFormHTML} = await import('/js/order.js');
@@ -48,6 +48,9 @@ try {
     const baselines=document.createElement('div');baselines.id='baseline-examples';baselines.className='table-responsive';
     baselines.innerHTML=baselineListHTML([{id:'baseline-a',name:'Atlas agreement',active:true},{id:'baseline-b',name:'Beacon agreement'}]);
     document.querySelector('main').append(baselines);
+    const inspectors=document.createElement('div');inspectors.id='inspector-examples';
+    inspectors.innerHTML=timelineInspectorHTML(null,{})+timelineInspectorHTML({name:'Atlas',verdict:'unschedulable',slices:[]},{});
+    document.querySelector('main').append(inspectors);
     const shell=new DOMParser().parseFromString(await (await fetch('/index.html')).text(),'text/html');
     const help=document.createElement('div');help.id='legacy-help-example';
     help.append(shell.querySelector('#view-scoreboard h2 .help'));
@@ -128,6 +131,15 @@ try {
     return {buttonTop:buttonRect.top,buttonBottom:buttonRect.bottom,selectTop:selectRect.top,selectBottom:selectRect.bottom};
   });
   assert.ok(comparisonGeometry.buttonTop<comparisonGeometry.selectBottom && comparisonGeometry.selectTop<comparisonGeometry.buttonBottom,'Saved-agreement compare controls stay on the same desktop action row: '+JSON.stringify(comparisonGeometry));
+  const baselineActions=await page.locator('#baseline-examples .bl-activate,#baseline-examples .bl-compare,#baseline-examples .bl-delete').evaluateAll(buttons=>buttons.map(button=>button.getBoundingClientRect().height));
+  assert.equal(baselineActions.length,5,'Two agreement rows offer compare/delete and one offers activation');
+  assert.ok(baselineActions.every(height=>height>=24 && height<=32),'Agreement history actions match compact controls: '+JSON.stringify(baselineActions));
+  const inspectorPadding=[];
+  for(const width of [1280,360]) {
+    await page.setViewportSize({width,height:960});
+    inspectorPadding.push(await page.locator('#inspector-examples .tl-inspector').evaluateAll(elements=>elements.map(el=>parseFloat(getComputedStyle(el).paddingLeft))));
+  }
+  assert.ok(inspectorPadding[1].every((padding,index)=>padding<inspectorPadding[0][index] && padding>=8),'Both empty and selected initiative inspectors compact their padding on mobile');
   // per specs/011-bootstrap-adoption-debt.md:67
   const group = page.getByRole('group',{name:'Timeline grouping',exact:true});
   assert.equal(await group.locator('button:not(.btn)').count(),0,'Every grouping option must adopt the Bootstrap button primitive');
@@ -340,6 +352,9 @@ try {
   }
   assert.notDeepEqual(planSurfaces[0],planSurfaces[1],'Plan metadata surfaces follow the active theme');
   await page.unroute('**/api/plan');
+  const {checkMeasureBootstrap}=await import('./measure-bootstrap.mjs');
+  await checkMeasureBootstrap(page);
+  await page.goto(process.env.CONWAY_TEST_BASE_URL+'/bootstrap-acceptance');
   const {checkGameBootstrap}=await import('./game-bootstrap.mjs');
   await checkGameBootstrap(page);
   assert.deepEqual(errors,[]);

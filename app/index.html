@@ -129,7 +129,7 @@
         <div id="simulator-source" class="simulator-source" aria-label="Simulator task source"></div>
         <h2>Feature definition <button type="button" class="btn btn-link p-0 docs-link" data-docs="simulator" title="how this page works">Help</button></h2>
         <div class="epic-import">
-          <input class="form-control" id="epic-key" aria-label="Epic key" placeholder="PROJ-123" size="12">
+          <input class="form-control w-auto mw-100" id="epic-key" aria-label="Epic key" placeholder="PROJ-123" size="12">
           <button class="btn btn-secondary" id="import-epic">Import epic</button>
           <span id="epic-status" class="hint"></span>
         </div>
@@ -150,7 +150,7 @@
       <div class="card p-3 panel-card" id="sim-results">
         <h2>Forecast
         <button type="button" class="btn btn-secondary btn-sm p-0 rounded-circle d-inline-flex align-items-center justify-content-center ms-1 help lh-1" aria-label="Explain completion forecasts" data-tip="10,000 Monte Carlo trials over the task graph using each pod's mined cycle-time distribution, queue state, and cross-site handoff penalties. Percentiles describe simulated outcomes under the current assumptions; compare forecasts with observed delivery before using them for commitments. The tornado chart shows where help actually shortens the calendar.">?</button></h2>
-        <div id="stat-cards" class="stat-cards"></div>
+        <div id="stat-cards" class="stat-cards row g-3"></div>
         <div class="chart-pair">
           <div><h3>Completion probability (CDF)</h3><svg id="cdf"></svg></div>
           <div><h3>Where the time goes — accelerate which pod? (days saved if pod is 25% faster)</h3><svg id="tornado"></svg></div>
@@ -175,7 +175,7 @@
     <div class="card p-3 panel-card">
       <h2>Jira data hygiene <span class="hint">(what's starving the model — fix these to sharpen every forecast)</span> <button type="button" class="btn btn-link p-0 docs-link" data-docs="hygiene" title="how this page works">Help</button>
       <button type="button" class="btn btn-secondary btn-sm p-0 rounded-circle d-inline-flex align-items-center justify-content-center ms-1 help lh-1" aria-label="Explain data quality" data-tip="Each gap degrades a specific output: unsized tasks → epic forecasts fall back to the pod's median item; stale In-Progress items → WIP and queue heat are overstated, polluting the freeze list; unassigned in-progress → zombie work; low link density → the dependency graph and suggestions under-represent real coupling. Click a pod row to drill into categories, then a category to see the individual Jiras.">?</button></h2>
-      <div id="hygiene-cards" class="stat-cards"></div>
+      <div id="hygiene-cards" class="stat-cards row row-cols-1 row-cols-sm-2 row-cols-xl-4 g-3"></div>
       <table id="hygiene-table" class="table table-sm sortable" style="margin-top:14px"></table>
     </div>
   </section>

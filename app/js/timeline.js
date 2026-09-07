@@ -623,7 +623,7 @@ export function timelineControlsHTML({ lens, spans, spanSel, filter, initiativeF
 // specs/017-planning-and-execution-usability.md:86: a persistent selection and
 // ordinary form controls provide the same edit path as a pointer gesture.
 export function timelineInspectorHTML(si, sched, opts = {}) {
-  if (!si) return '<aside class="card p-3 tl-inspector panel-card"><h3>Initiative details</h3><p>Select an initiative to inspect its dates, dependencies and precise timeline controls.</p></aside>';
+  if (!si) return '<aside class="card tl-inspector panel-card"><h3>Initiative details</h3><p>Select an initiative to inspect its dates, dependencies and precise timeline controls.</p></aside>';
   const unplaced = ['beyond-horizon', 'unschedulable'].includes(si.verdict);
   const pi = (opts.planInitiatives || []).find((i) => i.name === si.name);
   const rows = (si.slices || []).map((sl) => {
@@ -639,7 +639,7 @@ export function timelineInspectorHTML(si, sched, opts = {}) {
       ${pi?.inFlight ? '<p class="hint">In-flight effort cannot be resized from its remaining work.</p>' : ''}
     </fieldset>`;
   }).join('');
-  return `<aside class="card p-3 tl-inspector panel-card" aria-label="Selected initiative">
+  return `<aside class="card tl-inspector panel-card" aria-label="Selected initiative">
     <h3>${esc(si.name)}</h3>
     <p>Buffered finish: ${unplaced ? 'unknown (not scheduled)' : weekDateHTML(si.commitWeek, sched.periodStart)}. Target: ${si.targetWeek == null ? 'not set' : weekDateHTML(si.targetWeek, sched.periodStart)}.</p>
     <p>${esc(si.bindingConstraint || 'No binding constraint reported')}${si.provisional ? ' · provisional estimate' : ''}</p>

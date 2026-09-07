@@ -65,11 +65,11 @@ async function renderList(ov) {
     return `<tr>
         <td><b>${esc(r.name)}</b>${!r.mine ? ` <span class="hint">· shared by ${r.owner ? esc(r.owner) : 'system'}</span>` : ''}</td>
         <td>${r.podCount}</td>
-        <td>${r.mine ? `${vis} <button class="btn btn-secondary ros-pub" data-id="${r.id}" data-pub="${r.public ? 1 : 0}">${r.public ? 'make private' : 'make public'}</button>` : vis}</td>
+        <td>${r.mine ? `${vis} <button class="btn btn-secondary btn-sm ros-pub" data-id="${r.id}" data-pub="${r.public ? 1 : 0}">${r.public ? 'make private' : 'make public'}</button>` : vis}</td>
         <td>${fmt(r.updatedAt)}</td>
         <td>${r.mine
-      ? `<button class="btn btn-secondary ros-edit" data-id="${r.id}">edit</button> <button class="btn btn-secondary ros-del" data-id="${r.id}" data-name="${esc(r.name)}">delete</button>`
-      : `<button class="btn btn-secondary ros-edit" data-id="${r.id}">view</button>`}</td>
+      ? `<button class="btn btn-secondary btn-sm ros-edit" data-id="${r.id}">edit</button> <button class="btn btn-secondary btn-sm ros-del" data-id="${r.id}" data-name="${esc(r.name)}">delete</button>`
+      : `<button class="btn btn-secondary btn-sm ros-edit" data-id="${r.id}">view</button>`}</td>
       </tr>`;
   }).join('') || '<tr><td colspan="5" class="hint">No rosters yet — create one or upload your pod directory.</td></tr>'}
       </tbody></table>`;

@@ -542,7 +542,7 @@ export function orderingBadge(sp = {}) {
     const when = sp.acceptedOrderingAt
       ? new Date(sp.acceptedOrderingAt * 1000).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
       : '';
-    return `<span class="badge bg-info-subtle text-info-emphasis tag ord-enginetag" title="The engine's proposed order, accepted${when ? ` ${when}` : ''}. Your stated order still shows in the Stated column.">engine's order${when ? ` · accepted ${when}` : ''}</span>`;
+    return `<span class="badge bg-primary-subtle text-primary-emphasis tag ord-enginetag" title="The engine's proposed order, accepted${when ? ` ${when}` : ''}. Your stated order still shows in the Stated column.">engine's order${when ? ` · accepted ${when}` : ''}</span>`;
   }
   return `<span class="badge bg-success-subtle text-success-emphasis tag ord-yourtag" title="Your stated order is the working plan. The engine's suggestion is one click away.">your order</span>`;
 }

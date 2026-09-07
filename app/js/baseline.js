@@ -72,10 +72,10 @@ export function baselineListHTML(baselines) {
     <td>${esc(b.createdBy || '—')}</td>
     <td>${b.diverged ? '<span class="ord-amber">inputs moved since</span>' : '<span class="hint">matches</span>'}</td>
     <td>
-      ${b.active ? '' : `<button type="button" class="btn btn-secondary bl-activate" data-id="${esc(b.id)}">make active</button>`}
-      <button type="button" class="btn btn-secondary bl-compare" data-id="${esc(b.id)}">compare</button>
+      ${b.active ? '' : `<button type="button" class="btn btn-secondary btn-sm bl-activate" data-id="${esc(b.id)}">make active</button>`}
+      <button type="button" class="btn btn-secondary btn-sm bl-compare" data-id="${esc(b.id)}">compare</button>
       ${vsSelect(b)}
-      <button type="button" class="btn btn-secondary bl-delete" data-id="${esc(b.id)}" title="delete this baseline">Delete</button>
+      <button type="button" class="btn btn-secondary btn-sm bl-delete" data-id="${esc(b.id)}" title="delete this baseline">Delete</button>
     </td>
   </tr>`).join('');
   return `<table class="table wip-table bl-table"><thead><tr>

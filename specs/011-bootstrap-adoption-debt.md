@@ -200,6 +200,10 @@ Neutral plan badges use theme-aware surfaces and text. Compact game controls
 wrap within their cards, and calendar delete controls retain usable targets.
 Help explanations retain native title fallback when tooltip initialization is
 unavailable. Visibility acceptance checks rendered panels, not attributes alone.
+KPI collections wrap before labels become unreadable. Navigation and accepted
+ordering use the existing theme through Bootstrap component variables and
+utilities. Dense table actions and inline import fields retain compact sizing;
+domain inspector padding remains responsive rather than overridden by utilities.
 
 ## 12. Success Metrics
 

@@ -55,24 +55,24 @@ function orgCards(state) {
   const avg = pods.length
     ? pods.reduce((s, p) => s + (state.hygiene?.[p.name].score ?? 0), 0) / pods.length : null;
   return `
-    <div class="card p-3 stat"><div class="l">Org hygiene${hlp('Average of the measurable data-quality signals across pods (sized %, fresh board, assigned). Rules of Flow & Phoenix Project: you cannot manage flow you cannot see — this is how trustworthy the data feeding every forecast is.', 'organization data quality')}</div><div class="v">${avg == null ? 'Unknown' : (avg * 100).toFixed(0) + '%'}</div>
-      <div class="hint">measured ${pods.length} of ${state.pods.length} teams</div></div>
+    <div class="col"><div class="card p-3 stat h-100"><div class="l">Org hygiene${hlp('Average of the measurable data-quality signals across pods (sized %, fresh board, assigned). Rules of Flow & Phoenix Project: you cannot manage flow you cannot see — this is how trustworthy the data feeding every forecast is.', 'organization data quality')}</div><div class="v">${avg == null ? 'Unknown' : (avg * 100).toFixed(0) + '%'}</div>
+      <div class="hint">measured ${pods.length} of ${state.pods.length} teams</div></div></div>
     ${CATS.map(([cat, label, why]) => `
-      <div class="card p-3 stat"><div class="l">${label}${hlp(`Count of issues in this category — ${why}. Cleaning these sharpens every forecast and freeze decision.`, label)}</div><div class="v">${tot(cat)}</div>
-      <div class="hint">${aggregateStatus === 'loaded' ? 'whole selected snapshot' : aggregateStatus === 'loading' ? 'checking whole snapshot…' : 'count unavailable — reload to retry'}</div></div>`).join('')}
+      <div class="col"><div class="card p-3 stat h-100"><div class="l">${label}${hlp(`Count of issues in this category — ${why}. Cleaning these sharpens every forecast and freeze decision.`, label)}</div><div class="v">${tot(cat)}</div>
+      <div class="hint">${aggregateStatus === 'loaded' ? 'whole selected snapshot' : aggregateStatus === 'loading' ? 'checking whole snapshot…' : 'count unavailable — reload to retry'}</div></div></div>`).join('')}
     ${outcomeStats ? `
-      <div class="card p-3 stat">
+      <div class="col"><div class="card p-3 stat h-100">
       <div class="l">In-flight epics w/o outcome${hlp('Epics whose description has no stated why / cost-of-delay / success metric. The Goal & full-kit (Rules of Flow): work with no business outcome can\'t be prioritised, triaged, or honestly committed.', 'epic outcome coverage')}</div>
       <div class="v">${outcomeStats.missing}<span class="hint" style="font-size:13px">/${outcomeStats.known}</span></div>
-      <div class="hint">in-flight subset; category above includes completed epics</div></div>
-      <div class="card p-3 stat">
+      <div class="hint">in-flight subset; category above includes completed epics</div></div></div>
+      <div class="col"><div class="card p-3 stat h-100">
       <div class="l">Epics past due date${hlp('In-flight epics whose committed due date has passed. Trust (Rules of Flow): a missed date erodes trust and tends to turn future asks into escalations rather than plannable work.', 'overdue epics')}</div>
       <div class="v">${outcomeStats.overdue}</div>
-      <div class="hint">${outcomeStats.noDue} of ${outcomeStats.known} have no due date at all</div></div>
-      ${outcomeStats.unassoc ? `<div class="card p-3 stat" style="border-color:var(--amber)">
+      <div class="hint">${outcomeStats.noDue} of ${outcomeStats.known} have no due date at all</div></div></div>
+      ${outcomeStats.unassoc ? `<div class="col"><div class="card p-3 stat h-100" style="border-color:var(--amber)">
       <div class="l">Epics with no team${hlp('Imported epics whose pod field is empty or names a team not in this snapshot\'s roster. They can\'t be placed on the network or forecast — fix the Jira pod field, or add the team to the roster and re-associate.', 'epics without a team')}</div>
       <div class="v" style="color:var(--amber)">${outcomeStats.unassoc}</div>
-      <div class="hint">unmatched — see list below</div></div>` : ''}` : ''}`;
+      <div class="hint">unmatched — see list below</div></div></div>` : ''}` : ''}`;
 }
 
 // cleanup panel: epics the import couldn't tie to a team in this snapshot.

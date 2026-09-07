@@ -44,6 +44,12 @@ delete actions must preserve a usable target. Shared help keeps a native `title`
 fallback alongside the delegated tooltip. Test actual visibility when a state
 owner toggles `hidden` on framework components.
 
+KPI collections use responsive framework layout rather than forcing every metric
+onto one row. Table-row actions use `btn-sm`; inline identifier fields use
+intrinsic width. Navigation colors belong in Bootstrap dropdown variables.
+Timeline inspector spacing remains domain geometry, including its mobile padding,
+so a fixed padding utility must not override that responsive rule.
+
 CI selects browser acceptance by the shared Ginkgo `browser` label, so suite
 names can describe their own workflows without changing coverage. The Bootstrap
 suite runs `tests/browser/bootstrap-adoption.mjs` against its isolated Go host.
