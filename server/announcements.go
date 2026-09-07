@@ -31,13 +31,10 @@ func (s *server) announcementCatalog(c auth.Claims) []featureAnnouncement {
 	if c.Sub == "" || c.GameID != "" {
 		return features
 	}
-	features = append(features, featureAnnouncement{
-		ID: "guide-navigation-v1", Title: "Find help where you work",
-		Description: "Search the guide, follow a planning walkthrough, or open help for your current view from the Help menu.",
-		Action:      announcementAction{Type: "menu", Target: "docs-btn", Parent: "help-btn"},
-	})
+
 	if c.Has("manager") || c.Has("admin") {
 		if s.db != nil {
+			features = append(features, featureAnnouncement{ID: "portfolio-forecasts-v1", Title: "Explore uncertainty before committing", Description: "Compare shorter estimates, your saved plan, and longer estimates with shared disruption. See sensitive commitments and inspect the evidence behind them.", Action: announcementAction{Type: "route", Route: "?view=plan&planView=forecast", Target: "view-forecast", Parent: "plan-btn"}})
 			features = append(features, featureAnnouncement{ID: "planning-assistant-v1", Title: "Ask about your saved plan", Description: "Explain scheduling constraints, inspect agreement changes and prepare an evidence-linked review agenda from your plan.", Action: announcementAction{Type: "route", Route: "?view=plan&planView=assistant", Target: "view-assistant", Parent: "plan-btn"}})
 			features = append(features, featureAnnouncement{ID: "reliable-evidence-v1", Title: "Keep review evidence current", Description: "Save a Jira capture source, schedule dated snapshots, recover failed attempts and inspect stable team identities from Measure > Snapshots.", Action: announcementAction{Type: "menu", Target: "obs-snapshots", Parent: "explore-btn"}})
 		}
@@ -64,6 +61,11 @@ func (s *server) announcementCatalog(c auth.Claims) []featureAnnouncement {
 			})
 		}
 	}
+	features = append(features, featureAnnouncement{
+		ID: "guide-navigation-v1", Title: "Find help where you work",
+		Description: "Search the guide, follow a planning walkthrough, or open help for your current view from the Help menu.",
+		Action:      announcementAction{Type: "menu", Target: "docs-btn", Parent: "help-btn"},
+	})
 	return features
 }
 

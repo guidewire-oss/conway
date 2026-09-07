@@ -1,3 +1,4 @@
+import {chooseUpdate,readAllUpdates} from './announcement-navigation.mjs';
 // Called by the Go acceptance harness against its isolated real server.
 import assert from 'node:assert/strict';
 import {tmpdir} from 'node:os';
@@ -25,19 +26,24 @@ try {
   await page.locator('#signin-form button[type=submit]').click();
   const announcements=page.locator('#announcements-overlay');
   await announcements.waitFor({state:'visible'});
-  assert.equal(await announcements.locator('[data-announcement-action]').count(),7);
+  assert.equal(await announcements.locator('[data-announcement-action]').count(),1);
+  await page.waitForFunction(async()=>{const r=await fetch('/api/announcements',{headers:{Authorization:'Bearer '+localStorage.getItem('conway_token')}});return (await r.json()).features.filter(f=>f.announced).length===1;});
+  assert.equal((await api('/api/announcements')).features.filter(f=>f.announced).length,1);
+  await page.keyboard.press('Escape');await announcements.waitFor({state:'hidden'});
+  await page.reload();await announcements.waitFor({state:'visible'});
+  await chooseUpdate(page,'Complete a weekly execution review');
   assert.equal(await announcements.locator('[data-announcement-action="weekly-execution-review-v1"]').count(),1);
   const weeklyFeature=(await api('/api/announcements')).features.find(f=>f.id==='weekly-execution-review-v1');
   assert.equal(weeklyFeature.action.target,'view-execution');
   assert.equal((await api('/api/announcements')).features.find(f=>f.id==='team-ready-work-v1')?.action.target,'view-ready');
-  await page.waitForFunction(async()=>{const r=await fetch('/api/announcements',{headers:{Authorization:'Bearer '+localStorage.getItem('conway_token')}});return r.ok&&(await r.json()).features.every(f=>f.announced);});
+  await readAllUpdates(page);
   assert.equal((await api('/api/announcements')).features.some(f=>f.visited),false);
   await page.keyboard.press('Escape'); await announcements.waitFor({state:'hidden'});
   await page.reload(); await page.locator('#plan-linked-sheets').waitFor();
   assert.equal(await announcements.isVisible(),false,'automatic introduction must not recur');
   assert.ok(await page.locator('#plan-linked-sheets [data-announcement-indicator]').count());
   await page.locator('#help-btn').click(); await page.locator('#whats-new-btn').click();
-  await announcements.waitFor({state:'visible'}); assert.equal(await announcements.locator('[data-announcement-action]').count(),7);
+  await announcements.waitFor({state:'visible'}); assert.equal(await announcements.locator('[data-announcement-action]').count(),1);
   await page.setViewportSize({width:360,height:800});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await page.screenshot({path:join(process.env.CONWAY_TEST_ARTIFACT_DIR||tmpdir(),'conway-announcements-mobile.png'),fullPage:true});
@@ -98,6 +104,7 @@ try {
   await page.goto(base+'?view=home');await page.locator('#help-btn').waitFor();
   await page.locator('#help-btn').click();await page.locator('#whats-new-btn').click();
   await announcements.waitFor({state:'visible'});
+  await chooseUpdate(page,'Refresh planning inputs from linked sheets');
   await announcements.locator('[data-announcement-action="linked-sheet-import-v1"]').click();
   await page.locator('[data-pending-destination]').waitFor();
   assert.match(await page.locator('[data-pending-destination]').textContent(),/Choose a plan.*Linked Google Sheets/);

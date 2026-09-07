@@ -177,3 +177,8 @@ CSS is needed for this workflow; source-scoped identity strings wrap in tables.
 
 The integration CI job allows 30 minutes for the five-minute database gate,
 12-minute browser gate, dependency installation and cleanup.
+
+Portfolio forecasts reuse Bootstrap grid forms, cards, alerts and responsive
+tables. Feature discovery uses a single-update Bootstrap modal with a native
+select and previous/next buttons; menu dots retain a visually hidden label.
+Neither workflow introduces custom component CSS.

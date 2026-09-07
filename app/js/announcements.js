@@ -116,7 +116,7 @@ export function safeAnnouncementAction(action) {
   if (!action || typeof action !== 'object') return false;
   if (action.type === 'menu') return !action.route && ((action.target === 'docs-btn' && action.parent === 'help-btn') || (action.target === 'obs-snapshots' && action.parent === 'explore-btn'));
   if (action.type !== 'route' || action.parent !== 'plan-btn') return false;
-  return (action.target === 'view-assistant' && action.route === '?view=plan&planView=assistant') || (action.target === 'view-ready' && action.route === '?view=plan&planView=ready') ||
+  return (action.target === 'view-forecast' && action.route === '?view=plan&planView=forecast') || (action.target === 'view-assistant' && action.route === '?view=plan&planView=assistant') || (action.target === 'view-ready' && action.route === '?view=plan&planView=ready') ||
     (action.target === 'view-execution' && action.route === '?view=plan&planView=execution') ||
     (action.target === 'plan-linked-sheets' && action.route === '?view=plan');
 }
@@ -131,9 +131,13 @@ export function announcementIndicators(features) {
   return [...targets];
 }
 
-export function announcementsHTML(features) {
+export function announcementsHTML(features, index = 0) {
   if (!features.length) return '<p>No feature announcements are available for your account.</p>';
-  return `<ul class="announcement-list">${features.map(feature => `<li><h3>${escapeHTML(feature.title)}</h3><p>${escapeHTML(feature.description)}</p>${safeAnnouncementAction(feature.action) ? `<button type="button" class="btn btn-primary" data-announcement-action="${escapeHTML(feature.id)}">Explore feature<span class="visually-hidden">: ${escapeHTML(feature.title)}</span></button>` : ''}<span class="announcement-state">${feature.visited ? 'Visited' : 'Not yet visited'}</span></li>`).join('')}</ul>`;
+  index = Math.max(0, Math.min(features.length - 1, index));
+  const feature = features[index];
+  return `${features.length > 1 ? `<label class="form-label small" for="announcement-select">Browse updates</label><select id="announcement-select" class="form-select mb-4" data-announcement-select>${features.map((item, i) => `<option value="${i}" ${i === index ? 'selected' : ''}>${escapeHTML(item.title)}</option>`).join('')}</select>` : ''}
+    <article aria-labelledby="announcement-feature-title"><p class="text-body-secondary small mb-2" role="status">Update ${index + 1} of ${features.length}${feature.visited ? ' · Visited' : ''}</p><h3 id="announcement-feature-title" class="h4" tabindex="-1">${escapeHTML(feature.title)}</h3><p class="mb-4">${escapeHTML(feature.description)}</p>${safeAnnouncementAction(feature.action) ? `<button type="button" class="btn btn-primary" data-announcement-action="${escapeHTML(feature.id)}">Explore feature<span class="visually-hidden">: ${escapeHTML(feature.title)}</span></button>` : ''}</article>
+    ${features.length > 1 ? `<nav aria-label="Feature updates" class="d-flex justify-content-between gap-2 mt-4 pt-3 border-top"><button type="button" class="btn btn-outline-secondary" data-announcement-prev ${index === 0 ? 'disabled' : ''}>Previous</button><button type="button" class="btn btn-outline-secondary" data-announcement-next ${index === features.length - 1 ? 'disabled' : ''}>Next update</button></nav>` : ''}`;
 }
 
 // Mount only after authentication and workspace restoration. onAction must
@@ -141,7 +145,7 @@ export function announcementsHTML(features) {
 // selecting a plan is insufficient. Organic visits call visit(target) too.
 export function mountAnnouncements({ request, getIdentity, onAction, onStateChange, replayButton, root = document }) {
   const doc = root.ownerDocument || root;
-  let overlay, displayed = [], mounted = true, openIdentity;
+  let overlay, displayed = [], catalog = [], index = 0, mounted = true, openIdentity;
   const status = doc.createElement('p');
   status.className = 'announcement-status'; status.setAttribute('role', 'status'); status.hidden = true;
   (root.body || root).appendChild(status);
@@ -153,7 +157,7 @@ export function mountAnnouncements({ request, getIdentity, onAction, onStateChan
       if (!target || !root.contains(target)) continue;
       const badge = doc.createElement('span');
       badge.className = 'announcement-indicator'; badge.dataset.announcementIndicator = '';
-      badge.innerHTML = '<span class="announcement-dot" aria-hidden="true"></span><span class="announcement-new-label">New feature</span>';
+      badge.innerHTML = '<span class="announcement-dot" aria-hidden="true"></span><span class="visually-hidden">New feature</span>';
       target.appendChild(badge);
     }
   }
@@ -180,7 +184,7 @@ export function mountAnnouncements({ request, getIdentity, onAction, onStateChan
   function ensureOverlay() {
     if (overlay) return;
     overlay = doc.createElement('div'); overlay.id = 'announcements-overlay'; overlay.className = 'modal'; overlay.hidden = true;
-    overlay.innerHTML = `<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h2 class="modal-title">What's new</h2><button type="button" class="btn btn-outline-secondary" data-announcement-close aria-label="Close what's new and return to your work">Close</button></div><div class="modal-body"><p>Explore when you are ready. New feature indicators remain until you visit the feature.</p><div data-announcement-content></div><p role="status" data-announcement-error hidden></p><button type="button" class="btn btn-outline-secondary" data-announcement-retry hidden>Retry saving announcement history</button></div></div></div>`;
+    overlay.innerHTML = `<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h2 class="modal-title h5">What's new</h2><button type="button" class="btn btn-outline-secondary" data-announcement-close aria-label="Close what's new and return to your work">Back to work</button></div><div class="modal-body"><div data-announcement-content></div><p role="status" class="mt-3" data-announcement-error hidden></p><button type="button" class="btn btn-outline-secondary" data-announcement-retry hidden>Retry saving announcement history</button></div><div class="modal-footer"><p class="small text-body-secondary mb-0">Explore at your pace. Find these updates again in Help → What's new.</p></div></div></div>`;
     (root.body || root).appendChild(overlay);
     overlay.addEventListener('shown.bs.modal', acknowledgeDisplayed);
     overlay.querySelector('[data-announcement-close]').addEventListener('click', () => closeModal(overlay));
@@ -188,7 +192,12 @@ export function mountAnnouncements({ request, getIdentity, onAction, onStateChan
       if (controller.state().loadError) { void open(); return; }
       void controller.retry(); acknowledgeDisplayed();
     });
+    overlay.addEventListener('change', event => {
+      if (event.target.matches('[data-announcement-select]')) present(Number(event.target.value));
+    });
     overlay.addEventListener('click', async event => {
+      if (event.target.closest('[data-announcement-next]')) { present(index + 1); return; }
+      if (event.target.closest('[data-announcement-prev]')) { present(index - 1); return; }
       const button = event.target.closest('[data-announcement-action]');
       if (!button || !overlay.contains(button)) return;
       const feature = controller.state().features.find(item => item.id === button.dataset.announcementAction);
@@ -203,12 +212,19 @@ export function mountAnnouncements({ request, getIdentity, onAction, onStateChan
       }
     });
   }
+  function present(nextIndex, focus = true) {
+    index = Math.max(0, Math.min(catalog.length - 1, nextIndex));
+    displayed = catalog[index] ? [catalog[index].id] : [];
+    overlay.querySelector('[data-announcement-content]').innerHTML = announcementsHTML(catalog, index);
+    if (focus) overlay.querySelector('#announcement-feature-title')?.focus();
+    if (overlay.classList.contains('show') || (!doc.defaultView?.bootstrap?.Modal && !overlay.hidden)) acknowledgeDisplayed();
+  }
   function show(features) {
     if (!mounted || !getIdentity()) return;
-    ensureOverlay(); openIdentity = getIdentity(); displayed = features.map(feature => feature.id);
+    ensureOverlay(); openIdentity = getIdentity(); catalog = features;
     const next = controller.state();
-    overlay.querySelector('[data-announcement-content]').innerHTML = next.loadError && !features.length
-      ? '<p>Feature announcements are temporarily unavailable.</p>' : announcementsHTML(features);
+    present(0, false);
+    if (next.loadError && !features.length) overlay.querySelector('[data-announcement-content]').innerHTML = '<p>Feature announcements are temporarily unavailable.</p>';
     // specs/022-feature-announcements.md:180: the first failed load precedes
     // modal creation, so initialize its retry state as well as later updates.
     update(next);

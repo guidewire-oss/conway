@@ -112,3 +112,19 @@ test('announcement text is escaped and only known local actions receive navigati
     assert.doesNotMatch(announcementsHTML([feature({ action })]), /data-announcement-action/);
   }
 });
+
+test('a large catalog presents one update and a compact selector', () => {
+  const catalog = Array.from({ length: 8 }, (_, i) => feature({ id: `update-${i}`, title: `Update ${i}`, description: `Description ${i}` }));
+  const html = announcementsHTML(catalog, 3);
+  assert.equal((html.match(/data-announcement-action=/g) || []).length, 1);
+  assert.match(html, /Description 3/);
+  assert.doesNotMatch(html, /Description [0124567]/);
+  assert.match(html, /Update 4 of 8/);
+  assert.match(html, /data-announcement-select/);
+  assert.match(html, /data-announcement-next/);
+});
+
+test('single updates omit unnecessary pagination and empty catalogs have no action', () => {
+  assert.doesNotMatch(announcementsHTML([feature()]), /data-announcement-next|data-announcement-select/);
+  assert.doesNotMatch(announcementsHTML([]), /data-announcement-action/);
+});

@@ -1,3 +1,4 @@
+import {readAllUpdates} from './announcement-navigation.mjs';
 // Run only against an isolated test server: this creates and deletes its own demo plans.
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -21,7 +22,7 @@ try {
  const catalog=await catalogResponse;
  if(catalog.ok() && (await catalog.json()).features.some(f=>!f.announced)) {
   const intro=page.locator('#announcements-overlay'); await intro.waitFor({state:'visible'});
-  await page.waitForFunction(async()=>{const r=await fetch('/api/announcements',{headers:{Authorization:'Bearer '+localStorage.getItem('conway_token')}});return r.ok&&(await r.json()).features.every(f=>f.announced);});
+  await readAllUpdates(page);
   await intro.locator('[data-announcement-close]').click(); await intro.waitFor({state:'hidden'});
  }
  await page.locator('#plan-btn').waitFor(); await page.locator('#plan-btn').click(); await page.locator('.tab[data-view="plan"]').click();

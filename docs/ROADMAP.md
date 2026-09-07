@@ -14,15 +14,15 @@ reliable evidence capture, recovery and source-scoped identities (spec 026,
 PR 82).
 The first evidence-linked planning assistant increment (spec 027) is implemented:
 saved-schedule explanations, agreement comparisons and review agendas, with
-optional bounded question interpretation. Publication checks are in progress;
+optional bounded question interpretation. Merged in PR 83;
 live provider quality remains a deployment validation step.
 Live connection validation remains a separate release check.
 
 | Priority | Remaining item | Status / dependency |
 |---|---|---|
 | Release | Live Google/Jira validation; startup changes | Pending live connection checks and review of local startup changes |
-| 1 | Evidence-linked planning assistant | Implemented first increment; release review pending, optional live model validation still required before enabling |
-| 2 | Calibrated portfolio forecasts | Next; estimate ranges, finite-resource trials and comparable historical calibration evidence |
+| 1 | Evidence-linked planning assistant | Merged PR 83; optional live model validation required before enabling |
+| 2 | Calibrated portfolio forecasts | First increment implemented (spec 028): finite-resource estimate/disruption scenarios and evidence diagnostics. Release review pending; prospective prediction history and comparable interval coverage remain next |
 | 3 | Flow improvement experiments | Planned; explicit hypotheses, comparable before/after measures and guardrails |
 | 4 | Outcome and minimum-scope planning | Planned; extend lightweight review outcomes into initiative scope choices |
 | 5 | Milestones and external dependencies | Planned; acceptance events, vendor commitments and release conditions |
