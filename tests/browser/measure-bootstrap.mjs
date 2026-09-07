@@ -37,8 +37,20 @@ export async function checkMeasureBootstrap(page) {
     await page.locator('#admin-btn').click();
     const nameField=page.getByRole('textbox',{name:'Name (person or team)',exact:true});await nameField.waitFor();
     await page.locator('#admin-users .admin-ext-date').waitFor();
+    const roleChecks=await page.locator('.role-pick input').evaluateAll(inputs=>inputs.map(input=>{
+      const box=input.getBoundingClientRect(),label=input.closest('label').getBoundingClientRect();
+      return {labels:input.labels.length,left:box.left,labelLeft:label.left,center:(box.top+box.bottom)/2,labelCenter:(label.top+label.bottom)/2};
+    }));
+    assert.equal(roleChecks.length,3);
+    assert.ok(roleChecks.every(check=>check.labels===1 && check.left>=check.labelLeft && Math.abs(check.center-check.labelCenter)<=3),'Role checkboxes retain native labels and align within their text line: '+JSON.stringify(roleChecks));
+
     for(const theme of ['light','dark']) {
       await page.evaluate(theme=>document.documentElement.dataset.bsTheme=theme,theme);
+      const linkAlias=await page.evaluate(()=>{
+        const root=document.documentElement;root.style.setProperty('--bs-primary-rgb','11, 22, 33');
+        const alias=getComputedStyle(root).getPropertyValue('--bs-link-color-rgb').trim();root.style.removeProperty('--bs-primary-rgb');return alias;
+      });
+      assert.equal(linkAlias,'11, 22, 33','Link RGB follows a primary override in '+theme);
       await nameField.focus();
       await nameField.evaluate(el=>Promise.all(el.getAnimations().map(animation=>animation.finished.catch(()=>{}))));
       const focus=await nameField.evaluate(el=>{

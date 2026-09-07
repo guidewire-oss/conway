@@ -239,6 +239,9 @@ try {
     for (const width of [1280,360]) {
       await page.setViewportSize({width,height:960});
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,theme+' '+width+' has no page-level horizontal overflow');
+      const homeHints=await page.locator('#home-body .home-alert .hint,#home-body .home-act .hint').evaluateAll(hints=>hints.map(el=>({text:el.textContent,whiteSpace:getComputedStyle(el).whiteSpace,scroll:el.scrollWidth,client:el.clientWidth})));
+      assert.ok(homeHints.length>0 && homeHints.every(hint=>hint.whiteSpace==='normal' && hint.scroll<=hint.client),'Home subtitles wrap within their cards: '+JSON.stringify(homeHints));
+
       assert.equal(await decision.locator('[name=decision]').inputValue(),'defer');
       assert.equal(await decision.locator('[name=owner]').inputValue(),'Team lead');
       assert.equal(await decision.locator('[name=evidence]').inputValue(),'Wait for acceptance evidence');
@@ -360,9 +363,12 @@ try {
     window.measureContext=mountMeasureContext(host,{state:{},view:'plan',request:async()=>({ok:true,json:async()=>[]})});
     await window.measureContext.ready;
     const {helpButton}=await import('/js/terms.js');
-    const help=document.createElement('div');help.id='fallback-help';help.innerHTML=helpButton('Use "accepted" evidence <only>','acceptance');document.querySelector('main').append(help);
+    const help=document.createElement('div');help.id='fallback-help';help.innerHTML=helpButton('Use "accepted" & evidence <only>; literal &amp;','acceptance');document.querySelector('main').append(help);
   });
-  assert.equal(await page.locator('#fallback-help button').getAttribute('title'),'Use "accepted" evidence <only>','Shared help retains an escaped native explanation before tooltip initialization');
+  assert.equal(await page.locator('#fallback-help button').getAttribute('title'),'Use "accepted" & evidence <only>; literal &amp;','Shared help retains an escaped native explanation before tooltip initialization');
+  await page.evaluate(()=>{window.acceptanceTooltip=new bootstrap.Tooltip(document.querySelector('#fallback-help button'),{trigger:'manual',animation:false});window.acceptanceTooltip.show();});
+  assert.equal(await page.locator('.tooltip-inner').textContent(),'Use "accepted" & evidence <only>; literal &amp;','Bootstrap tooltip displays decoded attribute text without losing literal entity text');
+  await page.evaluate(()=>{window.acceptanceTooltip.dispose();delete window.acceptanceTooltip;});
   for(const view of ['plan','network','game','scoreboard','home']) {
     await page.evaluate(view=>window.measureContext.setView(view),view);
     assert.equal(await page.locator('#measure-context').isVisible(),['network','scoreboard','home'].includes(view),'Measure source card visibility follows its owning view: '+view);
@@ -400,6 +406,23 @@ try {
   assert.deepEqual(savedSettings,[{horizonWeeks:39,capacityLoss:0.15}],'Responsive settings retain the existing save workflow');
   assert.equal(await page.locator('#plan-horizon').inputValue(),'39');
   assert.equal(await page.locator('#plan-loss').inputValue(),'15');
+  setupPlan.teams=[{name:'Atlas',tracks:2},{name:'Beacon',tracks:2}];
+  setupPlan.initiatives=[{name:'Delivery checkpoint',work:{Atlas:{weeks:2,inPath:true}}}];
+  const simulation={loads:[],initiatives:[],constraints:0,fitting:1,total:1,medianLeadWeeks:2};
+  await page.route('**/api/plan/atlas-plan/simulate',route=>route.fulfill({json:{before:simulation,after:simulation}}));
+  await page.route('**/api/plan/atlas-plan/sites',route=>route.fulfill({json:{sites:[]}}));
+  await page.evaluate(async()=>{const {restorePlanLocation}=await import('/js/planui.js');await restorePlanLocation({view:'plan',plan:'atlas-plan',planView:'network'});});
+  await page.locator('#lev-type').waitFor();
+  for(const width of [1280,360]) {
+    await page.setViewportSize({width,height:960});
+    for(const type of ['addCapacity','unpair','descope','defer','reduceWip','reassign','dropPod']) {
+      await page.locator('#lev-type').selectOption(type);
+      const controls=await page.locator('#lev-type,#lev-target select,#lev-target input,#lev-add').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width};}));
+      assert.ok(controls.every(c=>c.left>=0 && c.right<=width && c.width>=40),'Lever '+type+' controls fit '+width+': '+JSON.stringify(controls));
+      if(width===1280)assert.ok(Math.max(...controls.map(c=>c.top))<Math.min(...controls.map(c=>c.bottom)),'Lever '+type+' controls share a desktop row');
+    }
+  }
+  await page.unroute('**/api/plan/atlas-plan/simulate');await page.unroute('**/api/plan/atlas-plan/sites');
   await page.unroute('**/api/plan/atlas-plan');await page.unroute('**/api/plan/atlas-plan/baseline');await page.unroute('**/api/rosters');
   await page.unroute('**/api/plan');
   const {checkMeasureBootstrap}=await import('./measure-bootstrap.mjs');

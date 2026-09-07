@@ -52,6 +52,8 @@ Plan setup settings wrap responsively; date inputs and actions embedded in
 account tables use compact framework sizing. Plan period and capacity-loss
 fields retain a bounded 5rem width for their short numeric ranges; Bootstrap
 has no intrinsic numeric-width utility, while its flex utilities handle wrapping.
+What-if lever selectors use intrinsic widths with a wrapping target group.
+Link RGB aliases derive from the primary token, including opacity utilities.
 Navigation colors belong in Bootstrap dropdown variables.
 Timeline inspector spacing remains domain geometry, including its mobile padding,
 so a fixed padding utility must not override that responsive rule.

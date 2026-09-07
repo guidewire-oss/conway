@@ -77,7 +77,7 @@
   --bs-primary-border-subtle: rgba(76, 194, 255, .35);
   --bs-link-color: #4cc2ff;
   --bs-link-hover-color: #7dd4ff;
-  --bs-link-color-rgb: 76, 194, 255;
+  --bs-link-color-rgb: var(--bs-primary-rgb);
   --bs-link-hover-color-rgb: 125, 212, 255;
 
   --bs-success: #3ecf8e;            /*                 (was --green)  */
@@ -168,7 +168,7 @@
   --bs-primary-border-subtle: rgba(var(--bs-primary-rgb), .35);
   --bs-link-color: var(--bs-primary);
   --bs-link-hover-color: #2b52cc;
-  --bs-link-color-rgb: 53, 100, 240;
+  --bs-link-color-rgb: var(--bs-primary-rgb);
   --bs-link-hover-color-rgb: 43, 82, 204;
 
   --bs-success: #0e9f6e;

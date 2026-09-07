@@ -217,6 +217,9 @@ keeps its name field compact while allowing the control group to wrap.
 Quality-card acceptance covers both complete and unmatched-team evidence.
 Plan setup settings wrap within narrow screens, and account expiry actions use
 compact controls without losing native date input or existing action handlers.
+What-if lever selectors keep their type, target and action grouped at desktop
+widths and wrap within the available mobile space. Link RGB aliases derive from
+the primary token so opacity utilities follow a customized palette.
 
 ## 12. Success Metrics
 

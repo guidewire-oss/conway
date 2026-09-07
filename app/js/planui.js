@@ -2217,7 +2217,7 @@ function paintDash() {
       <div class="plan-summary">${summary}</div>
       <div class="lever-chips">${(current.levers || []).map((lv, i) => `<span class="chip">${esc(leverLabel(lv))} <a class="chip-x" data-lev="${i}">✕</a></span>`).join('') || '<span class="hint">no levers yet</span>'}</div>
       <div class="lever-add">
-        <select class="form-select" id="lev-type">
+        <select class="form-select w-auto mw-100" id="lev-type" aria-label="Lever type">
           <option value="addCapacity">Add capacity</option>
           <option value="unpair">Un-pair a pod</option>
           <option value="descope">Descope an initiative</option>
@@ -2226,7 +2226,7 @@ function paintDash() {
           <option value="reassign">Reassign a pod's work</option>
           <option value="dropPod">Drop a pod from an initiative</option>
         </select>
-        <span id="lev-target"></span>
+        <span id="lev-target" class="d-inline-flex flex-wrap align-items-center gap-2 mw-100"></span>
         <button id="lev-add" class="btn btn-primary">Add lever</button>
       </div>
     </div>
@@ -2288,13 +2288,13 @@ function renderLeverTarget() {
   const podOpts = PODS().map((n) => `<option>${esc(n)}</option>`).join('');
   const initOpts = INITS().map((n) => `<option>${esc(n)}</option>`).join('');
   const el = document.getElementById('lev-target');
-  if (t === 'addCapacity') el.innerHTML = `<select class="form-select" id="lev-pod">${podOpts}</select> +<input class="form-control" id="lev-n" type="number" min="1" max="10" value="2" style="width:48px"> tracks`;
-  else if (t === 'unpair') el.innerHTML = `<select class="form-select" id="lev-pod">${podOpts}</select>`;
-  else if (t === 'descope') el.innerHTML = `<select class="form-select" id="lev-init">${initOpts}</select> −<input class="form-control" id="lev-n" type="number" min="5" max="90" value="40" style="width:48px">%`;
-  else if (t === 'defer') el.innerHTML = `<select class="form-select" id="lev-init">${initOpts}</select>`;
-  else if (t === 'reduceWip') el.innerHTML = `−<input class="form-control" id="lev-n" type="number" min="5" max="40" value="15" style="width:48px">% multitasking`;
-  else if (t === 'reassign') el.innerHTML = `<select class="form-select" id="lev-pod">${podOpts}</select> → <select class="form-select" id="lev-topod">${podOpts}</select>`;
-  else if (t === 'dropPod') el.innerHTML = `<select class="form-select" id="lev-pod">${podOpts}</select> from <select class="form-select" id="lev-init">${initOpts}</select>`;
+  if (t === 'addCapacity') el.innerHTML = `<select class="form-select w-auto mw-100" id="lev-pod" aria-label="Team">${podOpts}</select> +<input class="form-control" id="lev-n" aria-label="Number of tracks" type="number" min="1" max="10" value="2" style="width:48px"> tracks`;
+  else if (t === 'unpair') el.innerHTML = `<select class="form-select w-auto mw-100" id="lev-pod" aria-label="Team">${podOpts}</select>`;
+  else if (t === 'descope') el.innerHTML = `<select class="form-select w-auto mw-100" id="lev-init" aria-label="Initiative">${initOpts}</select> −<input class="form-control" id="lev-n" aria-label="Scope reduction (%)" type="number" min="5" max="90" value="40" style="width:48px">%`;
+  else if (t === 'defer') el.innerHTML = `<select class="form-select w-auto mw-100" id="lev-init" aria-label="Initiative">${initOpts}</select>`;
+  else if (t === 'reduceWip') el.innerHTML = `−<input class="form-control" id="lev-n" aria-label="Multitasking reduction (%)" type="number" min="5" max="40" value="15" style="width:48px">% multitasking`;
+  else if (t === 'reassign') el.innerHTML = `<select class="form-select w-auto mw-100" id="lev-pod" aria-label="Team">${podOpts}</select> → <select class="form-select w-auto mw-100" id="lev-topod" aria-label="Target team">${podOpts}</select>`;
+  else if (t === 'dropPod') el.innerHTML = `<select class="form-select w-auto mw-100" id="lev-pod" aria-label="Team">${podOpts}</select> from <select class="form-select w-auto mw-100" id="lev-init" aria-label="Initiative">${initOpts}</select>`;
 }
 
 function addLever() {

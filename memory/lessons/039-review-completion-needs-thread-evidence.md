@@ -27,3 +27,14 @@ Provenance: observed 2026-09-06 while running the Bootstrap browser regression;
 the initial programmatic-focus shadow assertion failed, and keyboard navigation
 passed with `go test -race -count=1 ./server -ginkgo.focus='Bootstrap adoption' -ginkgo.no-color -ginkgo.succinct -timeout=3m`:
 `ok conway/server 14.411s`. See `tests/browser/bootstrap-adoption.mjs`.
+
+Attribute escaping in generated HTML is decoded by the HTML parser before
+Bootstrap reads `dataset`. Escaping only quotation marks can instead corrupt
+literal entity-like text. Compare the rendered tooltip with the original text
+before accepting a double-escaping claim.
+Provenance: observed 2026-09-06 through the actual Bootstrap tooltip assertion in
+`tests/browser/bootstrap-adoption.mjs`, including ampersands, angle brackets and
+a literal `&amp;`, with
+`go test -race -count=1 ./server -ginkgo.focus='Bootstrap adoption' -ginkgo.no-color -ginkgo.succinct -timeout=3m`:
+`ok conway/server 38.129s`. Existing escaping and the verification contract remain
+canonical.
