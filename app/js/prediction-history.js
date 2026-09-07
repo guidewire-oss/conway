@@ -1,5 +1,10 @@
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const when=seconds=>new Date(seconds*1000).toLocaleString();
+// specs/028-portfolio-forecasts.md:250: opaque keys also support plain HTTP.
+export function predictionKey(provider=globalThis.crypto){
+ if(typeof provider?.getRandomValues!=='function')throw Error('Secure randomness is unavailable. Use a supported browser and reload before recording.');
+ return Array.from(provider.getRandomValues(new Uint8Array(16)),byte=>byte.toString(16).padStart(2,'0')).join('');
+}
 export function predictionAssessmentHTML(value){
  const coverage=value.coveragePercent==null?'Unavailable':`${Number(value.coveragePercent).toFixed(1)}%`;
  return `<div class="alert alert-info"><strong>Observed scenario coverage: ${coverage}</strong><p class="mb-1">${value.covered} of ${value.eligible} eligible completed initiatives finished within the recorded scenario envelope; ${value.pending} pending; ${value.excluded} excluded.</p><p class="mb-0">This describes one prediction's completed scope, not a probability or calibrated confidence level. Repeated predictions are not pooled.</p></div>
@@ -38,9 +43,9 @@ export function mountPredictionHistory(host,{plan,request,getIdentity,live,rende
  }
  $('[data-prediction-save-form]').addEventListener('input',()=>{key='';});
  $('[data-prediction-save-form]').addEventListener('submit',async e=>{e.preventDefault();if(!comparison||!current()||$('[data-prediction-record]').disabled||!e.target.reportValidity())return;
-  const context=generation,selection=detailTicket;key ||= crypto.randomUUID();const body={id:key,name:$('#prediction-name').value,snapshotId:$('#prediction-capture').value,fingerprint:comparison.fingerprint,settings:comparison.settings};
+  const context=generation,selection=detailTicket;
   for(const el of e.target.elements)el.disabled=true;status('[data-prediction-save-status]','Recording immutable prediction…');
-  try{const value=await json(endpoint,{method:'POST',body:JSON.stringify(body)});if(!current()||context!==generation)return;status('[data-prediction-save-status]','Prediction recorded. Open it in Prediction history to compare later outcomes.');$('[data-prediction-history]').open=true;await loadHistory();if(current()&&context===generation&&selection===detailTicket)await openPrediction(value.id);}
+  try{key ||= predictionKey();const body={id:key,name:$('#prediction-name').value,snapshotId:$('#prediction-capture').value,fingerprint:comparison.fingerprint,settings:comparison.settings};const value=await json(endpoint,{method:'POST',body:JSON.stringify(body)});if(!current()||context!==generation)return;status('[data-prediction-save-status]','Prediction recorded. Open it in Prediction history to compare later outcomes.');$('[data-prediction-history]').open=true;await loadHistory();if(current()&&context===generation&&selection===detailTicket)await openPrediction(value.id);}
   catch(err){if(current()&&context===generation)status('[data-prediction-save-status]',err.message+' Retry recording; an unchanged retry cannot create a duplicate.',true);}
   finally{if(current()&&context===generation)for(const el of e.target.elements)el.disabled=false;}
  });

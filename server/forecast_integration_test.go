@@ -6,6 +6,8 @@ import (
 	"conway/server/auth"
 	"conway/server/db"
 	"conway/server/planning"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -119,6 +121,53 @@ var _ = Describe("portfolio forecast API", Label("database"), func() {
 		Expect(r.Code).To(Equal(500), r.Body.String())
 		Expect(r.Body.String()).To(Equal("Account access could not be checked. Retry when the service is available.\n"))
 	})
+	It("fingerprints extraction changes while ignoring operational and future metadata", func() {
+		ctx := context.Background()
+		sourceID, snapshotID, runID := newID(), newID(), newID()
+		_, err := pool.Exec(ctx, `INSERT INTO evidence_sources(id,owner,config,credential,next_at) VALUES($1,$2,'{}','',0)`, sourceID, claims.Sub)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			_, err := pool.Exec(ctx, `DELETE FROM evidence_sources WHERE id=$1`, sourceID)
+			Expect(err).NotTo(HaveOccurred())
+		})
+		_, err = pool.Exec(ctx, `INSERT INTO evidence_runs(id,source_id,status,started_at,finished_at,snapshot_id,config,version) VALUES($1,$2,'succeeded',1,2,$3,'{}',1)`, runID, sourceID, snapshotID)
+		Expect(err).NotTo(HaveOccurred())
+		fingerprint := func(config map[string]any) string {
+			_, err := pool.Exec(ctx, `UPDATE evidence_runs SET config=$2::jsonb WHERE id=$1`, runID, encode(config))
+			Expect(err).NotTo(HaveOccurred())
+			value, err := database.PredictionSnapshotSource(ctx, snapshotID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(value).NotTo(BeNil())
+			return value.Fingerprint
+		}
+		for _, config := range []map[string]any{
+			{}, {"name": "Atlas source", "enabled": true},
+			{"site": "https://atlas.atlassian.net", "projects": []string{"PROJ"}},
+			{"site": "https://atlas.atlassian.net", "projects": []string{"PROJ"}, "rosterId": "atlas-roster", "roster": map[string]any{"pods": []string{"Atlas"}}, "wipMode": "strict", "podField": "team", "teams": []string{"Atlas"}},
+		} {
+			baseline := fingerprint(config)
+			var legacy []byte
+			Expect(pool.QueryRow(ctx, `SELECT (config - ARRAY['name','intervalHours','freshnessHours','enabled'])::text FROM evidence_runs WHERE id=$1`, runID).Scan(&legacy)).To(Succeed())
+			sum := sha256.Sum256(legacy)
+			Expect(baseline).To(Equal(hex.EncodeToString(sum[:])), "Existing fingerprints stay compatible")
+			for _, field := range []string{"name", "intervalHours", "freshnessHours", "enabled", "futureOperationalMetadata"} {
+				changed := map[string]any{}
+				for k, v := range config {
+					changed[k] = v
+				}
+				changed[field] = "changed metadata"
+				Expect(fingerprint(changed)).To(Equal(baseline), field)
+			}
+			for _, field := range []string{"site", "projects", "rosterId", "roster", "wipMode", "podField", "teams"} {
+				changed := map[string]any{}
+				for k, v := range config {
+					changed[k] = v
+				}
+				changed[field] = "changed extraction"
+				Expect(fingerprint(changed)).NotTo(Equal(baseline), field)
+			}
+		}
+	})
 	It("records immutable predictions, retries without duplicates and protects captured evidence", func() {
 		callPath := func(method, path, body string, c auth.Claims) *httptest.ResponseRecorder {
 			r := httptest.NewRecorder()
@@ -180,6 +229,7 @@ var _ = Describe("portfolio forecast API", Label("database"), func() {
 			Expect(r.Code).To(Equal(404))
 		}
 		assessed := callPath("POST", "/predictions/prediction-fixture/assessment", `{"snapshotId":"`+snapshotID+`"}`, claims)
+		Expect(assessed.Body.String()).To(ContainSubstring(`"coveragePercent":null`))
 		Expect(assessed.Code).To(Equal(200))
 		Expect(assessed.Body.String()).To(ContainSubstring("Choose a capture started after"))
 		stored, err := database.Prediction(context.Background(), plan.ID, "prediction-fixture")

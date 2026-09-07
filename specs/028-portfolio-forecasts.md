@@ -114,9 +114,9 @@ They are historical evidence, not an editable source of planning truth.
 | Method | Path | Description | Request | Response |
 |---|---|---|---|---|
 | POST | /api/plan/{id}/forecast | Read-only scenario computation | lowerFactor, upperFactor, disruption | fingerprint, settings, scenarios, limitations |
-| GET/POST | /api/plan/{id}/predictions | List metadata or record prediction | before cursor / id, name, fingerprint, settings, snapshotId | predictions and next cursor / immutable prediction |
+| GET/POST | /api/plan/{id}/predictions | List metadata or record prediction | before cursor / id (client-generated idempotency key; reuse unchanged on retry), name, fingerprint, settings, snapshotId | predictions and next cursor / immutable prediction |
 | GET | /api/plan/{id}/predictions/{predictionId} | Read recorded prediction | None | Original result, inputs, scope and provenance |
-| POST | /api/plan/{id}/predictions/{predictionId}/assessment | Compare later outcomes | snapshotId | rows, eligible, covered, pending, excluded, coveragePercent, evidence |
+| POST | /api/plan/{id}/predictions/{predictionId}/assessment | Compare later outcomes | snapshotId | rows, eligible, covered, pending, excluded, coveragePercent (null when eligible is 0), evidence |
 
 The existing authorized actuals API supplies optional evidence. Malformed or
 out-of-range settings return 400; inaccessible plans return 403/404; stale or
@@ -246,6 +246,16 @@ comparison or reused key, and generic 500 for storage errors.
 Inputs that cannot be serialized must never count as matching scope. Exclude
 such assessments explicitly, and reject a request whose idempotency payload
 cannot be encoded before attempting to record anything.
+
+Request IDs use 128 random bits from `crypto.getRandomValues`, which is available
+on plain HTTP deployments as well as secure contexts. Generate the key inside
+the recording error boundary and retain it across unchanged retries. If secure
+randomness is unavailable, show an actionable recording error.
+Capture fingerprints include only the present extraction fields: site, projects,
+rosterId, roster, wipMode, podField and teams. Canonical JSONB serialization keeps
+existing fingerprints stable, including an empty configuration; operational and
+unknown metadata do not affect comparability. Browser journeys restore temporary
+scheduling changes in a finally block, including when an assertion fails.
 
 ## 12. Success Metrics
 

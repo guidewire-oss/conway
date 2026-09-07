@@ -7,11 +7,17 @@ export async function checkPredictionHistory(page,base,plan,snapshot,holdAnswer)
  const headers={Authorization:'Bearer '+token};
  const scheduleResponse=await page.request.get(base+'/api/plan/'+plan,{headers});assert.equal(scheduleResponse.status(),200);const original=(await scheduleResponse.json()).scheduling;
  const period=new Date();period.setUTCDate(period.getUTCDate()+7);const periodStart=period.toISOString().slice(0,10);
+ try {
  const changed=await page.request.patch(base+'/api/plan/'+plan+'/scheduling',{headers,data:{...original,periodStart}});assert.equal(changed.status(),200);
  await page.locator('[data-forecast-run]').click();await page.locator('[data-forecast-result]').getByRole('table').waitFor();
  await page.getByText('Record this prediction',{exact:true}).click();
  await page.locator('#prediction-capture').selectOption(snapshot);
  await page.locator('#prediction-name').fill('September planning check');
+ // Exercise the capabilities of plain HTTP, and recovery when randomness is unavailable.
+ await page.evaluate(()=>{window.predictionRandomValues=crypto.getRandomValues;Object.defineProperty(crypto,'randomUUID',{configurable:true,value:undefined});Object.defineProperty(crypto,'getRandomValues',{configurable:true,value:undefined});});
+ await page.locator('[data-prediction-record]').click();await page.locator('[data-prediction-save-status][role=alert]').getByText(/Secure randomness is unavailable/).waitFor();
+ assert.equal(await page.locator('[data-prediction-record]').isEnabled(),true);
+ await page.evaluate(()=>{Object.defineProperty(crypto,'getRandomValues',{configurable:true,value:window.predictionRandomValues});delete window.predictionRandomValues;});
  const endpoint=base+'/api/plan/'+plan+'/predictions';let recorded;
  const lostResponse=async route=>{if(route.request().method()!=='POST'){await route.continue();return;}const response=await route.fetch();assert.equal(response.status(),200);recorded=await response.json();await route.fulfill({status:503,body:'Fixture response lost after save'});};
  await page.route(endpoint,lostResponse);await page.locator('[data-prediction-record]').click();
@@ -55,6 +61,9 @@ export async function checkPredictionHistory(page,base,plan,snapshot,holdAnswer)
  const savingHistory=await holdAnswer(endpoint,'GET');await page.locator('[data-prediction-record]').click();await savingHistory.ready();
  await page.locator('#forecast-upper').fill('2');await savingHistory.deliver();
  await page.locator('[data-forecast-run]').click();await page.locator('[data-forecast-result]').getByRole('table').waitFor();assert.equal(await page.locator('[data-prediction-title]').count(),0,'An abandoned save continuation cannot reopen its detail');
- const restored=await page.request.patch(base+'/api/plan/'+plan+'/scheduling',{headers,data:original});assert.equal(restored.status(),200);
+ } finally {
+  const restored=await page.request.patch(base+'/api/plan/'+plan+'/scheduling',{headers,data:original});assert.equal(restored.status(),200);
+  await page.evaluate(()=>{delete crypto.randomUUID;delete crypto.getRandomValues;delete window.predictionRandomValues;});
+ }
  await page.locator('#view-forecast').click();await page.locator('[data-forecast-run]').click();await page.locator('[data-forecast-result]').getByRole('table').waitFor();
 }

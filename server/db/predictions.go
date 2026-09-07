@@ -31,7 +31,8 @@ func (d *DB) PredictionSnapshotSource(ctx context.Context, id string) (*Predicti
 	var v PredictionSource
 	var config []byte
 	err := d.pool.QueryRow(ctx, `SELECT source_id,started_at,finished_at,
- (config - ARRAY['name','intervalHours','freshnessHours','enabled'])::text
+ COALESCE((SELECT jsonb_object_agg(key,value) FROM jsonb_each(config)
+ WHERE key=ANY(ARRAY['site','projects','rosterId','roster','wipMode','podField','teams'])), '{}'::jsonb)::text
  FROM evidence_runs WHERE snapshot_id=$1 AND status='succeeded' ORDER BY run_order DESC LIMIT 1`, id).Scan(&v.SourceID, &v.StartedAt, &v.FinishedAt, &config)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil

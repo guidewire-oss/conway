@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {predictionAssessmentHTML} from '../app/js/prediction-history.js';
+import {predictionAssessmentHTML,predictionKey} from '../app/js/prediction-history.js';
+
+test('creates a 128-bit opaque request key without secure-context-only randomUUID',()=>{
+ const provider={getRandomValues(bytes){assert.equal(bytes.length,16);bytes.set(Array.from({length:16},(_,i)=>i));return bytes;}};
+ assert.equal(predictionKey(provider),'000102030405060708090a0b0c0d0e0f');
+ assert.throws(()=>predictionKey({}),/Secure randomness is unavailable/);
+});
 
 test('shows coverage numerator and denominator without treating missing outcomes as zero',()=>{
  const empty=predictionAssessmentHTML({coveragePercent:null,eligible:0,covered:0,pending:2,excluded:1,rows:[]});
