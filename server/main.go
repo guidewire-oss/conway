@@ -38,17 +38,18 @@ import (
 const defaultGameID = "default"
 
 type server struct {
-	mu        sync.Mutex
-	log       *zerolog.Logger
-	metrics   *Metrics
-	store     *auth.Store
-	teams     map[string]map[string]json.RawMessage // gameID -> team -> standings
-	games     map[string]map[string]*game.Game      // gameID -> team -> authoritative game
-	sessions  map[string]*gameSession               // gameID -> session (run state)
-	world     *World
-	appDir    string
-	db        *db.DB // Postgres backend (nil = file/in-memory mode for local dev)
-	statePath string // file path the play state is snapshotted to when db is nil
+	assistantModel *assistantInterpreter
+	mu             sync.Mutex
+	log            *zerolog.Logger
+	metrics        *Metrics
+	store          *auth.Store
+	teams          map[string]map[string]json.RawMessage // gameID -> team -> standings
+	games          map[string]map[string]*game.Game      // gameID -> team -> authoritative game
+	sessions       map[string]*gameSession               // gameID -> session (run state)
+	world          *World
+	appDir         string
+	db             *db.DB // Postgres backend (nil = file/in-memory mode for local dev)
+	statePath      string // file path the play state is snapshotted to when db is nil
 
 	jiraOAuth    *jiraOAuthConfig        // nil = OAuth not configured (token path only)
 	jiraMu       sync.Mutex              // guards jiraSessions
@@ -432,7 +433,7 @@ func main() {
 		retireLegacyStore(legacyImported)
 	}
 
-	s := &server{store: st,
+	s := &server{assistantModel: assistantFromEnvironment(), store: st,
 		metrics:  NewMetrics(),
 		teams:    map[string]map[string]json.RawMessage{},
 		games:    map[string]map[string]*game.Game{},
