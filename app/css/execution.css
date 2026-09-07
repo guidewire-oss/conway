@@ -1,4 +1,4 @@
-/* specs/011-bootstrap-adoption-debt.md:165 — Bootstrap supplies components and layout.
+/* specs/011-bootstrap-adoption-debt.md:167 — Bootstrap supplies components and layout.
    Domain evidence needs readable columns and unbroken long-name containment. */
 .execution-review { min-width: 0; }
 .execution-review select, .execution-review input, .execution-review textarea { min-width: 0; }

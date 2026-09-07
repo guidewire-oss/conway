@@ -71,6 +71,10 @@ Keep the group named and preserve focus and the saved choice when content update
 CI selects browser acceptance by the shared Ginkgo `browser` label, so suite
 names can describe their own workflows without changing coverage. The Bootstrap
 suite runs `tests/browser/bootstrap-adoption.mjs` against its isolated Go host.
+Acceptance checks uncaught exceptions, console errors and failed requests;
+request cancellations reported as `net::ERR_ABORTED` are excluded. The minimal host supplies
+a no-content favicon response so an incidental browser request is not confused
+with a product resource failure.
 
 ## Extensions (`cv-` components)
 

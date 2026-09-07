@@ -290,7 +290,7 @@ code, kbd, .mono { font-family: var(--bs-font-monospace); }
 code { font-size: .92em; color: var(--bs-primary-text-emphasis); }
 
 /* Bootstrap primitives adopt Conway colors; interaction behavior stays in the framework.
- * specs/011-bootstrap-adoption-debt.md:163 records the adoption decision. */
+ * specs/011-bootstrap-adoption-debt.md:165 records the adoption decision. */
 /* The framework's own classes, for new markup. */
 .btn-primary { --bs-btn-focus-shadow-rgb: var(--bs-primary-rgb); --bs-btn-bg: var(--bs-primary); --bs-btn-color: #04222f;
   --bs-btn-border-color: var(--bs-primary); --bs-btn-hover-bg: var(--bs-primary-text-emphasis);
@@ -316,7 +316,7 @@ code { font-size: .92em; color: var(--bs-primary-text-emphasis); }
   --bs-dropdown-link-hover-color: var(--bs-body-color);
 }
 
-/* specs/011-bootstrap-adoption-debt.md:214 — match generic framework focus
+/* specs/011-bootstrap-adoption-debt.md:216 — match generic framework focus
  * specificity so validation states still win. */
 .form-control:focus, .form-select:focus {
   border-color: var(--bs-primary);

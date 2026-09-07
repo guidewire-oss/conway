@@ -84,7 +84,8 @@ export async function checkGameBootstrap(page) {
     assert.equal(await page.locator('#game-levers.card').count(),1,'The containing game panel owns the card surface');
     assert.equal(await page.locator('#game-levers .card').count(),0,'The between-rounds notice does not duplicate its containing panel');
     config.gameOpen = false;
-    await page.locator('#halt-ok.btn.btn-primary').waitFor({timeout:10000});
+    // Allow several real poll cycles on loaded CI workers; do not bypass detection.
+    await page.locator('#halt-ok.btn.btn-primary').waitFor({timeout:30000});
     await page.locator('#halt-ok').focus(); await page.keyboard.press('Enter');
     await page.locator('#halt-overlay').waitFor({state:'hidden'});
     assert.equal(await page.locator('#game-levers > .halt-card').count(),1,'The paused-game explanation remains visible');

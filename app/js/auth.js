@@ -371,7 +371,7 @@ async function refreshUsers() {
     <tbody>${users.map((u) => `<tr>
       <td>${esc(u.username)}${u.sso ? ' <span class="badge bg-info-subtle text-info-emphasis flag">SSO</span>' : ''}</td>
       <td>${esc(u.display)}</td><td>${roleBadges(u.roles)}</td><td>${u.sso ? '<span class="hint">via IdP</span>' : fmt(u.expiresAt)}</td>
-      <td>${u.expired ? '<span class="badge bg-danger-subtle text-danger-emphasis flag red">expired</span>' : '<span class="badge bg-success-subtle text-success-emphasis flag">active</span>'}
+      <td>${u.expired ? '<span class="badge bg-danger-subtle text-danger-emphasis flag">expired</span>' : '<span class="badge bg-success-subtle text-success-emphasis flag">active</span>'}
           ${u.hasState ? '<span class="hint">playing</span>' : ''}</td>
       <td>${u.sso ? '' : `<span class="admin-ext"><input type="date" class="form-control form-control-sm w-auto admin-ext-date" aria-label="New expiry date" data-ext="${esc(u.username)}" value="${extDefault(u)}" title="new expiry date"><button class="btn btn-secondary btn-sm" data-extbtn="${esc(u.username)}">extend</button></span>`}${u.username === 'admin' ? '' : ` <button class="btn btn-secondary btn-sm" data-del="${esc(u.username)}">revoke</button>`}</td>
     </tr>`).join('') || '<tr><td colspan="6" class="hint">No accounts yet.</td></tr>'}`;

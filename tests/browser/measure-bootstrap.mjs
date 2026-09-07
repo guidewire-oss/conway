@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-// specs/011-bootstrap-adoption-debt.md:181 — use real Measure renderers and
+// specs/011-bootstrap-adoption-debt.md:183 — use real Measure renderers and
 // sanitized API responses to exercise compact controls and responsive evidence.
 export async function checkMeasureBootstrap(page) {
   const base=new URL(page.url()).origin;

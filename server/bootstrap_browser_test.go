@@ -17,11 +17,11 @@ import (
 // per specs/011-bootstrap-adoption-debt.md:67
 // per specs/011-bootstrap-adoption-debt.md:73
 // per specs/011-bootstrap-adoption-debt.md:77
-// per specs/011-bootstrap-adoption-debt.md:81
+// per specs/011-bootstrap-adoption-debt.md:82
 var _ = Describe("Bootstrap adoption browser", Label("browser"), func() {
 	// per specs/011-bootstrap-adoption-debt.md:73
 	// per specs/011-bootstrap-adoption-debt.md:77
-	// per specs/011-bootstrap-adoption-debt.md:81
+	// per specs/011-bootstrap-adoption-debt.md:82
 	// per specs/012-in-app-usage-guide.md:228
 	It("retains operational drafts and accessible controls through dynamic rendering and theme changes", func() {
 		if os.Getenv("CONWAY_TEST_BROWSER") != "1" {

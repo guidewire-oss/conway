@@ -139,7 +139,7 @@ export const TERMS = {
 // term(id) renders the affordance for a glossary entry: the visible label is
 // optional (use it beside a bare column header; omit when the term itself is
 // already on screen — then only the ? button appears).
-// specs/011-bootstrap-adoption-debt.md:82: every help affordance remains keyboard reachable.
+// specs/011-bootstrap-adoption-debt.md:83: every help affordance remains keyboard reachable.
 export function helpButton(text, label, { glossary = false } = {}) {
   if (!text) return '';
   const name = glossary ? `What does ${label} mean?` : `Explain ${label}`;

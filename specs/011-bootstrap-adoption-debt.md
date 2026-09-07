@@ -76,11 +76,13 @@ must not recreate their framework component's base styling.
 
 **AC 5.2:** Next work and execution review controls, forms and summaries use
 Bootstrap layout and spacing utilities. At 360px, long content wraps and
-wide evidence tables scroll within their container. Normal-size control and badge text meets 4.5:1 contrast in both themes.
+wide evidence tables scroll within their container. Normal-size control and
+badge text meets 4.5:1 contrast in both themes.
 
 **AC 5.3:** Dynamic renders retain framework classes. Keyboard activation,
 visible focus, disabled actions, selected group state, modal dismissal and
-menu navigation and Bootstrap sizing modifiers remain usable; domain label geometry is preserved without duplicate state controllers.
+menu navigation and Bootstrap sizing modifiers remain usable; domain label
+geometry is preserved without duplicate state controllers.
 
 ---
 

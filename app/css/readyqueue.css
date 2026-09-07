@@ -1,4 +1,4 @@
-/* specs/011-bootstrap-adoption-debt.md:165 — framework components own generic UI.
+/* specs/011-bootstrap-adoption-debt.md:167 — framework components own generic UI.
    These constraints preserve long initiative names and evidence readability. */
 .ready-queue { min-width: 0; }
 .ready-queue input, .ready-queue textarea, .ready-queue select { min-width: 0; }

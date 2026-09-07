@@ -8,7 +8,14 @@ const browser = await chromium.launch({headless:true, ...(channel ? {channel} : 
 const page = await browser.newPage({viewport:{width:1280,height:960}});
 const errors = [];
 page.on('pageerror', e => errors.push(e.message));
+page.on('console', message => { if(message.type()==='error')errors.push('Console: '+message.text()+' '+message.location().url); });
+page.on('requestfailed', request => {
+  // Intentional navigation tears down fixture requests; other transport failures matter.
+  if(request.failure()?.errorText !== 'net::ERR_ABORTED')errors.push('Request: '+request.url()+' '+request.failure()?.errorText);
+});
 try {
+  // The minimal acceptance host has no document icon; avoid an incidental browser 404.
+  await page.route('**/favicon.ico',route=>route.fulfill({status:204}));
   await page.goto(process.env.CONWAY_TEST_BASE_URL+'/bootstrap-acceptance');
   await page.evaluate(async () => {
     const {initForms} = await import('/js/forms.js');
@@ -119,7 +126,7 @@ try {
   assert.ok((await legacyHelp.getAttribute('aria-label') || '').trim().length>1,'Metric help has an explanatory accessible name');
   await legacyHelp.focus();
   assert.equal(await legacyHelp.evaluate(el=>document.activeElement===el),true,'Metric help receives keyboard focus');
-  // per specs/011-bootstrap-adoption-debt.md:82
+  // per specs/011-bootstrap-adoption-debt.md:83
   const scoreboardRows=()=>page.locator('#score-table tbody tr td:first-child').allTextContents();
   const originalRows=await scoreboardRows();
   assert.deepEqual(originalRows,['Beacon','Atlas'],'The scoreboard starts with descending cycle P85');
@@ -261,7 +268,7 @@ try {
       assert.equal(await owner.evaluate(el=>getComputedStyle(el).boxShadow!=='none'),true,'Bootstrap focus indicator remains visible in '+theme);
       await page.screenshot({path:join(process.env.CONWAY_TEST_ARTIFACT_DIR||tmpdir(),'conway-bootstrap-'+theme+'-'+width+'.png'),fullPage:true});
     }
-    // per specs/011-bootstrap-adoption-debt.md:79
+    // per specs/011-bootstrap-adoption-debt.md:80
     const primary=decision.locator('button.btn-primary');
     await page.mouse.move(0,0); await primary.evaluate(el=>el.blur());
     const settled=()=>primary.evaluate(el=>Promise.all(el.getAnimations().map(animation=>animation.finished.catch(()=>{}))));

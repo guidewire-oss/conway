@@ -38,3 +38,12 @@ a literal `&amp;`, with
 `go test -race -count=1 ./server -ginkgo.focus='Bootstrap adoption' -ginkgo.no-color -ginkgo.succinct -timeout=3m`:
 `ok conway/server 38.129s`. Existing escaping and the verification contract remain
 canonical.
+
+Strict browser diagnostics can expose omissions in the isolated host itself.
+Supply intentional fixture resources rather than broadly ignoring console
+errors: the acceptance shell requested a favicon absent from its static host.
+Provenance: observed 2026-09-06 in the first console-error collection run
+(`FAIL conway/server 15.360s`, only `/favicon.ico` returned 404). After the exact
+favicon route returned 204,
+`go test -race -count=1 ./server -ginkgo.focus='Bootstrap adoption' -ginkgo.no-color -ginkgo.succinct -timeout=3m`
+returned `ok conway/server 16.284s`. See `tests/browser/bootstrap-adoption.mjs`.

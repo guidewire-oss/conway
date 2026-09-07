@@ -109,7 +109,7 @@ try {
   assert.deepEqual(errors,[]);
   await checkAnnouncementRecovery(browser,base);
   await checkLinkedSourceRaces(browser,base);
-  // specs/011-bootstrap-adoption-debt.md:81: the real state owner keeps
+  // specs/011-bootstrap-adoption-debt.md:82: the real state owner keeps
   // keyboard selection, announced state and the user's filter together.
   await page.goto(base+'?view=plan&plan='+plan);
   await page.locator('.plan-setup > summary').click();
