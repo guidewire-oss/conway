@@ -211,6 +211,10 @@ singular, icon-only actions are named, and long agreement labels can wrap.
 The guidance persona is a single choice: use native radio inputs styled as
 Bootstrap buttons, retain focus after changing the role, and preserve its saved
 preference. A selected content filter does not require a partial tab widget.
+Base table theme overrides must preserve contextual Bootstrap table variants.
+Authentication fields share the theme focus tokens; inline account creation
+keeps its name field compact while allowing the control group to wrap.
+Quality-card acceptance covers both complete and unmatched-team evidence.
 
 ## 12. Success Metrics
 

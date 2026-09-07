@@ -4,18 +4,21 @@ import assert from 'node:assert/strict';
 // sanitized API responses to exercise compact controls and responsive evidence.
 export async function checkMeasureBootstrap(page) {
   const base=new URL(page.url()).origin;
+  let unmatchedEpics=[];
   const mainRoute=route=>route.fulfill({contentType:'text/javascript',body:''});
   const apiRoute=async route=>{
     const path=new URL(route.request().url()).pathname;
     const responses={
       '/api/config':{},
       '/api/me':{username:'acceptance-admin',roles:['admin']},
+      '/api/admin/users':[],
+      '/api/admin/metrics':{metrics:{}},
       '/api/admin/analytics':{activeThisWeek:0,activeLastWeek:0,totalEvents:0,from:'2026-08-08T00:00:00Z',to:'2026-09-07T00:00:00Z'},
       '/api/rosters':[{id:'atlas-roster',name:'Atlas roster',mine:true,podCount:1,public:false}],
       '/api/jira/status':{connected:true},
       '/api/jira/projects':[{key:'PROJ',name:'Atlas delivery'}],
       '/api/snapshots/baseline/epic-stats':{missing:1,known:2,overdue:0,noDue:1},
-      '/api/snapshots/baseline/unassoc-epics':[],
+      '/api/snapshots/baseline/unassoc-epics':unmatchedEpics,
       '/api/snapshots/baseline/hygiene-counts':{unsized:2,stale:1,unassigned:0,nooutcome:1},
       '/api/snapshots/baseline/wip-summary':{},
       '/api/snapshots/baseline/epic/PROJ-1':{epic:'PROJ-1',hasOutcome:true,tasks:[{key:'PROJ-2',pod:'Atlas',points:3,status:'Open',blockedBy:[]}]},
@@ -31,6 +34,39 @@ export async function checkMeasureBootstrap(page) {
     assert.ok(staticHelp.length>=6 && staticHelp.every(help=>help.tip===help.title),'Every static help explanation retains its native fallback');
     await page.evaluate(async()=>{const {initAuth}=await import('/js/auth.js');await initAuth();});
     assert.ok(await page.locator('#auth-logout').evaluate(el=>parseFloat(getComputedStyle(el).fontSize)<=14),'Sign out remains compact in the identity chip');
+    await page.locator('#admin-btn').click();
+    const nameField=page.getByRole('textbox',{name:'Name (person or team)',exact:true});await nameField.waitFor();
+    for(const theme of ['light','dark']) {
+      await page.evaluate(theme=>document.documentElement.dataset.bsTheme=theme,theme);
+      await nameField.focus();
+      await nameField.evaluate(el=>Promise.all(el.getAnimations().map(animation=>animation.finished.catch(()=>{}))));
+      const focus=await nameField.evaluate(el=>{
+        const actual=getComputedStyle(el),probe=document.createElement('span');
+        probe.style.cssText='border:1px solid var(--bs-primary);box-shadow:0 0 0 var(--bs-focus-ring-width) var(--bs-focus-ring-color)';el.after(probe);
+        const expected=getComputedStyle(probe),result={border:actual.borderTopColor,shadow:actual.boxShadow,expectedBorder:expected.borderTopColor,expectedShadow:expected.boxShadow};probe.remove();return result;
+      });
+      assert.equal(focus.border,focus.expectedBorder,'Account input focus border follows '+theme+' theme');
+      assert.equal(focus.shadow,focus.expectedShadow,'Account input focus ring follows '+theme+' theme');
+      const tableVariants=await page.evaluate(()=>{
+        return ['primary','secondary','success','danger','warning','info','light','dark'].map(tone=>{
+          const table=document.createElement('table');table.className='table-'+tone;document.body.append(table);
+          const values=()=>['bg','color','border-color'].map(token=>getComputedStyle(table).getPropertyValue('--bs-table-'+token).trim());
+          const expected=values();table.classList.add('table');const actual=values();table.remove();return {tone,expected,actual};
+        });
+      });
+      for(const variant of tableVariants)assert.deepEqual(variant.actual,variant.expected,'Bootstrap contextual table colors survive in '+theme+': '+variant.tone);
+    }
+    for(const width of [1280,360]) {
+      await page.setViewportSize({width,height:960});
+      const geometry=await nameField.evaluate(input=>{
+        const field=input.getBoundingClientRect(),roles=document.querySelector('.admin-create .role-pick').getBoundingClientRect();
+        return {width:field.width,left:field.left,right:field.right,top:field.top,bottom:field.bottom,rolesTop:roles.top,rolesBottom:roles.bottom};
+      });
+      assert.ok(geometry.width<350 && geometry.left>=0 && geometry.right<=width,'Account name field stays compact and inside viewport: '+JSON.stringify(geometry));
+      if(width===1280)assert.ok(geometry.top<geometry.rolesBottom && geometry.bottom>geometry.rolesTop,'Account name and roles share a desktop row');
+    }
+    await page.locator('#admin-close').click();await page.locator('#admin-overlay').waitFor({state:'hidden'});
+    await page.setViewportSize({width:1280,height:960});
     await page.locator('#usage-btn').click();
     const closeUsage=page.getByRole('button',{name:'Close usage analytics',exact:true});await closeUsage.waitFor();
     await page.waitForFunction(()=>document.querySelector('#usage-foot')?.textContent.includes('2026-08-08'));
@@ -43,12 +79,22 @@ export async function checkMeasureBootstrap(page) {
       const {initHygiene}=await import('/js/hygiene.js');initHygiene(window.measureFixture);
       const {initGuide}=await import('/js/guide.js');initGuide(window.measureFixture);
     });
-    await page.waitForFunction(()=>document.querySelectorAll('#hygiene-cards .stat').length===7);
-    for(const width of [1280,360]) {
-      await page.setViewportSize({width,height:960});
-      const boxes=await page.locator('#hygiene-cards .stat').evaluateAll(cards=>cards.map(card=>{const r=card.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width,top:r.top};}));
-      assert.ok(boxes.every(box=>box.width>=180 && box.left>=0 && box.right<=width),'Quality metrics remain readable and inside the viewport at '+width+': '+JSON.stringify(boxes));
-      if(width===360)assert.equal(new Set(boxes.map(box=>box.top)).size,7,'Quality metrics stack on mobile');
+    for(const hasUnmatched of [false,true]) {
+      if(hasUnmatched) {
+        unmatchedEpics=[{key:'PROJ-3',name:'Delivery checkpoint',pod:''}];
+        await page.evaluate(async()=>{const {initHygiene}=await import('/js/hygiene.js');initHygiene(window.measureFixture);});
+        await page.locator('#hygiene-cards .stat').filter({hasText:'Epics with no team'}).waitFor();
+      }
+      // Five base metrics plus two loaded outcome cards; unmatched evidence adds one.
+      await page.locator('#hygiene-cards .stat').filter({hasText:'Epics past due date'}).waitFor();
+      const cards=page.locator('#hygiene-cards .stat');
+      assert.equal(await cards.count(),hasUnmatched?8:7,'All metrics for the selected evidence render');
+      for(const width of [1280,360]) {
+        await page.setViewportSize({width,height:960});
+        const boxes=await cards.evaluateAll(cards=>cards.map(card=>{const r=card.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width,top:r.top};}));
+        assert.ok(boxes.every(box=>box.width>=180 && box.left>=0 && box.right<=width),'Quality metrics remain readable and inside the viewport at '+width+': '+JSON.stringify(boxes));
+        if(width===360)assert.equal(new Set(boxes.map(box=>box.top)).size,boxes.length,'Every quality metric stacks on mobile');
+      }
     }
     await page.evaluate(async()=>{
       window.showMeasureView('simulator');

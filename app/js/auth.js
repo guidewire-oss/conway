@@ -245,7 +245,7 @@ function openAdmin() {
         <div class="guide-head"><h2>Admin — users &amp; roles</h2><button class="btn btn-secondary" id="admin-close">✕</button></div>
         <div id="admin-accounts">
           <div class="admin-create">
-            <input class="form-control" id="admin-disp" aria-label="Name (person or team)" placeholder="Name (person or team)">
+            <input class="form-control w-auto mw-100" id="admin-disp" aria-label="Name (person or team)" placeholder="Name (person or team)">
             <span class="role-pick" title="A user can hold several roles">
               <label><input type="checkbox" class="form-check-input role-cb" value="facilitator" checked> Facilitator</label>
               <label><input type="checkbox" class="form-check-input role-cb" value="manager"> Manager</label>

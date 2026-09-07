@@ -53,3 +53,12 @@ Provenance: observed 2026-09-06 in `app/js/guide.js` and the real guidance
 keyboard/persistence journey in `tests/browser/measure-bootstrap.mjs`;
 [W3C radio-group guidance](https://www.w3.org/WAI/ARIA/apg/patterns/radio/)
 fetched 2026-09-06. The component registry remains canonical.
+
+Base component overrides can erase contextual variants even when they only set
+variables. Check neutral and semantic tables independently; generic focus rules
+should match framework specificity so validation focus states retain priority.
+Provenance: observed 2026-09-06 in `app/css/conway.css` and the vendored Bootstrap
+table/form rules. The rendered table, account focus and responsive layout checks
+in `tests/browser/measure-bootstrap.mjs` passed with
+`go test -race -count=1 ./server -ginkgo.focus='Bootstrap adoption' -ginkgo.no-color -ginkgo.succinct -timeout=3m`:
+`ok conway/server 16.367s`. See specification 011, Decision 3.
