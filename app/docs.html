@@ -130,6 +130,7 @@
 <a href="#capacity-calculations">Capacity and duration</a>
 <a href="#assumptions">Scheduling options</a>
 <a href="#sites">Sites and calendars</a>
+<a href="#planning-assistant">Planning assistant</a>
 <a href="#order">Ordering and optimization</a>
 <a href="#order-cols">Read planning results</a>
 <a href="#plan-network">Plan dependencies</a>
@@ -371,6 +372,18 @@
 <tr><td data-label="Control">In flight and progress</td><td data-label="Meaning">Carryover reserves remaining work from the start of the period and is treated differently from new releases.</td><td data-label="Use when">Work has actually begun. Do not mark backlog in flight to bypass readiness or release limits.</td></tr>
 <tr><td data-label="Control">Predecessor initiative</td><td data-label="Meaning">New dependent initiatives wait for predecessor commitment dates, including their buffers.</td><td data-label="Use when">The outcome needs another initiative to be delivered first. Within one initiative, team dependencies use predecessor slice completion; the current scheduler adds zero handoff weeks.</td></tr>
 </tbody></table></div>
+
+<section aria-labelledby="planning-assistant"><h2 id="planning-assistant">Planning assistant</h2>
+<p>Open a saved plan and choose <b>Planning assistant</b> to explain scheduling, compare its active agreement, or prepare a review agenda. Answers use saved inputs: save edits first or discard an upload preview. Asking creates no plan changes, actions, completed reviews or Jira writes.</p>
+<ol><li>Choose a guided question, then select a team and initiative or retain the full plan scope.</li><li>For a review, explicitly choose a snapshot or <b>Manual review</b>, review date and timezone. Manual review keeps delivery measurements unknown.</li><li>Choose <b>Ask assistant</b>. Read the context, evidence categories and limitations before following a source link.</li><li>Use <b>Refresh saved context</b> after another person or linked source changes the plan. Failed requests retain your question and selections.</li></ol>
+<div class="table-responsive"><table class="table"><thead><tr><th>Question</th><th>Calculation and source</th><th>When to use it</th></tr></thead><tbody>
+<tr><td>Explain this schedule</td><td>The existing finite scheduler and ordering in force supply placement, ranks, constraints and assumptions. Missing placement has no inferred start or finish.</td><td>Understand a hold or modeled date, then inspect the timeline.</td></tr>
+<tr><td>What changed since agreement?</td><td>Compare saved inputs with the active agreement. Date movement is withheld for unplaced work or different/missing period origins. Input changes can exist even when dates are unchanged.</td><td>Prepare a commitment discussion without overwriting the agreement.</td></tr>
+<tr><td>Prepare my review agenda</td><td>The same weekly-review preparation supplies scoped exceptions, gaps and actions. Plan-wide entries remain labeled. Snapshot time describes the observation, not live status.</td><td>Prepare attention items, then use Review execution to record decisions and complete the review.</td></tr>
+</tbody></table></div>
+<p><b>Ask in your own words</b> is available only when an administrator configures the optional model. With your explicit consent, OpenAI receives the question and this plan's initiative/team names to select a supported question. Scheduling results, snapshots and review records are not sent. The model cannot supply factual answers, links, new calculations or changes. For review questions, also choose the evidence, review date and timezone; schedule questions need no snapshot. Questions outside the supported workflows ask you to choose a guided question; they do not silently run a different operation.</p>
+<p>Guided questions work without an external model. Model failures retain your question and offer guided questions. Access follows the plan and snapshot permissions. Questions and answers are not stored as Conway chat history.</p>
+</section>
 
 <h2 id="sites">11. Sites and calendar windows</h2>
 <p>Plan's Sites &amp; capacity editor records locations, IANA timezones and work hours. The site-overlap utility can calculate shared working hours for a modeled date, including daylight-saving offsets. Review ambiguous inferred zones and missing information.</p>

@@ -1,6 +1,6 @@
 // Resumable workspace state (specs/017-planning-and-execution-usability.md:80).
 const VIEWS = ['home', 'plan', 'network', 'flow', 'scoreboard', 'hygiene', 'simulator', 'game'];
-const PLAN_VIEWS = ['order', 'timeline', 'network', 'ready', 'execution'];
+const PLAN_VIEWS = ['order', 'timeline', 'network', 'ready', 'execution', 'assistant'];
 export function readRoute(url) {
   const p = new URL(url, 'http://localhost').searchParams;
   return {
