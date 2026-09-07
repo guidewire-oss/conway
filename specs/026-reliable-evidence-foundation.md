@@ -160,7 +160,7 @@ fails rather than publishing truncated evidence.
 Extend Measure > Snapshots with capture sources above dated captures. Show last
 success, next capture, freshness and last attempt separately. Link successful
 captures into the existing explicit snapshot selector; do not add competing
-selection state. Snapshot lists accept only the latest request in the current visible modal and login session; every close path disposes pending UI work. Completion, not capture launch, announces new evidence. Read-only captured identity details use the same snapshot ACL. Persistence errors use operation-neutral recovery text for both reads and writes.
+selection state. Snapshot lists accept only the latest request in the current visible modal and login session; every close path disposes pending UI work. Snapshot mutation handlers recheck the current render after consuming error bodies before reporting errors or taking follow-up actions. Completion, not capture launch, announces new evidence. Read-only captured identity details use the same snapshot ACL. Persistence errors use operation-neutral recovery text for both reads and writes.
 Roster selection requires owner/public/admin read access. Captured source snapshots
 cannot be deleted or have their roster reassociated; name and visibility remain
 manageable through the existing snapshot controls. Current persisted owner roles

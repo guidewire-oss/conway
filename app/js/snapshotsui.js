@@ -66,6 +66,11 @@ export async function openSnapshots() {
   renderList(ov, mount);
 }
 
+async function mutationError(response, fallback) {
+  try { return (response ? await response.text() : '').trim() || fallback; }
+  catch { return fallback; }
+}
+
 function showError(ov,message) { const el=ov.querySelector('#snap-status'); if(el) { el.textContent=message.trim().slice(0,250); el.setAttribute('role','alert'); } }
 
 const scopeText = (s) => (Array.isArray(s.scope) && s.scope.length ? s.scope.join(', ') : '');
@@ -121,15 +126,15 @@ async function renderList(ov, mount) {
   box.querySelectorAll('.snap-roster').forEach((sel) => sel.addEventListener('change', async () => {
     if (!sel.value) return; // structure must come from some roster — ignore the blank option
     const r = await req('/api/snapshots/' + sel.dataset.id, { method: 'PATCH', body: JSON.stringify({ rosterId: sel.value }) });
-    if (!currentMount(mount)) return;
-    if (!r || !r.ok) { showError(ov, (r ? await r.text() : '').trim() || 'Could not re-associate. Check the connection and retry.'); return; }
+    if (!current()) return;
+    if (!r || !r.ok) { const message = await mutationError(r, 'Could not re-associate. Check the connection and retry.'); if (current()) showError(ov, message); return; }
     // structure changed — if viewing this snapshot, reload so Measure re-reads it
     if (sel.dataset.id === getSnapshot()) location.reload(); else renderList(ov, mount);
   }));
   box.querySelectorAll('.snap-pub').forEach((b) => b.addEventListener('click', async () => {
     const r = await req('/api/snapshots/' + b.dataset.id, { method: 'PATCH', body: JSON.stringify({ public: b.dataset.pub !== '1' }) });
-    if (!currentMount(mount)) return;
-    if (!r || !r.ok) { showError(ov, (r ? await r.text() : '').trim() || 'Could not change visibility. Try again.'); return; }
+    if (!current()) return;
+    if (!r || !r.ok) { const message = await mutationError(r, 'Could not change visibility. Try again.'); if (current()) showError(ov, message); return; }
     renderList(ov, mount);
   }));
   box.querySelectorAll('.snap-rename').forEach((b) => b.addEventListener('click', async () => {
@@ -138,15 +143,15 @@ async function renderList(ov, mount) {
     const trimmed = name.trim();
     if (!trimmed) return;
     const r = await req('/api/snapshots/' + b.dataset.id, { method: 'PATCH', body: JSON.stringify({ name: trimmed }) });
-    if (!currentMount(mount)) return;
-    if (!r || !r.ok) { alert((r ? await r.text() : '').trim() || 'Rename failed'); return; }
+    if (!current()) return;
+    if (!r || !r.ok) { const message = await mutationError(r, 'Rename failed'); if (current()) alert(message); return; }
     renderList(ov, mount);
   }));
   box.querySelectorAll('.snap-del').forEach((b) => b.addEventListener('click', async () => {
     if (!confirm(`Delete snapshot "${b.dataset.name}"? Games already seeded from it keep playing; this only removes the stored capture.`)) return;
     const r = await req('/api/snapshots/' + b.dataset.id, { method: 'DELETE' });
-    if (!currentMount(mount)) return;
-    if (!r || !r.ok) { alert((r ? await r.text() : '').trim() || 'Delete failed'); return; }
+    if (!current()) return;
+    if (!r || !r.ok) { const message = await mutationError(r, 'Delete failed'); if (current()) alert(message); return; }
     // if we deleted the snapshot currently being viewed, drop back to baseline
     if (b.dataset.id === getSnapshot()) {
       const u = new URL(location.href); u.searchParams.delete('snapshot'); location.assign(u); return;
