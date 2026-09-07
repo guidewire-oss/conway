@@ -28,11 +28,11 @@ export async function openGames() {
       <div class="guide-head"><h2>Games</h2><button class="btn btn-secondary" id="games-close" aria-label="Close games">Close</button></div>
       <p>Practise decisions about scope, WIP and dependencies together. Action points are a move budget that resets each round; unused points expire. One round represents a simulated quarter. The timer is meeting time.</p>
       <div class="games-create">
-        <input class="form-control" id="g-name" aria-label="Game name" placeholder="Game name (e.g. Q3 Offsite)">
-        <label class="hint">Rounds <input class="form-control" id="g-rounds" type="number" min="1" max="8" value="4" style="width:46px"></label>
-        <label class="hint">Action points / round <input class="form-control" id="g-ap" type="number" min="2" max="6" value="5" style="width:42px"></label>
-        <label class="hint">Round timer (seconds) <input class="form-control" id="g-timer" type="number" min="30" max="3600" value="300" style="width:62px"></label>
-        <select class="form-select" id="g-scenario" aria-label="Scenario" title="Scenario / difficulty (seed)"></select>
+        <label class="form-label mb-0 d-inline-flex flex-wrap align-items-center gap-1 mw-100">Game name <input class="form-control form-control-sm w-auto mw-100" id="g-name" aria-label="Game name" placeholder="Game name (e.g. Q3 Offsite)"></label>
+        <label class="form-label mb-0 d-inline-flex align-items-center gap-1">Rounds <input class="form-control form-control-sm" id="g-rounds" type="number" min="1" max="8" value="4" style="width:46px"></label>
+        <label class="form-label mb-0 d-inline-flex align-items-center gap-1">Action points / round <input class="form-control form-control-sm" id="g-ap" type="number" min="2" max="6" value="5" style="width:42px"></label>
+        <label class="form-label mb-0 d-inline-flex align-items-center gap-1">Round timer (seconds) <input class="form-control form-control-sm" id="g-timer" type="number" min="30" max="3600" value="300" style="width:62px"></label>
+        <select class="form-select form-select-sm w-auto mw-100" id="g-scenario" aria-label="Scenario" title="Scenario / difficulty (seed)"></select>
         <button id="g-create" class="btn btn-primary">Create game</button>
       </div>
       <p id="game-duration" class="hint" aria-live="polite"></p>
@@ -127,11 +127,11 @@ async function editGame(gid) {
   box.innerHTML = `
     <h3 style="margin-top:16px">Edit “${esc(g.name)}” <a class="plan-back" id="edit-close">✕ close</a></h3>
     <div class="games-create">
-      <input class="form-control" id="eg-name" aria-label="Game name" value="${esc(g.name)}" placeholder="Game name">
-      <label class="hint">Rounds <input class="form-control" id="eg-rounds" type="number" min="1" max="8" value="${g.rounds}" style="width:46px"></label>
-      <label class="hint">Action points / round <input class="form-control" id="eg-ap" type="number" min="2" max="6" value="${g.ap}" style="width:42px"></label>
-      <label class="hint">Round timer (seconds) <input class="form-control" id="eg-timer" type="number" min="30" max="3600" value="${g.timerSecs}" style="width:62px"></label>
-      <select class="form-select" id="eg-scenario" aria-label="Scenario" title="Scenario / difficulty (seed)"></select>
+      <label class="form-label mb-0 d-inline-flex flex-wrap align-items-center gap-1 mw-100">Game name <input class="form-control form-control-sm w-auto mw-100" id="eg-name" aria-label="Game name" value="${esc(g.name)}" placeholder="Game name"></label>
+      <label class="form-label mb-0 d-inline-flex align-items-center gap-1">Rounds <input class="form-control form-control-sm" id="eg-rounds" type="number" min="1" max="8" value="${g.rounds}" style="width:46px"></label>
+      <label class="form-label mb-0 d-inline-flex align-items-center gap-1">Action points / round <input class="form-control form-control-sm" id="eg-ap" type="number" min="2" max="6" value="${g.ap}" style="width:42px"></label>
+      <label class="form-label mb-0 d-inline-flex align-items-center gap-1">Round timer (seconds) <input class="form-control form-control-sm" id="eg-timer" type="number" min="30" max="3600" value="${g.timerSecs}" style="width:62px"></label>
+      <select class="form-select form-select-sm w-auto mw-100" id="eg-scenario" aria-label="Scenario" title="Scenario / difficulty (seed)"></select>
       <button id="eg-save" class="btn btn-primary">Save</button>
     </div>
     <p class="hint">Changing the scenario only re-seeds teams that begin play afterward.</p>`;
@@ -164,7 +164,7 @@ async function renderRoster(gid, name) {
   box.innerHTML = `
     <h3 style="margin-top:16px">Teams in “${esc(name)}” <a class="plan-back" id="roster-close">✕ close</a></h3>
     <div class="games-create">
-      <input class="form-control" id="rt-name" aria-label="Team name" placeholder="Team name (e.g. Team 1)">
+      <label class="form-label mb-0 d-inline-flex flex-wrap align-items-center gap-1 mw-100">Team name <input class="form-control form-control-sm w-auto mw-100" id="rt-name" aria-label="Team name" placeholder="Team name (e.g. Team 1)"></label>
       <button id="rt-add" class="btn btn-primary">Add team</button>
       <span class="hint">each team gets its own join link to share</span>
     </div>

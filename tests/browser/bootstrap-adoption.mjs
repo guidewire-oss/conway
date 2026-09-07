@@ -81,6 +81,24 @@ try {
   const labelGeometry=await page.locator('#timeline-label-example .tl-label').evaluate(label=>{const style=getComputedStyle(label);return {align:style.textAlign,padding:[style.paddingTop,style.paddingRight,style.paddingBottom,style.paddingLeft].map(parseFloat)};});
   assert.equal(labelGeometry.align,'left','Timeline labels stay aligned with their team rows');
   assert.deepEqual(labelGeometry.padding,[0,10,0,0],'Timeline labels keep their ten-pixel track gap without generic action-button padding');
+  const pngDownload=page.waitForEvent('download',{timeout:15000}).catch(()=>null);
+  const exported=await page.evaluate(async()=>{
+    const {exportBlockPNG}=await import('/js/exportpng.js');
+    const serialize=XMLSerializer.prototype.serializeToString;
+    XMLSerializer.prototype.serializeToString=function(node){const text=serialize.call(this,node);window.exportedTimelineMarkup=text;return text;};
+    try{return await exportBlockPNG(document.querySelector('#timeline-label-example'),'timeline-acceptance.png');}
+    finally{XMLSerializer.prototype.serializeToString=serialize;}
+  });
+  assert.equal(exported,true,'The timeline produces a PNG artifact');
+  const png=await pngDownload;
+  assert.ok(png,'PNG export offers a download');
+  assert.equal(png.suggestedFilename(),'timeline-acceptance.png');
+  const exportLabels=await page.evaluate(()=>{
+    const doc=new DOMParser().parseFromString(window.exportedTimelineMarkup,'application/xml');
+    return {buttons:doc.querySelectorAll('button, .btn').length,names:[...doc.querySelectorAll('.tl-label')].map(el=>el.textContent)};
+  });
+  assert.equal(exportLabels.buttons,0,'Meeting exports contain plain initiative labels rather than interactive button chrome');
+  assert.deepEqual(exportLabels.names,['Atlas unavailable'],'Export keeps the initiative evidence');
   const legacyHelp=page.locator('#legacy-help-example .help');
   assert.equal(await legacyHelp.evaluate(el=>el instanceof HTMLButtonElement),true,'Legacy metric help remains a native keyboard action');
   assert.equal(await legacyHelp.evaluate(el=>el.classList.contains('btn')),true,'Metric help adopts the same Bootstrap action primitive');
@@ -292,7 +310,9 @@ try {
   assert.deepEqual(errors,[]);
   console.log(JSON.stringify({bootstrapControls:true,dynamicInsertion:true,selectedGroups:true,nativeDisclosureKeyboard:true,draftsRetained:true,guideSearchAndContents:true,readablePrint:true,badgeContrast:true,themes:['dark','light'],mobileOverflow:false,pageErrors:errors}));
 } catch (error) {
-  console.error(await page.locator('body').innerText());
-  await page.screenshot({path:join(process.env.CONWAY_TEST_ARTIFACT_DIR||tmpdir(),'conway-bootstrap-failure.png'),fullPage:true});
+  try { console.error(await page.locator('body').innerText({timeout:2000})); }
+  catch (diagnosticError) { console.error('Body diagnostic unavailable:',diagnosticError.message); }
+  try { await page.screenshot({path:join(process.env.CONWAY_TEST_ARTIFACT_DIR||tmpdir(),'conway-bootstrap-failure.png'),fullPage:true,timeout:2000}); }
+  catch (diagnosticError) { console.error('Screenshot diagnostic unavailable:',diagnosticError.message); }
   throw error;
 } finally { await browser.close(); }

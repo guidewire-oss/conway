@@ -201,7 +201,7 @@ jobs:
         env:
           CONWAY_TEST_BROWSER: '1'
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/conway-browser/node_modules/playwright/index.mjs
-        run: go test -race -count=1 ./server -ginkgo.focus='linked features browser' -ginkgo.fail-on-empty -timeout 5m
+        run: go test -race -count=1 ./server -ginkgo.label-filter=browser -ginkgo.fail-on-empty -timeout 5m
 
   golden-task-eval:
     runs-on: ubuntu-latest

@@ -18,7 +18,7 @@ import (
 // per specs/011-bootstrap-adoption-debt.md:73
 // per specs/011-bootstrap-adoption-debt.md:77
 // per specs/011-bootstrap-adoption-debt.md:81
-var _ = Describe("linked features browser Bootstrap adoption", Label("browser"), func() {
+var _ = Describe("Bootstrap adoption browser", Label("browser"), func() {
 	// per specs/011-bootstrap-adoption-debt.md:73
 	// per specs/011-bootstrap-adoption-debt.md:77
 	// per specs/011-bootstrap-adoption-debt.md:81

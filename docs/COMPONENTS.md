@@ -38,6 +38,10 @@ A containing card owns the surface and padding for its alternate states.
 Waiting and closed-state explanations within it should not add a second card
 unless they represent a separate, meaningful group of information.
 
+CI selects browser acceptance by the shared Ginkgo `browser` label, so suite
+names can describe their own workflows without changing coverage. The Bootstrap
+suite runs `tests/browser/bootstrap-adoption.mjs` against its isolated Go host.
+
 ## Extensions (`cv-` components)
 
 These exist because Bootstrap has no equivalent. Each is built from

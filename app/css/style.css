@@ -101,7 +101,7 @@ th { text-transform: uppercase; font-size: 10.5px; letter-spacing: .05em; font-w
 .lever { background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; font-size: 12.5px; }
 .lever .ap { color: var(--accent); font-size: 11px; }
 .lever select, .lever input { margin: 3px 2px; }
-.lever button { padding: 3px 9px; font-size: 12px; margin-top: 4px; }
+.lever button:not(.help) { padding: 3px 9px; font-size: 12px; margin-top: 4px; }
 .report { background: var(--panel2); }
 .report-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .report-head h3 { margin: 0; }

@@ -13,10 +13,10 @@ const statuses = {'not-tracked':'Not tracked', unknown:'Unknown', 'on-track':'On
 
 function slicesHTML(slices, start) {
   return `<div class="execution-table-wrap table-responsive border rounded my-3" tabindex="0" aria-label="Team execution evidence, scroll horizontally for all measures"><table class="wip-table table table-hover align-top mb-0 text-wrap"><thead><tr><th scope="col">Team</th><th scope="col">Completed children</th><th scope="col">Agreed start / finish</th><th scope="col">Inferred start / actual finish</th><th scope="col">Start / finish variance</th><th scope="col">Elapsed-time estimate variance</th><th scope="col">Estimated remaining / conditional finish</th><th scope="col">Buffer used</th><th scope="col">Evidence</th></tr></thead><tbody>${slices.map(s => `<tr>
-    <th scope="row">${esc(s.pod)}</th><td>${num(s.percentComplete, '%')}<br><small class="d-block text-body-secondary">${num(s.doneCount)} / ${num(s.issueCount)} children</small></td>
+    <th scope="row">${esc(s.pod)}</th><td>${num(s.percentComplete, '%')}<small class="d-block text-body-secondary">${num(s.doneCount)} / ${num(s.issueCount)} children</small></td>
     <td>${esc(dateWeek(s.baselineStartWeek,start))}<br>${esc(dateWeek(s.baselineFinishWeek,start))}</td>
     <td>${esc(dateWeek(s.actualStartWeek,start))}<small class="d-block text-body-secondary">${Number.isFinite(s.actualStartWeek) ? s.startInferred ? "Inferred from issue activity" : "Start provenance not supplied" : "Start not measured"}</small>${esc(dateWeek(s.actualFinishWeek,start))}<small class="d-block text-body-secondary">${Number.isFinite(s.actualFinishWeek) ? "Resolution timestamps in snapshot" : "Finish not measured"}</small></td>
-    <td>${delta(s.startVarianceWeeks)}<br>${delta(s.finishVarianceWeeks)}</td><td>${num(s.estimateVariancePct,'%')}<br><small class="d-block text-body-secondary">Calendar duration proxy</small></td>
+    <td>${delta(s.startVarianceWeeks)}<br>${delta(s.finishVarianceWeeks)}</td><td>${num(s.estimateVariancePct,'%')}<small class="d-block text-body-secondary">Calendar duration proxy</small></td>
     <td>${num(s.remainingWeeks,' calendar weeks remaining')}<br>${esc(dateWeek(s.forecastFinishWeek,start))}<small class="d-block text-body-secondary">${esc(s.forecastBasis || 'No remaining-work forecast basis supplied')}</small></td>
     <td>${num(s.bufferUsedPct,'%')}<br>${esc(statuses[s.status] || 'Unknown')}</td><td>${esc(s.confidence || 'unknown')} confidence${gapsHTML(s.gaps)}</td>
   </tr>`).join('')}</tbody></table></div>`;

@@ -17,6 +17,7 @@ export async function checkGameBootstrap(page) {
     const request = route.request(), path = new URL(request.url()).pathname;
     let body;
     if(path === '/api/config') body = config;
+    else if(['/api/games','/api/plan','/api/snapshots'].includes(path)) body = [];
     else if(path === '/api/game') body = game;
     else if(path === '/api/game/stage' && request.method() === 'POST') {
       const move = request.postDataJSON(); staged.push(move);
@@ -69,6 +70,21 @@ export async function checkGameBootstrap(page) {
     await page.locator('#halt-overlay').waitFor({state:'hidden'});
     assert.equal(await page.locator('#game-levers > .halt-card').count(),1,'The paused-game explanation remains visible');
     assert.equal(await page.locator('#game-levers .card').count(),0,'The paused-game notice does not duplicate its containing panel');
+    await page.evaluate(async()=>{const {openGames}=await import('/js/gamesui.js');await openGames();});
+    await page.locator('#games-overlay').waitFor({state:'visible'});
+    for(const width of [1280,360]) {
+      await page.setViewportSize({width,height:960});
+      const fields=await page.locator('#g-rounds,#g-ap,#g-timer').evaluateAll(inputs=>inputs.map(input=>{
+        const field=input.getBoundingClientRect(),label=input.closest('label');
+        const text=document.createRange();text.selectNodeContents(label.firstChild);
+        const caption=text.getBoundingClientRect();
+        return {width:field.width,top:field.top,bottom:field.bottom,captionTop:caption.top,captionBottom:caption.bottom};
+      }));
+      assert.ok(fields.every(field=>field.width<100 && field.top<field.captionBottom && field.bottom>field.captionTop),'Game numeric fields remain compact beside their labels at '+width+': '+JSON.stringify(fields));
+      const name=await page.locator('#g-name').boundingBox();
+      assert.ok(name.x>=0 && name.x+name.width<=width && name.width<400,'Game name fits within the viewport');
+    }
+    await page.locator('#games-close').click();
     assert.equal(await page.locator('#game-submit').count(),0,'A closed game cannot submit another round');
   } finally {
     // Navigation tears down the real game poll before fixture routes disappear.
