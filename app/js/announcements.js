@@ -114,7 +114,7 @@ const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '
 // selectors, URLs, or code supplied by a response.
 export function safeAnnouncementAction(action) {
   if (!action || typeof action !== 'object') return false;
-  if (action.type === 'menu') return action.target === 'docs-btn' && action.parent === 'help-btn' && !action.route;
+  if (action.type === 'menu') return !action.route && ((action.target === 'docs-btn' && action.parent === 'help-btn') || (action.target === 'obs-snapshots' && action.parent === 'explore-btn'));
   if (action.type !== 'route' || action.parent !== 'plan-btn') return false;
   return (action.target === 'view-ready' && action.route === '?view=plan&planView=ready') ||
     (action.target === 'view-execution' && action.route === '?view=plan&planView=execution') ||

@@ -34,6 +34,14 @@ A snapshot has:
 4. **Publish.** Snapshots → *make public* shares a snapshot so facilitators can
    build games from it. *make private* unshares it.
 
+For recurring reads, use **Measure → Snapshots → Capture sources**. Sources pin a
+roster composition, save credentials only with explicit consent, and retain each
+attempt across restarts. Each success creates a private snapshot; failures retain
+the previous complete capture. Captured source snapshots preserve their original
+roster and identity observations and cannot be deleted or reassociated. Rename and
+visibility controls remain available. See the [capture guide](../app/docs.html#evidence-sources)
+for cadence, freshness calculations, credential replacement and team aliases.
+
 ## Facilitator flow (Learn → Run games)
 
 The **Scenario library** in the Games panel lists every snapshot/template you can

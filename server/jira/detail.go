@@ -12,6 +12,7 @@ import (
 // DetailedIssue carries the richer fields the enrichment docs need (hygiene,
 // epic_meta, epics/*) beyond what plain aggregation uses.
 type DetailedIssue struct {
+	ID         string
 	Key        string
 	Summary    string
 	Pod        string
@@ -62,6 +63,7 @@ func (c *Client) SearchDetailed(ctx context.Context, jql, pointsField string, on
 	fields := strings.Join(fieldList, ",")
 	var out []DetailedIssue
 	nextToken := ""
+	seenTokens := map[string]bool{}
 	for {
 		u := fmt.Sprintf("/rest/api/3/search/jql?jql=%s&fields=%s&maxResults=100",
 			url.QueryEscape(jql), url.QueryEscape(fields))
@@ -71,7 +73,7 @@ func (c *Client) SearchDetailed(ctx context.Context, jql, pointsField string, on
 		var page struct {
 			Issues        []json.RawMessage `json:"issues"`
 			NextPageToken string            `json:"nextPageToken"`
-			IsLast        bool              `json:"isLast"`
+			IsLast        *bool             `json:"isLast"`
 		}
 		if err := c.get(ctx, u, &page); err != nil {
 			return nil, err
@@ -82,25 +84,33 @@ func (c *Client) SearchDetailed(ctx context.Context, jql, pointsField string, on
 		if onProgress != nil {
 			onProgress(len(out))
 		}
-		if page.NextPageToken == "" || page.IsLast {
+		if len(out) > 100000 {
+			return nil, fmt.Errorf("jira capture exceeds 100000 issues; narrow the scope")
+		}
+		if page.IsLast != nil && !*page.IsLast && page.NextPageToken == "" {
+			return nil, fmt.Errorf("jira capture is incomplete: missing continuation token")
+		}
+		if page.NextPageToken == "" || (page.IsLast != nil && *page.IsLast) {
 			break
+		}
+		if seenTokens[page.NextPageToken] {
+			return nil, fmt.Errorf("jira pagination did not advance")
 		}
 		nextToken = page.NextPageToken
-		if len(out) > 100000 {
-			break
-		}
+		seenTokens[nextToken] = true
 	}
 	return out, nil
 }
 
 func (c *Client) parseDetailed(raw json.RawMessage, pointsField string) DetailedIssue {
 	var e struct {
+		ID     string                     `json:"id"`
 		Key    string                     `json:"key"`
 		Fields map[string]json.RawMessage `json:"fields"`
 	}
 	json.Unmarshal(raw, &e)
 	f := e.Fields
-	d := DetailedIssue{Key: e.Key}
+	d := DetailedIssue{ID: e.ID, Key: e.Key}
 
 	str := func(b json.RawMessage) string {
 		var s string

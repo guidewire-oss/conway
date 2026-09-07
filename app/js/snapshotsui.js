@@ -1,3 +1,5 @@
+import { mountEvidenceSources } from './evidence-sources.js';
+let disposeEvidence;
 import { icon } from './icons.js';
 import { openModal, closeModal } from './modal.js';
 // Snapshots: a single page to see everything captured/uploaded — rosters
@@ -27,8 +29,10 @@ export async function openSnapshots() {
     document.body.appendChild(ov);
     // no click-outside-to-close — the ✕ button is the deliberate exit.
   }
+  disposeEvidence?.();
   ov.innerHTML = `<div class="modal-box">
       <div class="modal-head"><h2>Snapshots</h2><button class="btn btn-secondary" id="snap-close">${icon('close')}Close</button></div>
+      <div id="snap-evidence-sources" class="mb-4"></div>
       <h3>Rosters</h3>
       <p class="hint">Team structure — headcount, pairing, site and work-lanes — uploaded via Measure ▸ Rosters.</p>
       <div id="snap-rosters"></div>
@@ -38,7 +42,9 @@ export async function openSnapshots() {
       <p id="snap-status" role="status" aria-live="polite"></p><div id="snap-list"></div>
     </div>`;
   openModal(ov);
-  ov.querySelector('#snap-close').addEventListener('click', () => closeModal(ov));
+ window.dispatchEvent(new CustomEvent('conway:feature-opened',{detail:{action:'snapshots'}}));
+  ov.querySelector('#snap-close').addEventListener('click', () => {disposeEvidence?.();closeModal(ov);});
+  disposeEvidence=mountEvidenceSources(ov.querySelector('#snap-evidence-sources'),{onCaptured:()=>renderList(ov)});
   mountRosters(ov.querySelector('#snap-rosters'));
   renderList(ov);
 }
@@ -58,7 +64,7 @@ async function renderList(ov) {
   if (!snaps.length) { box.innerHTML = '<p class="hint">No snapshots yet.</p>'; return; }
   const rosters = await fetchRosters();
   const rosterCell = (s) => {
-    if (s.source !== 'jira' || !s.mine) return esc(rosters.find((r) => r.id === s.rosterId)?.name || '—');
+    if (s.capture || s.source !== 'jira' || !s.mine) return esc(rosters.find((r) => r.id === s.rosterId)?.name || '—');
     const opts = `<option value="">— roster —</option>` + rosters.map((r) => `<option value="${r.id}" ${r.id === s.rosterId ? 'selected' : ''}>${esc(r.name)}</option>`).join('');
     return `<select aria-label="Roster for ${esc(s.name || s.id)}" class="form-select snap-roster" data-id="${s.id}">${opts}</select>`;
   };
@@ -81,7 +87,7 @@ async function renderList(ov) {
         <td>${rosterCell(s)}</td>
         <td>${baseline ? '—' : fmtDate(s.createdAt)}</td>
         <td>${owned ? `<button class="btn btn-secondary snap-rename" data-id="${s.id}" data-name="${esc(s.name || '')}">rename</button>
-          <button class="btn btn-secondary snap-del" data-id="${s.id}" data-name="${esc(s.name || s.id)}">delete</button>` : ''}</td>
+          ${s.capture?'<span class="small text-body-secondary">Capture history retained</span>':`<button class="btn btn-secondary snap-del" data-id="${s.id}" data-name="${esc(s.name || s.id)}">delete</button>`}` : ''}</td>
       </tr>`;
   }).join('')}</tbody></table>`;
 

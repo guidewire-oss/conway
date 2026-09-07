@@ -30,6 +30,12 @@ function capturedAt(value) {
   return new Date(value * 1000).toLocaleString();
 }
 
+export function captureFreshnessHTML(snapshot,now=Date.now()/1000) {
+ const capture=snapshot?.capture;if(!capture?.sourceId)return '';
+ const stale=now-snapshot.createdAt>=capture.freshnessHours*3600;
+ return `<p class="small"><span class="badge ${stale?'bg-warning-subtle text-warning-emphasis':'bg-success-subtle text-success-emphasis'}">${stale?'Stale':'Fresh'} capture</span> From ${esc(capture.sourceName)}; freshness limit ${esc(capture.freshnessHours)} hours. <a href="docs.html#evidence-sources" target="_blank" rel="noopener">About capture freshness</a></p>`;
+}
+
 // specs/021-measure-source-context.md:97: source identity is useful even when
 // there is no second snapshot to switch to. Missing evidence stays explicit.
 export function measureContextHTML({ snapshots = [], rosters = [], selectedId, state = {}, canManage = false,
@@ -50,6 +56,7 @@ export function measureContextHTML({ snapshots = [], rosters = [], selectedId, s
   const scope = Array.isArray(selected?.scope) && selected.scope.length ? selected.scope.join(', ') : 'Project scope unavailable';
   return `<div class="measure-source-heading"><div><span class="hint">Measure data source</span><h2>${esc(name)}</h2></div>
     <span class="badge ${example || synthetic || unknown || !pods.length || !selected ? 'bg-warning-subtle text-warning-emphasis' : 'bg-success-subtle text-success-emphasis'}">${esc(sourceLabel(selected?.source))}</span></div>
+    ${captureFreshnessHTML(selected)}
     <p class="measure-view-purpose">${esc(MEASURE_VIEWS[view] || '')}</p>
     ${error ? `<p role="alert">${esc(error)}</p>` : ''}
     ${!loading && !error && !snapshots.length ? '<p>No snapshots are available. Import a dated capture to measure delivery.</p>' : ''}

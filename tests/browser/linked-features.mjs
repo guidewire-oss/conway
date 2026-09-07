@@ -25,7 +25,7 @@ try {
   await page.locator('#signin-form button[type=submit]').click();
   const announcements=page.locator('#announcements-overlay');
   await announcements.waitFor({state:'visible'});
-  assert.equal(await announcements.locator('[data-announcement-action]').count(),5);
+  assert.equal(await announcements.locator('[data-announcement-action]').count(),6);
   assert.equal(await announcements.locator('[data-announcement-action="weekly-execution-review-v1"]').count(),1);
   const weeklyFeature=(await api('/api/announcements')).features.find(f=>f.id==='weekly-execution-review-v1');
   assert.equal(weeklyFeature.action.target,'view-execution');
@@ -37,7 +37,7 @@ try {
   assert.equal(await announcements.isVisible(),false,'automatic introduction must not recur');
   assert.ok(await page.locator('#plan-linked-sheets [data-announcement-indicator]').count());
   await page.locator('#help-btn').click(); await page.locator('#whats-new-btn').click();
-  await announcements.waitFor({state:'visible'}); assert.equal(await announcements.locator('[data-announcement-action]').count(),5);
+  await announcements.waitFor({state:'visible'}); assert.equal(await announcements.locator('[data-announcement-action]').count(),6);
   await page.setViewportSize({width:360,height:800});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await page.screenshot({path:join(process.env.CONWAY_TEST_ARTIFACT_DIR||tmpdir(),'conway-announcements-mobile.png'),fullPage:true});

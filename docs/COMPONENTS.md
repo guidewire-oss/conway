@@ -80,8 +80,8 @@ request cancellations reported as `net::ERR_ABORTED` are excluded. The minimal h
 a no-content favicon response so an incidental browser request is not confused
 with a product resource failure. Browser workloads share bounded process-tree
 cleanup on macOS and Linux; cancellation acceptance covers responsive and
-blocked runners with detached Chromium processes. The eight-minute CI package
-budget accommodates both three-minute workloads and their bounded cleanup.
+blocked runners with detached Chromium processes. The twelve-minute CI package
+budget accommodates three three-minute workloads and their bounded cleanup.
 
 ## Extensions (`cv-` components)
 
@@ -168,3 +168,9 @@ Framework references checked on 2026-09-06: [buttons](https://getbootstrap.com/d
 [button groups](https://getbootstrap.com/docs/5.3/components/button-group/),
 [forms](https://getbootstrap.com/docs/5.3/forms/overview/) and
 [responsive grid](https://getbootstrap.com/docs/5.3/layout/grid/).
+
+Capture sources extend the existing Snapshots dialog with Bootstrap cards, grid
+forms, validation, badges and responsive tables. Their settings retain drafts
+after failures; status refresh never silently changes the selected snapshot.
+Captured freshness is reused in Measure and Review execution. No custom control
+CSS is needed for this workflow; source-scoped identity strings wrap in tables.

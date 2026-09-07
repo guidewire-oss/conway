@@ -34,7 +34,7 @@ func (s *server) planActuals(w http.ResponseWriter, r *http.Request, p *db.PlanR
 		baseline = map[string]any{"id": loaded.Baseline.ID, "name": loaded.Baseline.Name, "createdAt": loaded.Baseline.CreatedAt, "periodStart": loaded.Schedule.PeriodStart, "horizonWeeks": loaded.Schedule.HorizonWeeks}
 	}
 	actuals := loaded.Actuals
-	writeJSON(w, map[string]any{"snapshot": map[string]any{"id": snap.ID, "name": snap.Name, "source": snap.Source, "createdAt": snap.CreatedAt, "ageDays": math.Max(0, time.Since(time.Unix(snap.CreatedAt, 0)).Hours()/24)}, "baseline": baseline, "coverage": actuals.Coverage, "initiatives": actuals.Initiatives, "calibration": actuals.Calibration, "adherence": actuals.Adherence, "gaps": actuals.Gaps})
+	writeJSON(w, map[string]any{"snapshot": map[string]any{"id": snap.ID, "name": snap.Name, "source": snap.Source, "createdAt": snap.CreatedAt, "capture": snap.Capture, "ageDays": math.Max(0, time.Since(time.Unix(snap.CreatedAt, 0)).Hours()/24)}, "baseline": baseline, "coverage": actuals.Coverage, "initiatives": actuals.Initiatives, "calibration": actuals.Calibration, "adherence": actuals.Adherence, "gaps": actuals.Gaps})
 }
 
 type executionEvidence struct {
