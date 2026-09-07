@@ -1,3 +1,5 @@
+import {checkPortfolioForecast} from './portfolio-forecast.mjs';
+import {chooseUpdate,readAllUpdates} from './announcement-navigation.mjs';
 import assert from 'node:assert/strict';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -26,7 +28,8 @@ async function holdAnswer(url=endpoint,method='POST',holdMs=10000){
 
 try{
  await page.goto(assistantURL);await page.locator('#login-user').fill(process.env.CONWAY_TEST_USERNAME);await page.locator('#login-pass').fill(process.env.CONWAY_TEST_PASSWORD);await page.locator('#signin-form button[type=submit]').click();
- await page.locator('#announcements-overlay').waitFor({state:'visible'});assert.equal(await page.locator('[data-announcement-action="planning-assistant-v1"]').count(),1);await page.locator('[data-announcement-close]').click();
+ await page.locator('#announcements-overlay').waitFor({state:'visible'});await chooseUpdate(page,'Ask about your saved plan');assert.equal(await page.locator('[data-announcement-action="planning-assistant-v1"]').count(),1);await readAllUpdates(page);await page.locator('[data-announcement-close]').click();
+ await checkPortfolioForecast(page,base,plan,process.env.CONWAY_TEST_SNAPSHOT_ID,holdAnswer);await page.locator('#view-assistant').click();
  const ask=page.locator('[data-assistant-ask]'),status=page.locator('[data-assistant-status]'),answer=page.locator('[data-assistant-answer]');
  await page.waitForFunction(()=>document.querySelector('[data-assistant-ask]')&&!document.querySelector('[data-assistant-ask]').disabled);
  const saveNotice=await page.locator('#plan-save-status').textContent();
@@ -78,7 +81,7 @@ try{
   const drawing=await holdAnswer(base+'/api/plan/'+plan+'/'+subpath,'POST');await page.goto(base+'?view=plan&plan='+plan+'&planView='+source);await drawing.ready();await page.locator('#view-assistant').click();await drawing.deliver();await page.waitForFunction(()=>{const b=document.querySelector('[data-assistant-ask]');return b&&!b.disabled;});assert.equal(new URL(page.url()).searchParams.get('planView'),'assistant');
  }
  await ask.click();await answer.getByRole('heading',{name:/initiative/}).first().waitFor();
- for(const theme of ['light','dark']){await page.evaluate(t=>document.documentElement.dataset.bsTheme=t,theme);await page.setViewportSize({width:360,height:800});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'assistant fits mobile');await page.screenshot({path:join(tmpdir(),'conway-assistant-'+theme+'.png'),fullPage:true});}
+ for(const theme of ['light','dark']){await page.evaluate(t=>document.documentElement.dataset.bsTheme=t,theme);await page.setViewportSize({width:360,height:800});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'assistant fits mobile');await page.screenshot({path:join(process.env.CONWAY_TEST_ARTIFACT_DIR||tmpdir(),'conway-assistant-'+theme+'.png'),fullPage:true});}
  const docs=await page.request.get(base+'/docs.html');assert.match(await docs.text(),/id="planning-assistant"/);
  const token=await page.evaluate(()=>localStorage.getItem('conway_token'));const reviews=await page.request.get(base+'/api/plan/'+plan+'/reviews',{headers:{Authorization:'Bearer '+token}});assert.deepEqual((await reviews.json()).reviews,[]);
  assert.deepEqual(errors,[]);console.log(JSON.stringify({schedule:true,agreement:true,observedAndManualReview:true,retry:true,staleScope:true,viewOwnership:true,mobile:true,readOnly:true}));

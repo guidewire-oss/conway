@@ -43,7 +43,7 @@ function flushAnnouncementVisits() {
   }
 }
 window.addEventListener('conway:feature-opened', event => {
-  const target = ({ guide: 'docs-btn', assistant: 'view-assistant', ready: 'view-ready', execution: 'view-execution', 'linked-sheets': 'plan-linked-sheets', snapshots:'obs-snapshots' })[event.detail?.action];
+  const target = ({ guide: 'docs-btn', assistant: 'view-assistant', forecast: 'view-forecast', ready: 'view-ready', execution: 'view-execution', 'linked-sheets': 'plan-linked-sheets', snapshots:'obs-snapshots' })[event.detail?.action];
   if (target && announcementIdentity()) {
     pendingAnnouncementVisits.set(target, announcementIdentity());
     flushAnnouncementVisits();
@@ -146,7 +146,7 @@ async function load() {
       onAction: async action => {
         if (action.target === 'docs-btn') { openDocs(); return true; }
         if (action.target === 'obs-snapshots') { openSnapshots(); return true; }
-        return openPlanDestination(action.target === 'view-assistant' ? 'assistant' : action.target === 'view-execution' ? 'execution' : action.target === 'view-ready' ? 'ready' : 'linked-sheets');
+        return openPlanDestination(action.target === 'view-forecast' ? 'forecast' : action.target === 'view-assistant' ? 'assistant' : action.target === 'view-execution' ? 'execution' : action.target === 'view-ready' ? 'ready' : 'linked-sheets');
       },
     });
     await announcements.ready;

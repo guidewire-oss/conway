@@ -82,3 +82,15 @@ no database:
 ```sh
 CONWAY_TEST_BROWSER=1 go test ./server -ginkgo.focus='Bootstrap adoption' -ginkgo.fail-on-empty -timeout 5m
 ```
+
+## Planning assistant and forecast acceptance
+
+The `planning assistant browser` Ginkgo harness runs the authenticated assistant
+journey and `portfolio-forecast.mjs` against an isolated database and temporary
+server. The forecast journey compares scenarios, retries a failed request,
+inspects imported evidence, changes settings during a pending response, leaves
+and returns through Home, and follows an initiative into the saved timeline.
+Successful runs write `conway-assistant-dark.png`, `conway-assistant-light.png`
+and `conway-forecast-mobile.png` to `CONWAY_TEST_ARTIFACT_DIR` (or the system
+temporary directory). The assistant uses a deterministic provider fixture; no
+live model or external credentials are needed.

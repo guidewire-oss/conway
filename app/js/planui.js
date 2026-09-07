@@ -1,3 +1,4 @@
+import { mountPortfolioForecast } from './portfolio-forecast.js';
 import { mountPlanningAssistant } from './planning-assistant.js';
 // Plan pillar UI: a manager uploads a teams roster + an initiatives matrix, and
 // sees the directed cross-pod dependency network with per-pod utilization (ρ)
@@ -25,9 +26,9 @@ import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
 import { portfolioTimelineHTML, podLensHTML, podSheetHTML, timelineControlsHTML, timelineInspectorHTML, timelineEditsFromRows, matchesTimelineTeam } from './timeline.js';
 import { healthReportHTML, remediesSectionHTML } from './report.js';
 
-let root, current = null, disposeAssistant = null;
+let root, current = null, disposeAssistant = null, disposeForecast = null;
 let pendingPlanDestination = '';
-const planDestinations = { setup: 'plan setup', order: 'Plan commitments', timeline: 'Timeline', ready: 'Next work', execution: 'Review execution', assistant: 'Planning assistant', 'linked-sheets': 'Linked Google Sheets' };
+const planDestinations = { setup: 'plan setup', order: 'Plan commitments', timeline: 'Timeline', ready: 'Next work', execution: 'Review execution', assistant: 'Planning assistant', forecast: 'Forecasts', 'linked-sheets': 'Linked Google Sheets' };
 function pendingDestinationHTML() {
   return pendingPlanDestination ? `<p data-pending-destination role="status">${current ? 'Complete this plan’s inputs' : 'Choose a plan'} to open ${esc(planDestinations[pendingPlanDestination])}. <button class="btn btn-secondary" type="button" data-cancel-destination>Cancel</button></p>` : '';
 }
@@ -168,7 +169,7 @@ function planNotice(message, error = false) {
 }
 async function req(path, opts = {}) {
   const method = opts.method || 'GET';
-  const write = method !== 'GET' && !/\/(schedule(?:\/remedies)?|simulate|compare(?:-to\/[^/]+)?|preview|assistant)$/.test(path);
+  const write = method !== 'GET' && !/\/(schedule(?:\/remedies)?|simulate|compare(?:-to\/[^/]+)?|preview|assistant|forecast)$/.test(path);
   const planId = current?.id;
   if (write) planNotice('Saving…');
   try {
@@ -260,7 +261,7 @@ async function undoDrag() {
 }
 
 async function renderList() {
-  disposeAssistant?.(); disposeAssistant = null;
+  disposeAssistant?.(); disposeAssistant = null; disposeForecast?.(); disposeForecast = null;
   const ticket = ++planLoadTicket;
   current = null;
   writeRoute({view:'plan', plan:null, planView:null, selected:null, initiative:null, team:null, lens:null});
@@ -341,7 +342,7 @@ function uploadField(kind, label, count) {
 }
 
 function renderPlan() {
-  disposeAssistant?.(); disposeAssistant = null;
+  disposeAssistant?.(); disposeAssistant = null; disposeForecast?.(); disposeForecast = null;
   const p = current;
   const nTeams = (p.teams || []).length, nInit = (p.initiatives || []).length;
   const unknown = p.unknownTeams || [];
@@ -395,7 +396,7 @@ function renderPlan() {
       <button class="btn btn-secondary" id="plan-draft-discard">Discard</button></p>` : ''}
     ${unknown.length ? `<p class="plan-warn">${icon('warning')} ${unknown.length} pod(s) referenced by initiatives but missing from the roster: ${unknown.map(esc).join(', ')} — <button type="button" id="unknown-fix" class="btn btn-secondary warn-act">switch roster</button> or fix the sheet. <button type="button" class="btn btn-link p-0 usage-link" data-anchor="warnings">learn more</button></p>` : ''}
     ${nTeams > 0 && nInit > 0 ? `<div class="plan-views"><div class="btn-group" role="group" aria-label="Plan workspace">
-      <button class="btn-secondary btn ${view() === 'order' ? 'active' : ''}" id="view-order" aria-pressed="${view() === 'order'}">Plan commitments</button><button class="btn-secondary btn ${view() === 'network' ? 'active' : ''}" id="plan-view-network" aria-pressed="${view() === 'network'}">Dependencies</button><button class="btn-secondary btn ${view() === 'timeline' ? 'active' : ''}" id="view-timeline" aria-pressed="${view() === 'timeline'}">Timeline</button><button class="btn-secondary btn ${view() === 'ready' ? 'active' : ''}" id="view-ready" aria-pressed="${view() === 'ready'}">Next work</button><button class="btn-secondary btn ${view() === 'execution' ? 'active' : ''}" id="view-execution" aria-pressed="${view() === 'execution'}">Review execution</button><button class="btn btn-secondary ${view() === 'assistant' ? 'active' : ''}" id="view-assistant" aria-pressed="${view() === 'assistant'}">Planning assistant</button><button class="btn-secondary btn" id="view-report" title="one printable card: verdicts, capacity, conflicts, remedies (spec 013)">${icon('report')}Report</button>
+      <button class="btn-secondary btn ${view() === 'order' ? 'active' : ''}" id="view-order" aria-pressed="${view() === 'order'}">Plan commitments</button><button class="btn-secondary btn ${view() === 'network' ? 'active' : ''}" id="plan-view-network" aria-pressed="${view() === 'network'}">Dependencies</button><button class="btn-secondary btn ${view() === 'timeline' ? 'active' : ''}" id="view-timeline" aria-pressed="${view() === 'timeline'}">Timeline</button><button class="btn-secondary btn ${view() === 'ready' ? 'active' : ''}" id="view-ready" aria-pressed="${view() === 'ready'}">Next work</button><button class="btn-secondary btn ${view() === 'execution' ? 'active' : ''}" id="view-execution" aria-pressed="${view() === 'execution'}">Review execution</button><button class="btn btn-secondary ${view() === 'forecast' ? 'active' : ''}" id="view-forecast" aria-pressed="${view() === 'forecast'}">Forecasts</button><button class="btn btn-secondary ${view() === 'assistant' ? 'active' : ''}" id="view-assistant" aria-pressed="${view() === 'assistant'}">Planning assistant</button><button class="btn-secondary btn" id="view-report" title="one printable card: verdicts, capacity, conflicts, remedies (spec 013)">${icon('report')}Report</button>
     </div>${baselineChipHTML(current.baselines)}</div>` : ''}
     ${nTeams === 0 ? `
       <div class="card p-3 panel-card plan-start">
@@ -473,6 +474,7 @@ function renderPlan() {
   document.getElementById('view-report')?.addEventListener('click', openHealthReport);
   document.getElementById('view-ready')?.addEventListener('click', () => setView('ready'));
   document.getElementById('view-execution')?.addEventListener('click', () => setView('execution'));
+  document.getElementById('view-forecast')?.addEventListener('click', () => setView('forecast'));
   document.getElementById('view-assistant')?.addEventListener('click', () => setView('assistant'));
   // The chip summarises a panel that only exists in the Order view, so it has to be
   // able to get there — otherwise it is a status message with no way through. The
@@ -488,7 +490,7 @@ function renderPlan() {
   }
 }
 
-const view = () => ['network', 'timeline', 'ready', 'execution', 'assistant'].includes(current && current.view) ? current.view : 'order';
+const view = () => ['network', 'timeline', 'ready', 'execution', 'assistant', 'forecast'].includes(current && current.view) ? current.view : 'order';
 
 // specs/027-evidence-linked-planning-assistant.md:264: completed operations honor
 // the current destination and preserve assistant question and evidence selections.
@@ -499,6 +501,7 @@ async function renderCurrentPlanView() {
   case 'timeline': return renderTimeline();
   case 'ready': return renderReadyQueue();
   case 'execution': return renderExecution();
+  case 'forecast': return renderForecast();
   case 'assistant': {
    const refresh=document.querySelector('#plan-dash [data-assistant-refresh]');
    if(refresh){refresh.click();return;}
@@ -607,6 +610,15 @@ function renderReadyQueue() {
     onReview:team => { current.tlTeamFilter = team; setView('execution'); }
   });
   window.dispatchEvent(new CustomEvent('conway:feature-opened', {detail:{action:'ready'}}));
+}
+
+function renderForecast() {
+ const host=document.getElementById('plan-dash'),plan=current;
+ if(!host||!plan)return;
+ disposeForecast?.();
+ if(plan.isDraft){host.innerHTML='<p class="alert alert-warning">Save or discard the upload preview before forecasting saved inputs.</p>';return;}
+ disposeForecast=mountPortfolioForecast(host,{plan,request:req,getIdentity:authToken,live:()=>current===plan&&view()==='forecast'&&!root.hidden&&root.closest('.view')?.classList.contains('active')});
+ window.dispatchEvent(new CustomEvent('conway:feature-opened',{detail:{action:'forecast'}}));
 }
 
 function renderAssistant() {

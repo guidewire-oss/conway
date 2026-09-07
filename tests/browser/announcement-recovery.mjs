@@ -63,4 +63,63 @@ export async function checkAnnouncementRecovery(browser, base) {
     assert.equal(await page.locator('#docs-btn [data-announcement-indicator]').count(),0);
     assert.equal(await page.evaluate(()=>window.fixture.opened),1);
   } finally {await page.close();}
+  await checkProgressiveFallback(browser,base);
+  await checkPagingWithPendingAcknowledgements(browser,base);
+}
+
+async function checkPagingWithPendingAcknowledgements(browser,base) {
+ const page=await browser.newPage();
+ try {
+  const url=base+'/__announcement_immediate_test__';
+  await page.route(url,route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html><head><link rel="stylesheet" href="/vendor/bootstrap/bootstrap.min.css"></head><body><button id="help-btn">Help</button><button id="docs-btn">Guide</button><script src="/vendor/bootstrap/bootstrap.bundle.min.js"></script></body></html>'}));
+  await page.goto(url);
+  await page.evaluate(async()=>{
+   const {mountAnnouncements}=await import('/js/announcements.js');
+   const features=Array.from({length:3},(_,i)=>({id:'update-'+i,title:'Update '+i,description:'Description '+i,action:{type:'menu',target:'docs-btn',parent:'help-btn'},announced:false,visited:false}));
+   window.issued=[];const releases=[];
+   window.releaseAcknowledgements=()=>releases.forEach(resolve=>resolve());
+   window.immediate=mountAnnouncements({getIdentity:()=> 'fixture',request:async(_url,options)=>{
+    if(!options)return {ok:true,json:async()=>({features})};
+    const {id,kind}=JSON.parse(options.body);window.issued.push(id);
+    await new Promise(resolve=>releases.push(resolve));
+    const feature=features.find(f=>f.id===id);feature[kind]=true;return {ok:true,json:async()=>({...feature})};
+   }});await window.immediate.ready;
+  });
+  // Mount readiness does not guarantee shown.bs.modal has fired. Wait for the
+  // request itself, keeping responses pending while the user pages forward.
+  await page.waitForFunction(()=>window.issued.includes('update-0'));
+  assert.deepEqual(await page.evaluate(()=>window.issued),['update-0']);
+  await page.locator('#announcements-overlay [data-announcement-next]').click();
+  await page.waitForFunction(()=>window.issued.includes('update-1'));
+  assert.deepEqual(await page.evaluate(()=>window.issued),['update-0','update-1']);
+  assert.deepEqual(await page.evaluate(()=>window.immediate.state().features.map(f=>f.announced)),[false,false,false]);
+  await page.evaluate(()=>window.releaseAcknowledgements());
+  await page.waitForFunction(()=>window.immediate.state().features.slice(0,2).every(f=>f.announced));
+  assert.equal(await page.evaluate(()=>window.immediate.state().features[2].announced),false);
+ }finally{await page.close();}
+}
+
+async function checkProgressiveFallback(browser,base) {
+ const page=await browser.newPage();
+ try {
+  const url=base+'/__announcement_fallback_test__';
+  await page.route(url,route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html><head><link rel="stylesheet" href="/vendor/bootstrap/bootstrap.min.css"></head><body><button id="replay">Updates</button><button id="help-btn">Help</button><button id="docs-btn">Guide</button></body></html>'}));
+  await page.goto(url);
+  await page.evaluate(async()=>{
+   const {mountAnnouncements}=await import('/js/announcements.js');
+   const features=Array.from({length:4},(_,i)=>({id:'feature-'+i,title:'Update '+i,description:'Description '+i,action:{type:'menu',target:'docs-btn',parent:'help-btn'},announced:false,visited:false}));
+   window.progressive=mountAnnouncements({getIdentity:()=> 'fixture',replayButton:document.getElementById('replay'),request:async(_url,options)=>{
+    if(!options)return {ok:true,json:async()=>({features:features.map(f=>({...f}))})};
+    const {id,kind}=JSON.parse(options.body),feature=features.find(f=>f.id===id);feature[kind]=true;return {ok:true,json:async()=>({...feature})};
+   }});await window.progressive.ready;
+  });
+  const modal=page.locator('#announcements-overlay');await modal.waitFor({state:'visible'});
+  await page.waitForFunction(()=>window.progressive.state().features[0].announced);
+  await modal.locator('[data-announcement-next]').click();await page.waitForFunction(()=>window.progressive.state().features[1].announced);
+  assert.equal(await page.evaluate(()=>window.progressive.state().features[2].announced),false);
+  await modal.locator('[data-announcement-select]').selectOption('3');await page.waitForFunction(()=>window.progressive.state().features[3].announced);
+  await page.keyboard.press('Escape');await modal.waitFor({state:'hidden'});
+  assert.deepEqual(await page.evaluate(()=>window.progressive.state().features.map(f=>f.announced)),[true,true,false,true]);
+  assert.equal(await page.evaluate(()=>window.progressive.state().features.some(f=>f.visited)),false);
+ }finally{await page.close();}
 }

@@ -198,6 +198,23 @@ replace account rows; that maintenance must not erase feature acknowledgements.
 
 ---
 
+### Decision 4: Progressive presentation (2026-09-07)
+
+The introduction presents one feature at a time, with an update count, previous
+and next controls, a compact update selector, and a clear return-to-work action.
+Only a feature actually presented is acknowledged as announced. Dismissing the
+dialog leaves unread introductions available at the next sign-in. Replay opens
+the complete catalog; menu dots persist until the destination is visited.
+Bootstrap supplies the layout, controls and dialog behavior. A visually hidden
+label identifies each yellow dot without adding repeated text to navigation.
+
+Given several unannounced features, opening the dialog shows one description
+and one primary Explore action. Moving next acknowledges only the next feature.
+Closing before reaching the remaining features leaves those features unannounced.
+The selector allows direct access to an older update without paging through all
+introductions. Keyboard navigation, focus restoration and failed-save retry
+remain available on narrow screens.
+
 ## 12. Success Metrics
 
 | Metric | Current | Target | How to Measure |

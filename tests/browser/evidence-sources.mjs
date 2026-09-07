@@ -1,3 +1,4 @@
+import {chooseUpdate,readAllUpdates} from './announcement-navigation.mjs';
 import assert from 'node:assert/strict';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -14,9 +15,9 @@ async function holdNextResponse(url,method,count=1,holdMs=10000){let release,rea
 
 try{
  await page.goto(base+'?view=home&snapshot='+encodeURIComponent(process.env.CONWAY_TEST_SNAPSHOT_ID));await page.locator('#login-user').fill(process.env.CONWAY_TEST_USERNAME);await page.locator('#login-pass').fill(process.env.CONWAY_TEST_PASSWORD);await page.locator('#signin-form button[type=submit]').click();
- await page.locator('#announcements-overlay').waitFor({state:'visible'});
+ await page.locator('#announcements-overlay').waitFor({state:'visible'});await chooseUpdate(page,'Keep review evidence current');
  assert.equal(await page.locator('[data-announcement-action="reliable-evidence-v1"]').count(),1);
- await page.locator('[data-announcement-close]').click();assert.equal(new URL(page.url()).searchParams.get('snapshot'),process.env.CONWAY_TEST_SNAPSHOT_ID);assert.match(await page.locator('#measure-context').textContent(),/Previously selected evidence/);
+ await readAllUpdates(page);await page.locator('[data-announcement-close]').click();assert.equal(new URL(page.url()).searchParams.get('snapshot'),process.env.CONWAY_TEST_SNAPSHOT_ID);assert.match(await page.locator('#measure-context').textContent(),/Previously selected evidence/);
  await page.locator('#explore-btn').click();await page.locator('#obs-snapshots').click();
  const root=page.locator('#snap-evidence-sources');await root.locator('[data-evidence-new]').click();
  await root.getByLabel('Source name',{exact:true}).fill('Atlas daily evidence');await root.getByLabel('Jira Cloud site').fill('https://atlas.atlassian.net');await root.getByLabel('Project keys, separated by commas').fill('PROJ');await root.getByLabel('Pinned roster',{exact:true}).selectOption(process.env.CONWAY_TEST_ROSTER_ID);
