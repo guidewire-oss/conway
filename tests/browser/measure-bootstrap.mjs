@@ -111,6 +111,10 @@ export async function checkMeasureBootstrap(page) {
     assert.equal(await executive.isChecked(),true,'Arrow navigation selects exactly one guidance role');
     assert.equal(await roles.locator('input:checked').count(),1);
     assert.equal(await executive.evaluate(el=>document.activeElement===el),true,'Changing role preserves keyboard focus after content refresh');
+    await executive.evaluate(input=>Promise.all(input.nextElementSibling.getAnimations().map(animation=>animation.finished.catch(()=>{}))));
+    const focusRing=await executive.evaluate(input=>({visible:input.matches(':focus-visible'),shadow:getComputedStyle(input.nextElementSibling).boxShadow}));
+    assert.equal(focusRing.visible,true,'Arrow selection retains focus-visible on the replacement radio');
+    assert.notEqual(focusRing.shadow,'none','The selected guidance label retains its visible Bootstrap focus ring');
     assert.match(await page.locator('.guide-intro').textContent(),/manage the system/);
     await page.locator('#guide-close').click();await page.locator('#guide-overlay').waitFor({state:'hidden'});
     await page.locator('#help-btn').click();await page.locator('#guide-btn').click();
