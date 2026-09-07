@@ -246,6 +246,11 @@ try {
       assert.equal(await page.locator('#late-input').inputValue(),'Existing draft');
       assert.equal(await page.locator('#tl-initiative-filter').inputValue(),'Atlas');
       assert.equal(await page.locator('#tl-team-filter').inputValue(),'Team A');
+      for(const name of ['Hide teams without matching work','Show other work']) {
+        const checkbox=page.getByRole('checkbox',{name,exact:true});
+        const placement=await checkbox.evaluate(input=>({labels:input.labels.length,margin:parseFloat(getComputedStyle(input).marginLeft),float:getComputedStyle(input).cssFloat,left:input.getBoundingClientRect().left,labelLeft:input.closest('label').getBoundingClientRect().left}));
+        assert.equal(placement.labels,1);assert.equal(placement.float,'none');assert.ok(placement.margin>=0 && placement.left>=placement.labelLeft,'Timeline checkbox remains inside its associated label: '+JSON.stringify(placement));
+      }
       const chip=await page.locator('#bl-chip').evaluate(el=>({whiteSpace:getComputedStyle(el).whiteSpace,width:el.getBoundingClientRect().width,parent:el.parentElement.getBoundingClientRect().width,scroll:el.scrollWidth,client:el.clientWidth}));
       assert.equal(chip.whiteSpace,'normal');assert.ok(chip.width<=chip.parent && chip.scroll<=chip.client,'Long agreement status wraps within the available header width: '+JSON.stringify(chip));
       const owner = decision.locator('[name=owner]'); await owner.focus();
@@ -301,7 +306,11 @@ try {
   }));
   assert.ok(printCells.length>0,'Print acceptance includes actual guide table cells');
   for (const cell of printCells) {
-    const channels = value => value.match(/[\d.]+/g).slice(0,3).map(Number);
+    const channels = value => {
+      const components=value.match(/[\d.]+/g) || [];
+      assert.ok(components.length>=3,'Printed table color must resolve to RGB channels: '+value);
+      return components.slice(0,3).map(Number);
+    };
     assert.ok(channels(cell.color).every(value=>value<=80),'Printed table text stays dark: '+cell.color);
     assert.ok(channels(cell.background).every(value=>value>=220),'Printed table background stays light: '+cell.background);
   }

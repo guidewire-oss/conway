@@ -45,3 +45,11 @@ Provenance: observed 2026-09-06 via `server/bootstrap_browser_test.go` and
 `ok conway/server 20.501s`. This current suite name replaces the historical
 shared title prefix; CI selects both browser suites by label. See the component
 contract in `docs/COMPONENTS.md`.
+
+An exclusive preference can use native radio inputs with Bootstrap button
+labels. If changing the preference replaces those inputs, restore focus to the
+new checked input so native arrow navigation can continue.
+Provenance: observed 2026-09-06 in `app/js/guide.js` and the real guidance
+keyboard/persistence journey in `tests/browser/measure-bootstrap.mjs`;
+[W3C radio-group guidance](https://www.w3.org/WAI/ARIA/apg/patterns/radio/)
+fetched 2026-09-06. The component registry remains canonical.

@@ -101,7 +101,7 @@ function addRow(t = null) {
     <td><select class="form-select t-pod">${podOptions(t?.pod ?? state.pods[0]?.name ?? '')}</select></td>
     <td><select class="form-select t-size">${Object.keys(SIZES).map((k) => `<option ${k === (t?.size ?? 'M') ? 'selected' : ''}>${k}</option>`).join('')}</select></td>
     <td><input class="form-control t-deps" value="${esc(t?.deps ?? '')}" placeholder="T1,T2"></td>
-    <td><button type="button" class="btn btn-secondary del" title="remove">✕</button></td>`;
+    <td><button type="button" class="btn btn-secondary btn-sm del" title="remove">✕</button></td>`;
   tr.querySelector('.del').addEventListener('click', () => { tr.remove(); markEdited(); });
   tbody.appendChild(tr);
 }

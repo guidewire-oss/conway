@@ -34,7 +34,13 @@ export async function checkGameBootstrap(page) {
     }
     await route.fulfill({json:body});
   };
-  const dialogHandler = dialog => dialog.accept();
+  const expectedConfirmation="Submit this round? Your planned moves lock in and can't be changed.";
+  const dialogs=[];let submitting=false;
+  const dialogHandler = async dialog => {
+    dialogs.push({type:dialog.type(),message:dialog.message()});
+    if(submitting && dialogs.length===1 && dialog.type()==='confirm' && dialog.message()===expectedConfirmation)await dialog.accept();
+    else await dialog.dismiss();
+  };
   await page.route('**/js/main.js',mainRoute);
   await page.route('**/api/**',apiRoute);
   page.on('dialog',dialogHandler);
@@ -67,8 +73,11 @@ export async function checkGameBootstrap(page) {
     await page.waitForFunction(()=>document.querySelector('#game-moves')?.textContent.includes('freeze Atlas'));
     assert.deepEqual(staged,[{lever:'freeze',pod:'Atlas',n:5}],'Keyboard staging submits the selected lever and preserves it in the rendered draft');
     assert.equal(await page.locator('#game-levers [data-do]:not(.btn)').count(),0,'Rerendered lever actions retain Bootstrap');
+    submitting=true;
     await page.locator('#game-submit').focus(); await page.keyboard.press('Enter');
     await page.locator('#resolve-continue.btn.btn-primary').waitFor();
+    submitting=false;
+    assert.deepEqual(dialogs,[{type:'confirm',message:expectedConfirmation}],'Submission asks for exactly the expected confirmation');
     assert.deepEqual(submitted,[[{lever:'freeze',pod:'Atlas',n:5}]],'Submission uses the staged move exactly once');
     await page.locator('#resolve-continue').focus(); await page.keyboard.press('Enter');
     await page.locator('#resolve-overlay').waitFor({state:'hidden'});
@@ -98,6 +107,7 @@ export async function checkGameBootstrap(page) {
     await page.locator('#games-close').click();
     await page.locator('#games-overlay').waitFor({state:'hidden'});
     assert.equal(await page.locator('#game-levers > .halt-card').isVisible(),true,'Closing Games returns to the paused-game explanation');
+    assert.deepEqual(dialogs,[{type:'confirm',message:expectedConfirmation}],'No unexpected alert or confirmation is silently accepted');
   } finally {
     // Navigation tears down the real game poll before fixture routes disappear.
     await page.goto('about:blank');

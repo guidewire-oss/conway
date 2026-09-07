@@ -208,6 +208,9 @@ All neutral metadata follows the theme, and related semantic token families stay
 consistent. Glossary and contextual help share one escaped button implementation;
 static help retains the same native fallback. Domain focus indicators remain
 singular, icon-only actions are named, and long agreement labels can wrap.
+The guidance persona is a single choice: use native radio inputs styled as
+Bootstrap buttons, retain focus after changing the role, and preserve its saved
+preference. A selected content filter does not require a partial tab widget.
 
 ## 12. Success Metrics
 

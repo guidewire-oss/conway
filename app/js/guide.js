@@ -333,10 +333,15 @@ export function initGuide(state) {
   function renderGuide(who) {
     try { localStorage.setItem('conway-guide-persona', who); } catch {}
     const p = PERSONAS[who];
-    document.getElementById('guide-personas').innerHTML = Object.entries(PERSONAS)
-      .map(([k, v]) => `<button class="btn btn-secondary tab ${k === who ? 'active' : ''}" aria-pressed="${k === who}" data-p="${k}">${v.label}</button>`).join('');
-    document.querySelectorAll('#guide-personas button')
-      .forEach((b) => b.addEventListener('click', () => renderGuide(b.dataset.p)));
+    const personas = document.getElementById('guide-personas');
+    personas.innerHTML = Object.entries(PERSONAS)
+      .map(([k, v]) => `<input type="radio" class="btn-check" name="guide-persona" id="guide-persona-${k}" data-p="${k}" value="${k}" ${k === who ? 'checked' : ''}><label class="btn btn-secondary" for="guide-persona-${k}">${v.label}</label>`).join('');
+    personas.querySelectorAll('input[name="guide-persona"]')
+      .forEach((input) => input.addEventListener('change', () => {
+        if (!input.checked) return;
+        renderGuide(input.dataset.p);
+        document.getElementById(input.id)?.focus();
+      }));
 
     const insights = computeInsights(state, wipSummary).filter((i) => i.who.includes(who));
     document.getElementById('guide-body').innerHTML = `

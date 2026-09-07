@@ -409,12 +409,12 @@ and missing snapshot measurements. These gaps and actions without an initiative
 remain visible under filters. An initiative-only fallback is not plan-wide.
 Filtering cannot recreate an aggregate that attribution already suppressed.
 
-| Captured evidence for Atlas | Unfiltered agreement-divergence agenda | Team B filter, when Atlas is assigned to both teams |
+| Captured evidence for Delivery milestone | Unfiltered agreement-divergence agenda | Beacon filter, when the initiative is assigned to Atlas and Beacon |
 |---|---|---|
-| Aggregate start +2; Team A start +2; Team B start 0 | Team A start entry only | No start-divergence entry |
+| Aggregate start +2; Atlas start +2; Beacon start 0 | Atlas start entry only | No start-divergence entry |
 | Aggregate finish +1; all team finish variances unknown | Initiative finish fallback | Initiative finish fallback remains |
-| Aggregate start +2 and finish +1; only Team A start +2 | Team A start entry plus initiative finish fallback | Initiative finish fallback only |
-| Aggregate start 0; Team A start +2 | Team A start entry | No start-divergence entry |
+| Aggregate start +2 and finish +1; only Atlas start +2 | Atlas start entry plus initiative finish fallback | Initiative finish fallback only |
+| Aggregate start 0; Atlas start +2 | Atlas start entry | No start-divergence entry |
 
 **Alternatives considered:** Treating an initiative-only entry as plan-wide
 would leak unrelated work into a team review. Computing attribution after

@@ -17,6 +17,7 @@ export async function checkMeasureBootstrap(page) {
       '/api/snapshots/baseline/epic-stats':{missing:1,known:2,overdue:0,noDue:1},
       '/api/snapshots/baseline/unassoc-epics':[],
       '/api/snapshots/baseline/hygiene-counts':{unsized:2,stale:1,unassigned:0,nooutcome:1},
+      '/api/snapshots/baseline/wip-summary':{},
       '/api/snapshots/baseline/epic/PROJ-1':{epic:'PROJ-1',hasOutcome:true,tasks:[{key:'PROJ-2',pod:'Atlas',points:3,status:'Open',blockedBy:[]}]},
     };
     if(Object.hasOwn(responses,path))await route.fulfill({json:responses[path]});
@@ -40,6 +41,7 @@ export async function checkMeasureBootstrap(page) {
       window.showMeasureView=view=>document.querySelectorAll('.view').forEach(el=>el.classList.toggle('active',el.id==='view-'+view));
       window.showMeasureView('hygiene');
       const {initHygiene}=await import('/js/hygiene.js');initHygiene(window.measureFixture);
+      const {initGuide}=await import('/js/guide.js');initGuide(window.measureFixture);
     });
     await page.waitForFunction(()=>document.querySelectorAll('#hygiene-cards .stat').length===7);
     for(const width of [1280,360]) {
@@ -52,6 +54,8 @@ export async function checkMeasureBootstrap(page) {
       window.showMeasureView('simulator');
       const {initSimulator}=await import('/js/simulator.js');initSimulator(window.measureFixture);
     });
+    const taskActions=await page.locator('#task-table .del').evaluateAll(buttons=>buttons.map(button=>button.getBoundingClientRect().height));
+    assert.equal(taskActions.length,7);assert.ok(taskActions.every(height=>height>=24 && height<=32),'Task removal actions retain compact usable targets');
     for(const width of [1280,360]) {
       await page.setViewportSize({width,height:960});
       const importGeometry=await page.locator('#epic-key').evaluate(input=>{
@@ -99,6 +103,19 @@ export async function checkMeasureBootstrap(page) {
     assert.equal(placement.float,'none','Standalone Bootstrap checkbox has no float offset');
     await checkbox.focus();await page.keyboard.press('Space');assert.equal(await checkbox.isChecked(),true,'Project selection remains keyboard-operable');
     await page.locator('#imp-close').click();await page.locator('#import-overlay').waitFor({state:'hidden'});
+    await page.locator('#help-btn').click();await page.locator('#guide-btn').click();
+    const roles=page.getByRole('radiogroup',{name:'Guidance role'});await roles.waitFor();
+    const planner=roles.getByRole('radio',{name:'Planning Manager',exact:true});
+    await page.locator('label[for="guide-persona-planner"]').click();await planner.focus();await page.keyboard.press('ArrowRight');
+    const executive=roles.getByRole('radio',{name:'Executive / VP',exact:true});
+    assert.equal(await executive.isChecked(),true,'Arrow navigation selects exactly one guidance role');
+    assert.equal(await roles.locator('input:checked').count(),1);
+    assert.equal(await executive.evaluate(el=>document.activeElement===el),true,'Changing role preserves keyboard focus after content refresh');
+    assert.match(await page.locator('.guide-intro').textContent(),/manage the system/);
+    await page.locator('#guide-close').click();await page.locator('#guide-overlay').waitFor({state:'hidden'});
+    await page.locator('#help-btn').click();await page.locator('#guide-btn').click();
+    assert.equal(await roles.getByRole('radio',{name:'Executive / VP',exact:true}).isChecked(),true,'Reopening guidance retains the selected role');
+    await page.locator('#guide-close').click();await page.locator('#guide-overlay').waitFor({state:'hidden'});
   } finally {
     await page.goto('about:blank');
     await page.unroute('**/js/main.js',mainRoute);await page.unroute('**/api/**',apiRoute);

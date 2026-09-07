@@ -56,6 +56,10 @@ and text utilities throughout the app. Glossary and contextual help share escape
 button markup; static help retains a native title too. A domain control with its
 own focus outline suppresses the framework shadow so it has one indicator.
 
+For a mutually exclusive preference such as the guidance persona, use native
+radio inputs with Bootstrap `btn-check` and associated button-styled labels.
+Keep the group named and preserve focus and the saved choice when content updates.
+
 CI selects browser acceptance by the shared Ginkgo `browser` label, so suite
 names can describe their own workflows without changing coverage. The Bootstrap
 suite runs `tests/browser/bootstrap-adoption.mjs` against its isolated Go host.
