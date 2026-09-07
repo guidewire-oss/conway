@@ -43,7 +43,7 @@ function flushAnnouncementVisits() {
   }
 }
 window.addEventListener('conway:feature-opened', event => {
-  const target = ({ guide: 'docs-btn', execution: 'view-execution', 'linked-sheets': 'plan-linked-sheets' })[event.detail?.action];
+  const target = ({ guide: 'docs-btn', ready: 'view-ready', execution: 'view-execution', 'linked-sheets': 'plan-linked-sheets' })[event.detail?.action];
   if (target && announcementIdentity()) {
     pendingAnnouncementVisits.set(target, announcementIdentity());
     flushAnnouncementVisits();
@@ -145,11 +145,12 @@ async function load() {
       replayButton: document.getElementById('whats-new-btn'),
       onAction: async action => {
         if (action.target === 'docs-btn') { openDocs(); return true; }
-        return openPlanDestination(action.target === 'view-execution' ? 'execution' : 'linked-sheets');
+        return openPlanDestination(action.target === 'view-execution' ? 'execution' : action.target === 'view-ready' ? 'ready' : 'linked-sheets');
       },
     });
     await announcements.ready;
     flushAnnouncementVisits();
+    if (document.querySelector('#view-ready.active')) void announcements.visit('view-ready');
     if (document.querySelector('#view-execution.active')) void announcements.visit('view-execution');
   }
 }
@@ -220,7 +221,11 @@ const syncMeasureContext = () => {
   measureContext?.setView(active?.id.replace('view-', '') || 'home');
 };
 document.querySelectorAll('.tab[data-view]').forEach((b) => b.addEventListener('click', () => {
-  document.querySelectorAll('.tab[data-view]').forEach((x) => x.classList.toggle('active', x === b));
+  document.querySelectorAll('.tab[data-view]').forEach((x) => {
+    x.classList.toggle('active', x === b);
+    if (x === b) x.setAttribute('aria-current', 'page');
+    else x.removeAttribute('aria-current');
+  });
   document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === `view-${b.dataset.view}`));
   syncMeasureContext();
   writeRoute({view:b.dataset.view, ...(b.dataset.view === 'network' ? {networkLens:b.id === 'net-plan' ? 'what-if' : 'observe'} : {})});

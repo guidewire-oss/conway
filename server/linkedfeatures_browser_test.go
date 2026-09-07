@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"sync"
@@ -79,7 +78,7 @@ var _ = Describe("linked features browser", Label("database", "browser"), func()
 		Expect(err).NotTo(HaveOccurred())
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 		defer cancel()
-		cmd := exec.CommandContext(ctx, node, script)
+		cmd := browserCommand(ctx, node, script)
 		cmd.Env = append(os.Environ(), "CONWAY_TEST_BASE_URL="+host.URL, "CONWAY_TEST_USERNAME="+user.Username, "CONWAY_TEST_PASSWORD="+password, "CONWAY_TEST_PLAN_ID="+row.ID)
 		output, err := cmd.CombinedOutput()
 		GinkgoWriter.Printf("%s", output)

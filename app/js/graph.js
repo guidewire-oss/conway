@@ -1,3 +1,4 @@
+import { helpButton } from './terms.js';
 import { constraintScores, mergePods, orgFlowScore, suggestMerges } from './sim.js';
 import { listSnapshots, getSnapshot, snapshotDataJson, apiGet, getJiraBaseUrl } from './data.js';
 import { openModal, closeModal } from './modal.js';
@@ -30,9 +31,9 @@ export function initGraph(state) {
 
   const controls = document.getElementById('net-controls');
   controls.innerHTML = `
-    <label>min links <input id="net-min" type="range" min="1" max="6" step="1" value="1">
+    <label>min links <input class="form-range" id="net-min" type="range" min="1" max="6" step="1" value="1">
     <b id="net-min-v">1</b></label>
-    <label><input id="net-iso" type="checkbox" checked> hide pods with no visible links</label>
+    <label><input class="form-check-input" id="net-iso" type="checkbox" checked> hide pods with no visible links</label>
     <span class="hint">flow runs left→right. Click a pod to spotlight its cone; background click resets.</span>`;
   controls.querySelector('#net-min').addEventListener('input', () => {
     controls.querySelector('#net-min-v').textContent = controls.querySelector('#net-min').value;
@@ -56,8 +57,8 @@ export function initGraph(state) {
   function renderHideBar() {
     if (!hidden.size) { hideBar.hidden = true; hideBar.innerHTML = ''; return; }
     hideBar.hidden = false;
-    hideBar.innerHTML = `<b>Hidden:</b> ${[...hidden].map((n) => `<span class="flag">${esc(n)}</span>`).join(' ')}
-      <button id="net-show-all">Reset (show all)</button>`;
+    hideBar.innerHTML = `<b>Hidden:</b> ${[...hidden].map((n) => `<span class="badge bg-body-secondary text-body flag">${esc(n)}</span>`).join(' ')}
+      <button class="btn btn-secondary" id="net-show-all">Reset (show all)</button>`;
     hideBar.querySelector('#net-show-all').addEventListener('click', () => { hidden.clear(); render(); });
   }
 
@@ -67,7 +68,7 @@ export function initGraph(state) {
     if (!others.length) return; // nothing to compare against
     const fmt = (s) => (s.id === 'baseline' ? s.name : (s.name || s.id));
     const label = document.createElement('label');
-    label.innerHTML = `compare to <select id="net-cmp"><option value="">— off —</option>`
+    label.innerHTML = `compare to <select class="form-select" id="net-cmp"><option value="">— off —</option>`
       + others.map((s) => `<option value="${esc(s.id)}">${esc(fmt(s))}</option>`).join('') + '</select>';
     controls.appendChild(label);
     controls.querySelector('#net-cmp').addEventListener('change', (e) => {
@@ -116,10 +117,10 @@ export function initGraph(state) {
       .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 6)
       .map(([n, d]) => `${esc(n)} ${d > 0 ? '+' : ''}${d}`).join(' · ');
     cmpWrap.innerHTML = `<b>vs ${esc(diff.bName)}:</b>
-      <span class="flag" style="color:#3ecf8e">+${diff.totals.addedE} edges</span>
-      <span class="flag red">−${diff.totals.removedE} edges</span>
-      ${diff.added.size ? `<span class="flag" style="color:#3ecf8e">${diff.added.size} pods new</span>` : ''}
-      ${diff.removed.size ? `<span class="flag red">${diff.removed.size} pods gone</span>` : ''}
+      <span class="badge bg-success-subtle text-success-emphasis flag">+${diff.totals.addedE} edges</span>
+      <span class="badge bg-danger-subtle text-danger-emphasis flag red">−${diff.totals.removedE} edges</span>
+      ${diff.added.size ? `<span class="badge bg-success-subtle text-success-emphasis flag">${diff.added.size} pods new</span>` : ''}
+      ${diff.removed.size ? `<span class="badge bg-danger-subtle text-danger-emphasis flag red">${diff.removed.size} pods gone</span>` : ''}
       ${movers ? `<span class="hint">ΔWIP: ${movers}</span>` : ''}`;
   }
 
@@ -137,18 +138,18 @@ export function initGraph(state) {
     sim.innerHTML = `
       <div class="sim-bar ${active ? 'sim-active' : ''}">
         <span class="sim-title">${active ? '⚠ SIMULATION — org changes are hypothetical' : 'Org simulation'}
-          <span class="help" data-tip="Absorb one pod's entire scope into another (headcount-neutral — no hiring). The absorbed pod's dependencies re-point to the absorber; coupling between the two becomes internal and stops costing handoffs — unless their sites barely overlap, in which case half the cost remains (people did not move). Watch the Org Flow Index: baseline = 100, lower is better.">?</span></span>
+          ${helpButton("Absorb one pod's entire scope into another (headcount-neutral \u2014 no hiring). The absorbed pod's dependencies re-point to the absorber; coupling between the two becomes internal and stops costing handoffs \u2014 unless their sites barely overlap, in which case half the cost remains (people did not move). Watch the Org Flow Index: baseline = 100, lower is better.", "organization simulation")}</span>
         <span class="sim-score">Org Flow Index <b class="${idx < 99.5 ? 'good' : ''}">${idx.toFixed(1)}</b>
           <span class="hint">(coord ${cur.coordTax.toFixed(0)}d + queue ${cur.queueTax.toFixed(0)}d · ${cur.edgeCount} edges${active ? ` · baseline 100 = coord ${base.coordTax.toFixed(0)}d + queue ${base.queueTax.toFixed(0)}d` : ''})</span></span>
         <span class="sim-controls">
-          <select id="sim-absorber">${opts()}</select> absorbs
-          <select id="sim-absorbed">${opts(pods[1]?.name)}</select> with
-          <select id="sim-fraction" title="share of the absorbed pod's headcount that moves with the scope">
+          <select class="form-select" id="sim-absorber">${opts()}</select> absorbs
+          <select class="form-select" id="sim-absorbed">${opts(pods[1]?.name)}</select> with
+          <select class="form-select" id="sim-fraction" title="share of the absorbed pod's headcount that moves with the scope">
             ${[100, 75, 50, 25, 0].map((f) => `<option value="${f / 100}" ${f === lastFraction * 100 ? 'selected' : ''}>${f}% of people</option>`).join('')}
           </select>
-          <button id="sim-apply">Apply</button>
-          <button id="sim-suggest">Suggest moves</button>
-          <button id="sim-reset" ${active ? '' : 'disabled'}>Reset</button>
+          <button class="btn btn-secondary" id="sim-apply">Apply</button>
+          <button class="btn btn-secondary" id="sim-suggest">Suggest moves</button>
+          <button class="btn btn-secondary" id="sim-reset" ${active ? '' : 'disabled'}>Reset</button>
         </span>
       </div>
       ${appliedMoves.length ? `<div class="sim-chips">${appliedMoves
@@ -161,7 +162,7 @@ export function initGraph(state) {
             <span><b>${esc(s.absorber)}</b> absorbs <b>${esc(s.absorbed)}</b>
               <span class="hint">(coupling ×${s.coupling}, merged team ${s.mergedDevs} devs)</span>
               → index −${s.delta.toFixed(1)} pts</span>
-            <button data-i="${i}">apply</button>
+            <button class="btn btn-secondary" data-i="${i}">apply</button>
           </div>`).join('')}</div>`;
 
     sim.querySelector('#sim-apply').addEventListener('click', () => {
@@ -195,7 +196,7 @@ export function initGraph(state) {
       appliedMoves.push({ absorber, absorbed, fraction });
       renderSimPanel(); render();
     } catch (e) {
-      sim.querySelector('.sim-bar').insertAdjacentHTML('beforeend', `<span class="flag red">${e.message}</span>`);
+      sim.querySelector('.sim-bar').insertAdjacentHTML('beforeend', `<span class="badge bg-danger-subtle text-danger-emphasis flag red">${e.message}</span>`);
     }
   }
 
@@ -362,8 +363,8 @@ export function initGraph(state) {
 function compareWipNote(cmp, name) {
   const delta = cmp.podDelta.get(name);
   if (!delta) return ` <span class="hint">(no change vs ${esc(cmp.bName)})</span>`;
-  const col = delta > 0 ? 'var(--red)' : 'var(--green)';
-  return ` <span class="flag" style="color:${col}">${delta > 0 ? '+' : ''}${delta} vs ${esc(cmp.bName)}</span>`;
+  const tone = delta > 0 ? 'danger' : 'success';
+  return ` <span class="badge bg-${tone}-subtle text-${tone}-emphasis flag">${delta > 0 ? '+' : ''}${delta} vs ${esc(cmp.bName)}</span>`;
 }
 
 function showPanel(d, m, simulated, cmp, onHide) {
@@ -378,11 +379,11 @@ function showPanel(d, m, simulated, cmp, onHide) {
   const zeroOverlap = [...inbound.map((e) => e.from), ...outbound.map((e) => e.to)]
     .filter((other) => (m.overlap[d.name]?.[other] ?? 0) <= 0);
   const flags = [];
-  if (simulated) flags.push('<span class="flag" style="background:rgba(181,140,255,.15);color:#b58cff">SIMULATION</span>');
-  if (s.rho0 >= 0.85) flags.push('<span class="flag red">queue hot (ρ≥0.85)</span>');
-  if (zeroOverlap.length) flags.push(`<span class="flag red">${zeroOverlap.length} zero-overlap dependencies</span>`);
-  if (s.synthetic) flags.push('<span class="flag amber">no mined data</span>');
-  if (s.sigma > 1.2 && !s.synthetic) flags.push('<span class="flag amber">high variability (σ&gt;1.2)</span>');
+  if (simulated) flags.push('<span class="badge bg-info-subtle text-info-emphasis flag">SIMULATION</span>');
+  if (s.rho0 >= 0.85) flags.push('<span class="badge bg-danger-subtle text-danger-emphasis flag red">queue hot (ρ≥0.85)</span>');
+  if (zeroOverlap.length) flags.push(`<span class="badge bg-danger-subtle text-danger-emphasis flag red">${zeroOverlap.length} zero-overlap dependencies</span>`);
+  if (s.synthetic) flags.push('<span class="badge bg-warning-subtle text-warning-emphasis flag amber">no mined data</span>');
+  if (s.sigma > 1.2 && !s.synthetic) flags.push('<span class="badge bg-warning-subtle text-warning-emphasis flag amber">high variability (σ&gt;1.2)</span>');
 
   const fmtEdge = (idx, other, count, dir) => {
     const ov = m.overlap[d.name]?.[other] ?? '?';
@@ -395,7 +396,7 @@ function showPanel(d, m, simulated, cmp, onHide) {
     ? `<dd><ol class="insp-list">${rows.join('')}</ol></dd>` : `<dd>${empty}</dd>`;
   document.getElementById('netpanel').innerHTML = `
     <h2>${esc(d.name)}</h2>
-    <div>${flags.join(' ') || '<span class="flag" style="color:var(--green)">healthy</span>'}</div>
+    <div>${flags.join(' ') || '<span class="badge bg-success-subtle text-success-emphasis flag">healthy</span>'}</div>
     <dl>
       <dt>Work area</dt><dd>${esc(d.area || '—')}</dd>
       <dt>Site</dt><dd>${esc(d.location)} · ${d.devCount} devs</dd>
@@ -407,7 +408,7 @@ function showPanel(d, m, simulated, cmp, onHide) {
       <dt>Blocked by (top)</dt>${edgeList(inbound.map((e, i) => fmtEdge(i, e.from, e.count, '⬅')), '—')}
       <dt>Blocks (top)</dt>${edgeList(outbound.map((e, i) => fmtEdge(i, e.to, e.count, '➡')), '—')}
     </dl>
-    ${onHide ? '<button id="np-hide">🙈 Hide this pod</button> <span class="hint">temporarily, this session</span>' : ''}`;
+    ${onHide ? '<button class="btn btn-secondary" id="np-hide">🙈 Hide this pod</button> <span class="hint">temporarily, this session</span>' : ''}`;
   if (onHide) document.getElementById('np-hide').addEventListener('click', () => {
     onHide(d.name);
     document.getElementById('netpanel').innerHTML = `<p class="hint">${esc(d.name)} hidden — use “Reset (show all)” above the graph to restore it.</p>`;
@@ -433,7 +434,7 @@ function edgeModal() {
 async function showEdgeIssuesModal(e) {
   const ov = edgeModal();
   ov.innerHTML = `<div class="modal-box">
-      <div class="modal-head"><h2>${esc(e.from)} → ${esc(e.to)}</h2><button id="edge-issues-close">✕</button></div>
+      <div class="modal-head"><h2>${esc(e.from)} → ${esc(e.to)}</h2><button class="btn btn-secondary" id="edge-issues-close">✕</button></div>
       <p class="hint">Jira issues in <b>${esc(e.from)}</b> blocking work in <b>${esc(e.to)}</b> (×${e.count} counted into this edge).</p>
       <div id="edge-issues-body"><p class="hint">Loading…</p></div>
     </div>`;

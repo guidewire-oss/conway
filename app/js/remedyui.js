@@ -79,7 +79,7 @@ export function remedyRowHTML(r, index = 0) {
     → ${verdict}${stillLate}
     <span class="hint">${delta}${coverageKnown ? ' · coverage takes priority' : ''}</span>
     ${victimsLine}
-    <button type="button" class="rem-preview" data-remedy="${index}" data-kind="${esc(r.kind)}" data-target="${esc(r.target || '')}">${icon('search')} Preview this change</button>
+    <button type="button" class="btn btn-secondary rem-preview" data-remedy="${index}" data-kind="${esc(r.kind)}" data-target="${esc(r.target || '')}">${icon('search')} Preview this change</button>
   </div>`;
 }
 
@@ -103,7 +103,7 @@ export function remediesPanelHTML(remedies, warnings) {
 // planui.js never has to parse it back out of rendered markup.
 export function optionsExpanderHTML(si) {
   if (!['late', 'structurally-infeasible', 'beyond-horizon'].includes(si.verdict)) return '';
-  return ` <button type="button" class="ord-options" data-init="${esc(si.name)}" aria-expanded="false" aria-label="Review options for ${esc(si.name)}">Review options</button>`;
+  return ` <button type="button" class="btn btn-secondary ord-options" data-init="${esc(si.name)}" aria-expanded="false" aria-label="Review options for ${esc(si.name)}">Review options</button>`;
 }
 
 // remediesErrorMessage turns a failed remedies fetch into something a planner

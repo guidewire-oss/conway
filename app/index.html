@@ -19,6 +19,7 @@
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/planning-ux.css">
 <link rel="stylesheet" href="css/execution.css">
+<link rel="stylesheet" href="css/readyqueue.css">
 <link rel="stylesheet" href="css/announcements.css">
 <script src="vendor/d3.min.js"></script>
 </head>
@@ -28,12 +29,12 @@
     <h1>Conway <span class="hint" style="font-weight:400">Plan · Measure · Learn</span></h1>
   </div>
   <nav aria-label="Main navigation">
-    <button class="tab active" id="home-tab" data-view="home">Home</button>
+    <button class="btn btn-secondary tab active" aria-current="page" id="home-tab" data-view="home">Home</button>
     <!-- IA #3: navigate by intent — Measure (what's happening now, read-only,
          mined from Jira), Plan (what we intend), Learn (the game). One
          network view, read-only under Measure and what-if under Plan. -->
     <div class="nav-group dropdown" id="explore-group">
-      <button type="button" class="tab dropdown-toggle" id="explore-btn" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="What is happening now — the org network, WIP and forecasts, mined from Jira (read-only)">Measure</button>
+      <button type="button" class="btn btn-secondary tab dropdown-toggle" id="explore-btn" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="What is happening now — the org network, WIP and forecasts, mined from Jira (read-only)">Measure</button>
       <div class="nav-menu dropdown-menu" id="explore-menu">
         <button class="tab dropdown-item" id="net-observe" data-view="network">Org Network</button>
         <button class="tab dropdown-item" data-view="scoreboard">WIP Scoreboard</button>
@@ -45,7 +46,7 @@
       </div>
     </div>
     <div class="nav-group dropdown" id="plan-group" hidden>
-      <button type="button" class="tab dropdown-toggle" id="plan-btn" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="What we intend to run — rosters, initiatives, the execution order (managers)">Plan</button>
+      <button type="button" class="btn btn-secondary tab dropdown-toggle" id="plan-btn" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="What we intend to run — rosters, initiatives, the execution order (managers)">Plan</button>
       <div class="nav-menu dropdown-menu" id="plan-menu">
         <button class="tab dropdown-item" data-view="plan">My plans</button>
         <button class="tab dropdown-item" data-view="flow">Levers</button>
@@ -53,14 +54,14 @@
       </div>
     </div>
     <div class="nav-group dropdown" id="train-group">
-      <button type="button" class="tab dropdown-toggle" id="train-btn" data-bs-toggle="dropdown" title="Learn the levers — the multi-team flow game (facilitators)" aria-haspopup="true" aria-expanded="false">Learn</button>
+      <button type="button" class="btn btn-secondary tab dropdown-toggle" id="train-btn" data-bs-toggle="dropdown" title="Learn the levers — the multi-team flow game (facilitators)" aria-haspopup="true" aria-expanded="false">Learn</button>
       <div class="nav-menu dropdown-menu" id="train-menu">
         <button class="tab dropdown-item" data-view="game">Play the game</button>
         <!-- "Run games" injected here for facilitators by auth.js -->
       </div>
     </div>
     <div class="nav-group dropdown" id="help-group">
-      <button type="button" class="tab dropdown-toggle" id="help-btn" data-bs-toggle="dropdown" aria-expanded="false">Help</button>
+      <button type="button" class="btn btn-secondary tab dropdown-toggle" id="help-btn" data-bs-toggle="dropdown" aria-expanded="false">Help</button>
       <div class="nav-menu dropdown-menu dropdown-menu-end" id="help-menu">
         <button type="button" class="dropdown-item" id="whats-new-btn">What's new</button>
         <button type="button" class="dropdown-item" data-docs="context">Help with this view</button>
@@ -71,12 +72,12 @@
         <button id="guide-btn" class="tab dropdown-item">Guidance for my role</button>
       </div>
     </div>
-    <button id="theme-btn" class="tab" aria-label="Switch color theme" title="Switch dark / light (for projectors and screenshots)">Theme</button>
+    <button id="theme-btn" class="btn btn-secondary tab" aria-label="Switch color theme" title="Switch dark / light (for projectors and screenshots)">Theme</button>
   </nav>
 </header>
 
 <main>
-  <section id="measure-context" class="panel-card measure-context" aria-label="Measure data source" hidden></section>
+  <section id="measure-context" class="card p-3 panel-card measure-context" aria-label="Measure data source" hidden></section>
   <section id="view-home" class="view active">
     <div id="home-body"></div>
   </section>
@@ -85,24 +86,24 @@
   </section>
   <section id="view-flow" class="view">
     <div class="flow-grid">
-      <div class="panel-card">
-        <h2>1 · The constraint <span class="hint">(identify → exploit → subordinate → elevate)</span> <button type="button" class="docs-link" data-docs="flow-actions" title="how this page works">Help</button>
-        <span class="help" data-tip="Score = Kingman queue factor ρ/(1−ρ) × downstream reach. The Goal: improve the bottleneck and the whole system improves; improve anywhere else and you've improved nothing. Act top-to-bottom: cap WIP (free) before adding people (expensive).">?</span></h2>
+      <div class="card p-3 panel-card">
+        <h2>1 · The constraint <span class="hint">(identify → exploit → subordinate → elevate)</span> <button type="button" class="btn btn-link p-0 docs-link" data-docs="flow-actions" title="how this page works">Help</button>
+        <button type="button" class="btn btn-secondary btn-sm p-0 rounded-circle d-inline-flex align-items-center justify-content-center ms-1 help lh-1" aria-label="Explain constraint scores" data-tip="Score = Kingman queue factor ρ/(1−ρ) × downstream reach. The Goal: improve the bottleneck and the whole system improves; improve anywhere else and you've improved nothing. Act top-to-bottom: cap WIP (free) before adding people (expensive)." title="Score = Kingman queue factor ρ/(1−ρ) × downstream reach. The Goal: improve the bottleneck and the whole system improves; improve anywhere else and you've improved nothing. Act top-to-bottom: cap WIP (free) before adding people (expensive).">?</button></h2>
         <div id="constraint-cards"></div>
       </div>
-      <div class="panel-card">
+      <div class="card p-3 panel-card">
         <h2>2 · Bad multitasking — freeze candidates <span class="hint">(Little's law projection)</span>
-        <span class="help" data-tip="Flow time = WIP ÷ throughput. Red = excess WIP above the per-dev cap. Click a bar to see the actual Jira issues with freeze verdicts. Rules of Flow: freeze means out of sight — parked work that stays on the board stays warm and keeps stealing attention.">?</span></h2>
+        <button type="button" class="btn btn-secondary btn-sm p-0 rounded-circle d-inline-flex align-items-center justify-content-center ms-1 help lh-1" aria-label="Explain work in progress and flow time" data-tip="Flow time = WIP ÷ throughput. Red = excess WIP above the per-dev cap. Click a bar to see the actual Jira issues with freeze verdicts. Rules of Flow: freeze means out of sight — parked work that stays on the board stays warm and keeps stealing attention." title="Flow time = WIP ÷ throughput. Red = excess WIP above the per-dev cap. Click a bar to see the actual Jira issues with freeze verdicts. Rules of Flow: freeze means out of sight — parked work that stays on the board stays warm and keeps stealing attention.">?</button></h2>
         <label class="hint">healthy WIP cap: <b id="cap-v">1.5</b>× per work-stream <span class="hint">(a pair counts as one stream; pairing comes from the roster)</span>
-          <input id="cap-slider" type="range" min="1" max="3" step="0.25" value="1.5"></label>
+          <input class="form-range" id="cap-slider" type="range" min="1" max="3" step="0.25" value="1.5"></label>
         <div id="freeze-bars"></div>
         <p id="freeze-summary" class="hint"></p>
       </div>
-      <div class="panel-card fever-card">
+      <div class="card p-3 panel-card fever-card">
         <h2>3 · Buffer fever chart <span class="hint">(in-flight epics: progress vs buffer burned)</span>
-        <span class="help" data-tip="Critical-chain buffer management: buffer = P85 − P50 of the Monte Carlo forecast. A dot climbing faster than it moves right is consuming safety faster than it makes progress. Yellow = plan a response; red = act now. Manage by buffer burn, not by % complete.">?</span></h2>
+        <button type="button" class="btn btn-secondary btn-sm p-0 rounded-circle d-inline-flex align-items-center justify-content-center ms-1 help lh-1" aria-label="Explain critical-chain buffers" data-tip="Critical-chain buffer management: buffer = P85 − P50 of the Monte Carlo forecast. A dot climbing faster than it moves right is consuming safety faster than it makes progress. Yellow = plan a response; red = act now. Manage by buffer burn, not by % complete." title="Critical-chain buffer management: buffer = P85 − P50 of the Monte Carlo forecast. A dot climbing faster than it moves right is consuming safety faster than it makes progress. Yellow = plan a response; red = act now. Manage by buffer burn, not by % complete.">?</button></h2>
         <label class="hint">newest in-flight epics:
-          <select id="fever-count"><option>10</option><option selected>25</option><option>50</option><option>100</option></select>
+          <select class="form-select form-select-sm w-auto d-inline-block" id="fever-count"><option>10</option><option selected>25</option><option>50</option><option>100</option></select>
           <span id="fever-loading" class="hint" hidden>⏳ fetching…</span></label>
         <svg id="fever"></svg>
         <div id="fever-list"></div>
@@ -124,32 +125,32 @@
 
   <section id="view-simulator" class="view">
     <div class="sim-grid">
-      <div class="panel-card" id="feature-editor">
+      <div class="card p-3 panel-card" id="feature-editor">
         <div id="simulator-source" class="simulator-source" aria-label="Simulator task source"></div>
-        <h2>Feature definition <button type="button" class="docs-link" data-docs="simulator" title="how this page works">Help</button></h2>
+        <h2>Feature definition <button type="button" class="btn btn-link p-0 docs-link" data-docs="simulator" title="how this page works">Help</button></h2>
         <div class="epic-import">
-          <input id="epic-key" aria-label="Epic key" placeholder="PROJ-123" size="12">
-          <button id="import-epic">Import epic</button>
+          <input class="form-control w-auto mw-100" id="epic-key" aria-label="Epic key" placeholder="PROJ-123" size="12">
+          <button class="btn btn-secondary" id="import-epic">Import epic</button>
           <span id="epic-status" class="hint"></span>
         </div>
         <div id="fullkit"></div>
-        <table id="task-table" class="sortable">
+        <table id="task-table" class="table table-sm sortable">
           <thead><tr><th>Task</th><th>Pod</th><th>Size</th><th>Depends on</th><th data-nosort></th></tr></thead>
           <tbody></tbody>
         </table>
         <div class="row-actions">
-          <button id="add-task">Add task</button>
-          <button id="load-example">Load example feature</button>
-          <button id="run-sim" class="primary">Forecast completion</button>
+          <button class="btn btn-secondary" id="add-task">Add task</button>
+          <button class="btn btn-secondary" id="load-example">Load example feature</button>
+          <button id="run-sim" class="btn btn-primary">Forecast completion</button>
         </div>
         <div id="suggestions"></div>
         <div id="whatif" class="whatif"></div>
         <p class="hint">Sizes: S=½×, M=1×, L=2×, XL=4× of the pod's typical issue lead time (mined from Jira). Cross-pod handoffs add delay based on the two sites' working-hour overlap.</p>
       </div>
-      <div class="panel-card" id="sim-results">
+      <div class="card p-3 panel-card" id="sim-results">
         <h2>Forecast
-        <span class="help" data-tip="10,000 Monte Carlo trials over the task graph using each pod's mined cycle-time distribution, queue state, and cross-site handoff penalties. Percentiles describe simulated outcomes under the current assumptions; compare forecasts with observed delivery before using them for commitments. The tornado chart shows where help actually shortens the calendar.">?</span></h2>
-        <div id="stat-cards" class="stat-cards"></div>
+        <button type="button" class="btn btn-secondary btn-sm p-0 rounded-circle d-inline-flex align-items-center justify-content-center ms-1 help lh-1" aria-label="Explain completion forecasts" data-tip="10,000 Monte Carlo trials over the task graph using each pod's mined cycle-time distribution, queue state, and cross-site handoff penalties. Percentiles describe simulated outcomes under the current assumptions; compare forecasts with observed delivery before using them for commitments. The tornado chart shows where help actually shortens the calendar." title="10,000 Monte Carlo trials over the task graph using each pod's mined cycle-time distribution, queue state, and cross-site handoff penalties. Percentiles describe simulated outcomes under the current assumptions; compare forecasts with observed delivery before using them for commitments. The tornado chart shows where help actually shortens the calendar.">?</button></h2>
+        <div id="stat-cards" class="stat-cards row g-3"></div>
         <div class="chart-pair">
           <div><h3>Completion probability (CDF)</h3><svg id="cdf"></svg></div>
           <div><h3>Where the time goes — accelerate which pod? (days saved if pod is 25% faster)</h3><svg id="tornado"></svg></div>
@@ -162,46 +163,46 @@
   </section>
 
   <section id="view-scoreboard" class="view">
-    <div class="panel-card">
-      <h2>Pod flow scoreboard <span class="hint">(mined from Jira, last 180 days)</span> <button type="button" class="docs-link" data-docs="scoreboard" title="how this page works">Help</button>
-      <span class="help" data-tip="Sort by Dependents = who is everyone waiting on. Sort by Load ρ = who is drowning. Both at once ('hub under load') is the most dangerous cell on this screen. Kingman × shows the wait multiplier at current load (∞ when a pod is over 100% — its queue can't self-clear).">?</span></h2>
+    <div class="card p-3 panel-card">
+      <h2>Pod flow scoreboard <span class="hint">(mined from Jira, last 180 days)</span> <button type="button" class="btn btn-link p-0 docs-link" data-docs="scoreboard" title="how this page works">Help</button>
+      <button type="button" class="btn btn-secondary btn-sm p-0 rounded-circle d-inline-flex align-items-center justify-content-center ms-1 help lh-1" aria-label="Explain the team flow scoreboard" data-tip="Sort by Dependents = who is everyone waiting on. Sort by Load ρ = who is drowning. Both at once ('hub under load') is the most dangerous cell on this screen. Kingman × shows the wait multiplier at current load (∞ when a pod is over 100% — its queue can't self-clear)." title="Sort by Dependents = who is everyone waiting on. Sort by Load ρ = who is drowning. Both at once ('hub under load') is the most dangerous cell on this screen. Kingman × shows the wait multiplier at current load (∞ when a pod is over 100% — its queue can't self-clear).">?</button></h2>
       <div id="wip-summary" class="wip-summary"></div>
-      <table id="score-table"></table>
+      <table class="table table-sm" id="score-table"></table>
     </div>
   </section>
 
   <section id="view-hygiene" class="view">
-    <div class="panel-card">
-      <h2>Jira data hygiene <span class="hint">(what's starving the model — fix these to sharpen every forecast)</span> <button type="button" class="docs-link" data-docs="hygiene" title="how this page works">Help</button>
-      <span class="help" data-tip="Each gap degrades a specific output: unsized tasks → epic forecasts fall back to the pod's median item; stale In-Progress items → WIP and queue heat are overstated, polluting the freeze list; unassigned in-progress → zombie work; low link density → the dependency graph and suggestions under-represent real coupling. Click a pod row to drill into categories, then a category to see the individual Jiras.">?</span></h2>
-      <div id="hygiene-cards" class="stat-cards"></div>
-      <table id="hygiene-table" class="sortable" style="margin-top:14px"></table>
+    <div class="card p-3 panel-card">
+      <h2>Jira data hygiene <span class="hint">(what's starving the model — fix these to sharpen every forecast)</span> <button type="button" class="btn btn-link p-0 docs-link" data-docs="hygiene" title="how this page works">Help</button>
+      <button type="button" class="btn btn-secondary btn-sm p-0 rounded-circle d-inline-flex align-items-center justify-content-center ms-1 help lh-1" aria-label="Explain data quality" data-tip="Each gap degrades a specific output: unsized tasks → epic forecasts fall back to the pod's median item; stale In-Progress items → WIP and queue heat are overstated, polluting the freeze list; unassigned in-progress → zombie work; low link density → the dependency graph and suggestions under-represent real coupling. Click a pod row to drill into categories, then a category to see the individual Jiras." title="Each gap degrades a specific output: unsized tasks → epic forecasts fall back to the pod's median item; stale In-Progress items → WIP and queue heat are overstated, polluting the freeze list; unassigned in-progress → zombie work; low link density → the dependency graph and suggestions under-represent real coupling. Click a pod row to drill into categories, then a category to see the individual Jiras.">?</button></h2>
+      <div id="hygiene-cards" class="stat-cards row row-cols-1 row-cols-sm-2 row-cols-xl-4 g-3"></div>
+      <table id="hygiene-table" class="table table-sm sortable" style="margin-top:14px"></table>
     </div>
   </section>
 
   <section id="view-game" class="view">
     <div id="game-notice" hidden></div>
-    <div id="game-setup" class="panel-card">
+    <div id="game-setup" class="card p-3 panel-card">
       <div id="game-setup-msg"></div>
       <div class="row-actions">
-        <button id="game-new" class="primary" hidden>Begin the game ▶</button>
+        <button id="game-new" class="btn btn-primary" hidden>Begin the game ▶</button>
       </div>
     </div>
     <div id="game-board" hidden>
       <div class="game-top">
         <div id="game-status"></div>
-        <div id="game-score" class="panel-card"></div>
+        <div id="game-score" class="card p-3 panel-card"></div>
       </div>
       <div id="game-report"></div>
-      <div class="panel-card">
+      <div class="card p-3 panel-card">
         <div class="pods-toggle">
           <span class="pods-toggle-lbl">Pods</span>
-          <div class="btn-group" role="group">
-            <button id="pods-view-net" class="btn active">Network</button><button id="pods-view-table" class="btn">Table</button>
+          <div class="btn-group" role="group" aria-label="Game team view">
+            <button aria-pressed="true" id="pods-view-net" class="btn-secondary btn active">Network</button><button aria-pressed="false" id="pods-view-table" class="btn-secondary btn">Table</button>
           </div>
           <span class="hint">how your levers reshape the dependency network — starts the same for every team</span>
         </div>
-        <table id="game-pods" class="wip-table sortable" hidden></table>
+        <table id="game-pods" class="table table-sm wip-table sortable" hidden></table>
         <div id="game-net" class="gamenet-embed">
           <div class="gamenet-grid">
             <div id="gamenet-svg"></div>
@@ -210,7 +211,7 @@
           <div class="legend" id="gamenet-legend"></div>
         </div>
       </div>
-      <div id="game-levers" class="panel-card"></div>
+      <div id="game-levers" class="card p-3 panel-card"></div>
       <div id="game-history"></div>
     </div>
   </section>
@@ -220,9 +221,9 @@
   <div id="guide-modal">
     <div class="guide-head">
       <h2 id="guide-title">How to use this — pick your seat</h2>
-      <button id="guide-close" aria-label="Close guidance">Close</button>
+      <button class="btn btn-secondary" id="guide-close" aria-label="Close guidance">Close</button>
     </div>
-    <div id="guide-personas" class="guide-personas"></div>
+    <div id="guide-personas" class="guide-personas" role="radiogroup" aria-label="Guidance role"></div>
     <div id="guide-body"></div>
   </div>
 </div>

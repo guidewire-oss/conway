@@ -128,7 +128,7 @@ test('remedy rows link back to the Order view and warnings render (AC 1.5)', () 
     { kind: 'add-capacity', target: 'Beta migration', resultingVerdict: 'on-time', objectiveDelta: 0 },
   ], warnings: ['transfer-capacity is deferred until site-overlap factors are decided'] };
   const html = remediesSectionHTML(data);
-  assert.match(html, /class="report-remedy-link" data-target="Beta migration"/);
+  assert.match(html, /class="(?:[^"<>]* )?report-remedy-link(?: [^"<>]*)?" data-target="Beta migration"/);
   assert.match(html, /±0/, 'a zero-delta remedy prints ±0, not a fake improvement');
   assert.match(html, /transfer-capacity is deferred/, 'the server warning explains the missing kind');
 });

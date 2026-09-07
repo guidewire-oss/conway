@@ -38,9 +38,20 @@ var _ = Describe("feature announcement API", func() {
 		player := auth.Claims{Sub: "account-a", Roles: []string{"player"}}
 		manager := auth.Claims{Sub: "account-b", Roles: []string{"manager"}}
 		Expect(srv.announcementCatalog(player)).To(HaveLen(1))
-		Expect(srv.announcementCatalog(manager)).To(HaveLen(2))
+		Expect(srv.announcementCatalog(manager)).To(HaveLen(4))
 		srv.sheetsProvider = announcementTestProvider{}
-		Expect(srv.announcementCatalog(manager)).To(HaveLen(3))
+		Expect(srv.announcementCatalog(manager)).To(HaveLen(5))
+		ids := []string{}
+		for _, feature := range srv.announcementCatalog(manager) {
+			ids = append(ids, feature.ID)
+			if feature.ID == "team-ready-work-v1" {
+				Expect(feature.Action.Target).To(Equal("view-ready"))
+			}
+			if feature.ID == "weekly-execution-review-v1" {
+				Expect(feature.Action.Target).To(Equal("view-execution"))
+			}
+		}
+		Expect(ids).To(ContainElements("execution-review-v1", "weekly-execution-review-v1", "team-ready-work-v1"))
 		Expect(srv.announcementCatalog(player)).To(HaveLen(1))
 		ack := httptest.NewRecorder()
 		srv.handleAnnouncementAck(ack, httptest.NewRequest("POST", "/api/announcements/ack", strings.NewReader(`{"id":"execution-review-v1","kind":"visited"}`)), player)

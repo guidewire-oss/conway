@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TERMS, term } from '../app/js/terms.js';
+import { TERMS, term, helpButton } from '../app/js/terms.js';
 
 test('every glossary entry has a label and a plain-language first sentence', () => {
   for (const [id, t] of Object.entries(TERMS)) {
@@ -14,15 +14,15 @@ test('every glossary entry has a label and a plain-language first sentence', () 
 
 test('the affordance is a real button with a complete accessible name (WCAG 1.3.1 / F111)', () => {
   const html = term('rho');
-  assert.match(html, /<button[^>]*class="help term-tip"/);
+  assert.match(html, /<button[^>]*class="(?:[^"<>]* )?help term-tip(?: [^"<>]*)?"/);
   assert.match(html, /aria-label="What does Load ρ mean\?"/);
   assert.match(html, /data-bs-title="/);
 });
 
 test('the term label renders beside the affordance when given', () => {
   const html = term('wip', 'WIP');
-  assert.match(html, /WIP <button/);
-  assert.ok(!term('wip').includes('WIP <'), 'no label by default — the term is already on screen');
+  assert.match(html, /WIP<button/);
+  assert.ok(!term('wip').includes('WIP<'), 'no label by default — the term is already on screen');
 });
 
 test('unknown ids render nothing, never a broken affordance', () => {
@@ -41,4 +41,24 @@ test('tooltip text stays a well-formed attribute value', () => {
 test('inherited keys (toString, constructor) render nothing', () => {
   assert.equal(term('toString'), '');
   assert.equal(term('constructor'), '');
+});
+
+test('contextual help escapes topic names and explanations in their attributes', () => {
+  const html = helpButton('An "estimate" <script>alert(1)</script>', 'Team "A" <img src=x>');
+  assert.match(html, /aria-label="Explain Team &quot;A&quot; &lt;img src=x&gt;"/);
+  assert.match(html, /data-bs-title="An &quot;estimate&quot; &lt;script&gt;alert\(1\)&lt;\/script&gt;"/);
+  assert.doesNotMatch(html, /<script|<img/);
+  assert.equal(helpButton('', 'missing explanation'), '');
+  assert.ok(html.startsWith('<button'), 'Framework margin owns the contextual help gap');
+});
+
+test('glossary explanations preserve special characters without creating markup', () => {
+  TERMS['acceptance-fixture']={label:'Atlas & "Beacon"',tip:'Use <accepted> evidence & "confirm" scope'};
+  try {
+    const html=term('acceptance-fixture','A & B');
+    assert.match(html,/A &amp; B<button/);
+    assert.match(html,/aria-label="What does Atlas &amp; &quot;Beacon&quot; mean\?"/);
+    for(const attribute of ['title','data-bs-title'])assert.ok(html.includes(attribute+'="Use &lt;accepted&gt; evidence &amp; &quot;confirm&quot; scope"'));
+    assert.doesNotMatch(html,/<accepted>/);
+  } finally { delete TERMS['acceptance-fixture']; }
 });

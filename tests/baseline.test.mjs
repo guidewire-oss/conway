@@ -60,17 +60,16 @@ test('the list shows every baseline, marking the active one', () => {
   const html = baselineListHTML(saved);
   assert.match(html, /v1/);
   assert.match(html, /v2/);
-  assert.equal((html.match(/class="tag">active/g) || []).length, 1);
+  assert.equal((html.match(/class="(?:[^"<>]* )?tag(?: [^"<>]*)?">active/g) || []).length, 1);
   assert.match(html, /ann@example.com/);
   assert.match(html, /bo@example.com/, 'FR-033: who saved it');
 });
 
 test('the list offers make-active only for the ones that are not', () => {
   const html = baselineListHTML(saved);
-  const activateButtons = html.match(/class="bl-activate"/g) || [];
-  assert.equal(activateButtons.length, 1, 'exactly the inactive one');
-  assert.match(html, /data-id="b1"/);
-  assert.ok(!/bl-activate" data-id="b2"/.test(html));
+  const activateButtons = html.match(/<button\b[^>]*class="(?:[^"<>]* )?bl-activate(?: [^"<>]*)?"[^>]*>/g) || [];
+  assert.deepEqual(activateButtons.map(button => button.match(/\bdata-id="([^"]+)"/)?.[1]),
+    ['b1'], 'only the inactive baseline offers activation, regardless of class order');
 });
 
 test('the list explains itself when a plan has no baselines', () => {
@@ -149,7 +148,7 @@ test('the drawer composes without leaking undefined', () => {
   assert.match(html, /Save current order/);
   assert.match(html, /id="bl-drawer-name"/, 'the save row carries the name field');
   assert.match(html, /maxlength="25"/, 'names are labels: 25 characters max (spec 015 review)');
-  assert.match(html, /class="bl-delete"/, 'history rows offer delete (spec 015 FR-004)');
+  assert.match(html, /class="(?:[^"<>]* )?bl-delete(?: [^"<>]*)?"/, 'history rows offer delete (spec 015 FR-004)');
 });
 
 // FR-029's constraint made visible: a baseline freezes stored inputs, so the

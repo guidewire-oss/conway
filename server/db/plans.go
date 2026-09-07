@@ -293,6 +293,10 @@ func (d *DB) SetBaselineActive(planID, id string) (bool, error) {
 		return false, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }() // ErrTxClosed after Commit; not a failure
+	var locked string
+	if err := tx.QueryRow(ctx, `SELECT id FROM plans WHERE id=$1 FOR UPDATE`, planID).Scan(&locked); err != nil {
+		return false, err
+	}
 	if _, err := tx.Exec(ctx,
 		`UPDATE plan_baselines SET active=false WHERE plan_id=$1 AND active`, planID); err != nil {
 		return false, err
@@ -313,21 +317,41 @@ func (d *DB) SetBaselineActive(planID, id string) (bool, error) {
 // 015 Q1 default). Baselines are otherwise immutable; deletion is the one way
 // a mistaken save leaves the history.
 func (d *DB) DeleteBaseline(planID, id string) (bool, error) {
-	tag, err := d.pool.Exec(context.Background(),
+	ctx := context.Background()
+	tx, err := d.pool.Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var locked string
+	if err := tx.QueryRow(ctx, `SELECT id FROM plans WHERE id=$1 FOR UPDATE`, planID).Scan(&locked); err != nil {
+		return false, err
+	}
+	tag, err := tx.Exec(ctx,
 		`DELETE FROM plan_baselines WHERE plan_id=$1 AND id=$2`, planID, id)
 	if err != nil {
 		return false, err
 	}
-	return tag.RowsAffected() > 0, nil
+	return tag.RowsAffected() > 0, tx.Commit(ctx)
 }
 
 // RenameBaseline changes only the name. Everything else about a saved baseline is
 // immutable (FR-030), which is why there is no general update.
 func (d *DB) RenameBaseline(planID, id, name string) (bool, error) {
-	tag, err := d.pool.Exec(context.Background(),
+	ctx := context.Background()
+	tx, err := d.pool.Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var locked string
+	if err := tx.QueryRow(ctx, `SELECT id FROM plans WHERE id=$1 FOR UPDATE`, planID).Scan(&locked); err != nil {
+		return false, err
+	}
+	tag, err := tx.Exec(ctx,
 		`UPDATE plan_baselines SET name=$3 WHERE plan_id=$1 AND id=$2`, planID, id, name)
 	if err != nil {
 		return false, err
 	}
-	return tag.RowsAffected() > 0, nil
+	return tag.RowsAffected() > 0, tx.Commit(ctx)
 }

@@ -17,12 +17,12 @@ export function openUsage() {
     ov.innerHTML = `
       <div id="usage-modal">
         <div class="guide-head"><h2>Usage analytics</h2>
-          <span id="usage-range" class="usage-range">
-            <button class="usage-btn" data-days="7">7d</button>
-            <button class="usage-btn active" data-days="30">30d</button>
-            <button class="usage-btn" data-days="90">90d</button>
+          <span id="usage-range" class="usage-range btn-group" role="group" aria-label="Usage period">
+            <button class="btn btn-secondary usage-btn" aria-pressed="false" data-days="7">7d</button>
+            <button class="btn btn-secondary usage-btn active" aria-pressed="true" data-days="30">30d</button>
+            <button class="btn btn-secondary usage-btn" aria-pressed="false" data-days="90">90d</button>
           </span>
-          <button id="usage-close">✕</button>
+          <button class="btn btn-secondary" id="usage-close" aria-label="Close usage analytics">✕</button>
         </div>
         <div id="usage-kpis" class="usage-kpis"></div>
         <div id="usage-chart" class="usage-chart"></div>
@@ -35,7 +35,10 @@ export function openUsage() {
     ov.querySelectorAll('.usage-btn').forEach((b) =>
       b.addEventListener('click', () => {
         range = parseInt(b.dataset.days, 10);
-        ov.querySelectorAll('.usage-btn').forEach((x) => x.classList.toggle('active', x === b));
+        ov.querySelectorAll('.usage-btn').forEach((x) => {
+          x.classList.toggle('active', x === b);
+          x.setAttribute('aria-pressed', String(x === b));
+        });
         loadUsage();
       }));
   }
@@ -94,7 +97,7 @@ export function render(d) {
 
   const users = d.users || [];
   document.getElementById('usage-users').innerHTML =
-    `<table class="wip-table"><thead><tr><th>User</th><th>Events</th><th>Distinct features</th><th>Plans touched</th><th>Last seen</th></tr></thead>
+    `<table class="table table-sm wip-table"><thead><tr><th>User</th><th>Events</th><th>Distinct features</th><th>Plans touched</th><th>Last seen</th></tr></thead>
      <tbody>${users.map((u) => `<tr>
         <td>${esc(u.user)}</td><td>${u.events}</td><td>${u.distinct}</td><td>${u.plans}</td>
         <td class="hint">${new Date(u.last).toLocaleString()}</td>

@@ -1,3 +1,4 @@
+import { helpButton } from './terms.js';
 import { openModal, closeModal } from './modal.js';
 // Thin client for the Flow Game. The rules live ONLY on the server (Go engine);
 // this file sends moves and renders the sanitized view the server returns, so
@@ -15,7 +16,7 @@ async function fetchConfig() {
 }
 import { renderGameNetwork, GAMENET_LEGEND } from './gamenet.js';
 
-const hlp = (t) => ` <span class="help" data-tip="${t.replace(/"/g, '&quot;')}">?</span>`;
+const hlp = (text, label) => helpButton(text, label);
 // plain-language only (no scoring formulas — the rules live on the server)
 const POD_TIPS = {
   Pod: 'A team you steer. Conway\'s law: the org ships its communication structure — these pods and the lines between them are that structure.',
@@ -228,7 +229,9 @@ function setPodsView(mode) {
   const showNet = mode === 'net';
   net.hidden = !showNet; tbl.hidden = showNet;
   document.getElementById('pods-view-net')?.classList.toggle('active', showNet);
+  document.getElementById('pods-view-net')?.setAttribute('aria-pressed', String(showNet));
   document.getElementById('pods-view-table')?.classList.toggle('active', !showNet);
+  document.getElementById('pods-view-table')?.setAttribute('aria-pressed', String(!showNet));
   if (showNet) renderGameNet(); // re-measure now the svg is visible
 }
 
@@ -241,7 +244,7 @@ function render() {
   if (!serverGame) {
     setup.hidden = true; board.hidden = true;
     notice.hidden = false;
-    notice.innerHTML = '<div class="panel-card"><h2>The Flow Game needs a working world</h2>'
+    notice.innerHTML = '<div class="card p-3 panel-card"><h2>The Flow Game needs a working world</h2>'
       + '<p class="hint">The server is up, but no org data is loaded yet — check that Postgres is reachable and '
       + 'CONWAY_SEED_BASELINE has seeded the demo org, or import your own from Jira.</p></div>';
     return;
@@ -292,7 +295,7 @@ function render() {
 // Between rounds: the team has submitted and waits for the admin to open the next.
 function renderWaiting() {
   document.getElementById('game-levers').innerHTML = `
-    <div class="panel-card">
+    <div>
       <h3>Round ${view.round - 1} locked in ✓</h3>
       <p class="hint">Your moves are submitted and can't be changed. The facilitator will review the
         leaderboard and discuss strategies, then open <b>Round ${view.round}</b> — this screen will switch
@@ -304,7 +307,7 @@ function renderWaiting() {
 // clear, non-actionable banner (the loud modal fired on the transition).
 function renderClosed() {
   document.getElementById('game-levers').innerHTML = `
-    <div class="panel-card halt-card">
+    <div class="halt-card">
       <h3>⛔ The facilitator has closed this game</h3>
       <p class="hint">Play is paused — no further moves can be submitted. If the facilitator
         re-opens the game, this screen switches back automatically. No need to refresh.</p>
@@ -330,7 +333,7 @@ function showHaltModal(kind) {
       <p class="hint">${reset
     ? 'When they open Round 1 again, you can begin a fresh game from this screen.'
     : 'If they re-open the game, your screen switches back automatically.'}</p>
-      <div class="row-actions"><button id="halt-ok" class="primary">${reset ? 'Back to start ▶' : 'OK'}</button></div>
+      <div class="row-actions"><button id="halt-ok" class="btn btn-primary">${reset ? 'Back to start ▶' : 'OK'}</button></div>
     </div>`;
   openModal(ov);
   ov.querySelector('#halt-ok').addEventListener('click', () => { closeModal(ov); render(); });
@@ -338,7 +341,7 @@ function showHaltModal(kind) {
 
 function bar(label, v, hint) {
   const col = v >= 66 ? 'var(--green)' : v >= 40 ? 'var(--amber)' : 'var(--red)';
-  return `<div class="score-row"><span class="score-lbl">${label}${hlp(SCORE_TIPS[label] || '')}</span>
+  return `<div class="score-row"><span class="score-lbl">${label}${hlp(SCORE_TIPS[label] || '', label)}</span>
     <span class="score-track"><span style="width:${v}%;background:${col}"></span></span>
     <span class="score-val">${v.toFixed(0)}</span>${hint ? `<span class="hint"> ${hint}</span>` : ''}</div>`;
 }
@@ -361,7 +364,7 @@ function renderPods(pods) {
     const heat = p.rho >= 1 ? 'var(--red)' : p.rho >= 0.85 ? 'var(--amber)' : 'var(--green)';
     const mcol = p.morale >= 0.7 ? 'var(--green)' : p.morale >= 0.5 ? 'var(--amber)' : 'var(--red)';
     return `<tr>
-      <td>${p.name}${p.isSre ? ' <span class="hint">SRE</span>' : ''}${p.attrited ? ' <span class="flag red">attrition</span>' : ''}</td>
+      <td>${p.name}${p.isSre ? ' <span class="hint">SRE</span>' : ''}${p.attrited ? ' <span class="badge bg-danger-subtle text-danger-emphasis flag red">attrition</span>' : ''}</td>
       <td>${p.location.replace('*REMOTE - multicontinental*', 'Remote')}${p.pairing ? '' : ' <span class="hint">solo</span>'}</td>
       <td>${p.wip}</td>
       <td style="color:${heat}">${p.rho > 3 ? '3+' : p.rho.toFixed(2)}</td>
@@ -372,7 +375,7 @@ function renderPods(pods) {
       <td>${(p.hygiene * 100).toFixed(0)}%</td>
     </tr>`;
   }).join('');
-  const th = (label) => `<th>${label}${hlp(POD_TIPS[label] || '')}</th>`;
+  const th = (label) => `<th>${label}${hlp(POD_TIPS[label] || '', label)}</th>`;
   document.getElementById('game-pods').innerHTML = `
     <thead><tr>${['Pod', 'Site', 'WIP', 'Load ρ', 'Morale', 'Interrupt', 'KTLO', 'Readiness', 'Hygiene'].map(th).join('')}</tr></thead>
     <tbody>${rows}</tbody>`;
@@ -411,49 +414,60 @@ function renderLevers() {
   document.getElementById('game-levers').innerHTML = `
     <h3>Levers <span class="hint">(spend up to ${view.apPerRound} Activity Points (AP) per round)</span></h3>
     <div class="lever-grid">
-      <div class="lever"><b>Freeze</b>${hlp(LEVER_TIPS.freeze)} <span class="ap">${apOf('freeze')}AP</span><br>
-        <select id="lv-freeze-pod">${opts(pn)}</select>
-        <input id="lv-freeze-n" type="number" value="5" min="1" style="width:54px">
-        <button data-do="freeze">add</button></div>
-      <div class="lever"><b>WIP cap</b>${hlp(LEVER_TIPS.wipCap)} <span class="ap">${apOf('wipCap')}AP</span><br>
-        <select id="lv-wip-pod">${opts(pn)}</select>
-        <select id="lv-wip-x" title="WIP ceiling: tighter = more relief"><option value="0.8">tight</option><option value="1">healthy</option><option value="1.3">loose</option></select>
-        <button data-do="wipCap">add</button></div>
-      <div class="lever"><b>Hygiene sprint</b>${hlp(LEVER_TIPS.hygieneSprint)} <span class="ap">${apOf('hygieneSprint')}AP</span><br>
-        <select id="lv-hyg-pod">${opts(pn)}</select>
-        <button data-do="hygieneSprint">add</button></div>
-      <div class="lever"><b>Interface invest</b>${hlp(LEVER_TIPS.interfaceInvest)} <span class="ap">${apOf('interfaceInvest')}AP</span><br>
-        <select id="lv-iface">${edgeOpts}</select>
-        <button data-do="interfaceInvest">add</button></div>
-      <div class="lever"><b>Interrupt policy</b>${hlp(LEVER_TIPS.interruptPolicy)} <span class="ap">${apOf('interruptPolicy')}AP</span><br>
-        <select id="lv-int-pod">${opts(pn)}</select>
-        <select id="lv-int-model"><option value="pool">site pool</option><option value="office">office hours</option><option value="followsun">follow-sun</option><option value="dedicated">dedicated</option></select>
-        <button data-do="interruptPolicy">add</button></div>
-      <div class="lever"><b>Reassign scope</b>${hlp(LEVER_TIPS.reassignScope)} <span class="ap">${apOf('reassignScope')}AP</span><br>
-        <select id="lv-re-from">${opts(pn)}</select>→<select id="lv-re-to">${opts(pn, pn[1])}</select>
-        <select id="lv-re-frac"><option value="0.25">25%</option><option value="0.5">50%</option></select>
-        <button data-do="reassignScope">add</button></div>
-      <div class="lever"><b>Descope to MVP</b>${hlp(LEVER_TIPS.descopeMvp)} <span class="ap">${apOf('descopeMvp')}AP</span><br>
-        <select id="lv-mvp-pod">${opts(pn)}</select>
-        <label class="hint"><input id="lv-mvp-cut" type="checkbox"> cut ops</label>
-        <button data-do="descopeMvp">add</button></div>
-      <div class="lever"><b>Full-kit gate</b>${hlp(LEVER_TIPS.fullKitGate)} <span class="ap">${apOf('fullKitGate')}AP</span><br>
-        <button data-do="fullKitGate">enable org-wide</button></div>
-      <div class="lever"><b>Backfill hire</b>${hlp(LEVER_TIPS.hire)} <span class="ap">${apOf('hire')}AP, once</span><br>
-        <select id="lv-hire-pod">${opts(pn)}</select>
-        <button data-do="hire">place</button></div>
-      <div class="lever"><b>Innovation bet</b>${hlp(LEVER_TIPS.innovate)} <span class="ap">${apOf('innovate')}AP</span><br>
-        <select id="lv-inv-pod">${opts(pn)}</select>
-        <select id="lv-inv-flavor"><option value="holistic">holistic</option><option value="quickwin">quick win</option></select>
-        <button data-do="innovate">add</button></div>
-      <div class="lever"><b>Commit a date</b>${hlp(LEVER_TIPS.commit)} <span class="ap">${apOf('commit')}AP</span><br>
-        <select id="lv-cm-pod">${opts(pn)}</select>
+      <div class="lever"><b>Freeze</b>${hlp(LEVER_TIPS.freeze, 'freezing work')} <span class="ap">${apOf('freeze')}AP</span>
+        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-freeze-pod">${opts(pn)}</select>
+        <input class="form-control form-control-sm mw-100" id="lv-freeze-n" type="number" value="5" min="1" style="width:54px">
+        <button type="button" class="btn btn-secondary btn-sm" data-do="freeze">add</button></div></div>
+      <div class="lever"><b>WIP cap</b>${hlp(LEVER_TIPS.wipCap, 'the WIP cap')} <span class="ap">${apOf('wipCap')}AP</span>
+        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-wip-pod">${opts(pn)}</select>
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-wip-x" title="WIP ceiling: tighter = more relief"><option value="0.8">tight</option><option value="1">healthy</option><option value="1.3">loose</option></select>
+        <button type="button" class="btn btn-secondary btn-sm" data-do="wipCap">add</button></div></div>
+      <div class="lever"><b>Hygiene sprint</b>${hlp(LEVER_TIPS.hygieneSprint, 'a hygiene sprint')} <span class="ap">${apOf('hygieneSprint')}AP</span>
+        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-hyg-pod">${opts(pn)}</select>
+        <button type="button" class="btn btn-secondary btn-sm" data-do="hygieneSprint">add</button></div></div>
+      <div class="lever"><b>Interface invest</b>${hlp(LEVER_TIPS.interfaceInvest, 'interface investment')} <span class="ap">${apOf('interfaceInvest')}AP</span>
+        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-iface">${edgeOpts}</select>
+        <button type="button" class="btn btn-secondary btn-sm" data-do="interfaceInvest">add</button></div></div>
+      <div class="lever"><b>Interrupt policy</b>${hlp(LEVER_TIPS.interruptPolicy, 'interrupt policies')} <span class="ap">${apOf('interruptPolicy')}AP</span>
+        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-int-pod">${opts(pn)}</select>
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-int-model"><option value="pool">site pool</option><option value="office">office hours</option><option value="followsun">follow-sun</option><option value="dedicated">dedicated</option></select>
+        <button type="button" class="btn btn-secondary btn-sm" data-do="interruptPolicy">add</button></div></div>
+      <div class="lever"><b>Reassign scope</b>${hlp(LEVER_TIPS.reassignScope, 'reassigning scope')} <span class="ap">${apOf('reassignScope')}AP</span>
+        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-re-from">${opts(pn)}</select>→<select class="form-select form-select-sm w-auto mw-100" id="lv-re-to">${opts(pn, pn[1])}</select>
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-re-frac"><option value="0.25">25%</option><option value="0.5">50%</option></select>
+        <button type="button" class="btn btn-secondary btn-sm" data-do="reassignScope">add</button></div></div>
+      <div class="lever"><b>Descope to MVP</b>${hlp(LEVER_TIPS.descopeMvp, 'reducing scope')} <span class="ap">${apOf('descopeMvp')}AP</span>
+        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-mvp-pod">${opts(pn)}</select>
+        <label class="hint"><input class="form-check-input" id="lv-mvp-cut" type="checkbox"> cut ops</label>
+        <button type="button" class="btn btn-secondary btn-sm" data-do="descopeMvp">add</button></div></div>
+      <div class="lever"><b>Full-kit gate</b>${hlp(LEVER_TIPS.fullKitGate, 'the full-kit gate')} <span class="ap">${apOf('fullKitGate')}AP</span>
+        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+        <button type="button" class="btn btn-secondary btn-sm" data-do="fullKitGate">enable org-wide</button></div></div>
+      <div class="lever"><b>Backfill hire</b>${hlp(LEVER_TIPS.hire, 'hiring')} <span class="ap">${apOf('hire')}AP, once</span>
+        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-hire-pod">${opts(pn)}</select>
+        <button type="button" class="btn btn-secondary btn-sm" data-do="hire">place</button></div></div>
+      <div class="lever"><b>Innovation bet</b>${hlp(LEVER_TIPS.innovate, 'innovation')} <span class="ap">${apOf('innovate')}AP</span>
+        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-inv-pod">${opts(pn)}</select>
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-inv-flavor"><option value="holistic">holistic</option><option value="quickwin">quick win</option></select>
+        <button type="button" class="btn btn-secondary btn-sm" data-do="innovate">add</button></div></div>
+      <div class="lever"><b>Commit a date</b>${hlp(LEVER_TIPS.commit, 'committing a date')} <span class="ap">${apOf('commit')}AP</span>
+        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-cm-pod">${opts(pn)}</select>
         <span class="hint">due R${view.round + 1}</span>
-        <button data-do="commit">commit</button></div>
+        <button type="button" class="btn btn-secondary btn-sm" data-do="commit">commit</button></div></div>
     </div>
     <div id="game-moves" class="game-moves">${movesHtml()}</div>
     <div class="row-actions">
-      <button id="game-submit" class="primary">Submit Round ${view.round} ▶</button>
+      <button id="game-submit" class="btn btn-primary">Submit Round ${view.round} ▶</button>
       <span class="hint">Submitting locks this round — you can't change it after.</span>
     </div>
     <div id="game-err" class="hint"></div>`;
@@ -540,7 +554,7 @@ function showResolveModal(rep, scenario) {
       <p class="hint">${sub}</p>
       <div class="beats">${beats || '<span class="hint">A calm quarter — nothing notable shifted.</span>'}</div>
       ${scenario ? `<div class="curveball"><b>⚡ Heading into the next quarter — ${scenario.title}</b><br>${scenario.text}</div>` : ''}
-      <div class="row-actions"><button id="resolve-continue" class="primary">${btnLabel}</button></div>
+      <div class="row-actions"><button id="resolve-continue" class="btn btn-primary">${btnLabel}</button></div>
     </div>`;
   openModal(ov);
   ov.querySelector('#resolve-continue').addEventListener('click', () => { closeModal(ov); });
@@ -558,7 +572,7 @@ function renderReport() {
   const watch = (r.watch || []).length
     ? `<div class="watch"><b>What to watch next round</b><ul>${r.watch.map((w) => `<li>${w}</li>`).join('')}</ul></div>` : '';
   el.innerHTML = `
-    <div class="panel-card report">
+    <div class="card p-3 panel-card report">
       <div class="report-head"><h3>Quarter ${r.round} — ${r.headline}</h3>
         <span class="report-delta" style="color:${dCol}">score ${r.scoreDelta > 0 ? '+' : ''}${r.scoreDelta}</span></div>
       <p class="hint">Event: <b>${r.event}</b> · value delivered ${r.valueDelivered} · cost function ${r.costFn} · commitments hit ${r.commitmentsHit}</p>
@@ -582,15 +596,15 @@ function renderHistory(history) {
       <td class="dl-score" style="color:${dCol}">${r.scoreDelta > 0 ? '+' : ''}${r.scoreDelta}<br><span class="hint">→ ${r.score.total.toFixed(0)}</span></td>
     </tr>`;
   }).join('');
-  el.innerHTML = `<div class="panel-card"><h3>Decision log <span class="hint">— how each quarter played out</span></h3>
-    <table class="dl-table"><thead><tr><th>Qtr</th><th>What resulted</th><th>Score</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  el.innerHTML = `<div class="card p-3 panel-card"><h3>Decision log <span class="hint">— how each quarter played out</span></h3>
+    <table class="table table-sm dl-table"><thead><tr><th>Qtr</th><th>What resulted</th><th>Score</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 function renderEpilogue(final) {
   if (!final) return;
   const e = final.epilogue;
   document.getElementById('game-levers').innerHTML = `
-    <div class="panel-card"><h3>Epilogue — year 2 on autopilot</h3>
+    <div><h3>Epilogue — year 2 on autopilot</h3>
       ${e.narrative ? `<p class="epilogue-letter">${e.narrative}</p>` : ''}
       <p>With no further actions, the org you built ran another year.</p>
       <p>Run-rate value <b>${e.runRateValue}</b> · KTLO share of capacity
@@ -599,6 +613,6 @@ function renderEpilogue(final) {
       <p class="hint">${e.ktloShare > 0.6
     ? 'Maintenance is crowding out delivery — the org will spend year 2 keeping the lights on.'
     : 'The org keeps shipping — you left it healthier than you found it.'}</p>
-      ${canTestFreely() ? '<button id="game-again" class="primary">New game (test)</button>' : ''}</div>`;
+      ${canTestFreely() ? '<button id="game-again" class="btn btn-primary">New game (test)</button>' : ''}</div>`;
   document.getElementById('game-again')?.addEventListener('click', startGame);
 }

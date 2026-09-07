@@ -15,6 +15,19 @@ test('loading a catalog never acknowledges presentation or visits', async () => 
   assert.deepEqual(announcementIndicators(controller.state().features), ['docs-btn', 'help-btn']);
 });
 
+test('one actual execution destination visit acknowledges both eligible feature introductions',async()=>{
+  const acknowledged=[];
+  const features=['execution-review-v1','weekly-execution-review-v1'].map(id=>feature({id,action:{type:'route',target:'view-execution',parent:'plan-btn',route:'?view=plan&planView=execution'}}));
+  const controller=createAnnouncementController({getIdentity:()=> 'manager-a',request:async(_url,options)=>{
+    if(!options)return response({features});
+    const {id,kind}=JSON.parse(options.body);acknowledged.push({id,kind});return response({id,announced:false,visited:true});
+  }});
+  await controller.load();await controller.visit('view-execution');
+  assert.deepEqual(acknowledged.map(v=>v.id).sort(),features.map(v=>v.id).sort());
+  assert.ok(acknowledged.every(v=>v.kind==='visited'));
+  assert.deepEqual(announcementIndicators(controller.state().features),[]);
+});
+
 test('presentation and destination visits persist separately across controller reloads and users', async () => {
   let identity = 'account-a';
   const saved = new Map();

@@ -49,7 +49,7 @@ export function measureContextHTML({ snapshots = [], rosters = [], selectedId, s
   const rosterLabel = !selected ? 'Roster association unavailable' : roster?.name || (selected.rosterId ? 'Associated roster name unavailable' : 'No saved roster associated');
   const scope = Array.isArray(selected?.scope) && selected.scope.length ? selected.scope.join(', ') : 'Project scope unavailable';
   return `<div class="measure-source-heading"><div><span class="hint">Measure data source</span><h2>${esc(name)}</h2></div>
-    <span class="badge ${example || synthetic || unknown || !pods.length || !selected ? 'warn' : 'ok'}">${esc(sourceLabel(selected?.source))}</span></div>
+    <span class="badge ${example || synthetic || unknown || !pods.length || !selected ? 'bg-warning-subtle text-warning-emphasis' : 'bg-success-subtle text-success-emphasis'}">${esc(sourceLabel(selected?.source))}</span></div>
     <p class="measure-view-purpose">${esc(MEASURE_VIEWS[view] || '')}</p>
     ${error ? `<p role="alert">${esc(error)}</p>` : ''}
     ${!loading && !error && !snapshots.length ? '<p>No snapshots are available. Import a dated capture to measure delivery.</p>' : ''}
@@ -59,18 +59,18 @@ export function measureContextHTML({ snapshots = [], rosters = [], selectedId, s
       <div><dt>Data status</dt><dd>${esc(statistics)}</dd></div></dl>
     ${rosterError ? `<p class="hint" role="status">${esc(rosterError)}</p>` : ''}
     <div class="measure-source-actions"><label for="measure-snapshot">Viewing org snapshot
-      <select id="measure-snapshot"${loading || !snapshots.length || (snapshots.length === 1 && selected) ? ' disabled' : ''}>
+      <select class="form-select" id="measure-snapshot"${loading || !snapshots.length || (snapshots.length === 1 && selected) ? ' disabled' : ''}>
         ${!selected ? '<option value="">Select an available snapshot</option>' : ''}
         ${snapshots.map(snapshot => `<option value="${esc(snapshot.id)}"${snapshot.id === selectedId ? ' selected' : ''}>${esc(snapshot.name || snapshot.id)} · ${esc(sourceLabel(snapshot.source))} · ${esc(capturedAt(snapshot.createdAt))}</option>`).join('')}
       </select></label>
-      ${canManage ? '<button type="button" data-measure-action="import">Import new snapshot</button><button type="button" data-measure-action="associations">Snapshot &amp; roster associations</button><button type="button" data-measure-action="rosters">Manage rosters</button>' : ''}
-      ${error || rosterError ? '<button type="button" data-measure-action="retry">Retry source details</button>' : ''}</div>
+      ${canManage ? '<button class="btn btn-secondary" type="button" data-measure-action="import">Import new snapshot</button><button class="btn btn-secondary" type="button" data-measure-action="associations">Snapshot &amp; roster associations</button><button class="btn btn-secondary" type="button" data-measure-action="rosters">Manage rosters</button>' : ''}
+      ${error || rosterError ? '<button class="btn btn-secondary" type="button" data-measure-action="retry">Retry source details</button>' : ''}</div>
     <p class="hint">${snapshots.length === 1 ? 'One snapshot is available. ' : ''}Changing the snapshot reloads all Measure views and resets the simulator’s unsaved scenario.</p>
     <details class="measure-association-help"><summary>How this connects to a plan</summary>
       <p>Measure reads a dated snapshot. A plan uses its own roster, estimates and scheduling assumptions. Sharing a roster does not bind initiatives to Jira work.</p>
       <ol><li>Open the plan’s <b>Execution</b> view and select its <b>Execution snapshot</b>.</li><li>Confirm Jira epic keys under each initiative’s <b>Epic bindings</b>.</li><li>Use a saved agreement to compare planned dates with observed delivery.</li></ol>
       <p>Execution has its own snapshot selection. Switching Measure does not change plan inputs or those bindings. Snapshot roster associations join teams by name. ${canManage ? 'Use Snapshot &amp; roster associations to inspect or change them.' : 'A manager can manage roster associations and plan bindings.'}</p>
-      ${canManage ? '<button type="button" data-measure-action="plans">Open plans</button>' : ''}</details>`;
+      ${canManage ? '<button class="btn btn-secondary" type="button" data-measure-action="plans">Open plans</button>' : ''}</details>`;
 }
 
 export function simulatorSourceHTML({ kind = 'example', epic = '', edited = false, dirty = false } = {}) {

@@ -4,6 +4,8 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {checkAnnouncementRecovery} from './announcement-recovery.mjs';
 import {checkLinkedSourceRaces} from './linked-source-races.mjs';
+import {checkWeeklyReview} from './weekly-review.mjs';
+import {checkReadyQueue} from './ready-queue.mjs';
 const {chromium} = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const base = process.env.CONWAY_TEST_BASE_URL, plan = process.env.CONWAY_TEST_PLAN_ID;
 if (!base || !plan) throw new Error('Run the linked features browser Go acceptance harness.');
@@ -23,7 +25,11 @@ try {
   await page.locator('#signin-form button[type=submit]').click();
   const announcements=page.locator('#announcements-overlay');
   await announcements.waitFor({state:'visible'});
-  assert.equal(await announcements.locator('[data-announcement-action]').count(),3);
+  assert.equal(await announcements.locator('[data-announcement-action]').count(),5);
+  assert.equal(await announcements.locator('[data-announcement-action="weekly-execution-review-v1"]').count(),1);
+  const weeklyFeature=(await api('/api/announcements')).features.find(f=>f.id==='weekly-execution-review-v1');
+  assert.equal(weeklyFeature.action.target,'view-execution');
+  assert.equal((await api('/api/announcements')).features.find(f=>f.id==='team-ready-work-v1')?.action.target,'view-ready');
   await page.waitForFunction(async()=>{const r=await fetch('/api/announcements',{headers:{Authorization:'Bearer '+localStorage.getItem('conway_token')}});return r.ok&&(await r.json()).features.every(f=>f.announced);});
   assert.equal((await api('/api/announcements')).features.some(f=>f.visited),false);
   await page.keyboard.press('Escape'); await announcements.waitFor({state:'hidden'});
@@ -31,7 +37,7 @@ try {
   assert.equal(await announcements.isVisible(),false,'automatic introduction must not recur');
   assert.ok(await page.locator('#plan-linked-sheets [data-announcement-indicator]').count());
   await page.locator('#help-btn').click(); await page.locator('#whats-new-btn').click();
-  await announcements.waitFor({state:'visible'}); assert.equal(await announcements.locator('[data-announcement-action]').count(),3);
+  await announcements.waitFor({state:'visible'}); assert.equal(await announcements.locator('[data-announcement-action]').count(),5);
   await page.setViewportSize({width:360,height:800});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await page.screenshot({path:join(process.env.CONWAY_TEST_ARTIFACT_DIR||tmpdir(),'conway-announcements-mobile.png'),fullPage:true});
@@ -103,6 +109,40 @@ try {
   assert.deepEqual(errors,[]);
   await checkAnnouncementRecovery(browser,base);
   await checkLinkedSourceRaces(browser,base);
+  // specs/011-bootstrap-adoption-debt.md:82: the real state owner keeps
+  // keyboard selection, announced state and the user's filter together.
+  await page.goto(base+'?view=plan&plan='+plan);
+  await page.locator('.plan-setup > summary').click();
+  const upload = page.getByLabel('Initiatives (XLSX/CSV)',{exact:true});
+  assert.equal(await upload.isVisible(),true,'Native upload remains visible and labeled');
+  assert.equal(await upload.evaluate(el=>el.classList.contains('form-control')),true);
+  await upload.focus();
+  assert.equal(await upload.evaluate(el=>document.activeElement===el),true);
+  await page.setViewportSize({width:360,height:800});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'Expanded upload setup fits mobile');
+  await page.setViewportSize({width:1280,height:960});
+  await page.locator('.plan-setup > summary').click();
+  await page.locator('#view-timeline').click();
+  await page.locator('#tl-initiative-filter').fill('Atlas');
+  await page.locator('#tl-by-pod').focus(); await page.keyboard.press('Enter');
+  assert.equal(await page.locator('#tl-by-pod').getAttribute('aria-pressed'),'true');
+  assert.equal(await page.locator('#tl-by-initiative').getAttribute('aria-pressed'),'false');
+  assert.equal(await page.locator('#tl-initiative-filter').inputValue(),'Atlas');
+  await page.locator('[data-open-pod="Team A"]').click();
+  const nextTeam = page.getByRole('button',{name:'Next work for Team A',exact:true});
+  assert.equal(await nextTeam.evaluate(el=>el.classList.contains('btn')&&el.classList.contains('btn-secondary')),true,'Dynamically created team action adopts Bootstrap');
+  await page.locator('#tl-by-initiative').focus(); await page.keyboard.press('Enter');
+  assert.equal(await page.locator('#tl-by-initiative').getAttribute('aria-pressed'),'true');
+  assert.equal(await page.locator('#tl-by-pod').getAttribute('aria-pressed'),'false');
+  assert.equal(await page.locator('#tl-initiative-filter').inputValue(),'Atlas');
+  await checkWeeklyReview(page,base,plan);
+  await checkReadyQueue(page,base,plan);
+  assert.deepEqual(errors,[]);
+  await page.waitForFunction(async()=>{
+    const r=await fetch('/api/announcements',{headers:{Authorization:'Bearer '+localStorage.getItem('conway_token')}});
+    const features=(await r.json()).features;
+    return ['execution-review-v1','weekly-execution-review-v1'].every(id=>features.find(f=>f.id===id)?.visited);
+  });
   console.log(JSON.stringify({announcedOnce:true,replay:true,visitedAfterOpen:true,reviewApply:true,lateCheckPreservesHistory:true,staleConflict:true,restore:true,immutableCaptureCount:2,mobileOverflow:false,pageErrors:errors}));
 } catch(error) {
   await page.screenshot({path:join(process.env.CONWAY_TEST_ARTIFACT_DIR||tmpdir(),'conway-linked-features-failure.png'),fullPage:true});

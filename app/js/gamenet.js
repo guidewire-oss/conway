@@ -176,16 +176,16 @@ export function renderGameNetwork(el, view, opts = {}) {
     const tot = fanIn(p.name) + fanOut(p.name);
     const inst = tot ? fanIn(p.name) / tot : 0;
     const flags = [];
-    if (constraintRank.get(p.name) === 0) flags.push('<span class="flag red">system constraint</span>');
-    else if (constraintRank.has(p.name)) flags.push('<span class="flag amber">constraint candidate</span>');
-    if (p.rho >= 1) flags.push('<span class="flag red">queue overloaded (ρ≥1)</span>');
-    else if (p.rho >= 0.85) flags.push('<span class="flag amber">queue hot</span>');
-    if (p.attrited) flags.push('<span class="flag red">attrition</span>');
+    if (constraintRank.get(p.name) === 0) flags.push('<span class="badge bg-danger-subtle text-danger-emphasis flag red">system constraint</span>');
+    else if (constraintRank.has(p.name)) flags.push('<span class="badge bg-warning-subtle text-warning-emphasis flag amber">constraint candidate</span>');
+    if (p.rho >= 1) flags.push('<span class="badge bg-danger-subtle text-danger-emphasis flag red">queue overloaded (ρ≥1)</span>');
+    else if (p.rho >= 0.85) flags.push('<span class="badge bg-warning-subtle text-warning-emphasis flag amber">queue hot</span>');
+    if (p.attrited) flags.push('<span class="badge bg-danger-subtle text-danger-emphasis flag red">attrition</span>');
     const edgeLi = (other, count, interfaced, dir) =>
       `<dd>${dir} <b>${other}</b> ×${count}${interfaced ? ' <span class="hint">(interface built)</span>' : ''}</dd>`;
     panel.innerHTML = `
       <h3>${p.name}${p.isSre ? ' <span class="hint">SRE</span>' : ''}</h3>
-      <div>${flags.join(' ') || '<span class="flag" style="color:var(--green)">healthy</span>'}</div>
+      <div>${flags.join(' ') || '<span class="badge bg-success-subtle text-success-emphasis flag">healthy</span>'}</div>
       <dl>
         <dt>Site</dt><dd>${(p.location || '—').replace('*REMOTE - multicontinental*', 'Remote')}${p.pairing ? '' : ' · solo'}</dd>
         <dt>WIP / load</dt><dd>${p.wip} items · ρ ${p.rho > 3 ? '3+' : p.rho.toFixed(2)}</dd>

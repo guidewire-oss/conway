@@ -1,30 +1,9 @@
-/* specs/017-planning-and-execution-usability.md:104 — keep evidence and actions usable at 360px. */
+/* specs/011-bootstrap-adoption-debt.md:167 — Bootstrap supplies components and layout.
+   Domain evidence needs readable columns and unbroken long-name containment. */
 .execution-review { min-width: 0; }
-.execution-review > .row-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
-.execution-review label { display: grid; gap: 5px; min-width: 0; }
-.execution-review select, .execution-review input, .execution-review textarea { max-width: 100%; min-width: 0; }
-.execution-review > .row-actions > label { flex: 1 1 240px; }
-.execution-review button { min-height: 40px; white-space: normal; }
-.execution-review .cv-icon { margin-right: 6px; }
-.execution-review p, .execution-review li, .execution-review h4 { overflow-wrap: anywhere; }
-.execution-review .panel-card { overflow: visible; }
-.execution-table-wrap { max-width: 100%; overflow-x: auto; margin: 12px 0; border: 1px solid var(--border); border-radius: 6px; }
-.execution-table-wrap table { min-width: 780px; margin: 0; }
-.execution-table-wrap th, .execution-table-wrap td { white-space: normal; min-width: 110px; vertical-align: top; }
-.execution-table-wrap small { display: block; color: var(--muted); }
-.execution-initiative { margin: 16px 0; }
-.execution-initiative h4 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; }
-.execution-initiative summary, .execution-evidence > details > summary { padding: 8px 0; cursor: pointer; }
-.execution-binding { display: grid; gap: 10px; padding: 12px 0; max-width: 700px; }
-.execution-binding .execution-suggestion { display: flex; align-items: baseline; gap: 8px; }
-.execution-binding button { justify-self: start; }
-.execution-decision-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-.execution-rationale, #execution-decision-status { grid-column: 1 / -1; }
-.execution-decision { padding: 14px 0; border-top: 1px solid var(--border); }
-@media (max-width: 600px) {
-  .execution-decision-form { grid-template-columns: minmax(0, 1fr); }
-  .execution-review > .row-actions > label { flex-basis: 100%; }
-  .execution-review > .row-actions > button { flex: 1 1 140px; }
-  .execution-review .panel-card { padding: 12px; }
-  .execution-initiative .tag { font-size: 12px; }
-}
+.execution-review select, .execution-review input, .execution-review textarea { min-width: 0; }
+.execution-review p, .execution-review li, .execution-review h4, .weekly-review a { overflow-wrap: anywhere; }
+.execution-table-wrap table { min-width: 780px; }
+.execution-table-wrap th, .execution-table-wrap td { min-width: 110px; }
+.execution-binding { max-width: 700px; }
+.weekly-note, .execution-decision p { white-space: pre-wrap; }

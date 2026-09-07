@@ -382,3 +382,79 @@ would silently stop protecting anything. Per-slice buffers (SSQ-style, §10 Q5)
 a single reverse walk — the slices are already topologically sorted), and the
 `WorkSlice` shape grows three fields (dependsOn, latestStartWeek, slackWeeks),
 recorded in spec 001 §7 alongside.
+
+## Decision 15
+
+**Weekly reviews extend the existing execution workflow and preserve its evidence.**
+
+*Context:* Managers need durable execution follow-up within the plan they are
+already reviewing. The maintainer also requested coherent interaction design,
+behavioral tests, accompanying documentation and an ordered completion roadmap.
+
+*Decision:* Extend existing plan, snapshot, agreement and action identities.
+The feature decisions were recorded before implementation in
+[specification 024](../specs/024-weekly-execution-review.md#11-decision-record),
+which remains canonical for behavior and implementation alternatives. Record
+the durable delivery conventions in AGENTS.md.
+
+*Rejected:* A separate review dashboard and replacement action catalog would
+split the established workflow and duplicate evidence ownership. Detailed
+alternatives remain in specification 024 rather than a second decision source.
+
+*Cost:* Immutable summaries and append-only action history require storage,
+concurrency guards and recovery paths. Manual reviews retain unknown measures.
+
+## Decision 16
+
+**Team release decisions use the accepted plan and retain accountable evidence.**
+
+*Context:* Managers need to decide what a team can start without creating a
+competing schedule or mistaking planned placement for observed progress.
+
+*Decision:* Keep Next work inside the selected plan. The canonical requirements,
+calculation boundaries and alternatives were recorded before implementation in
+[specification 025](../specs/025-team-ready-work-queue.md#11-decision-record).
+
+*Rejected:* A separate queue scheduler would conflict with accepted ordering and
+shared constraints. Implicit release from free capacity would omit operational
+acceptance and accountability.
+
+*Cost:* Context-bound confirmations, append-only decisions and atomic stale-write
+guards add persistence and require deliberate reconfirmation after plan changes.
+
+## Decision 17
+
+**Governance records delivery conventions; feature specifications remain canonical.**
+
+*Context:* Decisions 15 and 16 mixed repository delivery conventions with product
+design summaries. Their specification links were intended to point to canon, but
+the repeated design prose made the boundary unclear during review.
+
+*Decision:* This entry supersedes Decisions 15 and 16 as governance guidance.
+Keep the maintainer's durable delivery conventions in AGENTS.md: coherent user
+workflows, independent behavioral coverage, accompanying documentation and an
+ordered completion roadmap. Specifications 024 and 025 alone define their feature
+behavior and design alternatives. Further feature corrections update those
+specifications; this log records only changes to repository practice. Preserve
+published Decision numbers so existing commit references remain resolvable.
+
+*Rejected:* Deleting published entries would break historical references. Copying
+feature algorithms or alternatives here would create another source of truth.
+
+*Cost:* Readers of older commits must follow this superseding entry and the
+numbered feature specifications for current decisions.
+
+## Decision 18
+
+**Retain Bootstrap-first delivery as a durable working convention.**
+
+*Context:* The maintainer requested completion of framework adoption before
+next feature work and asked that the rule persist across future sessions.
+
+*Decision:* Record the Bootstrap-first convention in AGENTS.md and use
+`docs/COMPONENTS.md` as the component registry. Specification 011 owns the
+migration scope, behavior requirements and implementation alternatives.
+
+*Rejected:* A chat-only reminder would not reliably survive future sessions.
+
+*Cost:* UI review must check component adoption as well as theme consistency.

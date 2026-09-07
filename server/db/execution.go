@@ -50,14 +50,35 @@ type ExecutionDecision struct {
 	BaselineID string `json:"baselineId"`
 	CreatedBy  string `json:"createdBy"`
 	CreatedAt  int64  `json:"createdAt"`
+	Status     string `json:"status"`
+	Version    int    `json:"version"`
 }
 
 func (d *DB) AppendExecutionDecision(v ExecutionDecision) error {
-	_, err := d.pool.Exec(context.Background(), `INSERT INTO plan_execution_decisions (id,plan_id,action,owner,review_date,rationale,initiative,snapshot_id,baseline_id,created_by,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, v.ID, v.PlanID, v.Action, v.Owner, v.ReviewDate, v.Rationale, v.Initiative, v.SnapshotID, v.BaselineID, v.CreatedBy, v.CreatedAt)
-	return err
+	ctx := context.Background()
+	tx, err := d.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var id string
+	if err = tx.QueryRow(ctx, `SELECT id FROM plans WHERE id=$1 FOR UPDATE`, v.PlanID).Scan(&id); err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO plan_execution_decisions (id,plan_id,action,owner,review_date,rationale,initiative,snapshot_id,baseline_id,created_by,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, v.ID, v.PlanID, v.Action, v.Owner, v.ReviewDate, v.Rationale, v.Initiative, v.SnapshotID, v.BaselineID, v.CreatedBy, v.CreatedAt)
+	if err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO plan_execution_action_state(decision_id,plan_id) VALUES($1,$2)`, v.ID, v.PlanID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
+
+const decisionSelect = `SELECT d.id,d.plan_id,d.action,d.owner,d.review_date,d.rationale,d.initiative,d.snapshot_id,d.baseline_id,d.created_by,d.created_at,COALESCE(s.status,'open'),COALESCE(s.version,1) FROM plan_execution_decisions d LEFT JOIN plan_execution_action_state s ON s.decision_id=d.id AND s.plan_id=d.plan_id`
+
 func (d *DB) ExecutionDecisions(planID string) ([]ExecutionDecision, error) {
-	rows, err := d.pool.Query(context.Background(), `SELECT id,plan_id,action,owner,review_date,rationale,initiative,snapshot_id,baseline_id,created_by,created_at FROM plan_execution_decisions WHERE plan_id=$1 ORDER BY created_at DESC,id`, planID)
+	rows, err := d.pool.Query(context.Background(), decisionSelect+` WHERE d.plan_id=$1 ORDER BY d.created_at DESC,d.id`, planID)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +86,7 @@ func (d *DB) ExecutionDecisions(planID string) ([]ExecutionDecision, error) {
 	out := []ExecutionDecision{}
 	for rows.Next() {
 		var v ExecutionDecision
-		if err := rows.Scan(&v.ID, &v.PlanID, &v.Action, &v.Owner, &v.ReviewDate, &v.Rationale, &v.Initiative, &v.SnapshotID, &v.BaselineID, &v.CreatedBy, &v.CreatedAt); err != nil {
+		if err := rows.Scan(&v.ID, &v.PlanID, &v.Action, &v.Owner, &v.ReviewDate, &v.Rationale, &v.Initiative, &v.SnapshotID, &v.BaselineID, &v.CreatedBy, &v.CreatedAt, &v.Status, &v.Version); err != nil {
 			return nil, err
 		}
 		out = append(out, v)

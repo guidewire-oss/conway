@@ -61,7 +61,7 @@ what slips, and what is the binding constraint?*
   a named, immutable baseline. Compare any two later; the chip tells you when
   the plan's inputs have drifted from the agreement.
 - **Named scenarios and remedy previews.** Copy working inputs into an independent named plan without an inherited agreement, or review a proposed remedy and affected commitments before applying it.
-- **Execution review.** Compare snapshot-derived evidence with an agreed baseline. Review binding coverage, scope changes and inferred dates before interpreting variance; record the next action, owner, review date and rationale. Refreshing observations leaves agreement and working inputs unchanged.
+- **Execution review and follow-up.** Prepare a weekly agenda that separates delivery exceptions from data gaps, using a selected snapshot and agreed baseline or a manual review. Record accountable actions, resolve them with evidence, and preserve an immutable review conclusion. [The review guide](app/docs.html#weekly-review) explains comparison limits and the action lifecycle.
 - **Per-pod capacity loss.** An ops-heavy pod and a greenfield pod do not lose
   the same fraction of their tracks; each pod can override the plan's global
   figure.
@@ -242,6 +242,8 @@ in [factory.yaml](factory.yaml); source citations still require manual checking.
 See [specs/002-factory-adoption.md](specs/002-factory-adoption.md) for adoption decisions.
 
 ## Views
+
+- **Next work**, inside a saved plan — team readiness, accountable full-kit confirmations and release/defer/reconsider history; see the [workflow and calculations](app/docs.html#next-work).
 
 - **Flow Actions** — the constraint (five focusing steps), WIP freeze
   candidates with per-issue drill-down, CCPM buffer fever chart

@@ -44,7 +44,7 @@ var _ = Describe("planning database integration", Label("database"), func() {
 		database, err = db.Open(ctx, url)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(database.Close)
-		claims = auth.Claims{Sub: "ux-integration-owner"}
+		claims = auth.Claims{Sub: "ux-integration-owner", Roles: []string{"manager"}}
 		srv = &server{db: database}
 		teams, inits := planning.Demo()
 		inits[0].EpicKeys = []string{"PROJ-1"}

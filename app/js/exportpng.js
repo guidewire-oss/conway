@@ -37,7 +37,8 @@ export async function exportBlockPNG(block, filename) {
     clone.querySelectorAll('button').forEach((b) => {
       if (b.hasAttribute('data-select-init')) {
         const label = document.createElement('span');
-        label.className = b.className;
+        label.className = b.className.split(/\s+/)
+          .filter((name) => name && name !== 'btn' && !name.startsWith('btn-')).join(' ');
         label.textContent = b.textContent;
         b.replaceWith(label);
       } else b.remove();

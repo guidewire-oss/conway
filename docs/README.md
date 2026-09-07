@@ -34,7 +34,9 @@ contents first, then closes the embedded guide on a subsequent press.
 | Find newly available capabilities | [Feature announcements](../app/docs.html#feature-news) |
 | Inspect capacity or edit placement | [Timeline](../app/docs.html#timeline) |
 | Preserve and compare a commitment | [Agreements](../app/docs.html#baselines) |
+| Prepare and release a team's next work | [Next work and release decisions](../app/docs.html#next-work) |
 | Connect Jira evidence to initiatives | [Execution review](../app/docs.html#execution) |
+| Complete a review and follow accountable actions | [Weekly review and action states](../app/docs.html#weekly-review) |
 | Facilitate a learning session | [Flow Game](../app/docs.html#learning) |
 
 ## Explain a calculation
@@ -45,6 +47,8 @@ contents first, then closes the embedded guide on a subsequent press.
 | WIP, leads, readiness, splitting, dates and calendars | [Scheduling options](../app/docs.html#assumptions), [calendar effects](../app/docs.html#sites) |
 | Ordering rules and weighted costs | [Ordering](../app/docs.html#order) |
 | Progress, inferred dates, variance and calibration | [Execution calculations](../app/docs.html#execution-calculations) |
+| Overdue actions, review context and comparison limits | [Weekly review calculations](../app/docs.html#weekly-review) |
+| Readiness, contiguous placement and release eligibility | [Next work calculations](../app/docs.html#next-work) |
 | Queue proxy, dependency ranking and Org Flow Index | [Org Network](../app/docs.html#network) |
 | Throughput, sample filtering and cycle percentiles | [WIP Scoreboard](../app/docs.html#scoreboard) |
 | Missing evidence and quality scores | [Data Quality](../app/docs.html#hygiene) |
@@ -61,6 +65,7 @@ presented as formulas prescribed by those authors.
 - [Snapshots, scenario files and API](snapshots-and-scenarios.md)
 - [Single sign-on](sso-oidc.md)
 - [Configure linked Google Sheets](linked-google-sheets.md)
+- [UI component registry](COMPONENTS.md): Bootstrap-first controls, theme and responsive layout conventions
 - [Feature specifications](../specs/): source of truth for requirements and decisions
 - [Feature strategy](FEATURE-STRATEGY-2026-09-05.md): proposed planning and execution improvements, priorities, dependencies and pilot criteria; not implemented features
 - [Factory rules](FACTORY_RULES.md) and [workflows](../workflows/README.md)

@@ -6,10 +6,11 @@ import {normalizeGameTiming} from '../app/js/gamesui.js';
 import {capacitySectionHTML,fitSentence} from '../app/js/report.js';
 import {fitNote} from '../app/js/order.js';
 import {baselinesDrawerHTML} from '../app/js/baseline.js';
+import {helpButton} from '../app/js/terms.js';
 
 function moduleContext(file,bindings={}) {
   const source=readFileSync(new URL('../app/js/'+file,import.meta.url),'utf8').replace(/^import[\s\S]*?;\n/gm,'').replace(/^export \{[^}]*\};\n/gm,'').replace(/export /g,'');
-  const scope=vm.createContext({console,Date,...bindings});vm.runInContext(source,scope);return scope;
+  const scope=vm.createContext({console,Date,helpButton,...bindings});vm.runInContext(source,scope);return scope;
 }
 
 test('Hygiene escapes imported names in visible text, drill attributes and IDs',()=>{
