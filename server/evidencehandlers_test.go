@@ -20,6 +20,21 @@ import (
 	"time"
 )
 
+// per specs/026-reliable-evidence-foundation.md:56
+var _ = Describe("evidence access diagnostics", func() {
+	// per specs/026-reliable-evidence-foundation.md:56
+	It("offers read or write recovery without exposing internal persistence diagnostics", func() {
+		var logs bytes.Buffer
+		logger := zerolog.New(&logs)
+		srv := &server{log: &logger}
+		response := httptest.NewRecorder()
+		srv.evidenceFailure(response, errors.New("fixture-internal-query-diagnostic"))
+		Expect(response.Code).To(Equal(500))
+		Expect(strings.TrimSpace(response.Body.String())).To(Equal("Could not access capture data. Refresh and retry."))
+		Expect(response.Body.String()).NotTo(ContainSubstring("fixture-internal-query-diagnostic"))
+	})
+})
+
 // per specs/026-reliable-evidence-foundation.md:34
 var _ = Describe("reliable evidence captures", Label("database"), func() {
 	var s *server
@@ -420,4 +435,43 @@ var _ = Describe("reliable evidence captures", Label("database"), func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(runs).To(BeEmpty(), "denied requests cannot create attempts")
 	})
+
+	// per specs/026-reliable-evidence-foundation.md:136
+	// per specs/026-reliable-evidence-foundation.md:67
+	DescribeTable("reads snapshot lineage from the latest successful attempt when timestamps tie", func(list bool) {
+		row := create()
+		snapshotID := newID()
+		Expect(database.CreateSnapshotWithData(db.SnapshotRow{ID: snapshotID, Owner: owner.Sub, Name: "Captured evidence", Source: "jira", RosterID: roster.ID, CreatedAt: now}, db.SnapshotData{})).To(Succeed())
+		// This defensive fixture seeds schema-permitted duplicate references,
+		// bypassing the normal atomic writer. Lexical IDs and timestamps must
+		// not choose older configuration or failed work.
+		for index, name := range []string{"Older captured scope", "Latest captured scope", "Later failed scope"} {
+			config := row.Config
+			config.Name, config.FreshnessHours = name, 24-index*6
+			status := "succeeded"
+			if index == 2 {
+				status = "failed"
+			}
+			id := []string{"z-", "a-", "m-"}[index] + newID()
+			_, err := pool.Exec(context.Background(), `INSERT INTO evidence_runs(id,source_id,status,started_at,finished_at,snapshot_id,config,version) VALUES($1,$2,$3,$4,$4,$5,$6,$7)`, id, row.ID, status, now, snapshotID, encode(config), index+1)
+			Expect(err).NotTo(HaveOccurred())
+		}
+		var captured *db.SnapshotRow
+		if list {
+			rows, err := database.ListSnapshots(owner.Sub, false)
+			Expect(err).NotTo(HaveOccurred())
+			for i := range rows {
+				if rows[i].ID == snapshotID {
+					captured = &rows[i]
+					break
+				}
+			}
+		} else {
+			var err error
+			captured, err = database.GetSnapshot(snapshotID)
+			Expect(err).NotTo(HaveOccurred())
+		}
+		Expect(captured).NotTo(BeNil())
+		Expect(captured.Capture).To(MatchJSON(string(encode(map[string]any{"sourceId": row.ID, "sourceName": "Latest captured scope", "freshnessHours": 18}))))
+	}, Entry("snapshot detail", false), Entry("snapshot picker", true))
 })

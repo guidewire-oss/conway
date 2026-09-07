@@ -36,7 +36,7 @@ func (s *server) evidenceTime() int64 {
 }
 func (s *server) evidenceFailure(w http.ResponseWriter, err error) {
 	s.logger().Error().Err(err).Msg("evidence persistence failed")
-	http.Error(w, "Could not save capture state. Refresh and retry.", http.StatusInternalServerError)
+	http.Error(w, "Could not access capture data. Refresh and retry.", http.StatusInternalServerError)
 }
 func (s *server) evidenceAuthorized(w http.ResponseWriter, r *http.Request, c *auth.Claims) bool {
 	if c.GameID != "" || c.Sub == "" || (!c.Has("manager") && !c.Has("admin")) {

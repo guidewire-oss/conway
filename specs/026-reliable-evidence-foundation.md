@@ -133,7 +133,7 @@ status in one transaction. Next due is completion plus the configured interval;
 failed scheduled attempts wait the same interval (manual retry is available).
 Unrelated settings edits retain next due; cadence/enable changes reset it from
 the save time. Expired claims may recover before that next due time.
-A process restart resumes due work rather than inventing successful progress. A durable insertion sequence orders attempts newest first when timestamps tie.
+A process restart resumes due work rather than inventing successful progress. A durable insertion sequence orders attempts newest first when timestamps tie. Metadata lookup also uses this sequence defensively if multiple successful rows reference one snapshot.
 
 ### Decision 2: Explicit credentials and immutable scope
 Store API tokens with AES-GCM using a domain-separated key derived from the
@@ -160,7 +160,7 @@ fails rather than publishing truncated evidence.
 Extend Measure > Snapshots with capture sources above dated captures. Show last
 success, next capture, freshness and last attempt separately. Link successful
 captures into the existing explicit snapshot selector; do not add competing
-selection state. Read-only captured identity details use the same snapshot ACL.
+selection state. Read-only captured identity details use the same snapshot ACL. Persistence errors use operation-neutral recovery text for both reads and writes.
 Roster selection requires owner/public/admin read access. Captured source snapshots
 cannot be deleted or have their roster reassociated; name and visibility remain
 manageable through the existing snapshot controls. Current persisted owner roles

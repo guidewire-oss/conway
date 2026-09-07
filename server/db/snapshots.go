@@ -142,4 +142,4 @@ func (d *DB) ListSnapshotDocPaths(snapshotID string) ([]string, error) {
 	return out, rows.Err()
 }
 
-const captureMetadataSQL = `(SELECT jsonb_build_object('sourceId',r.source_id,'sourceName',r.config->>'name','freshnessHours',r.config->'freshnessHours') FROM evidence_runs r WHERE r.snapshot_id=s.id AND r.status='succeeded' LIMIT 1)`
+const captureMetadataSQL = `(SELECT jsonb_build_object('sourceId',r.source_id,'sourceName',r.config->>'name','freshnessHours',r.config->'freshnessHours') FROM evidence_runs r WHERE r.snapshot_id=s.id AND r.status='succeeded' ORDER BY r.run_order DESC LIMIT 1)`
