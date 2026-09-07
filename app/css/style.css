@@ -255,7 +255,6 @@ table.sortable thead th.sort-desc::after { content: " ▼"; font-size: 9px; opac
 #task-table th { text-align: left; color: var(--muted); font-size: 11px; text-transform: uppercase; padding: 4px 6px; }
 #task-table td { padding: 3px 4px; }
 #task-table input, #task-table select { width: 100%; }
-#task-table .del { width: auto; background: none; border: none; color: var(--muted); cursor: pointer; }
 .row-actions:not(.row) { display: flex; gap: 8px; margin: 12px 0; }
 .epic-import { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
 .epic-import input { padding: 6px 8px; }

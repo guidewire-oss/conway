@@ -42,7 +42,7 @@ function assumptionsHTML(si) {
 function unscheduledTeamHTML(items) {
   if (!items.length) return '';
   return `<div class="tl-unplaced-list"><b>Assigned work without a placement</b>${items.map((si) =>
-    `<p><button class="btn btn-secondary" type="button" data-select-init="${esc(si.name)}">${esc(si.name)}</button> ${esc(unscheduledReason(si))}</p>`).join('')}</div>`;
+    `<p><button class="btn btn-secondary btn-sm" type="button" data-select-init="${esc(si.name)}">${esc(si.name)}</button> ${esc(unscheduledReason(si))}</p>`).join('')}</div>`;
 }
 
 // axisScale maps a week onto the row width as a percentage. The row is the
@@ -371,7 +371,7 @@ function outsideWorkHTML(ps, opts) {
   const outside = displaySlices(ps).filter((sl) => (!query || initiativeMatch(query, sl.initiative)) &&
     (sl.startWeek >= horizon || (sl.displayPhases || sl.phases)?.some((phase) => phase.fromWeek >= horizon)));
   return outside.length ? `<div class="tl-outside-list"><b>Work outside this view</b>${outside.map((sl) =>
-    `<p><button class="btn btn-secondary" type="button" data-select-init="${esc(sl.initiative)}">${esc(sl.initiative)}</button> ${esc(ps.pod)}: w${sl.startWeek}–w${sl.finishWeek}. Widen the time span to see the remaining work.</p>`).join('')}</div>` : '';
+    `<p><button class="btn btn-secondary btn-sm" type="button" data-select-init="${esc(sl.initiative)}">${esc(sl.initiative)}</button> ${esc(ps.pod)}: w${sl.startWeek}–w${sl.finishWeek}. Widen the time span to see the remaining work.</p>`).join('')}</div>` : '';
 }
 
 // podLanesHTML is one pod's track lanes (§13.4): every slice in start order,

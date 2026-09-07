@@ -62,3 +62,12 @@ table/form rules. The rendered table, account focus and responsive layout checks
 in `tests/browser/measure-bootstrap.mjs` passed with
 `go test -race -count=1 ./server -ginkgo.focus='Bootstrap adoption' -ginkgo.no-color -ginkgo.succinct -timeout=3m`:
 `ok conway/server 16.367s`. See `specs/011-bootstrap-adoption-debt.md:183`, Decision 3.
+
+Settle component transitions before comparing an existing control with a newly
+inserted style reference. A fresh button starts in the new theme while an
+existing button may still be interpolating from the old one.
+Provenance: observed 2026-09-06 in the simulator delete-style browser check
+(`FAIL conway/server 15.953s`). Awaiting the actual button animations before
+comparison produced `ok conway/server 39.004s` with
+`go test -race -count=1 ./server -ginkgo.focus='Bootstrap adoption' -ginkgo.no-color -ginkgo.succinct -timeout=3m`.
+See `tests/browser/measure-bootstrap.mjs`; the component registry remains canonical.

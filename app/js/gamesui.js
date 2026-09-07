@@ -29,9 +29,9 @@ export async function openGames() {
       <p>Practise decisions about scope, WIP and dependencies together. Action points are a move budget that resets each round; unused points expire. One round represents a simulated quarter. The timer is meeting time.</p>
       <div class="games-create">
         <label class="form-label mb-0 d-inline-flex flex-wrap align-items-center gap-1 mw-100">Game name <input class="form-control form-control-sm w-auto mw-100" id="g-name" aria-label="Game name" placeholder="Game name (e.g. Q3 Offsite)"></label>
-        <label class="form-label mb-0 d-inline-flex align-items-center gap-1">Rounds <input class="form-control form-control-sm" id="g-rounds" type="number" min="1" max="8" value="4" style="width:46px"></label>
-        <label class="form-label mb-0 d-inline-flex align-items-center gap-1">Action points / round <input class="form-control form-control-sm" id="g-ap" type="number" min="2" max="6" value="5" style="width:42px"></label>
-        <label class="form-label mb-0 d-inline-flex align-items-center gap-1">Round timer (seconds) <input class="form-control form-control-sm" id="g-timer" type="number" min="30" max="3600" value="300" style="width:62px"></label>
+        <label class="form-label mb-0 d-inline-flex align-items-center gap-1">Rounds <input class="form-control form-control-sm" id="g-rounds" type="number" min="1" max="8" value="4" style="width:4rem"></label>
+        <label class="form-label mb-0 d-inline-flex align-items-center gap-1">Action points / round <input class="form-control form-control-sm" id="g-ap" type="number" min="2" max="6" value="5" style="width:4rem"></label>
+        <label class="form-label mb-0 d-inline-flex align-items-center gap-1">Round timer (seconds) <input class="form-control form-control-sm" id="g-timer" type="number" min="30" max="3600" value="300" style="width:6rem"></label>
         <select class="form-select form-select-sm w-auto mw-100" id="g-scenario" aria-label="Scenario" title="Scenario / difficulty (seed)"></select>
         <button id="g-create" class="btn btn-primary">Create game</button>
       </div>
@@ -128,9 +128,9 @@ async function editGame(gid) {
     <h3 style="margin-top:16px">Edit “${esc(g.name)}” <a class="plan-back" id="edit-close">✕ close</a></h3>
     <div class="games-create">
       <label class="form-label mb-0 d-inline-flex flex-wrap align-items-center gap-1 mw-100">Game name <input class="form-control form-control-sm w-auto mw-100" id="eg-name" aria-label="Game name" value="${esc(g.name)}" placeholder="Game name"></label>
-      <label class="form-label mb-0 d-inline-flex align-items-center gap-1">Rounds <input class="form-control form-control-sm" id="eg-rounds" type="number" min="1" max="8" value="${g.rounds}" style="width:46px"></label>
-      <label class="form-label mb-0 d-inline-flex align-items-center gap-1">Action points / round <input class="form-control form-control-sm" id="eg-ap" type="number" min="2" max="6" value="${g.ap}" style="width:42px"></label>
-      <label class="form-label mb-0 d-inline-flex align-items-center gap-1">Round timer (seconds) <input class="form-control form-control-sm" id="eg-timer" type="number" min="30" max="3600" value="${g.timerSecs}" style="width:62px"></label>
+      <label class="form-label mb-0 d-inline-flex align-items-center gap-1">Rounds <input class="form-control form-control-sm" id="eg-rounds" type="number" min="1" max="8" value="${g.rounds}" style="width:4rem"></label>
+      <label class="form-label mb-0 d-inline-flex align-items-center gap-1">Action points / round <input class="form-control form-control-sm" id="eg-ap" type="number" min="2" max="6" value="${g.ap}" style="width:4rem"></label>
+      <label class="form-label mb-0 d-inline-flex align-items-center gap-1">Round timer (seconds) <input class="form-control form-control-sm" id="eg-timer" type="number" min="30" max="3600" value="${g.timerSecs}" style="width:6rem"></label>
       <select class="form-select form-select-sm w-auto mw-100" id="eg-scenario" aria-label="Scenario" title="Scenario / difficulty (seed)"></select>
       <button id="eg-save" class="btn btn-primary">Save</button>
     </div>

@@ -222,6 +222,9 @@ compact controls without losing native date input or existing action handlers.
 What-if lever selectors keep their type, target and action grouped at desktop
 widths and wrap within the available mobile space. Link RGB aliases derive from
 the primary token so opacity utilities follow a customized palette.
+Compact numeric controls leave room for their longest permitted value and
+native spinner. Timeline exception actions use compact framework buttons;
+simulator delete controls retain the shared secondary appearance.
 
 ## 12. Success Metrics
 

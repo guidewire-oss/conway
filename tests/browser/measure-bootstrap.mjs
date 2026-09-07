@@ -124,6 +124,18 @@ export async function checkMeasureBootstrap(page) {
     });
     const taskActions=await page.locator('#task-table .del').evaluateAll(buttons=>buttons.map(button=>button.getBoundingClientRect().height));
     assert.equal(taskActions.length,7);assert.ok(taskActions.every(height=>height>=24 && height<=32),'Task removal actions retain compact usable targets');
+    for(const theme of ['light','dark']) {
+      await page.evaluate(theme=>document.documentElement.dataset.bsTheme=theme,theme);
+      const deleteStyle=await page.locator('#task-table .del').first().evaluate(async button=>{
+        await Promise.all(button.getAnimations().map(animation=>animation.finished.catch(()=>{})));
+        const reference=document.createElement('button');reference.className='btn btn-secondary btn-sm';button.after(reference);
+        const properties=['backgroundColor','color','borderTopStyle','borderTopWidth','borderTopColor'];
+        const values=element=>properties.map(property=>getComputedStyle(element)[property]);
+        const result={actual:values(button),expected:values(reference)};reference.remove();return result;
+      });
+      assert.deepEqual(deleteStyle.actual,deleteStyle.expected,'Simulator delete action uses shared secondary styling in '+theme);
+    }
+
     for(const width of [1280,360]) {
       await page.setViewportSize({width,height:960});
       const importGeometry=await page.locator('#epic-key').evaluate(input=>{

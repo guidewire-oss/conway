@@ -21,7 +21,7 @@ try {
     const {initForms} = await import('/js/forms.js');
     const {mountReadyQueue} = await import('/js/readyqueueui.js');
     const {executionEvidenceHTML} = await import('/js/executionui.js');
-    const {timelineControlsHTML,timelineRowHTML,timelineInspectorHTML} = await import('/js/timeline.js');
+    const {timelineControlsHTML,timelineRowHTML,timelineInspectorHTML,podLensHTML} = await import('/js/timeline.js');
     const {baselineListHTML,baselineChipHTML} = await import('/js/baseline.js');
     const {initScoreboard} = await import('/js/scoreboard.js');
     const {orderingBadge,verdictBadgeHTML,schedulingFormHTML} = await import('/js/order.js');
@@ -59,6 +59,10 @@ try {
     const inspectors=document.createElement('div');inspectors.id='inspector-examples';
     inspectors.innerHTML=timelineInspectorHTML(null,{})+timelineInspectorHTML({name:'Atlas',verdict:'unschedulable',slices:[]},{});
     document.querySelector('main').append(inspectors);
+    const exceptions=document.createElement('div');exceptions.id='timeline-exceptions';
+    exceptions.innerHTML=podLensHTML({horizonWeeks:4,initiatives:[{name:'Atlas held',verdict:'unschedulable',slices:[]}],podWeeks:[{pod:'Atlas',tracks:1,weeks:[],slices:[{initiative:'Beacon later',startWeek:6,finishWeek:8,lane:0,lanesUsed:1}]}]}, {planInitiatives:[{name:'Atlas held',work:{Atlas:{inPath:true}}}]});
+    document.querySelector('main').append(exceptions);
+
     const shell=new DOMParser().parseFromString(await (await fetch('/index.html')).text(),'text/html');
     const help=document.createElement('div');help.id='legacy-help-example';
     help.append(shell.querySelector('#view-scoreboard h2 .help'));
@@ -261,6 +265,9 @@ try {
         const placement=await checkbox.evaluate(input=>({labels:input.labels.length,margin:parseFloat(getComputedStyle(input).marginLeft),float:getComputedStyle(input).cssFloat,left:input.getBoundingClientRect().left,labelLeft:input.closest('label').getBoundingClientRect().left}));
         assert.equal(placement.labels,1);assert.equal(placement.float,'none');assert.ok(placement.margin>=0 && placement.left>=placement.labelLeft,'Timeline checkbox remains inside its associated label: '+JSON.stringify(placement));
       }
+      const exceptionActions=await page.locator('#timeline-exceptions .tl-unplaced-list button,#timeline-exceptions .tl-outside-list button').evaluateAll(buttons=>buttons.map(button=>({name:button.dataset.selectInit,height:button.getBoundingClientRect().height})));
+      assert.deepEqual(exceptionActions.map(action=>action.name).sort(),['Atlas held','Beacon later']);
+      assert.ok(exceptionActions.every(action=>action.height>=24 && action.height<=32),'Timeline exception actions stay compact and usable');
       const chip=await page.locator('#bl-chip').evaluate(el=>({whiteSpace:getComputedStyle(el).whiteSpace,width:el.getBoundingClientRect().width,parent:el.parentElement.getBoundingClientRect().width,scroll:el.scrollWidth,client:el.clientWidth}));
       assert.equal(chip.whiteSpace,'normal');assert.ok(chip.width<=chip.parent && chip.scroll<=chip.client,'Long agreement status wraps within the available header width: '+JSON.stringify(chip));
       const owner = decision.locator('[name=owner]'); await owner.focus();

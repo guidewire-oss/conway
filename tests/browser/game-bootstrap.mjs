@@ -12,12 +12,15 @@ export async function checkGameBootstrap(page) {
       interrupt:1, ktlo:1, readiness:0.8, hygiene:0.8, pairing:true}],
   };
   const staged = [], submitted = [];
+  const savedGame={id:'atlas-game',name:'Atlas exercise',rounds:8,ap:6,timerSecs:3600,joinCode:'ATLAS',scenario:'default'};
   const mainRoute = route => route.fulfill({contentType:'text/javascript',body:''});
   const apiRoute = async route => {
     const request = route.request(), path = new URL(request.url()).pathname;
     let body;
     if(path === '/api/config') body = config;
-    else if(['/api/games','/api/plan','/api/snapshots'].includes(path)) body = [];
+    else if(path === '/api/games') body = [savedGame];
+    else if(path === '/api/games/atlas-game') body = {game:savedGame};
+    else if(['/api/plan','/api/snapshots'].includes(path)) body = [];
     else if(path === '/api/game') body = game;
     else if(path === '/api/game/stage' && request.method() === 'POST') {
       const move = request.postDataJSON(); staged.push(move);
@@ -93,14 +96,20 @@ export async function checkGameBootstrap(page) {
     assert.equal(await page.locator('#game-submit').count(),0,'The pause transition removes round submission controls');
     await page.evaluate(async()=>{const {openGames}=await import('/js/gamesui.js');await openGames();});
     await page.locator('#games-overlay').waitFor({state:'visible'});
+    await page.locator('.g-edit[data-id="atlas-game"]').click();await page.locator('#eg-timer').waitFor();
+    await page.locator('#g-timer').fill('3600');
     for(const width of [1280,360]) {
       await page.setViewportSize({width,height:960});
-      const fields=await page.locator('#g-rounds,#g-ap,#g-timer').evaluateAll(inputs=>inputs.map(input=>{
+      const fields=await page.locator('#g-rounds,#g-ap,#g-timer,#eg-rounds,#eg-ap,#eg-timer').evaluateAll(inputs=>inputs.map(input=>{
         const field=input.getBoundingClientRect(),label=input.closest('label');
         const text=document.createRange();text.selectNodeContents(label.firstChild);
         const caption=text.getBoundingClientRect();
-        return {width:field.width,top:field.top,bottom:field.bottom,captionTop:caption.top,captionBottom:caption.bottom};
+        const style=getComputedStyle(input),canvas=document.createElement('canvas'),context=canvas.getContext('2d');context.font=style.font;
+        const textWidth=context.measureText(input.max).width;
+        return {width:field.width,top:field.top,bottom:field.bottom,captionTop:caption.top,captionBottom:caption.bottom,textWidth,textRoom:input.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight)};
       }));
+      assert.equal(fields.length,6);
+      assert.ok(fields.every(field=>field.textRoom>=field.textWidth+16),'Game create/edit fields reserve room for the largest value and native spinner: '+JSON.stringify(fields));
       assert.ok(fields.every(field=>field.width<100 && field.top<field.captionBottom && field.bottom>field.captionTop),'Game numeric fields remain compact beside their labels at '+width+': '+JSON.stringify(fields));
       const name=await page.locator('#g-name').boundingBox();
       assert.ok(name.x>=0 && name.x+name.width<=width && name.width<400,'Game name fits within the viewport');
