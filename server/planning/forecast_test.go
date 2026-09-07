@@ -63,4 +63,18 @@ var _ = Describe("portfolio forecast scenarios", func() {
 			Expect(err).To(HaveOccurred())
 		}
 	})
+	It("rejects both infinities and NaN in each setting before scheduling", func() {
+		for _, value := range []float64{math.Inf(1), math.Inf(-1), math.NaN()} {
+			for _, settings := range []ForecastSettings{
+				{LowerFactor: value, UpperFactor: 1},
+				{LowerFactor: 1, UpperFactor: value},
+				{LowerFactor: 1, UpperFactor: 1, Disruption: value},
+			} {
+				result, err := ComputeForecast(fixture(), settings)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("choose lower factor"))
+				Expect(result.Scenarios).To(BeEmpty())
+			}
+		}
+	})
 })

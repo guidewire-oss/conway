@@ -95,6 +95,9 @@ source of planning truth is introduced.
 The existing authorized actuals API supplies optional evidence. Malformed or
 out-of-range settings return 400; inaccessible plans return 403/404; stale or
 game-only roles return 403. Only one strict bounded JSON object is accepted.
+Unreadable persisted inputs return a generic 500 response; diagnostic details
+remain in server logs. Known input-validation failures retain actionable 400
+responses through the shared scheduling error classification.
 
 ## 9. Out of Scope
 
@@ -144,6 +147,14 @@ used even if the form changes. Stale requests are ignored after context changes.
 Only imported Jira captures supply diagnostics; synthetic/example snapshots are excluded.
 Use existing actuals permissions and completeness rules for optional evidence;
 do not create duplicate snapshot associations or rewrite agreements.
+
+### Decision 3: Error boundaries (2026-09-07)
+
+Saved-data decoding failures are server faults, not invalid forecast settings.
+Use the existing scheduling validation classifier to preserve useful input
+feedback while keeping internal decoding details out of the response. All range
+settings must be finite; finite bounds already reject either infinity, while
+NaN requires explicit rejection.
 
 ## 12. Success Metrics
 

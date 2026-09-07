@@ -87,4 +87,24 @@ var _ = Describe("portfolio forecast API", Label("database"), func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(call("POST", settings, claims).Code).To(Equal(403))
 	})
+	It("separates unreadable saved inputs from actionable validation errors", func() {
+		for _, field := range []string{"teams", "initiatives"} {
+			before, err := database.GetPlan(plan.ID)
+			Expect(err).NotTo(HaveOccurred())
+			if field == "teams" {
+				Expect(database.SavePlanTeams(plan.ID, []byte(`{"internal":"unreadable"}`), before.UpdatedAt)).To(Succeed())
+			} else {
+				Expect(database.SavePlanInitiatives(plan.ID, []byte(`{"internal":"unreadable"}`), before.UpdatedAt)).To(Succeed())
+			}
+			r := call("POST", settings, claims)
+			Expect(r.Code).To(Equal(500), r.Body.String())
+			Expect(r.Body.String()).To(Equal("Saved planning inputs could not be read. Retry or contact an administrator.\n"))
+			Expect(database.SavePlanTeams(plan.ID, before.Teams, before.UpdatedAt)).To(Succeed())
+			Expect(database.SavePlanInitiatives(plan.ID, before.Initiatives, before.UpdatedAt)).To(Succeed())
+		}
+		Expect(database.SavePlanInitiatives(plan.ID, encode([]planning.Initiative{{Name: "Beacon"}, {Name: "Beacon"}}), time.Now().Unix())).To(Succeed())
+		r := call("POST", settings, claims)
+		Expect(r.Code).To(Equal(400), r.Body.String())
+		Expect(r.Body.String()).To(ContainSubstring("Beacon"))
+	})
 })

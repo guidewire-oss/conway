@@ -23,7 +23,7 @@ export function forecastEvidenceHTML(value) {
   return `<p><strong>${esc(value.snapshot.name)}</strong> · Source: Jira · ${Math.floor(value.snapshot.ageDays)} days old · Agreement: ${esc(value.baseline?.name || 'None')}</p><p>Evidence covers ${value.coverage.tracked} of ${value.coverage.total} initiatives. These ratios compare inferred elapsed calendar time with agreed duration; they do not measure effort or validate prediction accuracy.</p>${value.calibration.length ? `<ul>${value.calibration.map(c=>`<li>${esc(c.pod)}: ${Number(c.factor).toFixed(2)}× agreed duration; ${c.sampleCount} completed team slices (inferred starts).</li>`).join('')}</ul>`:'<p>No eligible completed-work samples. Confirm epic bindings, agreement scope, known issue status and resolution timestamps in Review execution.</p>'}<ul>${value.gaps.map(g=>`<li>${esc(g)}</li>`).join('')}</ul><p class="small">Predictive calibration still requires forecasts recorded before outcomes and interval coverage on comparable completed cohorts. These samples do not automatically change the scenario settings.</p>`;
 }
 
-// specs/028-portfolio-forecasts.md:141: each async response belongs to a mounted
+// specs/028-portfolio-forecasts.md:144: each async response belongs to a mounted
 // plan, identity and form generation; diagnostics never become a new association.
 export function mountPortfolioForecast(host,{plan,request,getIdentity,live}) {
   const owner=getIdentity();let disposed=false,ticket=0,evidenceTicket=0,abort;

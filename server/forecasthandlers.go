@@ -32,7 +32,12 @@ func (s *server) handleForecast(w http.ResponseWriter, r *http.Request, p *db.Pl
 	}
 	inputs, err := s.planScheduleFor(p, scheduleRequest{})
 	if err != nil {
-		http.Error(w, "Could not read saved planning inputs: "+err.Error(), http.StatusBadRequest)
+		if message, invalid := windowError(err); invalid {
+			http.Error(w, message, http.StatusBadRequest)
+		} else {
+			s.logger().Error().Str("plan", p.ID).Err(err).Msg("forecast inputs unreadable")
+			http.Error(w, "Saved planning inputs could not be read. Retry or contact an administrator.", http.StatusInternalServerError)
+		}
 		return
 	}
 	result, err := planning.ComputeForecast(inputs, settings)
