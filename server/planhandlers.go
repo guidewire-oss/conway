@@ -170,6 +170,8 @@ func (s *server) handlePlanItem(w http.ResponseWriter, r *http.Request, c auth.C
 	switch {
 	case sub == "forecast":
 		s.handleForecast(w, r, p, c)
+	case sub == "predictions" || strings.HasPrefix(sub, "predictions/"):
+		s.handlePredictions(w, r, p, c, sub)
 	case sub == "assistant":
 		s.handleAssistant(w, r, p, c)
 	case sub == "ready-queue" || strings.HasPrefix(sub, "ready-queue/"):

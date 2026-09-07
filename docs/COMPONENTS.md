@@ -187,3 +187,8 @@ variables, long-text wrapping and narrow-screen touch targets. Bootstrap owns
 the controls, layout and modal lifecycle through the shared modal adapter.
 The dot and legacy theme bridge remain the documented gaps; this increment
 removes the previous custom list styling rather than adding component rules.
+
+Prediction history extends Forecasts with native disclosure sections, Bootstrap
+forms, list-group buttons, cards and responsive tables. Recording appears only
+after a comparison. History and capture errors stay beside the affected action;
+capture refresh preserves selection when available. No custom CSS is introduced.

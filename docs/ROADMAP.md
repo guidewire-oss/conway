@@ -18,19 +18,22 @@ optional bounded question interpretation. Merged in PR 83;
 live provider quality remains a deployment validation step.
 Live connection validation remains a separate release check.
 
-| Priority | Remaining item | Status / dependency |
-|---|---|---|
-| Release | Live Google/Jira validation; startup changes | Pending live connection checks and review of local startup changes |
-| 1 | Evidence-linked planning assistant | Merged PR 83; optional live model validation required before enabling |
-| 2 | Calibrated portfolio forecasts | First increment implemented (spec 028): finite-resource estimate/disruption scenarios and evidence diagnostics. Release review pending; prospective prediction history and comparable interval coverage remain next |
-| 3 | Flow improvement experiments | Planned; explicit hypotheses, comparable before/after measures and guardrails |
-| 4 | Outcome and minimum-scope planning | Planned; extend lightweight review outcomes into initiative scope choices |
-| 5 | Milestones and external dependencies | Planned; acceptance events, vendor commitments and release conditions |
-| 6 | Execution history and aging work | Planned; observed transitions, workflow definitions and comparable cohorts |
-| 7 | Operational capacity and disruption planning | Planned extension; dated partial capacity and disruption impact previews using existing assumptions and calendars |
-| 8 | Scenario comparison and agreement review | Planned extension; common revision, displaced work and acknowledgements |
-| 9 | Shared capacity across plans | Planned; canonical teams, committed plan allocations and conflicts in existing timelines and reports |
-| 10 | Dependency agreements | Deferred to this position; accountable providers, shared records and acceptance conditions |
+| Priority | Remaining item | Completion estimate | Status / dependency |
+|---|---|---|---|
+| Release | Live Google/Jira validation; startup changes | 0% | Pending live connection checks and review of local startup changes |
+| 1 | Evidence-linked planning assistant | 100% | Merged PR 83; optional live model validation required before enabling |
+| 2 | Calibrated portfolio forecasts | 70% | Scenario/evidence increment merged in PR 84. Prediction history and per-prediction comparable outcome coverage implemented; release review pending. Independent cohort validation and calibrated probability models remain |
+| 3 | Flow improvement experiments | 0% | Planned; explicit hypotheses, comparable before/after measures and guardrails |
+| 4 | Outcome and minimum-scope planning | 0% | Planned; extend lightweight review outcomes into initiative scope choices |
+| 5 | Milestones and external dependencies | 0% | Planned; acceptance events, vendor commitments and release conditions |
+| 6 | Execution history and aging work | 0% | Planned; observed transitions, workflow definitions and comparable cohorts |
+| 7 | Operational capacity and disruption planning | 0% | Planned extension; dated partial capacity and disruption impact previews using existing assumptions and calendars |
+| 8 | Scenario comparison and agreement review | 0% | Planned extension; common revision, displaced work and acknowledgements |
+| 9 | Shared capacity across plans | 0% | Planned; canonical teams, committed plan allocations and conflicts in existing timelines and reports |
+| 10 | Dependency agreements | 0% | Deferred to this position; accountable providers, shared records and acceptance conditions |
+
+Percentages are rough scope estimates, not measured engineering effort. Live
+release checks are separate from implementation completion.
 
 Dependencies qualify the scope and claims of each increment; they do not silently
 change this priority order. In particular, forecast ranges must not be called

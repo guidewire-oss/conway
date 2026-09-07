@@ -1,3 +1,4 @@
+import {mountPredictionHistory} from './prediction-history.js';
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const known = row => row && !row.provisional && row.slices?.length && !['unschedulable','beyond-horizon'].includes(row.verdict);
 export function forecastDate(origin, week) {
@@ -23,7 +24,7 @@ export function forecastEvidenceHTML(value) {
   return `<p><strong>${esc(value.snapshot.name)}</strong> · Source: Jira · ${Math.floor(value.snapshot.ageDays)} days old · Agreement: ${esc(value.baseline?.name || 'None')}</p><p>Evidence covers ${value.coverage.tracked} of ${value.coverage.total} initiatives. These ratios compare inferred elapsed calendar time with agreed duration; they do not measure effort or validate prediction accuracy.</p>${value.calibration.length ? `<ul>${value.calibration.map(c=>`<li>${esc(c.pod)}: ${Number(c.factor).toFixed(2)}× agreed duration; ${c.sampleCount} completed team slices (inferred starts).</li>`).join('')}</ul>`:'<p>No eligible completed-work samples. Confirm epic bindings, agreement scope, known issue status and resolution timestamps in Review execution.</p>'}<ul>${value.gaps.map(g=>`<li>${esc(g)}</li>`).join('')}</ul><p class="small">Predictive calibration still requires forecasts recorded before outcomes and interval coverage on comparable completed cohorts. These samples do not automatically change the scenario settings.</p>`;
 }
 
-// specs/028-portfolio-forecasts.md:146: each async response belongs to a mounted
+// specs/028-portfolio-forecasts.md:170: each async response belongs to a mounted
 // plan, identity and form generation; diagnostics never become a new association.
 export function mountPortfolioForecast(host,{plan,request,getIdentity,live}) {
   const owner=getIdentity();let disposed=false,ticket=0,evidenceTicket=0,abort;
@@ -34,14 +35,17 @@ export function mountPortfolioForecast(host,{plan,request,getIdentity,live}) {
     <form data-forecast-form><div class="row g-3"><div class="col-12 col-md-4"><label class="form-label" for="forecast-lower">Shorter estimate factor</label><input class="form-control" id="forecast-lower" type="number" min="0.25" max="1" step="0.05" value="0.8" required aria-describedby="forecast-factor-help"></div><div class="col-12 col-md-4"><label class="form-label" for="forecast-upper">Longer estimate factor</label><input class="form-control" id="forecast-upper" type="number" min="1" max="3" step="0.05" value="1.3" required aria-describedby="forecast-factor-help"></div><div class="col-12 col-md-4"><label class="form-label" for="forecast-disruption">Additional shared disruption (%)</label><input class="form-control" id="forecast-disruption" type="number" min="0" max="75" step="1" value="10" required aria-describedby="forecast-disruption-help"></div></div><p id="forecast-factor-help" class="form-text">1× keeps estimates unchanged; 0.8× makes known estimates 20% shorter; 1.3× makes them 30% longer.</p><p id="forecast-disruption-help" class="form-text">In the longer-estimate scenario only, disruption removes this share of remaining productive capacity from every team, in addition to existing losses and calendars.</p><button class="btn btn-primary" type="submit" data-forecast-run>Compare scenarios</button></form><p role="status" class="mt-3" data-forecast-status></p><div data-forecast-result></div>
     <details class="mt-4"><summary>Check historical evidence</summary><p class="mt-2">Optional diagnostics from the existing execution review evidence. Selecting a snapshot here does not change your review association.</p><label class="form-label" for="forecast-snapshot">Execution snapshot</label><select class="form-select mb-2" id="forecast-snapshot"><option value="">Choose evidence</option></select><button class="btn btn-outline-secondary" type="button" data-forecast-evidence-refresh>Refresh available snapshots</button><p role="status" data-forecast-evidence-status></p><div data-forecast-evidence></div></details>`;
   const $=sel=>section.querySelector(sel),form=$('form'),button=$('[data-forecast-run]'),status=$('[data-forecast-status]'),result=$('[data-forecast-result]'),snapshot=$('#forecast-snapshot'),evidence=$('[data-forecast-evidence]'),evidenceStatus=$('[data-forecast-evidence-status]');
+  const historyHost=document.createElement('div');result.after(historyHost);
+  const history=mountPredictionHistory(historyHost,{plan,request,getIdentity,live:current,renderForecast:forecastHTML});
   const message=(node,text,error=false)=>{node.textContent=text;node.setAttribute('role',error?'alert':'status');};
   async function json(url,options){const r=await request(url,options);if(!r?.ok)throw Error((await r?.text())?.trim().slice(0,300)||'Connection failed. Retry.');return r.json();}
-  form.addEventListener('input',()=>{ticket++;abort?.abort();button.disabled=false;result.replaceChildren();message(status,'Settings changed. Compare again to use these values.');});
+  form.addEventListener('input',()=>{history.setComparison(null);ticket++;abort?.abort();button.disabled=false;result.replaceChildren();message(status,'Settings changed. Compare again to use these values.');});
   form.addEventListener('submit',async event=>{
     event.preventDefault();if(button.disabled||!form.reportValidity())return;
+    history.setComparison(null);
     const mine=++ticket;abort?.abort();abort=new AbortController();button.disabled=true;result.replaceChildren();message(status,'Comparing three constrained scenarios…');
     const settings={lowerFactor:Number($('#forecast-lower').value),upperFactor:Number($('#forecast-upper').value),disruption:Number($('#forecast-disruption').value)/100};
-    try {const value=await json(`/api/plan/${encodeURIComponent(plan.id)}/forecast`,{method:'POST',body:JSON.stringify(settings),signal:abort.signal});if(!current()||mine!==ticket)return;result.innerHTML=forecastHTML(value,plan.id);message(status,'Comparison ready. Your plan and agreement are unchanged.');}
+    try {const value=await json(`/api/plan/${encodeURIComponent(plan.id)}/forecast`,{method:'POST',body:JSON.stringify(settings),signal:abort.signal});if(!current()||mine!==ticket)return;result.innerHTML=forecastHTML(value,plan.id);history.setComparison(value);message(status,'Comparison ready. Your plan and agreement are unchanged.');}
     catch(e){if(current()&&mine===ticket)message(status,e.message+' Adjust settings or retry.',true);}
     finally{if(current()&&mine===ticket)button.disabled=false;}
   });
@@ -55,15 +59,15 @@ export function mountPortfolioForecast(host,{plan,request,getIdentity,live}) {
     catch(e){if(current()&&mine===evidenceTicket)message(evidenceStatus,e.message+' Choose another snapshot or retry.',true);}
   });
   $('[data-forecast-evidence-refresh]').addEventListener('click',loadSnapshots);
-  let loaded=false;section.querySelector('details').addEventListener('toggle',event=>{if(event.target.open&&!loaded){loaded=true;loadSnapshots();}});
+  let loaded=false;snapshot.closest('details').addEventListener('toggle',event=>{if(event.target.open&&!loaded){loaded=true;loadSnapshots();}});
   const leave=event=>{
     const tab=event.target.closest?.('.tab[data-view]');
     if(!tab||tab.dataset.view==='plan')return;
-    ticket++;evidenceTicket++;abort?.abort();button.disabled=false;snapshot.disabled=false;
+    history.invalidate();ticket++;evidenceTicket++;abort?.abort();button.disabled=false;snapshot.disabled=false;
     result.replaceChildren();evidence.replaceChildren();
     message(status,'Returned to this plan? Compare again to use saved inputs.');
     message(evidenceStatus,'Choose evidence again or refresh available snapshots.');
   };
   document.addEventListener('click',leave);
-  return ()=>{document.removeEventListener('click',leave);disposed=true;ticket++;evidenceTicket++;abort?.abort();};
+  return ()=>{history.dispose();document.removeEventListener('click',leave);disposed=true;ticket++;evidenceTicket++;abort?.abort();};
 }
