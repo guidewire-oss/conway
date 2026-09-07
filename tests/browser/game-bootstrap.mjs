@@ -49,6 +49,16 @@ export async function checkGameBootstrap(page) {
       await initGameUI();
     });
     const leverButtons = page.locator('#game-levers [data-do]');
+    assert.equal(await page.locator('#game-setup').isVisible(),false,'Starting the game hides the setup card in the rendered layout');
+    assert.equal(await page.locator('#measure-context').isVisible(),false,'The initial hidden Measure card does not appear over the game');
+    for(const width of [1280,360]) {
+      await page.setViewportSize({width,height:960});
+      const geometry=await page.locator('#lv-freeze-pod').evaluate(select=>{
+        const field=select.getBoundingClientRect(),input=document.querySelector('#lv-freeze-n').getBoundingClientRect();
+        return {width:field.width,top:field.top,bottom:field.bottom,inputTop:input.top,inputBottom:input.bottom};
+      });
+      assert.ok(geometry.width<200 && geometry.top<geometry.inputBottom && geometry.bottom>geometry.inputTop,'Freeze selector and count remain compact on one row at '+width+': '+JSON.stringify(geometry));
+    }
     assert.equal(await leverButtons.count(),11,'All offered game lever actions are rendered');
     assert.equal(await leverButtons.evaluateAll(buttons=>buttons.every(button=>button.classList.contains('btn'))),true,'Lever actions adopt Bootstrap');
     assert.equal(await page.locator('#game-submit.btn.btn-primary').count(),1,'Round submission adopts the primary action primitive');
@@ -70,6 +80,7 @@ export async function checkGameBootstrap(page) {
     await page.locator('#halt-overlay').waitFor({state:'hidden'});
     assert.equal(await page.locator('#game-levers > .halt-card').count(),1,'The paused-game explanation remains visible');
     assert.equal(await page.locator('#game-levers .card').count(),0,'The paused-game notice does not duplicate its containing panel');
+    assert.equal(await page.locator('#game-submit').count(),0,'The pause transition removes round submission controls');
     await page.evaluate(async()=>{const {openGames}=await import('/js/gamesui.js');await openGames();});
     await page.locator('#games-overlay').waitFor({state:'visible'});
     for(const width of [1280,360]) {
@@ -85,7 +96,8 @@ export async function checkGameBootstrap(page) {
       assert.ok(name.x>=0 && name.x+name.width<=width && name.width<400,'Game name fits within the viewport');
     }
     await page.locator('#games-close').click();
-    assert.equal(await page.locator('#game-submit').count(),0,'A closed game cannot submit another round');
+    await page.locator('#games-overlay').waitFor({state:'hidden'});
+    assert.equal(await page.locator('#game-levers > .halt-card').isVisible(),true,'Closing Games returns to the paused-game explanation');
   } finally {
     // Navigation tears down the real game poll before fixture routes disappear.
     await page.goto('about:blank');

@@ -414,45 +414,56 @@ function renderLevers() {
   document.getElementById('game-levers').innerHTML = `
     <h3>Levers <span class="hint">(spend up to ${view.apPerRound} Activity Points (AP) per round)</span></h3>
     <div class="lever-grid">
-      <div class="lever"><b>Freeze</b>${hlp(LEVER_TIPS.freeze, 'freezing work')} <span class="ap">${apOf('freeze')}AP</span><br>
-        <select class="form-select" id="lv-freeze-pod">${opts(pn)}</select>
-        <input class="form-control" id="lv-freeze-n" type="number" value="5" min="1" style="width:54px">
-        <button class="btn btn-secondary" data-do="freeze">add</button></div>
-      <div class="lever"><b>WIP cap</b>${hlp(LEVER_TIPS.wipCap, 'the WIP cap')} <span class="ap">${apOf('wipCap')}AP</span><br>
-        <select class="form-select" id="lv-wip-pod">${opts(pn)}</select>
-        <select class="form-select" id="lv-wip-x" title="WIP ceiling: tighter = more relief"><option value="0.8">tight</option><option value="1">healthy</option><option value="1.3">loose</option></select>
-        <button class="btn btn-secondary" data-do="wipCap">add</button></div>
-      <div class="lever"><b>Hygiene sprint</b>${hlp(LEVER_TIPS.hygieneSprint, 'a hygiene sprint')} <span class="ap">${apOf('hygieneSprint')}AP</span><br>
-        <select class="form-select" id="lv-hyg-pod">${opts(pn)}</select>
-        <button class="btn btn-secondary" data-do="hygieneSprint">add</button></div>
-      <div class="lever"><b>Interface invest</b>${hlp(LEVER_TIPS.interfaceInvest, 'interface investment')} <span class="ap">${apOf('interfaceInvest')}AP</span><br>
-        <select class="form-select" id="lv-iface">${edgeOpts}</select>
-        <button class="btn btn-secondary" data-do="interfaceInvest">add</button></div>
-      <div class="lever"><b>Interrupt policy</b>${hlp(LEVER_TIPS.interruptPolicy, 'interrupt policies')} <span class="ap">${apOf('interruptPolicy')}AP</span><br>
-        <select class="form-select" id="lv-int-pod">${opts(pn)}</select>
-        <select class="form-select" id="lv-int-model"><option value="pool">site pool</option><option value="office">office hours</option><option value="followsun">follow-sun</option><option value="dedicated">dedicated</option></select>
-        <button class="btn btn-secondary" data-do="interruptPolicy">add</button></div>
-      <div class="lever"><b>Reassign scope</b>${hlp(LEVER_TIPS.reassignScope, 'reassigning scope')} <span class="ap">${apOf('reassignScope')}AP</span><br>
-        <select class="form-select" id="lv-re-from">${opts(pn)}</select>→<select class="form-select" id="lv-re-to">${opts(pn, pn[1])}</select>
-        <select class="form-select" id="lv-re-frac"><option value="0.25">25%</option><option value="0.5">50%</option></select>
-        <button class="btn btn-secondary" data-do="reassignScope">add</button></div>
-      <div class="lever"><b>Descope to MVP</b>${hlp(LEVER_TIPS.descopeMvp, 'reducing scope')} <span class="ap">${apOf('descopeMvp')}AP</span><br>
-        <select class="form-select" id="lv-mvp-pod">${opts(pn)}</select>
+      <div class="lever"><b>Freeze</b>${hlp(LEVER_TIPS.freeze, 'freezing work')} <span class="ap">${apOf('freeze')}AP</span>
+        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-freeze-pod">${opts(pn)}</select>
+        <input class="form-control form-control-sm mw-100" id="lv-freeze-n" type="number" value="5" min="1" style="width:54px">
+        <button type="button" class="btn btn-secondary btn-sm" data-do="freeze">add</button></div></div>
+      <div class="lever"><b>WIP cap</b>${hlp(LEVER_TIPS.wipCap, 'the WIP cap')} <span class="ap">${apOf('wipCap')}AP</span>
+        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-wip-pod">${opts(pn)}</select>
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-wip-x" title="WIP ceiling: tighter = more relief"><option value="0.8">tight</option><option value="1">healthy</option><option value="1.3">loose</option></select>
+        <button type="button" class="btn btn-secondary btn-sm" data-do="wipCap">add</button></div></div>
+      <div class="lever"><b>Hygiene sprint</b>${hlp(LEVER_TIPS.hygieneSprint, 'a hygiene sprint')} <span class="ap">${apOf('hygieneSprint')}AP</span>
+        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-hyg-pod">${opts(pn)}</select>
+        <button type="button" class="btn btn-secondary btn-sm" data-do="hygieneSprint">add</button></div></div>
+      <div class="lever"><b>Interface invest</b>${hlp(LEVER_TIPS.interfaceInvest, 'interface investment')} <span class="ap">${apOf('interfaceInvest')}AP</span>
+        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-iface">${edgeOpts}</select>
+        <button type="button" class="btn btn-secondary btn-sm" data-do="interfaceInvest">add</button></div></div>
+      <div class="lever"><b>Interrupt policy</b>${hlp(LEVER_TIPS.interruptPolicy, 'interrupt policies')} <span class="ap">${apOf('interruptPolicy')}AP</span>
+        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-int-pod">${opts(pn)}</select>
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-int-model"><option value="pool">site pool</option><option value="office">office hours</option><option value="followsun">follow-sun</option><option value="dedicated">dedicated</option></select>
+        <button type="button" class="btn btn-secondary btn-sm" data-do="interruptPolicy">add</button></div></div>
+      <div class="lever"><b>Reassign scope</b>${hlp(LEVER_TIPS.reassignScope, 'reassigning scope')} <span class="ap">${apOf('reassignScope')}AP</span>
+        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-re-from">${opts(pn)}</select>→<select class="form-select form-select-sm w-auto mw-100" id="lv-re-to">${opts(pn, pn[1])}</select>
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-re-frac"><option value="0.25">25%</option><option value="0.5">50%</option></select>
+        <button type="button" class="btn btn-secondary btn-sm" data-do="reassignScope">add</button></div></div>
+      <div class="lever"><b>Descope to MVP</b>${hlp(LEVER_TIPS.descopeMvp, 'reducing scope')} <span class="ap">${apOf('descopeMvp')}AP</span>
+        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-mvp-pod">${opts(pn)}</select>
         <label class="hint"><input class="form-check-input" id="lv-mvp-cut" type="checkbox"> cut ops</label>
-        <button class="btn btn-secondary" data-do="descopeMvp">add</button></div>
-      <div class="lever"><b>Full-kit gate</b>${hlp(LEVER_TIPS.fullKitGate, 'the full-kit gate')} <span class="ap">${apOf('fullKitGate')}AP</span><br>
-        <button class="btn btn-secondary" data-do="fullKitGate">enable org-wide</button></div>
-      <div class="lever"><b>Backfill hire</b>${hlp(LEVER_TIPS.hire, 'hiring')} <span class="ap">${apOf('hire')}AP, once</span><br>
-        <select class="form-select" id="lv-hire-pod">${opts(pn)}</select>
-        <button class="btn btn-secondary" data-do="hire">place</button></div>
-      <div class="lever"><b>Innovation bet</b>${hlp(LEVER_TIPS.innovate, 'innovation')} <span class="ap">${apOf('innovate')}AP</span><br>
-        <select class="form-select" id="lv-inv-pod">${opts(pn)}</select>
-        <select class="form-select" id="lv-inv-flavor"><option value="holistic">holistic</option><option value="quickwin">quick win</option></select>
-        <button class="btn btn-secondary" data-do="innovate">add</button></div>
-      <div class="lever"><b>Commit a date</b>${hlp(LEVER_TIPS.commit, 'committing a date')} <span class="ap">${apOf('commit')}AP</span><br>
-        <select class="form-select" id="lv-cm-pod">${opts(pn)}</select>
+        <button type="button" class="btn btn-secondary btn-sm" data-do="descopeMvp">add</button></div></div>
+      <div class="lever"><b>Full-kit gate</b>${hlp(LEVER_TIPS.fullKitGate, 'the full-kit gate')} <span class="ap">${apOf('fullKitGate')}AP</span>
+        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+        <button type="button" class="btn btn-secondary btn-sm" data-do="fullKitGate">enable org-wide</button></div></div>
+      <div class="lever"><b>Backfill hire</b>${hlp(LEVER_TIPS.hire, 'hiring')} <span class="ap">${apOf('hire')}AP, once</span>
+        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-hire-pod">${opts(pn)}</select>
+        <button type="button" class="btn btn-secondary btn-sm" data-do="hire">place</button></div></div>
+      <div class="lever"><b>Innovation bet</b>${hlp(LEVER_TIPS.innovate, 'innovation')} <span class="ap">${apOf('innovate')}AP</span>
+        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-inv-pod">${opts(pn)}</select>
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-inv-flavor"><option value="holistic">holistic</option><option value="quickwin">quick win</option></select>
+        <button type="button" class="btn btn-secondary btn-sm" data-do="innovate">add</button></div></div>
+      <div class="lever"><b>Commit a date</b>${hlp(LEVER_TIPS.commit, 'committing a date')} <span class="ap">${apOf('commit')}AP</span>
+        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+        <select class="form-select form-select-sm w-auto mw-100" id="lv-cm-pod">${opts(pn)}</select>
         <span class="hint">due R${view.round + 1}</span>
-        <button class="btn btn-secondary" data-do="commit">commit</button></div>
+        <button type="button" class="btn btn-secondary btn-sm" data-do="commit">commit</button></div></div>
     </div>
     <div id="game-moves" class="game-moves">${movesHtml()}</div>
     <div class="row-actions">

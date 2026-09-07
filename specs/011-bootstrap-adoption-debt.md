@@ -196,6 +196,10 @@ would duplicate Bootstrap. Both are rejected.
 
 **Consequences:** Test computed geometry, contrast and focus in rendered views.
 The existing theme and state owners remain authoritative; no version changes.
+Neutral plan badges use theme-aware surfaces and text. Compact game controls
+wrap within their cards, and calendar delete controls retain usable targets.
+Help explanations retain native title fallback when tooltip initialization is
+unavailable. Visibility acceptance checks rendered panels, not attributes alone.
 
 ## 12. Success Metrics
 

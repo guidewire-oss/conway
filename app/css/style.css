@@ -100,8 +100,6 @@ th { text-transform: uppercase; font-size: 10.5px; letter-spacing: .05em; font-w
 .lever-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin: 10px 0; }
 .lever { background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; font-size: 12.5px; }
 .lever .ap { color: var(--accent); font-size: 11px; }
-.lever select, .lever input { margin: 3px 2px; }
-.lever button:not(.help) { padding: 3px 9px; font-size: 12px; margin-top: 4px; }
 .report { background: var(--panel2); }
 .report-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .report-head h3 { margin: 0; }
@@ -475,7 +473,7 @@ table.sortable thead th.sort-desc::after { content: " ▼"; font-size: 9px; opac
   border-radius: 5px; padding: 4px 6px; font-size: 12px; }
 .cal-sel { flex: 0 0 auto; }
 .cal-in { flex: 1 1 120px; min-width: 100px; }
-.cal-del { background: transparent; color: var(--muted); border: none; cursor: pointer; }
+.cal-del { min-width: 24px; min-height: 24px; }
 #cal-add { margin-top: 6px; background: transparent; color: var(--accent);
   border: 1px dashed var(--border); border-radius: 5px; padding: 3px 10px;
   cursor: pointer; font-size: 12px; }

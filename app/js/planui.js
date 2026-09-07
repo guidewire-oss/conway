@@ -277,7 +277,7 @@ async function renderList() {
       <tbody>${(plans || []).map((p) => `<tr>
         <td><button type="button" class="btn btn-secondary plan-open" data-id="${esc(p.id)}">${esc(p.name)}</button></td>
         <td>${p.teamCount || 0}</td><td>${p.initiativeCount || 0}</td>
-        <td><span class="badge text-bg-secondary tag">${p.estimateModel === 'effort' ? 'effort' : 'wall-clock'}</span> ${p.periodStart ? '<span class="badge bg-success-subtle text-success-emphasis tag">dates set</span>' : '<span class="hint">no dates</span>'} ${p.baselineCount ? `<span class="badge text-bg-secondary tag">${p.baselineCount} baseline${p.baselineCount > 1 ? 's' : ''}</span>` : ''}</td>
+        <td><span class="badge bg-body-secondary text-body tag">${p.estimateModel === 'effort' ? 'effort' : 'wall-clock'}</span> ${p.periodStart ? '<span class="badge bg-success-subtle text-success-emphasis tag">dates set</span>' : '<span class="hint">no dates</span>'} ${p.baselineCount ? `<span class="badge bg-body-secondary text-body tag">${p.baselineCount} baseline${p.baselineCount > 1 ? 's' : ''}</span>` : ''}</td>
         <td>${fmtDate(p.updatedAt)}</td>
         <td><button class="btn btn-secondary plan-del" data-id="${p.id}">delete</button></td></tr>`).join('')
       || '<tr><td colspan="6" class="hint">No plans yet — create one, then upload your teams and initiatives or link Google Sheets.</td></tr>'}

@@ -855,7 +855,7 @@ function calendarWindowsHTML(windows) {
     <input class="form-control cal-in" type="date" id="cal-from-${i}" aria-label="window ${i + 1} from date" value="${esc(w.fromDate || '')}">
     <input class="form-control cal-in" type="date" id="cal-to-${i}" aria-label="window ${i + 1} to date" value="${esc(w.toDate || '')}">
     ${sel(`cal-effect-${i}`, CAL_EFFECTS, w.effect || 'block-start', `window ${i + 1} effect`)}
-    <button type="button" class="btn btn-secondary cal-del" aria-label="remove window ${i + 1}">✕</button>
+    <button type="button" class="btn btn-secondary btn-sm cal-del" aria-label="remove window ${i + 1}">✕</button>
   </div>`;
   const intro = windows.length
     ? '' : `<p class="hint">Calendar windows: a change freeze that blocks starts or completions, a site's non-working weeks, or an event that reduces a pod's capacity — drawn on the timeline and enforced by the order.</p>`;

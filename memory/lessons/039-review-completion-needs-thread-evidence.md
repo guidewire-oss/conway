@@ -19,3 +19,11 @@ with `go test -v ./server/planning -ginkgo.focus='attributes aggregate divergenc
 `3 Passed`, `0 Failed`, `ok conway/server/planning 0.463s`.
 
 The verification contract in `docs/FACTORY_RULES.md` remains canonical.
+
+Browser focus checks must exercise keyboard input. After pointer interaction,
+programmatic `focus()` need not activate `:focus-visible`; Tab navigation does.
+Keep text contrast checks separate from assertions about the focus indicator.
+Provenance: observed 2026-09-06 while running the Bootstrap browser regression;
+the initial programmatic-focus shadow assertion failed, and keyboard navigation
+passed with `go test -race -count=1 ./server -ginkgo.focus='Bootstrap adoption' -ginkgo.no-color -ginkgo.succinct -timeout=3m`:
+`ok conway/server 14.411s`. See `tests/browser/bootstrap-adoption.mjs`.

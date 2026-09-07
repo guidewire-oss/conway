@@ -31,8 +31,8 @@ This project uses the software factory scaffold (`opencode.json`, `.opencode/`, 
 
 Provenance: product delivery requirements confirmed by the maintainer on
 2026-09-06 during the weekly execution review implementation request;
-Bootstrap-first adoption and long-term retention explicitly requested the
-same day before continuing the next feature.
+Bootstrap-first adoption and recording that preference in these long-term
+rules explicitly requested the same day before continuing the next feature.
 
 ### Always verify the latest version of any tool, library, or framework against its authoritative source — never rely on training data alone
 

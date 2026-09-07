@@ -38,6 +38,12 @@ A containing card owns the surface and padding for its alternate states.
 Waiting and closed-state explanations within it should not add a second card
 unless they represent a separate, meaningful group of information.
 
+Neutral metadata badges use `bg-body-secondary text-body` so both surface and
+text follow the active theme. Compact control groups wrap within their container;
+delete actions must preserve a usable target. Shared help keeps a native `title`
+fallback alongside the delegated tooltip. Test actual visibility when a state
+owner toggles `hidden` on framework components.
+
 CI selects browser acceptance by the shared Ginkgo `browser` label, so suite
 names can describe their own workflows without changing coverage. The Bootstrap
 suite runs `tests/browser/bootstrap-adoption.mjs` against its isolated Go host.

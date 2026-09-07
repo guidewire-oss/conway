@@ -70,6 +70,8 @@ try {
   const calendarWidth=await page.locator('.cal-win').evaluate(row=>({width:row.getBoundingClientRect().width,selects:[...row.querySelectorAll('select')].map(select=>select.getBoundingClientRect().width)}));
   assert.ok(calendarWidth.selects.every(width=>width<calendarWidth.width/2),'Calendar selectors leave room for the other window fields: '+JSON.stringify(calendarWidth));
   const calendarAffordances=await page.locator('.cal-win select').evaluateAll(selects=>selects.map(select=>{const style=getComputedStyle(select);return {arrow:style.backgroundImage,left:parseFloat(style.paddingLeft),right:parseFloat(style.paddingRight)};}));
+  const deleteSize=await page.locator('.cal-del').boundingBox();
+  assert.ok(deleteSize.width>=24 && deleteSize.height>=24 && deleteSize.height<=32,'Calendar delete remains compact with a usable target: '+JSON.stringify(deleteSize));
   assert.ok(calendarAffordances.every(select=>select.arrow!=='none' && select.right>select.left),'Calendar selectors retain a visible arrow and its reserved text spacing: '+JSON.stringify(calendarAffordances));
   const feverGeometry=await page.locator('#fever-count').evaluate(select=>{const field=select.getBoundingClientRect(),status=document.querySelector('#fever-loading').getBoundingClientRect();return {width:field.width,top:field.top,bottom:field.bottom,statusTop:status.top,statusBottom:status.bottom};});
   assert.ok(feverGeometry.width<120,'Fever sample count stays compact');
@@ -228,13 +230,17 @@ try {
     const primary=decision.locator('button.btn-primary');
     await page.mouse.move(0,0); await primary.evaluate(el=>el.blur());
     const settled=()=>primary.evaluate(el=>Promise.all(el.getAnimations().map(animation=>animation.finished.catch(()=>{}))));
-    for(const state of ['normal','hover','focus']) {
+    for(const state of ['normal','hover']) {
       if(state==='hover') await primary.hover();
-      if(state==='focus') { await page.mouse.move(0,0); await primary.focus(); }
       await settled();
       const [result]=await measureContrast(primary);
       assert.ok(result.ratio>=4.5,theme+' primary '+state+' contrast '+result.ratio.toFixed(2)+' must reach 4.5:1 '+JSON.stringify(result));
     }
+    await page.mouse.move(0,0); await primary.focus();
+    await page.keyboard.press('Tab'); await page.keyboard.press('Shift+Tab'); await settled();
+    const focus=await primary.evaluate(el=>({active:document.activeElement===el,shadow:getComputedStyle(el).boxShadow}));
+    assert.equal(focus.active,true,'Primary action receives keyboard focus in '+theme);
+    assert.notEqual(focus.shadow,'none','Primary action renders its focus shadow in '+theme);
     colors.push(await page.locator('.ready-item').evaluate(el=>getComputedStyle(el).backgroundColor));
   }
   assert.notEqual(colors[0],colors[1],'Bootstrap cards must respond to both theme modes');
@@ -305,6 +311,35 @@ try {
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'Guide content fits in '+theme);
     await page.screenshot({path:join(process.env.CONWAY_TEST_ARTIFACT_DIR||tmpdir(),'conway-bootstrap-guide-'+theme+'-360.png')});
   }
+  await page.route('**/api/plan',route=>route.fulfill({json:[{id:'atlas-plan',name:'Atlas plan',estimateModel:'effort',baselineCount:2}]}));
+  await page.goto(process.env.CONWAY_TEST_BASE_URL+'/bootstrap-acceptance');
+  await page.evaluate(async()=>{
+    const root=document.createElement('div');root.id='plan-root';document.querySelector('main').append(root);
+    const {initPlanUI,restorePlanLocation}=await import('/js/planui.js');
+    initPlanUI();await restorePlanLocation({view:'plan'});
+    const shell=new DOMParser().parseFromString(await (await fetch('/index.html')).text(),'text/html');
+    const host=shell.querySelector('#measure-context');document.querySelector('main').append(host);
+    const {mountMeasureContext}=await import('/js/measure-context.js');
+    window.measureContext=mountMeasureContext(host,{state:{},view:'plan',request:async()=>({ok:true,json:async()=>[]})});
+    await window.measureContext.ready;
+    const {helpButton}=await import('/js/terms.js');
+    const help=document.createElement('div');help.id='fallback-help';help.innerHTML=helpButton('Use "accepted" evidence <only>','acceptance');document.querySelector('main').append(help);
+  });
+  assert.equal(await page.locator('#fallback-help button').getAttribute('title'),'Use "accepted" evidence <only>','Shared help retains an escaped native explanation before tooltip initialization');
+  for(const view of ['plan','network','game','scoreboard','home']) {
+    await page.evaluate(view=>window.measureContext.setView(view),view);
+    assert.equal(await page.locator('#measure-context').isVisible(),['network','scoreboard','home'].includes(view),'Measure source card visibility follows its owning view: '+view);
+  }
+  const planSurfaces=[];
+  for(const theme of ['dark','light']) {
+    await page.evaluate(theme=>document.documentElement.dataset.bsTheme=theme,theme);
+    const badges=await measureContrast(page.locator('#plan-root .badge'));
+    assert.equal(badges.length,2,'The real plan list renders estimate and agreement metadata');
+    for(const badge of badges)assert.ok(badge.ratio>=4.5,theme+' plan metadata contrast: '+JSON.stringify(badge));
+    planSurfaces.push(badges[0].background);
+  }
+  assert.notDeepEqual(planSurfaces[0],planSurfaces[1],'Plan metadata surfaces follow the active theme');
+  await page.unroute('**/api/plan');
   const {checkGameBootstrap}=await import('./game-bootstrap.mjs');
   await checkGameBootstrap(page);
   assert.deepEqual(errors,[]);

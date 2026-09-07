@@ -142,7 +142,7 @@ export const TERMS = {
 // specs/011-bootstrap-adoption-debt.md:82: every help affordance remains keyboard reachable.
 export function helpButton(text, label) {
   if (!text) return '';
-  return ` <button type="button" class="btn btn-secondary btn-sm p-0 rounded-circle d-inline-flex align-items-center justify-content-center ms-1 help lh-1" data-bs-toggle="tooltip" data-bs-title="${esc(text)}" aria-label="Explain ${esc(label)}">?</button>`;
+  return ` <button type="button" class="btn btn-secondary btn-sm p-0 rounded-circle d-inline-flex align-items-center justify-content-center ms-1 help lh-1" data-bs-toggle="tooltip" data-bs-title="${esc(text)}" title="${esc(text)}" aria-label="Explain ${esc(label)}">?</button>`;
 }
 
 export function term(id, label) {
