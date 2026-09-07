@@ -45,6 +45,13 @@ var _ = Describe("saved evidence policies", func() {
 		Expect(evidence.TeamID(teams, " ATLAS ")).To(Equal("a"))
 		Expect(evidence.TeamID(teams, "New team")).To(BeEmpty())
 	})
+	// per specs/026-reliable-evidence-foundation.md:80
+	It("rejects duplicate aliases within one team after case and whitespace normalization", func() {
+		teams := []evidence.Team{{ID: "atlas", Name: "Atlas platform", Aliases: []string{"Atlas Platform", " atlas   platform "}}}
+		Expect(evidence.ValidateTeams(teams)).To(HaveOccurred())
+		teams[0].Aliases[1] = "Atlas delivery"
+		Expect(evidence.ValidateTeams(teams)).To(Succeed(), "distinct explicit aliases can still identify the same team")
+	})
 	// per specs/026-reliable-evidence-foundation.md:61
 	It("isolates identity namespaces and keeps provider identity independent of labels", func() {
 		Expect(evidence.Identity("source-a", "issue", "123")).To(Equal(evidence.Identity("source-a", "issue", "123")))

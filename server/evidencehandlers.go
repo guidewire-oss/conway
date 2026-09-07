@@ -281,17 +281,14 @@ func (s *server) captureDueEvidence(ctx context.Context) {
 	if s.db == nil {
 		return
 	}
-	sources, err := s.db.ListEvidenceSources(ctx, "", true)
+	sources, err := s.db.DueEvidenceSources(ctx, s.evidenceTime())
 	if err != nil {
 		s.logger().Error().Err(err).Msg("could not load capture schedules")
 		return
 	}
-	now := s.evidenceTime()
-	for _, source := range sources {
-		if source.Config.Enabled && source.Config.IntervalHours > 0 && (source.NextAt <= now || (source.ActiveRun != "" && source.LeaseUntil <= now)) {
-			if _, err = s.launchEvidence(ctx, source.ID, false); err != nil && !errors.Is(err, db.ErrEvidenceConflict) && !errors.Is(err, db.ErrEvidenceOwner) {
-				s.logger().Error().Err(err).Msg("could not claim capture")
-			}
+	for _, id := range sources {
+		if _, err = s.launchEvidence(ctx, id, false); err != nil && !errors.Is(err, db.ErrEvidenceConflict) && !errors.Is(err, db.ErrEvidenceOwner) {
+			s.logger().Error().Err(err).Msg("could not claim capture")
 		}
 	}
 }

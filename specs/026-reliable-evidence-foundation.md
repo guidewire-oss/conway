@@ -73,7 +73,7 @@ for zero delivery. Team renames must not silently join unrelated teams.
 | ID | Requirement | Priority |
 |---|---|---|
 | FR-001 | Sources MUST retain owner, site, projects, roster, counting policy, cadence and freshness threshold. | MUST |
-| FR-002 | Source owners and admins MUST be able to pause, resume, capture now, replace credentials and inspect attempts. | MUST |
+| FR-002 | Source owners and admins MUST be able to pause, resume and replace credentials between captures, capture now when idle, and inspect attempts at any time. | MUST |
 | FR-003 | Successful publication MUST atomically include data, identity observations and successful attempt state. | MUST |
 | FR-004 | Failed attempts MUST retain the last complete evidence and offer recovery without publishing partial data. | MUST |
 | FR-005 | Existing manual imports and explicit snapshot selection MUST remain available. | MUST |
@@ -126,7 +126,7 @@ separate deployment validation; isolated provider fixtures exercise release test
 ## 11. Decision Record
 
 ### Decision 1: Durable leases and atomic publication
-Use PostgreSQL source-row locks to claim one attempt with a 20-minute lease.
+Use PostgreSQL source-row locks to claim one attempt with a 20-minute lease. The scheduler selects only eligible source IDs using due-time and expired-lease predicates; credential and configuration loading occurs inside the claim.
 The worker has a 15-minute context. Expired claims become interrupted; completion
 checks the run token and lease under the same lock before publishing data and
 status in one transaction. Next due is completion plus the configured interval;
@@ -141,12 +141,12 @@ existing durable server secret, binding ciphertext to source ID. Never return
 provider response text in run errors. Permit only HTTPS *.atlassian.net origins
 without userinfo, ports, paths or redirects. Site is immutable; a new site needs
 a new source. Pin a roster composition at source creation or explicit reselection.
-Configuration updates require optimistic version matching and reject active runs.
+Configuration updates require optimistic version matching and reject active runs, including pause/resume. Wait for completion or lease expiry before changing settings; pausing prevents future scheduled attempts and does not cancel work already running.
 Using in-memory OAuth sessions was rejected because a restart loses authorization.
 
 ### Decision 3: Identity without guessed associations
 Each source creates stable team IDs from its pinned roster; owners can edit team
-display names and aliases while keeping IDs. Each issue identity combines source
+display names and aliases while keeping IDs. Normalized aliases must not repeat even within one team. Each issue identity combines source
 ID and Jira's provider ID; missing IDs fail scheduled publication. Jira keys and
 summaries remain captured labels. Save the mapping in identities.json in the same
 transaction as evidence; existing planning bindings continue using explicit keys.
@@ -160,7 +160,7 @@ fails rather than publishing truncated evidence.
 Extend Measure > Snapshots with capture sources above dated captures. Show last
 success, next capture, freshness and last attempt separately. Link successful
 captures into the existing explicit snapshot selector; do not add competing
-selection state. Read-only captured identity details use the same snapshot ACL. Persistence errors use operation-neutral recovery text for both reads and writes.
+selection state. Snapshot lists accept only the latest request in the current visible modal and login session; every close path disposes pending UI work. Completion, not capture launch, announces new evidence. Read-only captured identity details use the same snapshot ACL. Persistence errors use operation-neutral recovery text for both reads and writes.
 Roster selection requires owner/public/admin read access. Captured source snapshots
 cannot be deleted or have their roster reassociated; name and visibility remain
 manageable through the existing snapshot controls. Current persisted owner roles

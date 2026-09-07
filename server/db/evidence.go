@@ -74,6 +74,29 @@ func (d *DB) ListEvidenceSources(ctx context.Context, owner string, all bool) ([
 	}
 	return out, rows.Err()
 }
+
+// DueEvidenceSources lists identities without materializing credentials or frozen rosters.
+// per specs/026-reliable-evidence-foundation.md:128
+func (d *DB) DueEvidenceSources(ctx context.Context, now int64) ([]string, error) {
+	rows, err := d.pool.Query(ctx, `SELECT id FROM evidence_sources
+ WHERE config->>'enabled'='true' AND (config->>'intervalHours')::int>0
+ AND ((active_run='' AND next_at<=$1) OR (active_run<>'' AND lease_until<=$1))
+ ORDER BY CASE WHEN active_run<>'' THEN lease_until ELSE next_at END,id`, now)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	ids := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 func (d *DB) CreateEvidenceSource(ctx context.Context, s EvidenceSource) error {
 	config, err := json.Marshal(s.Config)
 	if err != nil {
@@ -96,6 +119,18 @@ func (d *DB) UpdateEvidenceSource(ctx context.Context, s EvidenceSource, now int
 	}
 	return nil
 }
+func evidenceAccess(roles []string, expiry, now int64) error {
+	if expiry != 0 && expiry <= now {
+		return ErrEvidenceOwner
+	}
+	for _, role := range roles {
+		if role == "manager" || role == "admin" {
+			return nil
+		}
+	}
+	return ErrEvidenceOwner
+}
+
 func evidenceOwner(ctx context.Context, tx pgx.Tx, owner string, now int64) error {
 	var roles []string
 	var expiry int64
@@ -106,15 +141,7 @@ func evidenceOwner(ctx context.Context, tx pgx.Tx, owner string, now int64) erro
 	if err != nil {
 		return err
 	}
-	if expiry != 0 && expiry <= now {
-		return ErrEvidenceOwner
-	}
-	for _, r := range roles {
-		if r == "manager" || r == "admin" {
-			return nil
-		}
-	}
-	return ErrEvidenceOwner
+	return evidenceAccess(roles, expiry, now)
 }
 
 // per specs/026-reliable-evidence-foundation.md:128
@@ -252,13 +279,8 @@ func (d *DB) EvidenceActor(ctx context.Context, owner string, now int64) ([]stri
 	if err != nil {
 		return nil, err
 	}
-	if expiry != 0 && expiry <= now {
-		return nil, ErrEvidenceOwner
+	if err := evidenceAccess(roles, expiry, now); err != nil {
+		return nil, err
 	}
-	for _, role := range roles {
-		if role == "manager" || role == "admin" {
-			return roles, nil
-		}
-	}
-	return nil, ErrEvidenceOwner
+	return roles, nil
 }

@@ -1,12 +1,12 @@
 import { mountEvidenceSources } from './evidence-sources.js';
-let disposeEvidence;
+let activeMount;
 import { icon } from './icons.js';
 import { openModal, closeModal } from './modal.js';
 // Snapshots: a single page to see everything captured/uploaded — rosters
 // (from Measure ▸ Rosters) and dated Jira snapshots (from Measure ▸ 📥
 // Import from Jira) — as two sections. Rename/delete the Jira snapshots you
 // own; the baseline (mined seed) is protected from deletion. Manager/admin only.
-import { authFetch } from './auth.js';
+import { authFetch, authToken } from './auth.js';
 import { listSnapshots, getSnapshot } from './data.js';
 import { mountRosters } from './rostersui.js';
 import { notifyMeasureSourcesChanged } from './measure-context.js';
@@ -29,7 +29,7 @@ export async function openSnapshots() {
     document.body.appendChild(ov);
     // no click-outside-to-close — the ✕ button is the deliberate exit.
   }
-  disposeEvidence?.();
+  activeMount?.dispose();
   ov.innerHTML = `<div class="modal-box">
       <div class="modal-head"><h2>Snapshots</h2><button class="btn btn-secondary" id="snap-close">${icon('close')}Close</button></div>
       <div id="snap-evidence-sources" class="mb-4"></div>
@@ -41,12 +41,29 @@ export async function openSnapshots() {
         Rename or delete the ones you own; the baseline (mined seed) is kept.</p>
       <p id="snap-status" role="status" aria-live="polite"></p><div id="snap-list"></div>
     </div>`;
+  // specs/026-reliable-evidence-foundation.md:159: each modal opening owns its pending UI work.
+  const mount = { ov, identity: authToken(), disposed: false, ticket: 0, disposeEvidence: null };
+  activeMount = mount;
+  const observer = new MutationObserver(() => { if (ov.hidden) mount.dispose(); });
+  mount.dispose = () => {
+    if (mount.disposed) return;
+    mount.disposed = true;
+    mount.ticket++;
+    mount.disposeEvidence?.();
+    ov.removeEventListener('hide.bs.modal', mount.dispose);
+    ov.removeEventListener('hidden.bs.modal', mount.dispose);
+    observer.disconnect();
+  };
+  ov.addEventListener('hide.bs.modal', mount.dispose);
+  ov.addEventListener('hidden.bs.modal', mount.dispose);
+  // modal.js's static-hosting fallback closes through the hidden attribute.
+  observer.observe(ov, { attributes: true, attributeFilter: ['hidden'] });
   openModal(ov);
- window.dispatchEvent(new CustomEvent('conway:feature-opened',{detail:{action:'snapshots'}}));
-  ov.querySelector('#snap-close').addEventListener('click', () => {disposeEvidence?.();closeModal(ov);});
-  disposeEvidence=mountEvidenceSources(ov.querySelector('#snap-evidence-sources'),{onCaptured:()=>renderList(ov)});
+  window.dispatchEvent(new CustomEvent('conway:feature-opened',{detail:{action:'snapshots'}}));
+  ov.querySelector('#snap-close').addEventListener('click', () => { mount.dispose(); closeModal(ov); });
+  mount.disposeEvidence = mountEvidenceSources(ov.querySelector('#snap-evidence-sources'), { onCaptured: () => renderList(ov, mount) });
   mountRosters(ov.querySelector('#snap-rosters'));
-  renderList(ov);
+  renderList(ov, mount);
 }
 
 function showError(ov,message) { const el=ov.querySelector('#snap-status'); if(el) { el.textContent=message.trim().slice(0,250); el.setAttribute('role','alert'); } }
@@ -58,11 +75,21 @@ async function fetchRosters() {
   return (r && r.ok) ? (await r.json()) || [] : [];
 }
 
-async function renderList(ov) {
-  const box = ov.querySelector('#snap-list');
+function currentMount(mount) {
+  return mount === activeMount && !mount.disposed && mount.ov.isConnected &&
+    !mount.ov.hidden && authToken() === mount.identity;
+}
+
+async function renderList(ov, mount) {
+  if (!currentMount(mount)) return;
+  const box = ov.querySelector('#snap-list'), ticket = ++mount.ticket;
+  const current = () => currentMount(mount) && ticket === mount.ticket &&
+    box === ov.querySelector('#snap-list');
   const snaps = await listSnapshots();
+  if (!current()) return;
   if (!snaps.length) { box.innerHTML = '<p class="hint">No snapshots yet.</p>'; return; }
   const rosters = await fetchRosters();
+  if (!current()) return;
   const rosterCell = (s) => {
     if (s.capture || s.source !== 'jira' || !s.mine) return esc(rosters.find((r) => r.id === s.rosterId)?.name || '—');
     const opts = `<option value="">— roster —</option>` + rosters.map((r) => `<option value="${r.id}" ${r.id === s.rosterId ? 'selected' : ''}>${esc(r.name)}</option>`).join('');
@@ -94,14 +121,16 @@ async function renderList(ov) {
   box.querySelectorAll('.snap-roster').forEach((sel) => sel.addEventListener('change', async () => {
     if (!sel.value) return; // structure must come from some roster — ignore the blank option
     const r = await req('/api/snapshots/' + sel.dataset.id, { method: 'PATCH', body: JSON.stringify({ rosterId: sel.value }) });
+    if (!currentMount(mount)) return;
     if (!r || !r.ok) { showError(ov, (r ? await r.text() : '').trim() || 'Could not re-associate. Check the connection and retry.'); return; }
     // structure changed — if viewing this snapshot, reload so Measure re-reads it
-    if (sel.dataset.id === getSnapshot()) location.reload(); else renderList(ov);
+    if (sel.dataset.id === getSnapshot()) location.reload(); else renderList(ov, mount);
   }));
   box.querySelectorAll('.snap-pub').forEach((b) => b.addEventListener('click', async () => {
     const r = await req('/api/snapshots/' + b.dataset.id, { method: 'PATCH', body: JSON.stringify({ public: b.dataset.pub !== '1' }) });
+    if (!currentMount(mount)) return;
     if (!r || !r.ok) { showError(ov, (r ? await r.text() : '').trim() || 'Could not change visibility. Try again.'); return; }
-    renderList(ov);
+    renderList(ov, mount);
   }));
   box.querySelectorAll('.snap-rename').forEach((b) => b.addEventListener('click', async () => {
     const name = prompt('Rename snapshot:', b.dataset.name);
@@ -109,17 +138,19 @@ async function renderList(ov) {
     const trimmed = name.trim();
     if (!trimmed) return;
     const r = await req('/api/snapshots/' + b.dataset.id, { method: 'PATCH', body: JSON.stringify({ name: trimmed }) });
+    if (!currentMount(mount)) return;
     if (!r || !r.ok) { alert((r ? await r.text() : '').trim() || 'Rename failed'); return; }
-    renderList(ov);
+    renderList(ov, mount);
   }));
   box.querySelectorAll('.snap-del').forEach((b) => b.addEventListener('click', async () => {
     if (!confirm(`Delete snapshot "${b.dataset.name}"? Games already seeded from it keep playing; this only removes the stored capture.`)) return;
     const r = await req('/api/snapshots/' + b.dataset.id, { method: 'DELETE' });
+    if (!currentMount(mount)) return;
     if (!r || !r.ok) { alert((r ? await r.text() : '').trim() || 'Delete failed'); return; }
     // if we deleted the snapshot currently being viewed, drop back to baseline
     if (b.dataset.id === getSnapshot()) {
       const u = new URL(location.href); u.searchParams.delete('snapshot'); location.assign(u); return;
     }
-    renderList(ov);
+    renderList(ov, mount);
   }));
 }

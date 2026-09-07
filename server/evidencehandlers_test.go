@@ -474,4 +474,59 @@ var _ = Describe("reliable evidence captures", Label("database"), func() {
 		Expect(captured).NotTo(BeNil())
 		Expect(captured.Capture).To(MatchJSON(string(encode(map[string]any{"sourceId": row.ID, "sourceName": "Latest captured scope", "freshnessHours": 18}))))
 	}, Entry("snapshot detail", false), Entry("snapshot picker", true))
+
+	// per specs/026-reliable-evidence-foundation.md:34
+	// per specs/026-reliable-evidence-foundation.md:134
+	It("selects only due scheduled source IDs and recoverable expired claims", func() {
+		fixtures := []struct {
+			name        string
+			enabled     bool
+			interval    int
+			nextOffset  int64
+			active      bool
+			leaseOffset int64
+			due         bool
+		}{
+			{name: "past due", enabled: true, interval: 24, nextOffset: -1, due: true},
+			{name: "exact due boundary", enabled: true, interval: 6, due: true},
+			{name: "future", enabled: true, interval: 24, nextOffset: 1},
+			{name: "live claim despite past due", enabled: true, interval: 24, nextOffset: -1, active: true, leaseOffset: 1},
+			{name: "expired claim before next due", enabled: true, interval: 168, nextOffset: 3600, active: true, leaseOffset: -1, due: true},
+			{name: "exact lease boundary", enabled: true, interval: 24, nextOffset: 3600, active: true, due: true},
+			{name: "paused past due", interval: 24, nextOffset: -1},
+			{name: "paused expired claim", interval: 24, nextOffset: -1, active: true, leaseOffset: -1},
+			{name: "manual expired claim", enabled: true, nextOffset: -1, active: true, leaseOffset: -1},
+		}
+		owned := map[string]bool{}
+		wanted := []string{}
+		for _, fixture := range fixtures {
+			row := create()
+			owned[row.ID] = true
+			config := row.Config
+			config.Enabled, config.IntervalHours = fixture.enabled, fixture.interval
+			active := ""
+			if fixture.active {
+				active = newID()
+			}
+			_, err := pool.Exec(context.Background(), `UPDATE evidence_sources SET config=$2,next_at=$3,active_run=$4,lease_until=$5 WHERE id=$1`, row.ID, encode(config), now+fixture.nextOffset, active, now+fixture.leaseOffset)
+			Expect(err).NotTo(HaveOccurred(), fixture.name)
+			if fixture.due {
+				wanted = append(wanted, row.ID)
+			}
+		}
+		ids, err := database.DueEvidenceSources(context.Background(), now)
+		Expect(err).NotTo(HaveOccurred())
+		selected := []string{}
+		for _, id := range ids {
+			if owned[id] {
+				selected = append(selected, id)
+			}
+		}
+		Expect(selected).To(ConsistOf(wanted), "selection excludes live leases, paused/manual sources and future inactive schedules")
+		for id := range owned {
+			runs, e := database.EvidenceRuns(context.Background(), id)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(runs).To(BeEmpty(), "due selection is read-only; claiming work creates attempts")
+		}
+	})
 })

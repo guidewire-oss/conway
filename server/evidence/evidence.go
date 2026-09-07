@@ -70,8 +70,8 @@ func ValidateTeams(teams []Team) error {
 			if k == "" || len(a) > 200 {
 				return fmt.Errorf("team aliases must be nonempty and at most 200 characters")
 			}
-			if owner, ok := aliases[k]; ok && owner != t.ID {
-				return fmt.Errorf("team alias %q belongs to more than one team", a)
+			if _, ok := aliases[k]; ok {
+				return fmt.Errorf("team alias %q is repeated; use each alias once", a)
 			}
 			aliases[k] = t.ID
 		}

@@ -174,3 +174,6 @@ forms, validation, badges and responsive tables. Their settings retain drafts
 after failures; status refresh never silently changes the selected snapshot.
 Captured freshness is reused in Measure and Review execution. No custom control
 CSS is needed for this workflow; source-scoped identity strings wrap in tables.
+
+The integration CI job allows 30 minutes for the five-minute database gate,
+12-minute browser gate, dependency installation and cleanup.
