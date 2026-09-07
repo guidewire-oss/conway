@@ -181,4 +181,9 @@ The integration CI job allows 30 minutes for the five-minute database gate,
 Portfolio forecasts reuse Bootstrap grid forms, cards, alerts and responsive
 tables. Feature discovery uses a single-update Bootstrap modal with a native
 select and previous/next buttons; menu dots retain a visually hidden label.
-Neither workflow introduces custom component CSS.
+Forecasts introduce no custom CSS. Feature discovery retains the existing
+`app/css/announcements.css` extension: compact dot geometry, legacy theme
+variables, long-text wrapping and narrow-screen touch targets. Bootstrap owns
+the controls, layout and modal lifecycle through the shared modal adapter.
+The dot and legacy theme bridge remain the documented gaps; this increment
+removes the previous custom list styling rather than adding component rules.

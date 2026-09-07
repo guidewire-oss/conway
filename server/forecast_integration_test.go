@@ -107,4 +107,14 @@ var _ = Describe("portfolio forecast API", Label("database"), func() {
 		Expect(r.Code).To(Equal(400), r.Body.String())
 		Expect(r.Body.String()).To(ContainSubstring("Beacon"))
 	})
+	It("does not present an account-query outage as forbidden access", func() {
+		unavailable, err := db.Open(context.Background(), os.Getenv("CONWAY_TEST_DATABASE_URL"))
+		Expect(err).NotTo(HaveOccurred())
+		unavailable.Close()
+		unavailableServer := &server{db: unavailable}
+		r := httptest.NewRecorder()
+		unavailableServer.handleForecast(r, httptest.NewRequest("POST", "/api/plan/"+plan.ID+"/forecast", bytes.NewBufferString(settings)), &plan, claims)
+		Expect(r.Code).To(Equal(500), r.Body.String())
+		Expect(r.Body.String()).To(Equal("Account access could not be checked. Retry when the service is available.\n"))
+	})
 })

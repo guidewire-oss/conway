@@ -82,9 +82,11 @@ it, then an actionable error appears without silently retaining older evidence.
 ## 7. Data Model
 
 Forecast settings: lower estimate factor, upper estimate factor and additional
-shared capacity loss. Result: input fingerprint, period, settings, three labeled
-scenario summaries, full initiative outcomes and warnings. No new persistent
-source of planning truth is introduced.
+shared capacity loss. The result has four top-level fields: `fingerprint`,
+`settings`, `scenarios` and `limitations`. Each scenario contains its name,
+factor, disruption, nullable finish/commitment weeks, unknown count and full
+`schedule`. Period start, horizon, initiative outcomes, warnings and assumptions
+live inside that schedule. No new persistent source of planning truth is introduced.
 
 ## 8. API Contract
 
@@ -155,6 +157,9 @@ Use the existing scheduling validation classifier to preserve useful input
 feedback while keeping internal decoding details out of the response. All range
 settings must be finite; finite bounds already reject either infinity, while
 NaN requires explicit rejection.
+Account lookup failures caused by infrastructure return a generic 500 with a
+retry action; only the explicit missing/expired/non-manager identity error is
+an authorization failure. Do not suggest signing in again for a database outage.
 
 ## 12. Success Metrics
 

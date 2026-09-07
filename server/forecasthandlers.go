@@ -4,12 +4,13 @@ import (
 	"conway/server/auth"
 	"conway/server/db"
 	"conway/server/planning"
+	"errors"
 	"net/http"
 	"slices"
 	"time"
 )
 
-// specs/028-portfolio-forecasts.md:95: a read-only computation still needs
+// specs/028-portfolio-forecasts.md:97: a read-only computation still needs
 // current plan ownership and current persisted manager authorization.
 func (s *server) handleForecast(w http.ResponseWriter, r *http.Request, p *db.PlanRow, c auth.Claims) {
 	w.Header().Set("Cache-Control", "no-store")
@@ -19,7 +20,12 @@ func (s *server) handleForecast(w http.ResponseWriter, r *http.Request, p *db.Pl
 	}
 	roles, err := s.db.EvidenceActor(r.Context(), c.Sub, time.Now().Unix())
 	if err != nil {
-		http.Error(w, "Current manager access is required. Sign in again.", http.StatusForbidden)
+		if errors.Is(err, db.ErrEvidenceOwner) {
+			http.Error(w, "Current manager access is required. Sign in again.", http.StatusForbidden)
+		} else {
+			s.logger().Error().Err(err).Msg("forecast account lookup failed")
+			http.Error(w, "Account access could not be checked. Retry when the service is available.", http.StatusInternalServerError)
+		}
 		return
 	}
 	if c.GameID != "" || (!c.Has("manager") && !c.Has("admin")) || (!slices.Contains(roles, "manager") && !slices.Contains(roles, "admin")) || (p.Owner != c.Sub && !slices.Contains(roles, "admin")) {

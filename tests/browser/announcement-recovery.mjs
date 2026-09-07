@@ -64,6 +64,35 @@ export async function checkAnnouncementRecovery(browser, base) {
     assert.equal(await page.evaluate(()=>window.fixture.opened),1);
   } finally {await page.close();}
   await checkProgressiveFallback(browser,base);
+  await checkImmediatePaging(browser,base);
+}
+
+async function checkImmediatePaging(browser,base) {
+ const page=await browser.newPage();
+ try {
+  const url=base+'/__announcement_immediate_test__';
+  await page.route(url,route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html><head><link rel="stylesheet" href="/vendor/bootstrap/bootstrap.min.css"></head><body><button id="help-btn">Help</button><button id="docs-btn">Guide</button><script src="/vendor/bootstrap/bootstrap.bundle.min.js"></script></body></html>'}));
+  await page.goto(url);
+  const issued=await page.evaluate(async()=>{
+   const {mountAnnouncements}=await import('/js/announcements.js');
+   const features=Array.from({length:3},(_,i)=>({id:'update-'+i,title:'Update '+i,description:'Description '+i,action:{type:'menu',target:'docs-btn',parent:'help-btn'},announced:false,visited:false}));
+   window.issued=[];const releases=[];
+   window.immediate=mountAnnouncements({getIdentity:()=> 'fixture',request:async(_url,options)=>{
+    if(!options)return {ok:true,json:async()=>({features})};
+    const {id,kind}=JSON.parse(options.body);window.issued.push(id);
+    await new Promise(resolve=>releases.push(resolve));
+    const feature=features.find(f=>f.id===id);feature[kind]=true;return {ok:true,json:async()=>({...feature})};
+   }});await window.immediate.ready;
+   const modal=document.getElementById('announcements-overlay');
+   const initial=[...window.issued];
+   modal.querySelector('[data-announcement-next]').click();
+   const afterNext=[...window.issued];releases.forEach(resolve=>resolve());
+   return {initial,afterNext,animated:modal.classList.contains('fade')};
+  });
+  assert.deepEqual(issued,{initial:['update-0'],afterNext:['update-0','update-1'],animated:false});
+  await page.waitForFunction(()=>window.immediate.state().features.slice(0,2).every(f=>f.announced));
+  assert.equal(await page.evaluate(()=>window.immediate.state().features[2].announced),false);
+ }finally{await page.close();}
 }
 
 async function checkProgressiveFallback(browser,base) {
