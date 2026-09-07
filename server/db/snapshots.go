@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	"github.com/jackc/pgx/v5"
@@ -11,16 +12,17 @@ import (
 // stats, edges, hygiene, epics, …) live in snapshot_docs as path -> JSON blob;
 // this row is the metadata both Observe and Train key off.
 type SnapshotRow struct {
-	ID        string `json:"id"`
-	Owner     string `json:"owner"`
-	Name      string `json:"name"`
-	Scope     []byte `json:"-"`        // JSON []string of project keys (null for baseline)
-	Source    string `json:"source"`   // baseline | jira | template
-	Public    bool   `json:"public"`   // shared: visible to (and seedable by) everyone
-	RosterID  string `json:"rosterId"` // roster the structure came from (jira imports)
-	WipMode   string `json:"wipMode"`  // leaf | epic_or_parentless — see jira.WipMode*
-	CreatedAt int64  `json:"createdAt"`
-	DocCount  int    `json:"docCount"` // populated by ListSnapshots
+	Capture   json.RawMessage `json:"capture,omitempty"`
+	ID        string          `json:"id"`
+	Owner     string          `json:"owner"`
+	Name      string          `json:"name"`
+	Scope     []byte          `json:"-"`        // JSON []string of project keys (null for baseline)
+	Source    string          `json:"source"`   // baseline | jira | template
+	Public    bool            `json:"public"`   // shared: visible to (and seedable by) everyone
+	RosterID  string          `json:"rosterId"` // roster the structure came from (jira imports)
+	WipMode   string          `json:"wipMode"`  // leaf | epic_or_parentless — see jira.WipMode*
+	CreatedAt int64           `json:"createdAt"`
+	DocCount  int             `json:"docCount"` // populated by ListSnapshots
 }
 
 func (d *DB) CreateSnapshot(s SnapshotRow) error {
@@ -46,8 +48,8 @@ func nullJSON(b []byte) any {
 func (d *DB) GetSnapshot(id string) (*SnapshotRow, error) {
 	var s SnapshotRow
 	err := d.pool.QueryRow(context.Background(),
-		`SELECT id,owner,name,scope,source,public,roster_id,wip_mode,created_at FROM snapshots WHERE id=$1`, id).
-		Scan(&s.ID, &s.Owner, &s.Name, &s.Scope, &s.Source, &s.Public, &s.RosterID, &s.WipMode, &s.CreatedAt)
+		`SELECT id,owner,name,scope,source,public,roster_id,wip_mode,created_at,`+captureMetadataSQL+` FROM snapshots s WHERE id=$1`, id).
+		Scan(&s.ID, &s.Owner, &s.Name, &s.Scope, &s.Source, &s.Public, &s.RosterID, &s.WipMode, &s.CreatedAt, &s.Capture)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -62,7 +64,7 @@ func (d *DB) GetSnapshot(id string) (*SnapshotRow, error) {
 // all and owners see their own.
 func (d *DB) ListSnapshots(owner string, all bool) ([]SnapshotRow, error) {
 	q := `SELECT s.id,s.owner,s.name,s.scope,s.source,s.public,s.roster_id,s.created_at,
-	             (SELECT count(*) FROM snapshot_docs WHERE snapshot_id=s.id)
+	             (SELECT count(*) FROM snapshot_docs WHERE snapshot_id=s.id),` + captureMetadataSQL + `
 	      FROM snapshots s`
 	var args []any
 	if !all {
@@ -78,7 +80,7 @@ func (d *DB) ListSnapshots(owner string, all bool) ([]SnapshotRow, error) {
 	out := []SnapshotRow{}
 	for rows.Next() {
 		var s SnapshotRow
-		if err := rows.Scan(&s.ID, &s.Owner, &s.Name, &s.Scope, &s.Source, &s.Public, &s.RosterID, &s.CreatedAt, &s.DocCount); err != nil {
+		if err := rows.Scan(&s.ID, &s.Owner, &s.Name, &s.Scope, &s.Source, &s.Public, &s.RosterID, &s.CreatedAt, &s.DocCount, &s.Capture); err != nil {
 			return nil, err
 		}
 		out = append(out, s)
@@ -139,3 +141,5 @@ func (d *DB) ListSnapshotDocPaths(snapshotID string) ([]string, error) {
 	}
 	return out, rows.Err()
 }
+
+const captureMetadataSQL = `(SELECT jsonb_build_object('sourceId',r.source_id,'sourceName',r.config->>'name','freshnessHours',r.config->'freshnessHours') FROM evidence_runs r WHERE r.snapshot_id=s.id AND r.status='succeeded' ORDER BY r.run_order DESC LIMIT 1)`

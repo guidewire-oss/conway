@@ -1,0 +1,89 @@
+import assert from 'node:assert/strict';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'playwright');
+const channel=process.env.PLAYWRIGHT_BROWSER_CHANNEL;
+const browser=await chromium.launch({headless:true,...(channel?{channel}:{})});
+const page=await browser.newPage({viewport:{width:1280,height:960}}),errors=[];
+page.on('pageerror',e=>errors.push(e.message));
+const base=process.env.CONWAY_TEST_BASE_URL;
+page.setDefaultTimeout(10000);
+async function bounded(promise,label,ms=10000){let timer;try{return await Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(label+' timed out')),ms);})]);}finally{clearTimeout(timer);}}
+const releaseHeld=[];
+async function holdNextResponse(url,method,count=1,holdMs=10000){let release,readyResolve,deliveredResolve,used=0,fetched=0,fulfilled=0;const held=new Promise(r=>release=r),ready=new Promise(r=>readyResolve=r),delivered=new Promise(r=>deliveredResolve=r);releaseHeld.push(release);const handler=async route=>{if(used>=count||route.request().method()!==method){await route.continue();return;}used++;try{const response=await route.fetch({timeout:10000});if(++fetched===count)readyResolve({status:response.status()});await bounded(held,'held response release',holdMs);await route.fulfill({response});if(++fulfilled===count)deliveredResolve({});}catch(error){await route.abort('failed').catch(()=>{});readyResolve({error});deliveredResolve({error});}};await page.route(url,handler);return {async ready(){const result=await bounded(ready,'response ready');if(result.error)throw result.error;return result.status;},async deliver(){release();try{const result=await bounded(delivered,'response delivered');if(result.error)throw result.error;}finally{await page.unroute(url,handler);}}};}
+
+try{
+ await page.goto(base+'?view=home&snapshot='+encodeURIComponent(process.env.CONWAY_TEST_SNAPSHOT_ID));await page.locator('#login-user').fill(process.env.CONWAY_TEST_USERNAME);await page.locator('#login-pass').fill(process.env.CONWAY_TEST_PASSWORD);await page.locator('#signin-form button[type=submit]').click();
+ await page.locator('#announcements-overlay').waitFor({state:'visible'});
+ assert.equal(await page.locator('[data-announcement-action="reliable-evidence-v1"]').count(),1);
+ await page.locator('[data-announcement-close]').click();assert.equal(new URL(page.url()).searchParams.get('snapshot'),process.env.CONWAY_TEST_SNAPSHOT_ID);assert.match(await page.locator('#measure-context').textContent(),/Previously selected evidence/);
+ await page.locator('#explore-btn').click();await page.locator('#obs-snapshots').click();
+ const root=page.locator('#snap-evidence-sources');await root.locator('[data-evidence-new]').click();
+ await root.getByLabel('Source name',{exact:true}).fill('Atlas daily evidence');await root.getByLabel('Jira Cloud site').fill('https://atlas.atlassian.net');await root.getByLabel('Project keys, separated by commas').fill('PROJ');await root.getByLabel('Pinned roster',{exact:true}).selectOption(process.env.CONWAY_TEST_ROSTER_ID);
+ await root.getByLabel('Jira account email').fill('reader@example.test');await root.getByLabel('Jira API token').fill('browser-private-token');await root.getByText('Save these credentials encrypted',{exact:false}).click();await root.getByRole('button',{name:'Save source',exact:true}).focus();await page.keyboard.press('Enter');
+ const card=root.locator('[data-evidence-source]');await card.waitFor();assert.match(await card.textContent(),/No evidence/);const sid=await card.getAttribute('data-evidence-source');
+ await card.getByRole('button',{name:'Capture now',exact:true}).click();await card.getByRole('button',{name:'Retry capture',exact:true}).waitFor();assert.match(await card.textContent(),/Capture failed/);assert.doesNotMatch(await card.textContent(),/browser-private-token/);
+ await card.getByRole('button',{name:'Retry capture',exact:true}).click();await card.getByRole('link',{name:'View capture in Measure'}).waitFor();assert.match(await card.textContent(),/Fresh/);assert.equal(new URL(page.url()).searchParams.get('snapshot'),process.env.CONWAY_TEST_SNAPSHOT_ID,'A successful capture does not switch the selected evidence');
+ await card.getByRole('button',{name:'Attempt history',exact:true}).click();const history=root.getByRole('region',{name:'Capture attempt history'});await history.waitFor();assert.match(await history.textContent(),/failed/);assert.match(await history.textContent(),/succeeded/);
+ await card.getByRole('button',{name:'Settings and identities'}).click();await root.getByLabel('Team display name',{exact:true}).fill('Atlas platform');await root.getByLabel('Jira team aliases').fill('Atlas\nAtlas platform');await root.getByLabel('Enable scheduled captures').uncheck();
+ const sourceURL=base+'/api/evidence-sources/'+sid;await page.route(sourceURL,async route=>{if(route.request().method()==='PUT'){const competing=route.request().postDataJSON();competing.config.name='Concurrent saved name';const response=await route.fetch({postData:JSON.stringify(competing)});assert.equal(response.status(),200);const stale=await route.fetch({timeout:10000});assert.equal(stale.status(),409);await route.fulfill({response:stale});}else await route.continue();});
+ await root.getByRole('button',{name:'Save source',exact:true}).click();await root.getByRole('alert').waitFor();assert.equal(await root.getByLabel('Team display name',{exact:true}).inputValue(),'Atlas platform','Conflict keeps the edit draft');await page.unroute(sourceURL);await root.getByRole('button',{name:'Keep my draft on latest version',exact:true}).click();await root.getByRole('button',{name:'Save source',exact:true}).click();await card.waitFor();assert.match(await card.textContent(),/Paused/);
+ await card.getByRole('button',{name:'Capture now',exact:true}).click();await page.waitForFunction(async({sid})=>{const r=await fetch('/api/evidence-sources/'+sid,{headers:{Authorization:'Bearer '+localStorage.getItem('conway_token')}});const d=await r.json();return d.runs.filter(r=>r.status==='succeeded').length===2;},{sid},{timeout:10000,polling:100});await root.getByRole('button',{name:'Refresh status'}).click();await card.getByRole('button',{name:'Captured identities'}).click();const lineage=root.getByRole('region',{name:'Captured identities'});await lineage.waitFor();assert.match(await lineage.textContent(),/Atlas platform/);
+ let releaseHistory,historyReady,historyDelivered;const held=new Promise(resolve=>releaseHistory=resolve),ready=new Promise(resolve=>historyReady=resolve),delivered=new Promise(resolve=>historyDelivered=resolve);releaseHeld.push(releaseHistory);
+ const historyHandler=async route=>{const response=await route.fetch({timeout:10000});historyReady();await held;await route.fulfill({response});historyDelivered();};await page.route(sourceURL,historyHandler);await card.getByRole('button',{name:'Attempt history',exact:true}).click();await bounded(ready,'history fetched');await card.getByRole('button',{name:'Captured identities'}).click();await lineage.waitFor();releaseHistory();await bounded(delivered,'history delivered');await page.unroute(sourceURL,historyHandler);await page.waitForLoadState('networkidle',{timeout:10000});assert.equal(await lineage.isVisible(),true,'Late history cannot replace the selected identities');
+
+ const listURL=base+'/api/snapshots';
+ // Refresh status updates Measure context and the modal list; hold both older responses.
+ const oldList=await holdNextResponse(listURL,'GET',2);
+ await root.getByRole('button',{name:'Refresh status'}).click();assert.equal(await oldList.ready(),200);
+ const authorization=await page.evaluate(()=> 'Bearer '+localStorage.getItem('conway_token'));
+ const renamed=await page.request.patch(listURL+'/'+process.env.CONWAY_TEST_SNAPSHOT_ID,{headers:{Authorization:authorization},data:{name:'Updated selected evidence'},timeout:10000});assert.equal(renamed.status(),200);
+ await root.getByRole('button',{name:'Refresh status'}).click();await page.locator('#snap-list').getByText('Updated selected evidence',{exact:true}).waitFor();
+ await oldList.deliver();await page.waitForLoadState('networkidle',{timeout:10000});assert.match(await page.locator('#snap-list').textContent(),/Updated selected evidence/);assert.doesNotMatch(await page.locator('#snap-list').textContent(),/Previously selected evidence/);
+ await page.evaluate(()=>{window.__evidenceNotifications=0;document.addEventListener('conway:measure-sources-changed',()=>window.__evidenceNotifications++);});
+ async function closeWhilePending(held){await page.keyboard.press('Escape');await page.locator('#snapshots-overlay').waitFor({state:'hidden'});const before={html:await root.innerHTML(),url:page.url(),notifications:await page.evaluate(()=>window.__evidenceNotifications)};await held.deliver();await page.waitForLoadState('networkidle',{timeout:10000});assert.equal(await root.innerHTML(),before.html,'Closed source controls cannot mutate after a late response');assert.equal(page.url(),before.url,'Closing never switches selected evidence');assert.equal(await page.evaluate(()=>window.__evidenceNotifications),before.notifications,'Closed source controller cannot publish refresh events');await page.locator('#explore-btn').click();await page.locator('#obs-snapshots').click();await card.waitFor();}
+ const pendingCapture=await holdNextResponse(sourceURL+'/capture','POST');await card.getByRole('button',{name:'Capture now',exact:true}).click();assert.equal(await pendingCapture.ready(),202);await closeWhilePending(pendingCapture);
+ await page.waitForFunction(async sid=>{const r=await fetch('/api/evidence-sources/'+sid,{headers:{Authorization:'Bearer '+localStorage.getItem('conway_token')}});const {source}=await r.json();return !source.activeRun&&source.lastStatus==='succeeded';},sid,{timeout:10000,polling:100});
+ await root.getByRole('button',{name:'Refresh status'}).click();await card.getByRole('button',{name:'Settings and identities'}).click();await root.getByLabel('Evidence becomes stale after (hours)').fill('48');
+ const pendingSave=await holdNextResponse(sourceURL,'PUT');await root.getByRole('button',{name:'Save source',exact:true}).click();assert.equal(await pendingSave.ready(),200);await closeWhilePending(pendingSave);
+ await card.getByRole('button',{name:'Settings and identities'}).click();assert.equal(await root.getByLabel('Evidence becomes stale after (hours)').inputValue(),'48','Save persists even when its panel closes');await root.getByRole('button',{name:'Cancel',exact:true}).click();await card.waitFor();
+
+ const beforeTimeout=await (await page.request.get(sourceURL,{headers:{Authorization:authorization}})).json();
+ const timedRoute=await holdNextResponse(sourceURL,'PUT',1,25);
+ const timedRequest=page.evaluate(async ({url,source})=>{try{await fetch(url,{method:'PUT',headers:{Authorization:'Bearer '+localStorage.getItem('conway_token'),'Content-Type':'application/json'},body:JSON.stringify({config:source.config,version:source.version})});return 'response';}catch{return 'network-error';}},{url:sourceURL,source:beforeTimeout.source});
+ assert.equal(await timedRoute.ready(),200);
+ assert.equal(await bounded(timedRequest,'timed-out browser request settlement',2500),'network-error');
+ await assert.rejects(()=>timedRoute.deliver(),/held response release timed out/);
+ const afterTimeout=await (await page.request.get(sourceURL,{headers:{Authorization:authorization}})).json();assert.equal(afterTimeout.source.version,beforeTimeout.source.version+1,'Timeout cleanup must not replay a completed source save');
+ await root.getByRole('button',{name:'Refresh status'}).click();await page.waitForLoadState('networkidle',{timeout:10000});
+
+ // Capture the old table at click dispatch: earlier requests can replace it while Playwright waits to click.
+ async function refreshCurrentSnapshotTable(){
+ await page.locator('#snap-list tbody').waitFor({state:'attached'});
+ await page.evaluate(()=>{window.__snapshotTableAtRefresh=null;document.querySelector('#snap-evidence-sources [data-evidence-refresh]').addEventListener('click',()=>{window.__snapshotTableAtRefresh=document.querySelector('#snap-list tbody');},{capture:true,once:true});});
+ try{await root.getByRole('button',{name:'Refresh status'}).click();
+ await page.waitForFunction(()=>window.__snapshotTableAtRefresh&&!window.__snapshotTableAtRefresh.isConnected,null,{timeout:10000});
+ }finally{await page.evaluate(()=>{delete window.__snapshotTableAtRefresh;});}
+ }
+ // per specs/026-reliable-evidence-foundation.md:159
+ const staleDialogs=[];const handleMutationDialog=async dialog=>{if(dialog.type()==='alert'){staleDialogs.push(dialog.message());await dialog.dismiss();}else await dialog.accept(dialog.type()==='prompt'?'Proposed snapshot name':undefined);};page.on('dialog',handleMutationDialog);
+ try{for(const action of ['roster','visibility','rename','delete'])for(const boundary of ['reopen','refresh']){
+ await refreshCurrentSnapshotTable();
+ const mutationURL=listURL+'/'+process.env.CONWAY_TEST_SNAPSHOT_ID,method=action==='delete'?'DELETE':'PATCH';
+ await page.evaluate(({url,method})=>{const original=window.fetch;window.__originalEvidenceFetch=original;const probe=window.__snapshotErrorProbe={started:false,seen:0,release:null};window.fetch=async(input,options={})=>{const target=new URL(typeof input==='string'?input:input.url,location.href).href,verb=options.method||input.method||'GET';if(target===url&&verb===method&&probe.seen===0){probe.seen++;const response=new Response('',{status:500});response.text=()=>{probe.started=true;return new Promise(resolve=>{probe.release=()=>resolve('Delayed snapshot mutation error');});};return response;}return original(input,options);};},{url:mutationURL,method});
+ try{
+ const snapshotID=process.env.CONWAY_TEST_SNAPSHOT_ID;
+ if(action==='roster')await page.locator('#snap-list .snap-roster[data-id="'+snapshotID+'"]').selectOption(process.env.CONWAY_TEST_ROSTER_ID);
+ else await page.locator('#snap-list .'+({visibility:'snap-pub',rename:'snap-rename',delete:'snap-del'}[action])+'[data-id="'+snapshotID+'"]').click();
+ try{await page.waitForFunction(()=>window.__snapshotErrorProbe.started,null,{timeout:10000});}catch(error){throw Error(action+' / '+boundary+' error-body probe did not start: '+JSON.stringify(await page.evaluate(()=>({seen:window.__snapshotErrorProbe.seen,status:document.querySelector('#snap-status')?.textContent})))+'; '+error.message);}
+ if(boundary==='reopen'){await page.keyboard.press('Escape');await page.locator('#snapshots-overlay').waitFor({state:'hidden'});await page.locator('#explore-btn').click();await page.locator('#obs-snapshots').click();await card.waitFor();await refreshCurrentSnapshotTable();}
+ else{await refreshCurrentSnapshotTable();}
+ await page.waitForLoadState('networkidle',{timeout:10000});const beforeError={status:await page.locator('#snap-status').textContent(),url:page.url(),alerts:staleDialogs.length};
+ await page.evaluate(()=>{window.__snapshotErrorProbe.release();return new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));});
+ assert.equal(await page.locator('#snap-status').textContent(),beforeError.status,action+' late error must not paint after '+boundary);assert.equal(staleDialogs.length,beforeError.alerts,action+' late error must not alert after '+boundary);assert.equal(page.url(),beforeError.url);assert.equal(await page.evaluate(()=>window.__snapshotErrorProbe.seen),1);
+ }finally{await page.evaluate(()=>{window.__snapshotErrorProbe?.release?.();window.fetch=window.__originalEvidenceFetch;delete window.__snapshotErrorProbe;delete window.__originalEvidenceFetch;});}
+ }}finally{page.off('dialog',handleMutationDialog);}
+ for(const theme of ['dark','light']){await page.evaluate(t=>document.documentElement.dataset.bsTheme=t,theme);await page.setViewportSize({width:360,height:800});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'Mobile page fits');const geometry=await root.evaluate(el=>({width:el.clientWidth,scroll:el.scrollWidth,overflow:[...el.querySelectorAll('*')].filter(n=>n.getBoundingClientRect().right>el.getBoundingClientRect().right+1).slice(0,10).map(n=>({tag:n.tagName,class:n.className,width:n.getBoundingClientRect().width}))}));assert.equal(geometry.scroll>geometry.width+1,false,'Capture controls fit mobile: '+JSON.stringify(geometry));await page.locator('#snapshots-overlay').evaluate(el=>{for(const node of [el,...el.querySelectorAll('*')])if(node.scrollHeight>node.clientHeight)node.scrollTop=0;});await page.screenshot({path:join(process.env.CONWAY_TEST_ARTIFACT_DIR||tmpdir(),'conway-evidence-'+theme+'-mobile.png'),animations:'disabled'});}
+ await page.screenshot({path:join(process.env.CONWAY_TEST_ARTIFACT_DIR||tmpdir(),'conway-evidence-mobile.png'),fullPage:true});await page.setViewportSize({width:1280,height:960});await card.getByRole('link',{name:'View capture in Measure'}).click();await page.locator('#measure-context').waitFor();assert.match(await page.locator('#measure-context').textContent(),/Fresh capture/);assert.match(await page.locator('#measure-context').textContent(),/Atlas daily evidence/);assert.ok(new URL(page.url()).searchParams.get('snapshot'),'Explicit selection uses the existing snapshot URL');assert.notEqual(new URL(page.url()).searchParams.get('snapshot'),process.env.CONWAY_TEST_SNAPSHOT_ID);
+ assert.deepEqual(errors,[]);console.log(JSON.stringify({sourceSetup:true,recovery:true,privateCredentials:true,explicitSelection:true,aliasIdentity:true,conflictDraft:true,mobileThemes:true}));
+}finally{for(const release of releaseHeld)release();await browser.close();}

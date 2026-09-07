@@ -1,3 +1,4 @@
+import {captureFreshnessHTML} from './measure-context.js';
 // Snapshot evidence and review decisions. Missing measurements stay unknown.
 // specs/017-planning-and-execution-usability.md:87
 import { esc, weekToDate } from './order.js';
@@ -32,7 +33,7 @@ export function executionEvidenceHTML(data, {team = '', plan = {}} = {}) {
   return `<div class="execution-evidence">
     <h3 class="fs-5 text-body">Execution against the agreed plan</h3>
     ${snap.source === 'template' || snap.source === 'baseline' ? '<p class="plan-warn">Synthetic example evidence: this snapshot is a scenario or shipped demo, not an observation of your organization. Select a Jira import for a delivery review.</p>' : !snap.source ? '<p class="hint">Snapshot source type is unknown. Confirm its provenance before drawing delivery conclusions.</p>' : ''}
-    <p><b>Snapshot:</b> ${esc(snap.name || snap.id || 'Unknown')} · ${esc(when(snap.createdAt))} · ${num(snap.ageDays)} days old. This is a saved capture, not live Jira.</p>
+    <p><b>Snapshot:</b> ${esc(snap.name || snap.id || 'Unknown')} · ${esc(when(snap.createdAt))} · ${num(snap.ageDays)} days old. This is a saved capture, not live Jira.</p>${captureFreshnessHTML(snap)}
     <p><b>Agreement:</b> ${base ? `${esc(base.name)} · saved ${esc(when(base.createdAt))}` : 'No active baseline. Save an agreement in Plan commitments to compare variance.'}</p>
     <p role="status"><b>${num(c.tracked)} of ${num(c.total)} initiatives have evidence</b> · ${num(c.bound)} explicitly bound. ${team ? `Showing team ${esc(team)}; coverage above is for the whole plan.` : 'All initiatives are included, even when untracked.'}</p>
     <p class="hint">Progress counts completed child issues, not effort delivered. Starts are inferred from issue activity; elapsed-time variance and calibration are proxies. Missing transition history cannot establish exact work starts. Use these signals to investigate with teams.</p>

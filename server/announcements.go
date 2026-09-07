@@ -37,6 +37,9 @@ func (s *server) announcementCatalog(c auth.Claims) []featureAnnouncement {
 		Action:      announcementAction{Type: "menu", Target: "docs-btn", Parent: "help-btn"},
 	})
 	if c.Has("manager") || c.Has("admin") {
+		if s.db != nil {
+			features = append(features, featureAnnouncement{ID: "reliable-evidence-v1", Title: "Keep review evidence current", Description: "Save a Jira capture source, schedule dated snapshots, recover failed attempts and inspect stable team identities from Measure > Snapshots.", Action: announcementAction{Type: "menu", Target: "obs-snapshots", Parent: "explore-btn"}})
+		}
 		features = append(features, featureAnnouncement{
 			ID: "team-ready-work-v1", Title: "Review your team's next work",
 			Description: "See the scheduled release window, confirm operational prerequisites, and record release or deferral decisions without changing the plan.",

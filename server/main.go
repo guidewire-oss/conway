@@ -25,7 +25,9 @@ import (
 
 	"conway/server/auth"
 	"conway/server/db"
+	"conway/server/evidence"
 	"conway/server/game"
+	"conway/server/jira"
 	"conway/server/logging"
 	"conway/server/oidc"
 	"conway/server/sheets"
@@ -65,6 +67,9 @@ type server struct {
 	sheetsProvider     sheets.Provider
 	sheetsAccountEmail string
 	sheetsNow          func() time.Time
+	evidenceNow        func() time.Time
+	evidenceSlots      chan struct{}
+	evidenceFetch      func(context.Context, evidence.Config, evidenceCredential) ([]jira.DetailedIssue, error)
 }
 
 // sess/gmap/tmap return the per-game maps, creating them on first use. Caller holds s.mu.
@@ -440,6 +445,7 @@ func main() {
 		jiraBaseURL:  strings.TrimRight(os.Getenv("CONWAY_JIRA_BASE_URL"), "/"),
 		jiraSiteHint: os.Getenv("CONWAY_JIRA_SITE_HINT"),
 	}
+	go s.RunEvidenceSources(context.Background())
 	if credentials := os.Getenv("CONWAY_GOOGLE_CREDENTIALS_FILE"); credentials != "" {
 		provider, err := sheets.NewGoogleProvider(credentials)
 		if err != nil {
@@ -529,6 +535,8 @@ func main() {
 	mux.HandleFunc("/api/rosters", s.withAuth(s.handleRosters, "manager"))          // saved, editable team rosters
 	mux.HandleFunc("/api/rosters/", s.withAuth(s.handleRosterItem, "manager"))
 	mux.HandleFunc("/api/snapshots/import-network", s.withAuth(s.handleNetworkImport, "facilitator")) // facilitator templates
+	mux.HandleFunc("/api/evidence-sources", s.withAuth(s.handleEvidenceSources, "manager"))
+	mux.HandleFunc("/api/evidence-sources/", s.withAuth(s.handleEvidenceSource, "manager"))
 	mux.HandleFunc("/api/snapshots", s.withAuth(s.handleSnapshots, ""))
 	mux.HandleFunc("/api/snapshots/", s.withAuth(s.handleSnapshotItem, ""))
 	mux.HandleFunc("/api/state", s.withAuth(s.handleState, ""))

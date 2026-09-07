@@ -37,6 +37,7 @@ func (s *server) handleSnapshots(w http.ResponseWriter, r *http.Request, c auth.
 		return
 	}
 	type dto struct {
+		Capture   json.RawMessage `json:"capture,omitempty"`
 		ID        string          `json:"id"`
 		Name      string          `json:"name"`
 		Source    string          `json:"source"`
@@ -50,7 +51,7 @@ func (s *server) handleSnapshots(w http.ResponseWriter, r *http.Request, c auth.
 	}
 	out := make([]dto, 0, len(rows))
 	for _, rr := range rows {
-		out = append(out, dto{ID: rr.ID, Name: rr.Name, Source: rr.Source,
+		out = append(out, dto{Capture: rr.Capture, ID: rr.ID, Name: rr.Name, Source: rr.Source,
 			Owner: rr.Owner, Mine: rr.Owner == c.Sub || c.Has("admin"), Public: rr.Public,
 			RosterID: rr.RosterID, Scope: json.RawMessage(rr.Scope), DocCount: rr.DocCount, CreatedAt: rr.CreatedAt})
 	}
@@ -93,6 +94,19 @@ func (s *server) handleSnapshotItem(w http.ResponseWriter, r *http.Request, c au
 		}
 		writeJSON(w, counts)
 	case action == "data" && docPath != "" && r.Method == http.MethodGet:
+		if docPath == "identities.json" {
+			body, err := s.db.GetSnapshotDoc(id, docPath)
+			if err != nil {
+				s.evidenceFailure(w, err)
+				return
+			}
+			if len(body) == 0 {
+				http.NotFound(w, r)
+				return
+			}
+			writeJSON(w, json.RawMessage(body))
+			return
+		}
 		body, ok := s.tableDoc(id, docPath)
 		if !ok {
 			http.Error(w, "not found", 404)
@@ -154,6 +168,9 @@ func (s *server) deleteSnapshot(w http.ResponseWriter, id string, c auth.Claims)
 	if row == nil {
 		return
 	}
+	if s.protectedEvidenceSnapshot(w, id) {
+		return
+	}
 	if row.Source == "baseline" {
 		http.Error(w, "the baseline snapshot can't be deleted", 409)
 		return
@@ -179,6 +196,9 @@ func (s *server) patchSnapshot(w http.ResponseWriter, r *http.Request, id string
 	}
 	json.NewDecoder(r.Body).Decode(&b)
 	if b.RosterID != nil {
+		if s.protectedEvidenceSnapshot(w, id) {
+			return
+		}
 		pods, err := s.rosterPods(*b.RosterID)
 		if err != nil {
 			s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
@@ -281,4 +301,18 @@ func (s *server) defaultWorld() *World {
 	}
 	log.Info().Str("wanted", baselineSnapshotID).Str("using", rows[0].ID).Msg("named snapshot missing; using the most recent as the default world")
 	return w
+}
+
+// per specs/026-reliable-evidence-foundation.md:159
+func (s *server) protectedEvidenceSnapshot(w http.ResponseWriter, id string) bool {
+	snapshot, err := s.db.GetSnapshot(id)
+	if err != nil {
+		s.evidenceFailure(w, err)
+		return true
+	}
+	if snapshot != nil && len(snapshot.Capture) > 0 {
+		http.Error(w, "Captured evidence retains its original roster and history. Change the source settings and create a new capture instead.", http.StatusConflict)
+		return true
+	}
+	return false
 }

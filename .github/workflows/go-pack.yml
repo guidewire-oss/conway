@@ -144,7 +144,7 @@ jobs:
 
   integration:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     permissions:
       contents: read
     services:
@@ -201,7 +201,7 @@ jobs:
         env:
           CONWAY_TEST_BROWSER: '1'
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/conway-browser/node_modules/playwright/index.mjs
-        run: go test -race -count=1 ./server -ginkgo.label-filter=browser -ginkgo.fail-on-empty -timeout 8m
+        run: go test -race -count=1 ./server -ginkgo.label-filter=browser -ginkgo.fail-on-empty -timeout 12m
 
   golden-task-eval:
     runs-on: ubuntu-latest

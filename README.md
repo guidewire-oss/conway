@@ -39,7 +39,10 @@ Mined from Jira (OAuth or API token): the cross-pod dependency network, WIP and
 queue time per pod, data-hygiene gaps that starve the model, Monte-Carlo
 feature forecasts (P50/P85), and a modeled buffer fever chart. Dated **snapshots**
 can be captured, **compared** over time, and **published** so facilitators can
-build games from them. See
+build games from them. **Capture sources** schedule recurring private snapshots,
+retain failed-attempt history, and expose freshness and stable source identities.
+Successful captures remain available for explicit selection; they never switch
+an open plan's evidence. See [scheduled evidence](app/docs.html#evidence-sources) and
 [docs/snapshots-and-scenarios.md](docs/snapshots-and-scenarios.md).
 
 ### Plan — what should happen next
