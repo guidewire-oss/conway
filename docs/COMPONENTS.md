@@ -50,6 +50,12 @@ intrinsic width. Navigation colors belong in Bootstrap dropdown variables.
 Timeline inspector spacing remains domain geometry, including its mobile padding,
 so a fixed padding utility must not override that responsive rule.
 
+Keep semantic token families consistent: base, emphasis, subtle background and
+border colors must describe the same theme tone. Neutral badges use body surface
+and text utilities throughout the app. Glossary and contextual help share escaped
+button markup; static help retains a native title too. A domain control with its
+own focus outline suppresses the framework shadow so it has one indicator.
+
 CI selects browser acceptance by the shared Ginkgo `browser` label, so suite
 names can describe their own workflows without changing coverage. The Bootstrap
 suite runs `tests/browser/bootstrap-adoption.mjs` against its isolated Go host.

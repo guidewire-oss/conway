@@ -61,7 +61,7 @@ async function renderList(ov) {
     </div>
     <table class="table table-sm wip-table"><thead><tr><th>Name</th><th>Pods</th><th>Visibility</th><th>Updated</th><th></th></tr></thead>
       <tbody>${rosters.map((r) => {
-    const vis = r.public ? '<span class="badge bg-success-subtle text-success-emphasis flag">public</span>' : '<span class="badge text-bg-secondary flag">private</span>';
+    const vis = r.public ? '<span class="badge bg-success-subtle text-success-emphasis flag">public</span>' : '<span class="badge bg-body-secondary text-body flag">private</span>';
     return `<tr>
         <td><b>${esc(r.name)}</b>${!r.mine ? ` <span class="hint">· shared by ${r.owner ? esc(r.owner) : 'system'}</span>` : ''}</td>
         <td>${r.podCount}</td>

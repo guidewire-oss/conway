@@ -278,7 +278,7 @@ async function renderScenarios() {
   const seeds = (await fetchSeeds()).filter((s) => s.source !== 'baseline');
   const rows = seeds.map((s) => {
     const tmpl = s.source === 'template';
-    const vis = s.public ? '<span class="badge bg-success-subtle text-success-emphasis flag">public</span>' : '<span class="badge text-bg-secondary flag">private</span>';
+    const vis = s.public ? '<span class="badge bg-success-subtle text-success-emphasis flag">public</span>' : '<span class="badge bg-body-secondary text-body flag">private</span>';
     const owner = !s.mine ? ` <span class="hint">· by ${esc(s.owner)}</span>` : '';
     return `<tr>
       <td><b>${esc(s.name || s.id)}</b>${owner}</td>

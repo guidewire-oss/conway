@@ -57,7 +57,7 @@ export function initGraph(state) {
   function renderHideBar() {
     if (!hidden.size) { hideBar.hidden = true; hideBar.innerHTML = ''; return; }
     hideBar.hidden = false;
-    hideBar.innerHTML = `<b>Hidden:</b> ${[...hidden].map((n) => `<span class="badge text-bg-secondary flag">${esc(n)}</span>`).join(' ')}
+    hideBar.innerHTML = `<b>Hidden:</b> ${[...hidden].map((n) => `<span class="badge bg-body-secondary text-body flag">${esc(n)}</span>`).join(' ')}
       <button class="btn btn-secondary" id="net-show-all">Reset (show all)</button>`;
     hideBar.querySelector('#net-show-all').addEventListener('click', () => { hidden.clear(); render(); });
   }

@@ -204,6 +204,10 @@ KPI collections wrap before labels become unreadable. Navigation and accepted
 ordering use the existing theme through Bootstrap component variables and
 utilities. Dense table actions and inline import fields retain compact sizing;
 domain inspector padding remains responsive rather than overridden by utilities.
+All neutral metadata follows the theme, and related semantic token families stay
+consistent. Glossary and contextual help share one escaped button implementation;
+static help retains the same native fallback. Domain focus indicators remain
+singular, icon-only actions are named, and long agreement labels can wrap.
 
 ## 12. Success Metrics
 

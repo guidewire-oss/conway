@@ -38,7 +38,7 @@ export function executionEvidenceHTML(data, {team = '', plan = {}} = {}) {
     <p class="hint">Progress counts completed child issues, not effort delivered. Starts are inferred from issue activity; elapsed-time variance and calibration are proxies. Missing transition history cannot establish exact work starts. Use these signals to investigate with teams.</p>
     ${gapsHTML(data.gaps)}
     ${initiatives.map((it, index) => `<article class="card p-3 panel-card execution-initiative my-3">
-      <h4 class="fs-6 text-body d-flex flex-wrap align-items-baseline gap-2">${esc(it.name)} <span class="tag badge text-bg-secondary text-wrap text-start">${esc(statuses[it.status] || (it.tracked ? 'Evidence available' : 'Not tracked'))}</span></h4>
+      <h4 class="fs-6 text-body d-flex flex-wrap align-items-baseline gap-2">${esc(it.name)} <span class="tag badge bg-body-secondary text-body text-wrap text-start">${esc(statuses[it.status] || (it.tracked ? 'Evidence available' : 'Not tracked'))}</span></h4>
       <p>${num(it.percentComplete,'%')} completed children · start variance ${delta(it.startVarianceWeeks)} · finish variance ${delta(it.finishVarianceWeeks)} · buffer ${num(it.bufferUsedPct,'%')}</p>
       ${(it.addedEpics || []).length || (it.removedEpics || []).length || (it.unplannedPods || []).length ? `<p class="plan-warn">Scope changed: added epics ${esc(it.addedEpics?.join(', ') || 'none')}; removed epics ${esc(it.removedEpics?.join(', ') || 'none')}; unplanned teams ${esc(it.unplannedPods?.join(', ') || 'none')}. Compare original scope separately below.</p>` : ''}
       ${gapsHTML(it.gaps)}

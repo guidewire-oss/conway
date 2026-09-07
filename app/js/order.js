@@ -87,7 +87,7 @@ export function suggestedCell(si, engineRanks) {
 // proposes. Decision 3 makes this the centre of the table rather than a footnote:
 // a reordering nobody explains reads as being ignored.
 export function statedCell(si) {
-  const lock = si.priorityLocked ? ' <span class="badge text-bg-secondary tag">locked</span>' : '';
+  const lock = si.priorityLocked ? ' <span class="badge bg-body-secondary text-body tag">locked</span>' : '';
   if (!si.statedRank) return `<span class="hint">—</span>${lock}`;
   if (si.statedRank === si.proposedRank) return `${si.statedRank}${lock}`;
   const dir = si.proposedRank < si.statedRank ? 'up' : 'down';
@@ -373,7 +373,7 @@ export function podHeatmapHTML(sched, horizonWeeks) {
       // The busy count is in the cell, not only its colour (FR-044).
       return `<td class="ord-cell ord-${zone}" title="${title}">${wk.busy || ''}</td>`;
     }).join('');
-    const drum = drums.has(ps.pod) ? ' <span class="badge text-bg-secondary tag">drum</span>' : '';
+    const drum = drums.has(ps.pod) ? ' <span class="badge bg-body-secondary text-body tag">drum</span>' : '';
     return `<tr><th class="ord-pod"><button type="button" class="btn btn-link p-0 text-start ord-podlink" data-pod="${esc(ps.pod)}">${esc(ps.pod)}</button>
       <span class="hint">${ps.tracks}t</span>${drum}</th>${cells}</tr>`;
   }).join('');
@@ -984,7 +984,7 @@ export function wipModelsTableHTML(sched) {
   const body = rows.map((o) => {
     const current = o.model === marked;
     return `<tr${current ? ' class="ord-inforce"' : ''}>
-      <td>${current ? '<b>' : ''}${esc(o.model)}${current ? `</b> <span class="badge text-bg-secondary tag">${tag}</span>` : ''}</td>
+      <td>${current ? '<b>' : ''}${esc(o.model)}${current ? `</b> <span class="badge bg-body-secondary text-body tag">${tag}</span>` : ''}</td>
       <td>${o.limit > 0 ? o.limit : '<span class="hint">none</span>'}</td>
       <td>${weekLabel(o.lastCommitWeek)}</td>
       <td>${o.datesMissed}${o.infeasible ? ` <span class="hint">(${o.infeasible} cannot fit)</span>` : ''}</td>

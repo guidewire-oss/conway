@@ -39,7 +39,9 @@ an inherited alias does not necessarily create the literal cycle suggested by
 a source-only review. The rendered card test now supplies an ancestor override
 and checks the actual background in both themes.
 
-Provenance: observed 2026-09-06 via `server/bootstrap_browser_test.go` in
-`go test -race -v -count=1 ./server -ginkgo.focus='linked features browser'
--ginkgo.fail-on-empty -ginkgo.no-color -ginkgo.succinct -timeout=5m`:
-`ok conway/server 49.522s`. See the component contract in `docs/COMPONENTS.md`.
+Provenance: observed 2026-09-06 via `server/bootstrap_browser_test.go` and
+`tests/browser/bootstrap-adoption.mjs` in
+`go test -race -count=1 ./server -ginkgo.focus='Bootstrap adoption' -ginkgo.no-color -ginkgo.succinct -timeout=3m`:
+`ok conway/server 20.501s`. This current suite name replaces the historical
+shared title prefix; CI selects both browser suites by label. See the component
+contract in `docs/COMPONENTS.md`.

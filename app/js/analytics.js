@@ -22,7 +22,7 @@ export function openUsage() {
             <button class="btn btn-secondary usage-btn active" aria-pressed="true" data-days="30">30d</button>
             <button class="btn btn-secondary usage-btn" aria-pressed="false" data-days="90">90d</button>
           </span>
-          <button class="btn btn-secondary" id="usage-close">✕</button>
+          <button class="btn btn-secondary" id="usage-close" aria-label="Close usage analytics">✕</button>
         </div>
         <div id="usage-kpis" class="usage-kpis"></div>
         <div id="usage-chart" class="usage-chart"></div>

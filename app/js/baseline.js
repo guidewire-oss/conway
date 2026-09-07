@@ -45,7 +45,7 @@ export function baselineChipHTML(baselines) {
   const shown = active.name.length > 25 ? active.name.slice(0, 25) + '…' : active.name;
   return `<button type="button" class="btn btn-secondary btn-sm bl-chip" id="bl-chip" title="${esc(active.name)} — ${esc(why)}; open the baselines panel">
     agreed: <span class="bl-dot ${diverged ? 'bl-diverged' : 'bl-current'}">●</span>
-    ${esc(shown)}${diverged ? ' <span class="badge text-bg-secondary tag">inputs have moved</span>' : ' <span class="badge text-bg-secondary tag">matches</span>'} <span class="hint">▾</span></button>`;
+    ${esc(shown)}${diverged ? ' <span class="badge bg-body-secondary text-body tag">inputs have moved</span>' : ' <span class="badge bg-body-secondary text-body tag">matches</span>'} <span class="hint">▾</span></button>`;
 }
 
 // baselineListHTML is the history. Every baseline stays readable, not just the
@@ -67,7 +67,7 @@ export function baselineListHTML(baselines) {
     </select>`;
   };
   const rows = list.map((b) => `<tr${b.active ? ' class="bl-active"' : ''}>
-    <td>${esc(b.name)}${b.active ? ' <span class="badge text-bg-secondary tag">active</span>' : ''}</td>
+    <td>${esc(b.name)}${b.active ? ' <span class="badge bg-body-secondary text-body tag">active</span>' : ''}</td>
     <td>${esc(fmtWhen(b.createdAt))}</td>
     <td>${esc(b.createdBy || '—')}</td>
     <td>${b.diverged ? '<span class="ord-amber">inputs moved since</span>' : '<span class="hint">matches</span>'}</td>
@@ -127,7 +127,7 @@ export function compareTableHTML(result) {
 
   return `<div class="card p-3 panel-card bl-compare-card">
     <div class="plan-summary">${summary}${result.diverged
-    ? ' <span class="badge text-bg-secondary tag">inputs moved</span>' : ''}</div>
+    ? ' <span class="badge bg-body-secondary text-body tag">inputs moved</span>' : ''}</div>
     ${rows ? `<table class="table wip-table"><thead><tr>
       <th>Initiative</th><th>Start</th><th>Δ</th><th>Commit</th><th>Δ</th><th>Verdict</th>
     </tr></thead><tbody>${rows}</tbody></table>` : '<p class="hint">No initiatives in common with this baseline.</p>'}

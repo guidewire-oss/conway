@@ -194,7 +194,7 @@ function mountChip() {
   const chip = document.createElement('span');
   chip.className = 'auth-chip';
   const label = testToken ? `testing as ${username.replace(/^__test__:/, '')}` : username;
-  chip.innerHTML = `${esc(label)} · <button class="btn btn-link p-0" type="button" id="auth-logout">Sign out</button>`;
+  chip.innerHTML = `${esc(label)} · <button class="btn btn-link btn-sm p-0" type="button" id="auth-logout">Sign out</button>`;
   nav.appendChild(chip);
   chip.querySelector('#auth-logout').addEventListener('click', logout);
   // facilitators (and admins, as superusers) get the game-ops console, grouped

@@ -37,7 +37,7 @@ export function readyItemHTML(item, context) {
     : ['in_progress','complete'].includes(item.state) ? []
       : item.canRelease ? ['release','defer'] : ['defer'];
   return `<article class="card p-3 panel-card ready-item my-3" data-ready-initiative="${esc(item.initiative)}">
-    <div class="ready-item-heading d-flex flex-wrap align-items-baseline gap-2"><h4 class="fs-6 text-body">${esc(item.initiative)}</h4>${item.kind === 'milestone' ? '<span class="tag badge text-bg-secondary text-wrap text-start">Acceptance checkpoint</span>' : ''}</div>
+    <div class="ready-item-heading d-flex flex-wrap align-items-baseline gap-2"><h4 class="fs-6 text-body">${esc(item.initiative)}</h4>${item.kind === 'milestone' ? '<span class="tag badge bg-body-secondary text-body text-wrap text-start">Acceptance checkpoint</span>' : ''}</div>
     <p><b>Planned start:</b> ${esc(placement(item.plannedStartWeek, context.periodStart))}<br>
       <b>Planned finish:</b> ${esc(placement(item.plannedFinishWeek, context.periodStart))}</p>
     ${item.kind === 'milestone' ? '<p class="hint">Zero-effort checkpoint: no work week or lane is invented.</p>' : ''}
@@ -123,8 +123,8 @@ export function mountReadyQueue(host, {plan, request, onContext, onInspect, onRe
     body.innerHTML = `<p class="hint">${items.length} of ${queue.counts.total} assigned items match. ${showAll.checked ? 'All matching items shown.' : 'Showing up to three per group; use Show all to see the rest.'}</p>` + groups.map(([key,label,hint])=>{
       const matches = items.filter(item=>item.state === key);
       const visible = showAll.checked ? matches : matches.slice(0,3);
-      if(!matches.length) return `<details class="ready-group ready-empty mt-3 border-bottom" data-ready-group="${key}"><summary class="py-2">${label} <span class="tag badge text-bg-secondary text-wrap text-start">0</span><span class="hint ms-2 fw-normal">No matching items</span></summary><p class="hint">${hint}</p></details>`;
-      return `<section class="ready-group mt-4" data-ready-group="${key}"><h3 class="fs-5 text-body">${label} <span class="tag badge text-bg-secondary text-wrap text-start">${matches.length}</span></h3><p class="hint">${hint}</p>
+      if(!matches.length) return `<details class="ready-group ready-empty mt-3 border-bottom" data-ready-group="${key}"><summary class="py-2">${label} <span class="tag badge bg-body-secondary text-body text-wrap text-start">0</span><span class="hint ms-2 fw-normal">No matching items</span></summary><p class="hint">${hint}</p></details>`;
+      return `<section class="ready-group mt-4" data-ready-group="${key}"><h3 class="fs-5 text-body">${label} <span class="tag badge bg-body-secondary text-body text-wrap text-start">${matches.length}</span></h3><p class="hint">${hint}</p>
         ${visible.map(item=>readyItemHTML(item,queue.context)).join('') || '<p class="hint">No matching items in this group.</p>'}
         ${visible.length < matches.length ? `<button class="btn btn-secondary text-wrap" type="button" data-ready-show-rest>Show all ${matches.length} ${label.toLowerCase()} items</button>` : ''}</section>`;
     }).join('');

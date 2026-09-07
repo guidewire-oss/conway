@@ -9,6 +9,8 @@ export async function checkMeasureBootstrap(page) {
     const path=new URL(route.request().url()).pathname;
     const responses={
       '/api/config':{},
+      '/api/me':{username:'acceptance-admin',roles:['admin']},
+      '/api/admin/analytics':{activeThisWeek:0,activeLastWeek:0,totalEvents:0,from:'2026-08-08T00:00:00Z',to:'2026-09-07T00:00:00Z'},
       '/api/rosters':[{id:'atlas-roster',name:'Atlas roster',mine:true,podCount:1,public:false}],
       '/api/jira/status':{connected:true},
       '/api/jira/projects':[{key:'PROJ',name:'Atlas delivery'}],
@@ -23,7 +25,16 @@ export async function checkMeasureBootstrap(page) {
   await page.route('**/js/main.js',mainRoute);
   await page.route('**/api/**',apiRoute);
   try {
-    await page.goto(base+'/index.html');
+    await page.goto(base+'/index.html?testtoken=acceptance-fixture');
+    const staticHelp=await page.locator('button.help[data-tip]').evaluateAll(buttons=>buttons.map(button=>({tip:button.dataset.tip,title:button.getAttribute('title')})));
+    assert.ok(staticHelp.length>=6 && staticHelp.every(help=>help.tip===help.title),'Every static help explanation retains its native fallback');
+    await page.evaluate(async()=>{const {initAuth}=await import('/js/auth.js');await initAuth();});
+    assert.ok(await page.locator('#auth-logout').evaluate(el=>parseFloat(getComputedStyle(el).fontSize)<=14),'Sign out remains compact in the identity chip');
+    await page.locator('#usage-btn').click();
+    const closeUsage=page.getByRole('button',{name:'Close usage analytics',exact:true});await closeUsage.waitFor();
+    await page.waitForFunction(()=>document.querySelector('#usage-foot')?.textContent.includes('2026-08-08'));
+    await closeUsage.focus();await page.keyboard.press('Enter');
+    assert.equal(await page.locator('#usage-overlay').isVisible(),false,'The named analytics close action works by keyboard');
     await page.evaluate(async()=>{
       window.measureFixture={pods:[{name:'Atlas',location:'Central'}],stats:{Atlas:{mu:1,sigma:0.2,rho0:0.3}},hygiene:{},edges:[],overlap:{Atlas:{Atlas:1}}};
       window.showMeasureView=view=>document.querySelectorAll('.view').forEach(el=>el.classList.toggle('active',el.id==='view-'+view));

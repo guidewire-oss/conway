@@ -50,3 +50,14 @@ test('contextual help escapes topic names and explanations in their attributes',
   assert.doesNotMatch(html, /<script|<img/);
   assert.equal(helpButton('', 'missing explanation'), '');
 });
+
+test('glossary explanations preserve special characters without creating markup', () => {
+  TERMS['acceptance-fixture']={label:'Atlas & "Beacon"',tip:'Use <accepted> evidence & "confirm" scope'};
+  try {
+    const html=term('acceptance-fixture','A & B');
+    assert.match(html,/A &amp; B <button/);
+    assert.match(html,/aria-label="What does Atlas &amp; &quot;Beacon&quot; mean\?"/);
+    for(const attribute of ['title','data-bs-title'])assert.ok(html.includes(attribute+'="Use &lt;accepted&gt; evidence &amp; &quot;confirm&quot; scope"'));
+    assert.doesNotMatch(html,/<accepted>/);
+  } finally { delete TERMS['acceptance-fixture']; }
+});

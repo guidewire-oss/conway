@@ -757,10 +757,16 @@ test('the verdict badge keeps symbol and text with a zone class (FR-044)', () =>
 });
 
 test('each verdict zone gets its own badge class', () => {
-  assert.match(verdictBadgeHTML({ verdict: 'on-time' }), /v-green/);
-  assert.match(verdictBadgeHTML({ verdict: 'at-risk' }), /v-amber/);
-  assert.match(verdictBadgeHTML({ verdict: 'no-date' }), /v-idle/);
-  assert.match(verdictBadgeHTML({ verdict: 'structurally-infeasible', weeksLate: 8 }), /v-red/);
+  for(const [verdict,zone,tone] of [
+    ['on-time','green','success'],['at-risk','amber','warning'],
+    ['late','red','danger'],['structurally-infeasible','red','danger'],
+    ['unschedulable','red','danger'],['beyond-horizon','red','danger'],
+    ['no-date','idle','secondary'],['unknown','idle','secondary'],
+  ]) {
+    const html=verdictBadgeHTML({verdict,weeksLate:8});
+    assert.ok(html.includes('v-'+zone),verdict+' keeps its semantic zone');
+    assert.ok(html.includes('bg-'+tone+'-subtle') && html.includes('text-'+tone+'-emphasis'),verdict+' communicates the appropriate status tone');
+  }
 });
 
 test('the badge escapes hostile verdict text', () => {

@@ -100,6 +100,9 @@
 
   --bs-info: #4cc2ff;
   --bs-info-rgb: 76, 194, 255;
+  --bs-info-text-emphasis: var(--bs-primary-text-emphasis);
+  --bs-info-bg-subtle: var(--bs-primary-bg-subtle);
+  --bs-info-border-subtle: var(--bs-primary-border-subtle);
 
   /* type — Public Sans body, Plex Mono for numerals/IDs/code */
   --bs-font-sans-serif: 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -192,6 +195,9 @@
 
   --bs-info: var(--bs-primary);
   --bs-info-rgb: var(--bs-primary-rgb);
+  --bs-info-text-emphasis: var(--bs-primary-text-emphasis);
+  --bs-info-bg-subtle: var(--bs-primary-bg-subtle);
+  --bs-info-border-subtle: var(--bs-primary-border-subtle);
 
   --bs-focus-ring-color: rgba(var(--bs-primary-rgb), .3);
 

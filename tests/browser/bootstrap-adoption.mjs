@@ -15,7 +15,7 @@ try {
     const {mountReadyQueue} = await import('/js/readyqueueui.js');
     const {executionEvidenceHTML} = await import('/js/executionui.js');
     const {timelineControlsHTML,timelineRowHTML,timelineInspectorHTML} = await import('/js/timeline.js');
-    const {baselineListHTML} = await import('/js/baseline.js');
+    const {baselineListHTML,baselineChipHTML} = await import('/js/baseline.js');
     const {initScoreboard} = await import('/js/scoreboard.js');
     const {orderingBadge,verdictBadgeHTML,schedulingFormHTML} = await import('/js/order.js');
     const {initHome} = await import('/js/home.js');
@@ -37,7 +37,7 @@ try {
       initiatives:[{name:'Atlas',status:'unknown',epicKeys:['PROJ-1'],suggestions:[{key:'PROJ-2',summary:'Beacon follow-up'}],
         slices:[{pod:'Team A',confidence:'unknown',gaps:[]}]}]});
     document.querySelector('#timeline').innerHTML = timelineControlsHTML({lens:'pod',spans:[{id:'all',label:'Whole period'},{id:'short',label:'Next weeks'}],spanSel:'all',initiativeFilter:'Atlas',teamFilter:'Team A'});
-    const badges=orderingBadge()+orderingBadge({acceptedOrdering:'engine'})+['on-time','at-risk','late'].map(verdict=>verdictBadgeHTML({verdict,weeksLate:2})).join('');
+    const badges=orderingBadge()+orderingBadge({acceptedOrdering:'engine'})+['on-time','at-risk','late','no-date','structurally-infeasible','unschedulable','beyond-horizon'].map(verdict=>verdictBadgeHTML({verdict,weeksLate:2})).join('');
     document.querySelector('#badge-examples').innerHTML = ['', 'card p-3', 'bg-body-tertiary p-3'].map(surface=>'<div class="d-flex flex-wrap gap-2 '+surface+'">'+badges+'</div>').join('');
     const sizing=document.createElement('div');sizing.id='framework-sizes';sizing.className='d-flex align-items-center gap-2';
     sizing.innerHTML=['btn-sm','','btn-lg'].map(size=>'<button class="btn btn-secondary '+size+'">Action</button>').join('');
@@ -48,6 +48,7 @@ try {
     const baselines=document.createElement('div');baselines.id='baseline-examples';baselines.className='table-responsive';
     baselines.innerHTML=baselineListHTML([{id:'baseline-a',name:'Atlas agreement',active:true},{id:'baseline-b',name:'Beacon agreement'}]);
     document.querySelector('main').append(baselines);
+    const chip=document.createElement('div');chip.id='agreement-chip-example';chip.innerHTML=baselineChipHTML([{id:'atlas',name:'Atlas delivery agreement with a long descriptive name',active:true,diverged:true}]);document.querySelector('main').append(chip);
     const inspectors=document.createElement('div');inspectors.id='inspector-examples';
     inspectors.innerHTML=timelineInspectorHTML(null,{})+timelineInspectorHTML({name:'Atlas',verdict:'unschedulable',slices:[]},{});
     document.querySelector('main').append(inspectors);
@@ -86,6 +87,12 @@ try {
   const labelGeometry=await page.locator('#timeline-label-example .tl-label').evaluate(label=>{const style=getComputedStyle(label);return {align:style.textAlign,padding:[style.paddingTop,style.paddingRight,style.paddingBottom,style.paddingLeft].map(parseFloat)};});
   assert.equal(labelGeometry.align,'left','Timeline labels stay aligned with their team rows');
   assert.deepEqual(labelGeometry.padding,[0,10,0,0],'Timeline labels keep their ten-pixel track gap without generic action-button padding');
+  const timelineLabel=page.locator('#timeline-label-example .tl-label');
+  await timelineLabel.focus();await page.keyboard.press('Tab');await page.keyboard.press('Shift+Tab');
+  await timelineLabel.evaluate(el=>Promise.all(el.getAnimations().map(animation=>animation.finished.catch(()=>{}))));
+  const labelFocus=await timelineLabel.evaluate(el=>({active:el===document.activeElement,outline:getComputedStyle(el).outlineStyle,shadow:getComputedStyle(el).boxShadow}));
+  assert.equal(labelFocus.active,true);assert.notEqual(labelFocus.outline,'none');assert.equal(labelFocus.shadow,'none','Timeline labels retain one domain focus outline');
+  await timelineLabel.evaluate(el=>el.blur());
   const pngDownload=page.waitForEvent('download',{timeout:15000}).catch(()=>null);
   const exported=await page.evaluate(async()=>{
     const {exportBlockPNG}=await import('/js/exportpng.js');
@@ -188,6 +195,7 @@ try {
       });
     });
   const colors = [];
+  const neutralSurfaces=[];
   for (const theme of ['dark','light']) {
     await page.evaluate(theme=>document.documentElement.dataset.bsTheme=theme,theme);
     const cardTheme=await page.locator('.ready-item').evaluate(card=>{
@@ -205,8 +213,13 @@ try {
     assert.equal(cardTheme.alpha,255,'Real operational cards stay opaque in '+theme+': '+cardTheme.background);
     assert.equal(cardTheme.inherited,'rgb(24, 45, 68)','A themed ancestor can supply the Bootstrap card surface in '+theme);
     const badgeContrast = await measureContrast(page.locator('#badge-examples .badge'));
-    assert.equal(badgeContrast.length,15,'Ordering and verdict badges render on body, card and raised surfaces');
+    assert.equal(badgeContrast.length,27,'Both orderings and all seven verdicts render on body, card and raised surfaces');
     for(const badge of badgeContrast) assert.ok(badge.ratio>=4.5,theme+' '+badge.label+' badge contrast '+badge.ratio.toFixed(2)+' must reach 4.5:1 '+JSON.stringify(badge));
+    const neutral=await measureContrast(page.locator('#evidence h4 .badge,#ready .ready-item-heading .badge'));
+    assert.equal(neutral.length,2);for(const badge of neutral)assert.ok(badge.ratio>=4.5,theme+' neutral workflow badge contrast '+JSON.stringify(badge));
+    neutralSurfaces.push(neutral.map(badge=>badge.background));
+    const infoTokens=await page.evaluate(()=>{const style=getComputedStyle(document.documentElement);return ['text-emphasis','bg-subtle','border-subtle'].map(suffix=>[style.getPropertyValue('--bs-info-'+suffix).trim(),style.getPropertyValue('--bs-primary-'+suffix).trim()]);});
+    assert.ok(infoTokens.every(([info,primary])=>info===primary),'Info companion tokens follow their primary theme alias in '+theme);
     const homeAlerts=page.locator('#home-body .home-alert');
     assert.equal(await homeAlerts.count(),2,'The real home renderer supplies warning and healthy-load alerts');
     for(let index=0;index<await homeAlerts.count();index++) {
@@ -233,6 +246,8 @@ try {
       assert.equal(await page.locator('#late-input').inputValue(),'Existing draft');
       assert.equal(await page.locator('#tl-initiative-filter').inputValue(),'Atlas');
       assert.equal(await page.locator('#tl-team-filter').inputValue(),'Team A');
+      const chip=await page.locator('#bl-chip').evaluate(el=>({whiteSpace:getComputedStyle(el).whiteSpace,width:el.getBoundingClientRect().width,parent:el.parentElement.getBoundingClientRect().width,scroll:el.scrollWidth,client:el.clientWidth}));
+      assert.equal(chip.whiteSpace,'normal');assert.ok(chip.width<=chip.parent && chip.scroll<=chip.client,'Long agreement status wraps within the available header width: '+JSON.stringify(chip));
       const owner = decision.locator('[name=owner]'); await owner.focus();
       assert.equal(await owner.evaluate(el=>document.activeElement===el),true);
       assert.equal(await owner.evaluate(el=>getComputedStyle(el).boxShadow!=='none'),true,'Bootstrap focus indicator remains visible in '+theme);
@@ -256,6 +271,7 @@ try {
     colors.push(await page.locator('.ready-item').evaluate(el=>getComputedStyle(el).backgroundColor));
   }
   assert.notEqual(colors[0],colors[1],'Bootstrap cards must respond to both theme modes');
+  assert.notDeepEqual(neutralSurfaces[0],neutralSurfaces[1],'Operational metadata responds to both theme modes');
   assert.deepEqual(await page.evaluate(()=>window.acceptedContexts),[['Team A',0]],'Theme and viewport changes preserve the accepted queue context');
   // per specs/012-in-app-usage-guide.md:228
   await page.goto(process.env.CONWAY_TEST_BASE_URL+'/docs.html');

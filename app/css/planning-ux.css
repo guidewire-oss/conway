@@ -10,7 +10,7 @@
 .tl-filter > label:not(.hint) { display: grid; gap: .2rem; font-size: .85rem; }
 .tl-tick-date { display: block; font-size: .65rem; white-space: nowrap; }
 .tl-axis:has(.tl-tick-date) { min-height: 2.6rem; }
-.tl-row > button.tl-label { background: transparent; color: inherit; border: 0; text-align: left; cursor: pointer; }
+.tl-row > button.tl-label { --bs-btn-focus-box-shadow: none; background: transparent; color: inherit; border: 0; text-align: left; cursor: pointer; }
 .tl-row > button[aria-pressed="true"] { background: var(--bs-primary-bg-subtle, #e4efff); font-weight: 700; }
 .tl-inspector { margin-top: 1rem; padding: 1rem; }
 .tl-inspector h3 { font-size: 1.1rem; }

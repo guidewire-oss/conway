@@ -140,9 +140,10 @@ export const TERMS = {
 // optional (use it beside a bare column header; omit when the term itself is
 // already on screen — then only the ? button appears).
 // specs/011-bootstrap-adoption-debt.md:82: every help affordance remains keyboard reachable.
-export function helpButton(text, label) {
+export function helpButton(text, label, { glossary = false } = {}) {
   if (!text) return '';
-  return ` <button type="button" class="btn btn-secondary btn-sm p-0 rounded-circle d-inline-flex align-items-center justify-content-center ms-1 help lh-1" data-bs-toggle="tooltip" data-bs-title="${esc(text)}" title="${esc(text)}" aria-label="Explain ${esc(label)}">?</button>`;
+  const name = glossary ? `What does ${label} mean?` : `Explain ${label}`;
+  return `${glossary ? '' : ' '}<button type="button" class="btn btn-secondary btn-sm p-0 rounded-circle d-inline-flex align-items-center justify-content-center ms-1 help${glossary ? ' term-tip' : ''} lh-1" data-bs-toggle="tooltip" data-bs-title="${esc(text)}" title="${esc(text)}" aria-label="${esc(name)}">?</button>`;
 }
 
 export function term(id, label) {
@@ -150,10 +151,7 @@ export function term(id, label) {
   // a broken affordance from a non-entry.
   if (!Object.prototype.hasOwnProperty.call(TERMS, id)) return '';
   const t = TERMS[id];
-  const text = String(t.tip).replace(/"/g, '&quot;');
-  return `${label ? `${esc(label)} ` : ''}` +
-    `<button type="button" class="btn btn-secondary btn-sm p-0 rounded-circle d-inline-flex align-items-center justify-content-center ms-1 help term-tip lh-1" data-bs-toggle="tooltip" data-bs-title="${text}" ` +
-    `aria-label="What does ${esc(t.label)} mean?" title="${text}">?</button>`;
+  return `${label ? `${esc(label)} ` : ''}${helpButton(t.tip, t.label, { glossary: true })}`;
 }
 
 // esc matches order.js's — duplicated here on purpose so terms.js has no

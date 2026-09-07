@@ -71,7 +71,7 @@ async function renderList(ov) {
     const scope = scopeText(s);
     const vis = baseline ? '<span class="hint">built-in</span>'
       : s.public ? '<span class="badge bg-success-subtle text-success-emphasis flag">public</span>'
-        : '<span class="badge text-bg-secondary flag">private</span>';
+        : '<span class="badge bg-body-secondary text-body flag">private</span>';
     const owned = s.mine && !baseline;
     return `<tr>
         <td><b>${esc(s.name || s.id)}</b>${current}${scope ? ` <span class="hint">(${esc(scope)})</span>` : ''}</td>
