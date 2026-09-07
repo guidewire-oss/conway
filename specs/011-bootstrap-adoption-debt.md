@@ -133,7 +133,7 @@ None.
 
 | # | Question | Owner | Target Date | Resolution |
 |---|----------|-------|-------------|------------|
-| Q1 | Keep native `title` on dense chart bars (cheap, browser-native) or migrate to BS Tooltip too? | Anoop | 2026-09-02 | Resolved: keep native on bars, Bootstrap Tooltip for UI chrome |
+| Q1 | Keep native `title` on dense chart bars (cheap, browser-native) or migrate to BS Tooltip too? | Anoop | 2026-09-02 | Resolved (confirmed 2026-09-06): keep native on bars, Bootstrap Tooltip for UI chrome |
 
 ---
 
@@ -225,6 +225,10 @@ the primary token so opacity utilities follow a customized palette.
 Compact numeric controls leave room for their longest permitted value and
 native spinner. Timeline exception actions use compact framework buttons;
 simulator delete controls retain the shared secondary appearance.
+Help-button spacing has one owner: Bootstrap margin utilities. Browser
+acceptance timeouts clean up the runner and its browser descendants rather
+than leaving background processes after the workload is cancelled. The outer
+CI test budget accommodates both workload deadlines and their cleanup.
 
 ## 12. Success Metrics
 

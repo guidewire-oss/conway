@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"time"
 
@@ -54,7 +53,7 @@ var _ = Describe("Bootstrap adoption browser", Label("browser"), func() {
 		defer cancel()
 		script, err := filepath.Abs("../tests/browser/bootstrap-adoption.mjs")
 		Expect(err).NotTo(HaveOccurred())
-		cmd := exec.CommandContext(ctx, node, script)
+		cmd := browserCommand(ctx, node, script)
 		cmd.Env = append(os.Environ(), "CONWAY_TEST_BASE_URL="+host.URL)
 		output, err := cmd.CombinedOutput()
 		GinkgoWriter.Printf("%s", output)

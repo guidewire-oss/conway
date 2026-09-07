@@ -64,8 +64,9 @@ so a fixed padding utility must not override that responsive rule.
 Keep semantic token families consistent: base, emphasis, subtle background and
 border colors must describe the same theme tone. Neutral badges use body surface
 and text utilities throughout the app. Glossary and contextual help share escaped
-button markup; static help retains a native title too. A domain control with its
-own focus outline suppresses the framework shadow so it has one indicator.
+button markup; static help retains a native title too. Bootstrap margin
+utilities own the help-button gap, without additional literal separator spaces.
+A domain control with its own focus outline suppresses the framework shadow so it has one indicator.
 
 For a mutually exclusive preference such as the guidance persona, use native
 radio inputs with Bootstrap `btn-check` and associated button-styled labels.
@@ -77,7 +78,10 @@ suite runs `tests/browser/bootstrap-adoption.mjs` against its isolated Go host.
 Acceptance checks uncaught exceptions, console errors and failed requests;
 request cancellations reported as `net::ERR_ABORTED` are excluded. The minimal host supplies
 a no-content favicon response so an incidental browser request is not confused
-with a product resource failure.
+with a product resource failure. Browser workloads share bounded process-tree
+cleanup on macOS and Linux; cancellation acceptance covers responsive and
+blocked runners with detached Chromium processes. The eight-minute CI package
+budget accommodates both three-minute workloads and their bounded cleanup.
 
 ## Extensions (`cv-` components)
 

@@ -376,10 +376,17 @@ try {
     const {mountMeasureContext}=await import('/js/measure-context.js');
     window.measureContext=mountMeasureContext(host,{state:{},view:'plan',request:async()=>({ok:true,json:async()=>[]})});
     await window.measureContext.ready;
-    const {helpButton}=await import('/js/terms.js');
+    const {helpButton,term}=await import('/js/terms.js');
+    const gaps=document.createElement('div');gaps.id='help-gap-fixture';
+    gaps.innerHTML=['Before'+helpButton('Context','context'),term('wip','WIP'),'Before'+term('wip')].map(markup=>'<span class="d-inline-block me-3">'+markup+'</span>').join('');document.querySelector('main').append(gaps);
     const help=document.createElement('div');help.id='fallback-help';help.innerHTML=helpButton('Use "accepted" & evidence <only>; literal &amp;','acceptance');document.querySelector('main').append(help);
   });
   assert.equal(await page.locator('#fallback-help button').getAttribute('title'),'Use "accepted" & evidence <only>; literal &amp;','Shared help retains an escaped native explanation before tooltip initialization');
+  const helpGaps=await page.locator('#help-gap-fixture > span').evaluateAll(spans=>spans.map(span=>{
+    const text=document.createRange();text.selectNodeContents(span.firstChild);const button=span.querySelector('button');
+    return {gap:button.getBoundingClientRect().left-text.getBoundingClientRect().right,margin:parseFloat(getComputedStyle(button).marginLeft)};
+  }));
+  assert.equal(helpGaps.length,3);assert.ok(helpGaps.every(gap=>Math.abs(gap.gap-gap.margin)<1),'Bootstrap margin supplies the only contextual/glossary gap: '+JSON.stringify(helpGaps));
   await page.evaluate(()=>{window.acceptanceTooltip=new bootstrap.Tooltip(document.querySelector('#fallback-help button'),{trigger:'manual',animation:false});window.acceptanceTooltip.show();});
   assert.equal(await page.locator('.tooltip-inner').textContent(),'Use "accepted" & evidence <only>; literal &amp;','Bootstrap tooltip displays decoded attribute text without losing literal entity text');
   await page.evaluate(()=>{window.acceptanceTooltip.dispose();delete window.acceptanceTooltip;});

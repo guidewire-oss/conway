@@ -47,3 +47,15 @@ Provenance: observed 2026-09-06 in the first console-error collection run
 favicon route returned 204,
 `go test -race -count=1 ./server -ginkgo.focus='Bootstrap adoption' -ginkgo.no-color -ginkgo.succinct -timeout=3m`
 returned `ok conway/server 16.284s`. See `tests/browser/bootstrap-adoption.mjs`.
+
+Killing a browser test's Node process does not necessarily stop its browser.
+Playwright launches Chromium in a detached process group on macOS and Linux.
+Capture descendants before signalling the runner, allow graceful shutdown, and
+join bounded cleanup before returning from the test command. Failure cleanup
+must preserve parent links until that capture completes.
+Provenance: observed 2026-09-06 with actual Chromium processes in
+`server/browser_process_unix_test.go`. The Node-only cancellation reproduction
+left four descendants; the shared helper's responsive deadline and blocked
+event-loop cases removed all captured descendants.
+`go test -race -v ./server -ginkgo.focus='browser process cleanup' -ginkgo.no-color -ginkgo.v -count=1`
+returned `2 Passed`, `0 Failed`, `ok conway/server 19.140s`.

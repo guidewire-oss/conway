@@ -143,7 +143,7 @@ export const TERMS = {
 export function helpButton(text, label, { glossary = false } = {}) {
   if (!text) return '';
   const name = glossary ? `What does ${label} mean?` : `Explain ${label}`;
-  return `${glossary ? '' : ' '}<button type="button" class="btn btn-secondary btn-sm p-0 rounded-circle d-inline-flex align-items-center justify-content-center ms-1 help${glossary ? ' term-tip' : ''} lh-1" data-bs-toggle="tooltip" data-bs-title="${esc(text)}" title="${esc(text)}" aria-label="${esc(name)}">?</button>`;
+  return `<button type="button" class="btn btn-secondary btn-sm p-0 rounded-circle d-inline-flex align-items-center justify-content-center ms-1 help${glossary ? ' term-tip' : ''} lh-1" data-bs-toggle="tooltip" data-bs-title="${esc(text)}" title="${esc(text)}" aria-label="${esc(name)}">?</button>`;
 }
 
 export function term(id, label) {
@@ -151,7 +151,7 @@ export function term(id, label) {
   // a broken affordance from a non-entry.
   if (!Object.prototype.hasOwnProperty.call(TERMS, id)) return '';
   const t = TERMS[id];
-  return `${label ? `${esc(label)} ` : ''}${helpButton(t.tip, t.label, { glossary: true })}`;
+  return `${label ? esc(label) : ''}${helpButton(t.tip, t.label, { glossary: true })}`;
 }
 
 // esc matches order.js's — duplicated here on purpose so terms.js has no

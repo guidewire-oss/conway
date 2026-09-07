@@ -21,8 +21,8 @@ test('the affordance is a real button with a complete accessible name (WCAG 1.3.
 
 test('the term label renders beside the affordance when given', () => {
   const html = term('wip', 'WIP');
-  assert.match(html, /WIP <button/);
-  assert.ok(!term('wip').includes('WIP <'), 'no label by default — the term is already on screen');
+  assert.match(html, /WIP<button/);
+  assert.ok(!term('wip').includes('WIP<'), 'no label by default — the term is already on screen');
 });
 
 test('unknown ids render nothing, never a broken affordance', () => {
@@ -49,13 +49,14 @@ test('contextual help escapes topic names and explanations in their attributes',
   assert.match(html, /data-bs-title="An &quot;estimate&quot; &lt;script&gt;alert\(1\)&lt;\/script&gt;"/);
   assert.doesNotMatch(html, /<script|<img/);
   assert.equal(helpButton('', 'missing explanation'), '');
+  assert.ok(html.startsWith('<button'), 'Framework margin owns the contextual help gap');
 });
 
 test('glossary explanations preserve special characters without creating markup', () => {
   TERMS['acceptance-fixture']={label:'Atlas & "Beacon"',tip:'Use <accepted> evidence & "confirm" scope'};
   try {
     const html=term('acceptance-fixture','A & B');
-    assert.match(html,/A &amp; B <button/);
+    assert.match(html,/A &amp; B<button/);
     assert.match(html,/aria-label="What does Atlas &amp; &quot;Beacon&quot; mean\?"/);
     for(const attribute of ['title','data-bs-title'])assert.ok(html.includes(attribute+'="Use &lt;accepted&gt; evidence &amp; &quot;confirm&quot; scope"'));
     assert.doesNotMatch(html,/<accepted>/);
