@@ -128,11 +128,12 @@ var _ = Describe("planning assistant evidence", Label("database"), func() {
 		rec := call("POST", body, claims)
 		Expect(rec.Code).NotTo(Equal(200))
 	})
-	It("does not call an external service for an unconsented question", func() {
+	It("requires consent even when interpretation is not configured", func() {
 		body := input("question")
 		body["question"] = "Explain Beacon"
 		rec := call("POST", body, claims)
-		Expect(rec.Code).To(BeElementOf(400, 503))
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		Expect(rec.Body.String()).To(ContainSubstring("Consent is required"))
 		Expect(rec.Body.String()).NotTo(ContainSubstring("Modeled"))
 	})
 	It("refuses a demoted account before using old token roles", func() {

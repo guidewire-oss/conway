@@ -251,7 +251,7 @@ async function undoDrag() {
   dragHistory.pop();
   dragUndo = dragHistory.at(-1) || null;
   staleOrder();
-  if (view() === 'order') await renderOrder(); else if (view() === 'timeline') await renderTimeline(); else await renderDash();
+  await renderCurrentPlanView();
   } catch (error) {
     if (current?.id === u.planId) dragNote(error.message || 'Undo could not be saved. Try again.');
   } finally {
@@ -484,11 +484,29 @@ function renderPlan() {
   if (nTeams > 0 && nInit > 0) {
     current.levers = current.levers || [];
     current.netMode = current.netMode || 'after';
-    if (view() === 'order') renderOrder(); else if (view() === 'timeline') renderTimeline(); else if (view() === 'ready') renderReadyQueue(); else if (view() === 'execution') renderExecution(); else if (view() === 'assistant') renderAssistant(); else renderDash();
+    renderCurrentPlanView();
   }
 }
 
 const view = () => ['network', 'timeline', 'ready', 'execution', 'assistant'].includes(current && current.view) ? current.view : 'order';
+
+// specs/027-evidence-linked-planning-assistant.md:264: completed operations honor
+// the current destination and preserve assistant question and evidence selections.
+async function renderCurrentPlanView() {
+ if(!current)return;
+ switch(view()) {
+  case 'order': return renderOrder();
+  case 'timeline': return renderTimeline();
+  case 'ready': return renderReadyQueue();
+  case 'execution': return renderExecution();
+  case 'assistant': {
+   const refresh=document.querySelector('#plan-dash [data-assistant-refresh]');
+   if(refresh){refresh.click();return;}
+   return renderAssistant();
+  }
+  default: return renderDash();
+ }
+}
 
 // specs/023-linked-google-sheets.md:241 — a late apply must not replace a
 // different plan or an unsaved local draft when its source dialog finishes.
@@ -698,7 +716,7 @@ async function saveScheduling() {
   // render restore the pre-save snapshot over the fresh policy.
   current.assumptionDraft = null;
   staleOrder(); // the assumptions moved, so the order has to be recomputed
-  renderOrder();
+  renderCurrentPlanView();
 }
 
 // loadBaselines refreshes the list, which also carries whether the plan's inputs
@@ -833,7 +851,7 @@ function wireBaselineDelegation() {
 function onCompareClick(btn) {
   if (current.baselineCompare && current.baselineCompare.baseline?.id === btn.dataset.id) {
     current.baselineCompare = null;
-    renderOrder();
+    renderCurrentPlanView();
     return;
   }
   compareBaseline(btn.dataset.id);
@@ -863,7 +881,7 @@ async function onVsChange(sel) {
   // endpoint returns `from`. Same object, the view's name for it.
   if (res && res.from && !res.baseline) res.baseline = res.from;
   current.baselineCompare = res;
-  renderOrder();
+  renderCurrentPlanView();
 }
 
 // Both compare paths render into current.baselineCompare, so they share one gate:
@@ -931,7 +949,7 @@ async function compareBaseline(id) {
   const res = await r.json(); // parse first, then re-check: awaiting is a gap
   if (!mine()) return;
   current.baselineCompare = res;
-  renderOrder();
+  renderCurrentPlanView();
 }
 
 // toggleRemedies expands or collapses one initiative's priced options
@@ -1203,7 +1221,7 @@ async function renderTimeline() {
       dragHistory.push(undo);
       dragUndo = undo;
       staleOrder();
-      if (view() === 'order') await renderOrder(); else if (view() === 'timeline') await renderTimeline(); else if (view() === 'ready') renderReadyQueue(); else if (view() === 'execution') renderExecution(); else if (view() === 'assistant') renderAssistant(); else await renderDash();
+      await renderCurrentPlanView();
       return true;
     } catch (error) {
       if (current?.id === forPlan) dragNote(error.message || 'The edit could not be saved. Your inputs remain available to retry.');
@@ -1496,7 +1514,7 @@ function showRemediesFor(name) {
 // per-pod load grid. Stateless on the server side: nothing is saved by looking.
 async function renderOrder() {
   const host = document.getElementById('plan-dash');
-  if (!host) return;
+  if (!host || !current || view() !== 'order') return;
   // Spec 012 FR-004: first-visit callout, dismissed once per session.
   const callout = (key, text) => {
     const k = `conway-callout-${key}`;
@@ -1530,7 +1548,7 @@ async function renderOrder() {
     } else if (r) {
       why = await r.text();
     }
-    if (!current || current.id !== forPlan || orderEpoch !== atEpoch) return; // an answer to a stale question
+    if (!current || current.id !== forPlan || orderEpoch !== atEpoch || view() !== 'order' || host !== document.getElementById('plan-dash')) return; // an answer to a stale question
     if (!payload) {
       host.innerHTML = `<p class="plan-warn">Could not compute the execution order: ${esc(why)}</p>`;
       return;
@@ -1619,20 +1637,20 @@ async function renderOrder() {
     const live = snapshotCalRows() ?? schedForForm.calendars ?? [];
     current.calDraft = [...live,
       { kind: 'change-freeze', scope: 'org', fromDate: '', toDate: '', effect: 'block-start' }];
-    renderOrder();
+    renderCurrentPlanView();
   });
   host.querySelectorAll('.cal-del').forEach((b) => b.addEventListener('click', () => {
     carryLiveAssumptions();
     const i = Number(b.closest('.cal-win')?.dataset.row);
     const live = snapshotCalRows() ?? schedForForm.calendars ?? [];
     current.calDraft = live.filter((_, j) => j !== i);
-    renderOrder();
+    renderCurrentPlanView();
   }));
   document.getElementById('sched-cancel')?.addEventListener('click', () => {
     current.assumptionsDismissed=true;
     current.calDraft = null; // cancel discards window edits, not just hides them
     current.assumptionDraft = null;
-    renderOrder().then(() => {
+    renderCurrentPlanView().then(() => {
       // The re-render rebuilds the dialog; urgency (missing period/model) would
       // auto-open it again, and a Cancel that re-opens is not a Cancel.
       const d = document.getElementById('sched-dialog');
@@ -1652,7 +1670,7 @@ async function renderOrder() {
   host.querySelectorAll('.ord-podlink').forEach((a) => a.addEventListener('click', () => {
     // Clicking the open pod again closes it, so the grid is never stuck behind a panel.
     current.orderPod = current.orderPod === a.dataset.pod ? null : a.dataset.pod;
-    renderOrder();
+    renderCurrentPlanView();
   }));
   // Spec 004 AC 1.1/1.2: pin/unpin persists priorityLocked through the edit API
   // and recomputes. A draft has nothing saved to pin against, so the control is
@@ -1686,7 +1704,7 @@ async function renderOrder() {
     if (orderEpoch !== atEpoch) return; // a recompute already superseded this
     dragUndo = null; dragHistory = [];
     current.schedule = null; // the order must answer the new pin, not the old one
-    await renderOrder();
+    await renderCurrentPlanView();
   }));
   // Spec 009 FR-005: the setup card's one-click recommendations.
   const applySetup = async (patch) => {
@@ -1704,13 +1722,7 @@ async function renderOrder() {
     });
     if (!current || current.id !== forPlan) return;
     if (orderEpoch !== atEpoch) return; // superseded by a newer operation
-    const rerender = () => {
-      // The CURRENT view, not always Order (cubic P2): rendering Order into
-      // an active Network or Timeline destroys that view.
-      if (view() === 'order') return renderOrder();
-      if (view() === 'timeline') return renderTimeline();
-      return renderDash();
-    };
+    const rerender = renderCurrentPlanView;
     if (!r || !r.ok) {
       // The epoch bump already invalidated the cached schedule's guards, so
       // leaving it silently stale is a dead cache under a live table (cubic
@@ -1795,7 +1807,7 @@ async function renderOrder() {
     current.scheduling = { ...(current.scheduling || {}), ...body };
     dragUndo = null; dragHistory = [];
     current.schedule = null;
-    if (view() === 'order') await renderOrder(); else if (view() === 'timeline') await renderTimeline(); else if (view() === 'ready') renderReadyQueue(); else if (view() === 'execution') renderExecution(); else if (view() === 'assistant') renderAssistant(); else await renderDash();
+    await renderCurrentPlanView();
     if (ordering === 'engine' && current?.id === forPlan && orderEpoch === atEpoch && view() === 'order') {
       // Q1: ask to baseline AFTER the re-render — the drawer opens pre-filled
       // with a dated name, one click away from freezing the accepted order.
@@ -1869,7 +1881,7 @@ async function renderOrder() {
       if (orderEpoch !== atEpoch) return; // a recompute already superseded this
       current.schedule = null;
       closeInitEditor();
-      await renderOrder();
+      await renderCurrentPlanView();
     });
   }));
   if (current.setupFocus) {
@@ -2111,6 +2123,7 @@ const fmtLead = (weeks, horizon) => {
 
 // renderDash ensures we have a simulation result (current inputs = no levers), then paints.
 async function renderDash() {
+  if (!current || view() !== 'network') return;
   if (!current.sim) { await runSim(); return; }
   paintDash();
 }
@@ -2128,7 +2141,7 @@ async function runSim() {
   if (!ownsResponse()) return;
   if (!r || !r.ok) {
     const host = document.getElementById('plan-dash');
-    if (host) host.innerHTML = '<p class="hint">Could not run simulation.</p>';
+    if (host && view() === 'network') host.innerHTML = '<p class="hint">Could not run simulation.</p>';
     return;
   }
   const sim = await r.json();
@@ -2157,6 +2170,7 @@ function delta(before, after, lowerIsBetter = true) {
 }
 
 function paintDash() {
+  if (!current || view() !== 'network') return;
   const p = current, sim = current.sim;
   const horizon = current.horizonWeeks || 26;
   const leadDelta = (b, a) => {

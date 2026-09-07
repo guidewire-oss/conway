@@ -9,7 +9,7 @@ remain the source of truth for feature requirements.
 Completed foundation: planning and scheduling corrections, execution evidence,
 scenario copies and agreements, contextual documentation, feature announcements,
 and linked Google Sheets (PR 80); weekly execution review and action follow-up
-(spec 024) and the team ready-work queue (spec 025, PR 81); reliable evidence
+(spec 024) and the team ready-work queue (spec 025), both merged in PR 81; reliable evidence
 capture, recovery and source-scoped identities (spec 026, PR 82).
 The first evidence-linked planning assistant increment (spec 027) is implemented:
 saved-schedule explanations, agreement comparisons and review agendas, with

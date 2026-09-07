@@ -161,7 +161,7 @@ existing stores.
 
 | # | Question | Owner | Target Date | Resolution |
 |---|---|---|---|---|
-| Q1 | [NEEDS CLARIFICATION] External AI for natural-language questions or guided local explanations? | Maintainer | 2026-09-07 | No response yet; default implementation keeps guided local questions available and optional deployment-configured OpenAI question interpretation. No live model request is made during development. |
+| Q1 | External AI for natural-language questions or guided local explanations? | Maintainer | 2026-09-07 | Resolved for this increment by Decision 4: guided local questions plus optional deployment-configured interpretation. Live enablement and provider validation remain deployment choices. |
 
 ## 11. Decision Record
 
@@ -251,12 +251,18 @@ https://developers.openai.com/api/docs/guides/structured-outputs.
 
 **Context:** Loading scope choices, interpreting a question and displaying an
 answer have different lifetimes. A review link is useful only if it preserves
-the evidence selections that produced the agenda.
+the evidence selections that produced the agenda. Missing catalog entries must
+not erase a requested snapshot, and late plan operations must preserve the
+current visible workflow.
 
 **Decision:** Scope edits invalidate answers without canceling context catalogs.
 Leaving the plan view invalidates pending answers. Review source links retain
 snapshot/manual choice, date, timezone, team and initiative, including empty
 agendas. Answer identity includes the canonical review evidence fingerprint.
+Keep an explicitly requested snapshot selected as unavailable when absent from
+the catalog; never replace it with another capture or manual review. Honor an
+explicitly cleared selection on refresh. Route completed plan operations through
+the current view and guard asynchronous renderers before painting.
 Read current persisted roles before exposing context and again after external
 interpretation; a team participates only when its work cell is in the path.
 
