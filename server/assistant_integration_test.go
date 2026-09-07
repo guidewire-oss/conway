@@ -7,12 +7,14 @@ import (
 	"conway/server/db"
 	"conway/server/planning"
 	"encoding/json"
+	"fmt"
 	"github.com/jackc/pgx/v5/pgxpool"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -150,6 +152,64 @@ var _ = Describe("planning assistant evidence", Label("database"), func() {
 		Expect(rec.Code).To(Equal(400), rec.Body.String())
 	})
 
+	for _, invalid := range []string{"blank question", "too many initiatives", "too many teams", "oversized names", "oversized names while busy"} {
+		It("returns an input error without contacting the provider for "+invalid, func() {
+			var calls atomic.Int32
+			host := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				calls.Add(1)
+				w.WriteHeader(http.StatusServiceUnavailable)
+			}))
+			defer host.Close()
+			srv.assistantModel = &assistantInterpreter{endpoint: host.URL, client: host.Client(), slots: make(chan struct{}, 4)}
+			if invalid == "oversized names while busy" {
+				for range cap(srv.assistantModel.slots) {
+					srv.assistantModel.slots <- struct{}{}
+				}
+			}
+			body := input("question")
+			body["initiative"], body["question"], body["allowExternal"] = "", "Explain the schedule", true
+			switch invalid {
+			case "blank question":
+				body["question"] = " \t\n "
+			case "too many initiatives", "oversized names", "oversized names while busy":
+				count := 301
+				if strings.HasPrefix(invalid, "oversized names") {
+					count = 200
+				}
+				initiatives := make([]planning.Initiative, count)
+				for i := range initiatives {
+					name := fmt.Sprintf("Initiative %d", i)
+					if strings.HasPrefix(invalid, "oversized names") {
+						name += strings.Repeat("x", 700)
+					}
+					initiatives[i] = planning.Initiative{Name: name}
+				}
+				Expect(database.SavePlanInitiatives(plan.ID, encode(initiatives), time.Now().Unix())).To(Succeed())
+			case "too many teams":
+				teams := make([]planning.Team, 301)
+				for i := range teams {
+					teams[i] = planning.Team{Name: fmt.Sprintf("Team %d", i), Tracks: 1}
+				}
+				Expect(database.SavePlanTeams(plan.ID, encode(teams), time.Now().Unix())).To(Succeed())
+			}
+			rec := call("POST", body, claims)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), rec.Body.String())
+			Expect(calls.Load()).To(BeZero())
+		})
+	}
+	It("retains service-unavailable status for an actual provider outage", func() {
+		var calls atomic.Int32
+		host := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			calls.Add(1)
+			w.WriteHeader(http.StatusServiceUnavailable)
+		}))
+		defer host.Close()
+		srv.assistantModel = &assistantInterpreter{endpoint: host.URL, client: host.Client(), slots: make(chan struct{}, 4)}
+		body := input("question")
+		body["question"], body["allowExternal"] = "Explain Beacon", true
+		Expect(call("POST", body, claims).Code).To(Equal(http.StatusServiceUnavailable))
+		Expect(calls.Load()).To(Equal(int32(1)))
+	})
 	It("uses configured interpretation only with consent and returns canonical schedule facts", func() {
 		var calls atomic.Int32
 		host := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

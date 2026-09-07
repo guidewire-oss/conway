@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -262,7 +263,11 @@ func (s *server) handleAssistant(w http.ResponseWriter, r *http.Request, p *db.P
 		// Before model processing, the existing request context has already passed plan access checks.
 		choice, e := s.assistantModel.interpret(r.Context(), req.Question, names, teams)
 		if e != nil {
-			http.Error(w, e.Error(), http.StatusServiceUnavailable)
+			status := http.StatusServiceUnavailable
+			if errors.Is(e, errAssistantInput) {
+				status = http.StatusBadRequest
+			}
+			http.Error(w, e.Error(), status)
 			return
 		}
 		if choice.Task == "unsupported" {

@@ -232,6 +232,9 @@ outputs and changed access/context fail clearly; guided questions remain usable.
 Require deployment-provided model and API key rather than pinning an unverified
 model choice. Set store:false, use a 20-second deadline, four concurrent model
 requests and bounded request/response sizes, and refuse redirects.
+Reject blank or oversized interpretation inputs with HTTP 400 before contacting
+the provider. Reserve HTTP 503 for provider availability, busy processing or
+unusable provider output so callers can distinguish input correction from retry.
 
 **Alternatives considered:** Full plan prose generation — deferred because
 source links alone cannot prove generated arithmetic or causal claims. Silent

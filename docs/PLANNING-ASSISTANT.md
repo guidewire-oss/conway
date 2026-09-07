@@ -23,6 +23,9 @@ a 2000-byte question limit, at most 300 initiative/team names per collection,
 a 128 KiB interpretation input limit and a 64 KiB response limit. Redirects are
 refused; errors do not expose provider response bodies. Provider data policies
 still apply: store:false is not a claim of zero data retention.
+Input errors return HTTP 400 without contacting the provider; correct the question
+or use guided questions for plans beyond interpretation limits. HTTP 503 indicates
+unavailable interpretation and allows retry or a guided question.
 
 Before enabling for an organization, run a live smoke with generic plan names:
 ask a scheduling question, an agreement-change question and a review question;
