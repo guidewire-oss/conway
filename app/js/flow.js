@@ -266,7 +266,7 @@ async function renderFever(state) {
     .sort((a, b) => (b.dateRisk === 'overdue') - (a.dateRisk === 'overdue') || b.fp.ratio - a.fp.ratio)
     .slice(0, cap);
   document.getElementById('fever-list').innerHTML = hot.length ? `
-    <table class="table table-sm wip-table"><thead><tr><th>Needs attention</th><th>Epic</th>
+    <table class="table wip-table"><thead><tr><th>Needs attention</th><th>Epic</th>
     <th>Complete</th><th>Buffer burned</th><th>Zone</th><th>Due</th><th>Outcome?</th></tr></thead><tbody>
     ${hot.map((p) => `<tr>
       <td>${jiraLink(p.epic)}</td>

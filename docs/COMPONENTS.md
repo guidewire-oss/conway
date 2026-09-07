@@ -34,6 +34,10 @@ cell padding through scoped `.table` rules; compact data-table density is not
 appropriate for paragraph-length reference material. See specification 011,
 Decision 3, for the context sizing and accessibility acceptance contract.
 
+A containing card owns the surface and padding for its alternate states.
+Waiting and closed-state explanations within it should not add a second card
+unless they represent a separate, meaningful group of information.
+
 ## Extensions (`cv-` components)
 
 These exist because Bootstrap has no equivalent. Each is built from

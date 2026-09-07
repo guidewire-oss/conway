@@ -786,3 +786,7 @@ header .brand { flex-wrap: wrap; min-width: 0; max-width: 100%; }
 /* Heatmap cells are domain geometry, separate from generic Bootstrap tables. */
 .ord-heat { width: 100%; border-collapse: collapse; }
 .ord-heat th, .ord-heat td { border-bottom: 1px solid var(--bs-border-color); }
+
+/* Roster naming stays inline when space permits and wraps within the modal. */
+#rosters-body #ros-name-field { flex: 1 1 340px; min-width: 0; max-width: 100%; }
+#rosters-body #ros-name { flex: 1 1 220px; min-width: 0; }

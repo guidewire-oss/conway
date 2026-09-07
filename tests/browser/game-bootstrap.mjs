@@ -61,12 +61,14 @@ export async function checkGameBootstrap(page) {
     assert.deepEqual(submitted,[[{lever:'freeze',pod:'Atlas',n:5}]],'Submission uses the staged move exactly once');
     await page.locator('#resolve-continue').focus(); await page.keyboard.press('Enter');
     await page.locator('#resolve-overlay').waitFor({state:'hidden'});
-    assert.equal(await page.locator('#game-levers > .panel-card.card').count(),1,'The between-rounds notice adopts the card primitive');
+    assert.equal(await page.locator('#game-levers.card').count(),1,'The containing game panel owns the card surface');
+    assert.equal(await page.locator('#game-levers .card').count(),0,'The between-rounds notice does not duplicate its containing panel');
     config.gameOpen = false;
     await page.locator('#halt-ok.btn.btn-primary').waitFor({timeout:10000});
     await page.locator('#halt-ok').focus(); await page.keyboard.press('Enter');
     await page.locator('#halt-overlay').waitFor({state:'hidden'});
-    assert.equal(await page.locator('#game-levers > .halt-card.card').count(),1,'The paused-game notice adopts the card primitive');
+    assert.equal(await page.locator('#game-levers > .halt-card').count(),1,'The paused-game explanation remains visible');
+    assert.equal(await page.locator('#game-levers .card').count(),0,'The paused-game notice does not duplicate its containing panel');
     assert.equal(await page.locator('#game-submit').count(),0,'A closed game cannot submit another round');
   } finally {
     // Navigation tears down the real game poll before fixture routes disappear.

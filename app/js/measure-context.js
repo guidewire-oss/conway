@@ -49,7 +49,7 @@ export function measureContextHTML({ snapshots = [], rosters = [], selectedId, s
   const rosterLabel = !selected ? 'Roster association unavailable' : roster?.name || (selected.rosterId ? 'Associated roster name unavailable' : 'No saved roster associated');
   const scope = Array.isArray(selected?.scope) && selected.scope.length ? selected.scope.join(', ') : 'Project scope unavailable';
   return `<div class="measure-source-heading"><div><span class="hint">Measure data source</span><h2>${esc(name)}</h2></div>
-    <span class="badge ${example || synthetic || unknown || !pods.length || !selected ? 'bg-warning-subtle text-warning-emphasis warn' : 'bg-success-subtle text-success-emphasis ok'}">${esc(sourceLabel(selected?.source))}</span></div>
+    <span class="badge ${example || synthetic || unknown || !pods.length || !selected ? 'bg-warning-subtle text-warning-emphasis' : 'bg-success-subtle text-success-emphasis'}">${esc(sourceLabel(selected?.source))}</span></div>
     <p class="measure-view-purpose">${esc(MEASURE_VIEWS[view] || '')}</p>
     ${error ? `<p role="alert">${esc(error)}</p>` : ''}
     ${!loading && !error && !snapshots.length ? '<p>No snapshots are available. Import a dated capture to measure delivery.</p>' : ''}

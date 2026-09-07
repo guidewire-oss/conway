@@ -108,10 +108,10 @@ export async function checkReadyQueue(page,base,plan) {
     await page.locator('#ready-team').selectOption('Team A');
     await group('waiting').waitFor();
     const acceptedRoute=page.url();
-    const historyLength=await page.evaluate(()=>history.length);
+    const historyLength=await page.evaluate(()=>window.history.length);
     await refresh();
     assert.equal(page.url(),acceptedRoute);
-    assert.equal(await page.evaluate(()=>history.length),historyLength,'same-context refresh must not add navigation entries');
+    assert.equal(await page.evaluate(()=>window.history.length),historyLength,'same-context refresh must not add navigation entries');
     await page.route(url+'?team=Team%20A&asOfWeek=2',route=>route.fulfill({status:503,body:'Queue temporarily unavailable.'}),{times:1});
     await page.locator('#ready-week').fill('2');await page.locator('#ready-week').press('Tab');
     await page.locator('#ready-status[role=alert]').waitFor();

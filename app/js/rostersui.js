@@ -118,7 +118,10 @@ function editRoster(ov, roster) {
   const readOnly = roster.id && roster.mine === false; // a shared roster owned by someone else
   box.innerHTML = `
     <div class="games-create">
-      <label>Roster name <input class="form-control" id="ros-name" value="${esc(roster.name || '')}" placeholder="Roster name" style="min-width:220px" ${readOnly ? 'disabled' : ''}></label>
+      <div id="ros-name-field" class="d-flex flex-wrap align-items-center gap-2">
+        <label class="form-label mb-0" for="ros-name">Roster name</label>
+        <input class="form-control" id="ros-name" value="${esc(roster.name || '')}" placeholder="Roster name" ${readOnly ? 'disabled' : ''}>
+      </div>
       ${readOnly ? '' : '<button class="btn btn-secondary" id="ros-add">+ Add pod</button> <button id="ros-save" class="btn btn-primary">Save roster</button>'}
       <button type="button" class="btn btn-link p-0 plan-back" id="ros-back">Back to rosters</button>
       <span id="ros-status" class="hint" role="status" aria-live="polite">${readOnly ? `read-only — shared by ${roster.owner ? 'another manager' : 'system'}` : ''}</span>

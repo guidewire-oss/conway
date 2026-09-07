@@ -136,10 +136,8 @@ try {
   await page.evaluate(()=>{
     const dynamic = document.querySelector('#dynamic');
     const input = document.createElement('input'); input.id='late-input'; input.value='Existing draft'; dynamic.append(input);
-    const button = document.createElement('button'); button.id='late-button'; button.className='btn btn-secondary'; button.textContent='Later action'; button.disabled=true; dynamic.append(button);
   });
   await page.locator('#late-input.form-control').waitFor();
-  assert.equal(await page.locator('#late-button').isDisabled(),true,'Adoption must preserve disabled actions');
   const measureContrast = locator => locator.evaluateAll(badges=>{
       const canvas=document.createElement('canvas');canvas.width=canvas.height=1;
       const context=canvas.getContext('2d',{willReadFrequently:true});

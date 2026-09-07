@@ -295,7 +295,7 @@ function render() {
 // Between rounds: the team has submitted and waits for the admin to open the next.
 function renderWaiting() {
   document.getElementById('game-levers').innerHTML = `
-    <div class="card p-3 panel-card">
+    <div>
       <h3>Round ${view.round - 1} locked in ✓</h3>
       <p class="hint">Your moves are submitted and can't be changed. The facilitator will review the
         leaderboard and discuss strategies, then open <b>Round ${view.round}</b> — this screen will switch
@@ -307,7 +307,7 @@ function renderWaiting() {
 // clear, non-actionable banner (the loud modal fired on the transition).
 function renderClosed() {
   document.getElementById('game-levers').innerHTML = `
-    <div class="card p-3 panel-card halt-card">
+    <div class="halt-card">
       <h3>⛔ The facilitator has closed this game</h3>
       <p class="hint">Play is paused — no further moves can be submitted. If the facilitator
         re-opens the game, this screen switches back automatically. No need to refresh.</p>
@@ -593,7 +593,7 @@ function renderEpilogue(final) {
   if (!final) return;
   const e = final.epilogue;
   document.getElementById('game-levers').innerHTML = `
-    <div class="card p-3 panel-card"><h3>Epilogue — year 2 on autopilot</h3>
+    <div><h3>Epilogue — year 2 on autopilot</h3>
       ${e.narrative ? `<p class="epilogue-letter">${e.narrative}</p>` : ''}
       <p>With no further actions, the org you built ran another year.</p>
       <p>Run-rate value <b>${e.runRateValue}</b> · KTLO share of capacity
