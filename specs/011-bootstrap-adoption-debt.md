@@ -215,6 +215,8 @@ Base table theme overrides must preserve contextual Bootstrap table variants.
 Authentication fields share the theme focus tokens; inline account creation
 keeps its name field compact while allowing the control group to wrap.
 Quality-card acceptance covers both complete and unmatched-team evidence.
+Plan setup settings wrap within narrow screens, and account expiry actions use
+compact controls without losing native date input or existing action handlers.
 
 ## 12. Success Metrics
 

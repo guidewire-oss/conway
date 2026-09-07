@@ -48,6 +48,10 @@ KPI collections use responsive framework layout rather than forcing every metric
 onto one row. Table-row actions use `btn-sm`; inline identifier fields use
 intrinsic width. Base table overrides must not erase contextual table colors.
 Form focus borders and rings use the shared primary and focus-ring tokens.
+Plan setup settings wrap responsively; date inputs and actions embedded in
+account tables use compact framework sizing. Plan period and capacity-loss
+fields retain a bounded 5rem width for their short numeric ranges; Bootstrap
+has no intrinsic numeric-width utility, while its flex utilities handle wrapping.
 Navigation colors belong in Bootstrap dropdown variables.
 Timeline inspector spacing remains domain geometry, including its mobile padding,
 so a fixed padding utility must not override that responsive rule.

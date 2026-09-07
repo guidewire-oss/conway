@@ -376,6 +376,31 @@ try {
     planSurfaces.push(badges[0].background);
   }
   assert.notDeepEqual(planSurfaces[0],planSurfaces[1],'Plan metadata surfaces follow the active theme');
+  const setupPlan={id:'atlas-plan',name:'Atlas plan',horizonWeeks:26,capacityLoss:0,teams:[],initiatives:[]};
+  const savedSettings=[];
+  await page.route('**/api/plan/atlas-plan',async route=>{
+    if(route.request().method()==='PATCH') {const update=route.request().postDataJSON();savedSettings.push(update);Object.assign(setupPlan,update);}
+    await route.fulfill({json:setupPlan});
+  });
+  await page.route('**/api/plan/atlas-plan/baseline',route=>route.fulfill({json:{baselines:[]}}));
+  await page.route('**/api/rosters',route=>route.fulfill({json:[]}));
+  await page.evaluate(async()=>{const {restorePlanLocation}=await import('/js/planui.js');await restorePlanLocation({view:'plan',plan:'atlas-plan'});});
+  for(const theme of ['light','dark']) {
+    await page.evaluate(theme=>document.documentElement.dataset.bsTheme=theme,theme);
+    for(const width of [1280,360]) {
+      await page.setViewportSize({width,height:960});
+      const settings=await page.locator('#plan-horizon,#plan-loss,#plan-save').evaluateAll(controls=>controls.map(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width,height:r.height};}));
+      assert.equal(settings.length,3);
+      assert.ok(settings.every(control=>control.left>=0 && control.right<=width && control.width>=44 && control.height>=24),'New plan settings remain usable inside '+theme+' '+width+': '+JSON.stringify(settings));
+    }
+  }
+  await page.locator('#plan-horizon').fill('39');await page.locator('#plan-loss').fill('15');
+  await page.locator('#plan-save').focus();await page.keyboard.press('Enter');
+  await page.waitForFunction(()=>document.querySelector('.plan-setup summary')?.textContent.includes('15% capacity loss'));
+  assert.deepEqual(savedSettings,[{horizonWeeks:39,capacityLoss:0.15}],'Responsive settings retain the existing save workflow');
+  assert.equal(await page.locator('#plan-horizon').inputValue(),'39');
+  assert.equal(await page.locator('#plan-loss').inputValue(),'15');
+  await page.unroute('**/api/plan/atlas-plan');await page.unroute('**/api/plan/atlas-plan/baseline');await page.unroute('**/api/rosters');
   await page.unroute('**/api/plan');
   const {checkMeasureBootstrap}=await import('./measure-bootstrap.mjs');
   await checkMeasureBootstrap(page);

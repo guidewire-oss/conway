@@ -11,7 +11,7 @@ export async function checkMeasureBootstrap(page) {
     const responses={
       '/api/config':{},
       '/api/me':{username:'acceptance-admin',roles:['admin']},
-      '/api/admin/users':[],
+      '/api/admin/users':[{username:'atlas-manager',display:'Atlas manager',roles:['manager'],sso:false,expiresAt:1893456000}],
       '/api/admin/metrics':{metrics:{}},
       '/api/admin/analytics':{activeThisWeek:0,activeLastWeek:0,totalEvents:0,from:'2026-08-08T00:00:00Z',to:'2026-09-07T00:00:00Z'},
       '/api/rosters':[{id:'atlas-roster',name:'Atlas roster',mine:true,podCount:1,public:false}],
@@ -36,6 +36,7 @@ export async function checkMeasureBootstrap(page) {
     assert.ok(await page.locator('#auth-logout').evaluate(el=>parseFloat(getComputedStyle(el).fontSize)<=14),'Sign out remains compact in the identity chip');
     await page.locator('#admin-btn').click();
     const nameField=page.getByRole('textbox',{name:'Name (person or team)',exact:true});await nameField.waitFor();
+    await page.locator('#admin-users .admin-ext-date').waitFor();
     for(const theme of ['light','dark']) {
       await page.evaluate(theme=>document.documentElement.dataset.bsTheme=theme,theme);
       await nameField.focus();
@@ -64,6 +65,15 @@ export async function checkMeasureBootstrap(page) {
       });
       assert.ok(geometry.width<350 && geometry.left>=0 && geometry.right<=width,'Account name field stays compact and inside viewport: '+JSON.stringify(geometry));
       if(width===1280)assert.ok(geometry.top<geometry.rolesBottom && geometry.bottom>geometry.rolesTop,'Account name and roles share a desktop row');
+      const expiry=await page.locator('#admin-users .admin-ext-date').evaluate(input=>{
+        const field=input.getBoundingClientRect(),button=input.nextElementSibling.getBoundingClientRect();
+        return {width:field.width,height:field.height,top:field.top,bottom:field.bottom,buttonTop:button.top,buttonBottom:button.bottom};
+      });
+      assert.ok(expiry.width<180 && expiry.height>=24 && expiry.height<=32,'Account expiry retains compact native date dimensions: '+JSON.stringify(expiry));
+      assert.ok(expiry.top<expiry.buttonBottom && expiry.bottom>expiry.buttonTop,'Expiry date and extend action share a row');
+      const actionHeights=await page.locator('#admin-users [data-extbtn],#admin-users [data-del]').evaluateAll(buttons=>buttons.map(button=>button.getBoundingClientRect().height));
+      assert.equal(actionHeights.length,2);assert.ok(actionHeights.every(height=>height>=24 && height<=32),'Account actions retain compact usable targets');
+
     }
     await page.locator('#admin-close').click();await page.locator('#admin-overlay').waitFor({state:'hidden'});
     await page.setViewportSize({width:1280,height:960});

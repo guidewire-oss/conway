@@ -355,9 +355,9 @@ function renderPlan() {
     <details class="plan-setup"${(nTeams === 0 || nInit === 0) ? ' open' : ''}>
       <summary>Plan setup <span class="hint">${nTeams} pods · ${nInit} initiatives · ${(Math.round((p.capacityLoss || 0) * 100))}% capacity loss</span></summary>
       <p class="hint">Use the inputs below, or choose Linked Google Sheets above to maintain this plan from shared sheet ranges. For a new plan, link and apply the team roster before its initiatives.</p>
-      <div class="row-actions">
-        <label>Period length <input class="form-control" id="plan-horizon" type="number" min="1" max="104" value="${p.horizonWeeks}"> weeks</label>
-        <label>Capacity loss <input class="form-control" id="plan-loss" type="number" min="0" max="90" value="${Math.round((p.capacityLoss || 0) * 100)}">%</label>
+      <div class="row-actions flex-wrap align-items-center">
+        <label class="d-flex align-items-center gap-2 mb-0">Period length <input class="form-control form-control-sm mw-100" style="width:5rem" id="plan-horizon" type="number" min="1" max="104" value="${p.horizonWeeks}"> weeks</label>
+        <label class="d-flex align-items-center gap-2 mb-0">Capacity loss <input class="form-control form-control-sm mw-100" style="width:5rem" id="plan-loss" type="number" min="0" max="90" value="${Math.round((p.capacityLoss || 0) * 100)}">%</label>
         <button class="btn btn-secondary" id="plan-save">${icon('save')}Save settings</button>
       </div>
       <div class="plan-uploads">

@@ -11,7 +11,7 @@ specification remain canonical rather than this lesson defining a second rule.
 Provenance: observed 2026-09-06 via inspection of `app/css/style.css`,
 `app/css/readyqueue.css`, `app/js/readyqueueui.js` and `app/js/forms.js`;
 maintainer explicitly requested Bootstrap adoption before the next feature and
-long-term retention. See `specs/011-bootstrap-adoption-debt.md` Decision 2 and
+long-term retention. See `specs/011-bootstrap-adoption-debt.md:157` Decision 2 and
 `docs/COMPONENTS.md`.
 
 Bootstrap color utilities can override existing state colors with `!important`.
@@ -61,4 +61,4 @@ Provenance: observed 2026-09-06 in `app/css/conway.css` and the vendored Bootstr
 table/form rules. The rendered table, account focus and responsive layout checks
 in `tests/browser/measure-bootstrap.mjs` passed with
 `go test -race -count=1 ./server -ginkgo.focus='Bootstrap adoption' -ginkgo.no-color -ginkgo.succinct -timeout=3m`:
-`ok conway/server 16.367s`. See specification 011, Decision 3.
+`ok conway/server 16.367s`. See `specs/011-bootstrap-adoption-debt.md:181`, Decision 3.
