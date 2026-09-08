@@ -85,6 +85,42 @@ var _ = Describe("planning database integration", Label("database"), func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(unchanged.Initiatives).To(Equal(plan.Initiatives))
 	})
+	// specs/033-consistent-plan-controls-and-samples.md:51
+	It("downloads samples from authorized plan teams without exposing real work", func() {
+		path := "/api/plan/" + plan.ID + "/sample/initiatives.xlsx"
+		teams := []planning.Team{{Name: "Atlas", Tracks: 1}, {Name: "Beacon", Tracks: 2}}
+		Expect(database.SavePlanTeams(plan.ID, marshal(teams), time.Now().Unix())).To(Succeed())
+		rec := request("GET", path, nil, claims)
+		Expect(rec.Code).To(Equal(200))
+		Expect(rec.Header().Get("Cache-Control")).To(Equal("private, no-store"))
+		Expect(rec.Header().Get("Content-Disposition")).To(ContainSubstring("attachment;"))
+		Expect(rec.Body.Bytes()).To(Equal(planning.WriteSampleInitiativesXLSX(teams)))
+		Expect(request("GET", path, nil, auth.Claims{Sub: "other-manager", Roles: []string{"manager"}}).Code).To(Equal(403))
+		unauthenticated := httptest.NewRecorder()
+		srv.store = newMemStore()
+		srv.withAuth(srv.handlePlanItem, "manager")(unauthenticated, httptest.NewRequest("GET", path, nil))
+		Expect(unauthenticated.Code).To(Equal(401))
+		Expect(request("GET", "/api/plan/missing/sample/initiatives.xlsx", nil, claims).Code).To(Equal(404))
+		Expect(request("POST", path, nil, claims).Code).To(Equal(405))
+		Expect(database.SavePlanTeams(plan.ID, marshal([]planning.Team{}), time.Now().Unix())).To(Succeed())
+		Expect(request("GET", path, nil, claims).Body.Bytes()).To(Equal(planning.WriteSampleInitiativesXLSX(nil)))
+		saved, err := database.GetPlan(plan.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(saved.Initiatives).To(Equal(plan.Initiatives))
+	})
+	It("checks roster read access before copying teams into a plan sample", func() {
+		roster := db.RosterRow{ID: newID(), Owner: "another-roster-owner", Name: "Atlas private roster", Pods: marshal([]NetPod{{Name: "Cedar", Streams: 1}}), CreatedAt: time.Now().Unix()}
+		Expect(database.CreateRoster(roster)).To(Succeed())
+		DeferCleanup(func() { Expect(database.DeleteRoster(roster.ID)).To(Succeed()) })
+		path := "/api/plan/" + plan.ID + "/roster"
+		Expect(request("POST", path, map[string]string{"rosterId": roster.ID}, claims).Code).To(Equal(403))
+		saved, err := database.GetPlan(plan.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(saved.Teams).To(Equal(plan.Teams))
+		Expect(database.SetRosterPublic(roster.ID, true)).To(Succeed())
+		Expect(request("POST", path, map[string]string{"rosterId": roster.ID}, claims).Code).To(Equal(200))
+		Expect(request("GET", "/api/plan/"+plan.ID+"/sample/initiatives.xlsx", nil, claims).Body.Bytes()).To(Equal(planning.WriteSampleInitiativesXLSX([]planning.Team{{Name: "Cedar", Tracks: 1}})))
+	})
 	It("reads complete snapshot evidence, protects scope, and persists append-only review decisions", func() {
 		in, err := srv.planScheduleFor(plan, scheduleRequest{})
 		Expect(err).NotTo(HaveOccurred())

@@ -602,7 +602,7 @@ export function timelineControlsHTML({ lens, spans, spanSel, filter, initiativeF
   const team = teamFilter ?? (lens === 'initiative' ? filter : '') ?? '';
   const lensBtn = (id, on, label) =>
     `<button type="button" class="btn btn-secondary ${on ? 'active' : ''}" id="${id}" aria-pressed="${on}">${label}</button>`;
-  return `<div class="plan-views tl-controls">
+  return `<div class="plan-views tl-controls d-flex flex-wrap gap-2 align-items-end">
     <div class="btn-group" role="group" aria-label="Timeline grouping">
       ${lensBtn('tl-by-initiative', lens === 'initiative', 'By initiative')}
       ${lensBtn('tl-by-pod', lens === 'pod', 'By team')}
@@ -611,9 +611,11 @@ export function timelineControlsHTML({ lens, spans, spanSel, filter, initiativeF
       ${spans.map((sp) => `<button type="button" class="btn btn-secondary ${sp.id === spanSel ? 'active' : ''}" data-tlspan="${sp.id}" aria-pressed="${sp.id === spanSel}">${sp.label}</button>`).join('')}
     </div>
     <button class="btn btn-secondary" type="button" id="tl-fullscreen" title="Open timeline full screen; Escape exits">${icon('expand')} Full screen</button>
-    <div class="tl-filter" id="tl-filter-box">
-      <label>Initiative <input class="form-control" id="tl-initiative-filter" type="search" placeholder="Find an initiative" value="${esc(initiative)}"></label>
-      <label>Team <input class="form-control" id="tl-team-filter" type="search" placeholder="Find a team" value="${esc(team)}"></label>
+    <div class="tl-filter d-flex flex-wrap gap-2 align-items-end" id="tl-filter-box">
+      <label class="d-flex flex-column gap-1 mb-0 col-12 col-sm-auto">Initiative <input class="form-control" id="tl-initiative-filter" type="search" placeholder="Find an initiative" value="${esc(initiative)}"></label>
+      <label class="d-flex flex-column gap-1 mb-0 col-12 col-sm-auto">Team <input class="form-control" id="tl-team-filter" type="search" placeholder="Find a team" value="${esc(team)}"></label>
+    </div>
+    <div class="d-flex flex-wrap gap-3 align-items-center w-100">
       <span class="hint" id="tl-filter-count" role="status"></span>
       ${lens === 'pod' ? `<label class="hint"><input class="form-check-input" type="checkbox" id="tl-hide-empty" ${hideEmpty ? 'checked' : ''}> Hide teams without matching work</label>
       <label class="hint"><input class="form-check-input" type="checkbox" id="tl-ghost" ${ghost ? 'checked' : ''}> Show other work</label>` : ''}

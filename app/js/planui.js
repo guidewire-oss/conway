@@ -27,6 +27,13 @@ import { portfolioTimelineHTML, podLensHTML, podSheetHTML, timelineControlsHTML,
 import { healthReportHTML, remediesSectionHTML } from './report.js';
 
 let root, current = null, disposeAssistant = null, disposeForecast = null;
+let requestedPlanID = null;
+// specs/033-consistent-plan-controls-and-samples.md:117
+const pendingPlanSamples = new Set();
+function syncSampleControls() {
+  const pending = pendingPlanSamples.has(current?.id);
+  root?.querySelectorAll('#plan-init-sample,#plan-roster-sel').forEach(el => { el.disabled = pending; });
+}
 let pendingPlanDestination = '';
 const planDestinations = { setup: 'plan setup', order: 'Plan commitments', timeline: 'Timeline', ready: 'Next work', execution: 'Review execution', assistant: 'Planning assistant', forecast: 'Forecasts', 'linked-sheets': 'Linked Google Sheets' };
 function pendingDestinationHTML() {
@@ -62,7 +69,10 @@ async function resumePlanDestination() {
   if (destination === 'setup') {
     pendingPlanDestination = '';
     const setup = root.querySelector('.plan-setup');
-    if (setup) { setup.open = true; setup.querySelector('input,button,select')?.focus(); }
+    if (setup) {
+      setup.open = true; setup.querySelector('input,button,select')?.focus();
+      window.dispatchEvent(new CustomEvent('conway:feature-opened', {detail:{action:'plan-sample'}}));
+    }
     root.querySelector('[data-pending-destination]')?.remove();
     return !!setup;
   }
@@ -264,6 +274,7 @@ async function renderList() {
   disposeAssistant?.(); disposeAssistant = null; disposeForecast?.(); disposeForecast = null;
   const ticket = ++planLoadTicket;
   current = null;
+  requestedPlanID = null;
   writeRoute({view:'plan', plan:null, planView:null, selected:null, initiative:null, team:null, lens:null});
   root.innerHTML = '<p class="hint">Loading plans…</p>';
   const r = await req('/api/plan');
@@ -309,6 +320,7 @@ async function createPlan() {
 }
 
 async function openPlan(id, route = null) {
+  requestedPlanID = id;
   const ticket = ++planLoadTicket;
   const prior = current?.id === id ? current : null;
   staleOrder(); // any order request still in flight belongs to the plan being left
@@ -389,7 +401,12 @@ function renderPlan() {
         </div>
       </div>
       <p class="hint">Then set the period start and assumptions in Plan commitments and read the proposed order.</p>
-      <p class="hint">Need samples? <a href="/api/sample/teams.csv" download>teams.csv</a> · <a href="/api/sample/initiatives.xlsx" download>initiatives.xlsx</a></p>
+      <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+        <button type="button" id="plan-init-sample" class="btn btn-secondary">${icon('download')}Download initiatives sample</button>
+        <a href="/api/sample/teams.csv" download>Download demo teams CSV</a>
+      </div>
+      <p class="hint mt-2">${nTeams ? `Uses this plan's ${nTeams} attached teams, with paired sequence and estimate columns.` : 'Uses demo team names until you attach a roster.'} Replace the example work before importing. <button type="button" class="btn btn-link p-0 usage-link" data-anchor="plan-setup">Workbook help</button></p>
+      <p id="plan-sample-status" class="hint" role="status" aria-live="polite"></p>
     </details>
     ${current.isDraft ? `<p class="plan-warn">Previewing an unsaved initiatives upload — nothing is saved yet.
       <button id="plan-draft-save" class="btn btn-primary">Save initiatives</button>
@@ -423,6 +440,8 @@ function renderPlan() {
     openPlan((await r.json()).id);
   });
   root.querySelector('#plan-save').addEventListener('click', savePlanParams);
+  root.querySelector('#plan-init-sample').addEventListener('click', downloadPlanSample);
+  syncSampleControls();
   document.getElementById('plan-scenario')?.addEventListener('click', createScenario);
   document.getElementById('plan-linked-sheets')?.addEventListener('click', showLinkedSheets);
   root.querySelectorAll('#plan-horizon,#plan-loss').forEach(el=>el.addEventListener('input',()=>planNotice('Unsaved settings — choose Save settings to apply.')));
@@ -2058,8 +2077,10 @@ function openSitesModal(missing) {
 async function renderRosterPicker(nTeams) {
   const box = document.getElementById('plan-roster-pick');
   if (!box) return;
+  const forPlan = current.id;
   const rr = await req('/api/rosters');
   const rosters = (rr && rr.ok) ? (await rr.json()) || [] : [];
+  if (!box.isConnected || current?.id !== forPlan) return;
   const bindUpload = () => box.querySelectorAll('input[type=file]').forEach((inp) => inp.addEventListener('change', () => {
     if (inp.files[0]) uploadFile(inp.dataset.kind, inp.files[0]);
   }));
@@ -2081,6 +2102,7 @@ async function renderRosterPicker(nTeams) {
     </label>
     <span class="hint">${nTeams ? `${nTeams} pods loaded` : 'none selected'}</span>`;
   box.querySelector('#plan-roster-sel').addEventListener('change', async (ev) => {
+    if (pendingPlanSamples.has(forPlan)) return;
     const rosterId = ev.target.value;
     if (!rosterId) { ev.target.value = prevRoster; return; } // "none selected" is not a roster
     if ((current.initiatives || []).length && rosterId !== prevRoster) {
@@ -2089,11 +2111,61 @@ async function renderRosterPicker(nTeams) {
         return;
       }
     }
-    box.insertAdjacentHTML('beforeend', '<span class="hint" id="plan-uploading">applying…</span>');
-    const r = await req('/api/plan/' + current.id + '/roster', { method: 'POST', body: JSON.stringify({ rosterId }) });
-    if (!r || !r.ok) { alert('Could not attach roster: ' + (r ? await r.text() : 'network')); document.getElementById('plan-uploading')?.remove(); return; }
-    openPlan(current.id);
+    pendingPlanSamples.add(forPlan);
+    syncSampleControls();
+    box.querySelector('#plan-uploading')?.remove();
+    box.insertAdjacentHTML('beforeend', '<span class="hint" id="plan-uploading" role="status">Applying roster…</span>');
+    let uncertain = false;
+    try {
+      const r = await req('/api/plan/' + forPlan + '/roster', { method: 'POST', body: JSON.stringify({ rosterId }) });
+      uncertain = !r?.ok;
+    } catch {
+      uncertain = true;
+    } finally {
+      try {
+        if (requestedPlanID === forPlan) {
+          await openPlan(forPlan);
+          const status = root.querySelector('#plan-sample-status');
+          if (uncertain && current?.id === forPlan && status) status.textContent = 'The roster update response could not be confirmed. Saved teams have been reloaded; check the selection before trying again.';
+        }
+      } finally {
+        pendingPlanSamples.delete(forPlan);
+        syncSampleControls();
+      }
+    }
   });
+  syncSampleControls();
+}
+
+// specs/033-consistent-plan-controls-and-samples.md:112
+async function downloadPlanSample(ev) {
+  const button = ev.currentTarget, status = root.querySelector('#plan-sample-status');
+  const forPlan = current.id, ticket = planLoadTicket;
+  if (pendingPlanSamples.has(forPlan)) return;
+  pendingPlanSamples.add(forPlan);
+  syncSampleControls();
+  status.textContent = 'Preparing initiatives sample…';
+  try {
+    const response = await req('/api/plan/' + encodeURIComponent(forPlan) + '/sample/initiatives.xlsx');
+    if (!response?.ok) throw new Error('Could not download the sample. Check your connection and plan access, then try again.');
+    const blob = await response.blob();
+    if (current?.id !== forPlan || ticket !== planLoadTicket || !button.isConnected) return;
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'conway-sample-initiatives.xlsx';
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    status.textContent = 'Sample downloaded. Replace the example work before importing.';
+    window.dispatchEvent(new CustomEvent('conway:feature-opened', {detail:{action:'plan-sample'}}));
+  } catch {
+    if (current?.id === forPlan && ticket === planLoadTicket && button.isConnected) status.textContent = 'Could not download the sample. Check your connection and plan access, then try again.';
+  } finally {
+    pendingPlanSamples.delete(forPlan);
+    syncSampleControls();
+  }
 }
 
 async function savePlanParams() {

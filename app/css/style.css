@@ -535,7 +535,6 @@ table.sortable thead th.sort-desc::after { content: " ▼"; font-size: 9px; opac
   width: 100%; max-height: 84vh; overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, .5); }
 .ord-sched-box .ord-sched { all: unset; } /* the form's own wrapper if nested */
-#sched-open { font-size: 12.5px; }
 
 /* ── IA #4: Home status alerts — the first thing a returning user reads ── */
 .home-alerts { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 4px; }
@@ -655,8 +654,6 @@ table.sortable thead th.sort-desc::after { content: " ▼"; font-size: 9px; opac
   .report-card .report-ok { color: #0a7d33; }
 }
 .tl-row.tl-dim { min-height: 14px; }
-.tl-filter { display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; }
-.tl-filter input[type="search"] { padding: 3px 8px; font-size: 12px; width: 170px; }
 
 /* Baselines drawer (spec 015): one home for saving, history, activation and
    comparison. Slides over the Order view, which stays visible — decisions are

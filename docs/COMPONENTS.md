@@ -145,6 +145,14 @@ palette moves, that interpolation moves with it.
 
 ## Adoption review before feature completion
 
+Plan action buttons and timeline search inputs use the default Bootstrap size.
+Toolbar layouts align control bottoms with `align-items-end`, keep visible
+labels above fields, and wrap using framework flex and column utilities. Do not
+add ID-specific fonts, padding or heights to peer controls. The legacy form
+initializer preserves explicitly declared `form-control` sizing; its compact
+search fallback applies only to unstyled inputs. See
+`specs/033-consistent-plan-controls-and-samples.md`, Decision 1.
+
 Check the rendered UI, including content added after a request completes:
 
 - Generic controls carry Bootstrap classes in their source templates.

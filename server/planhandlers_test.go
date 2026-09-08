@@ -40,7 +40,7 @@ var _ = Describe("attachPlanRoster", func() {
 		p := &db.PlanRow{ID: "plan1"}
 		req := httptest.NewRequest("POST", "/api/plan/plan1/roster", strings.NewReader(`{}`))
 		rec := httptest.NewRecorder()
-		s.attachPlanRoster(rec, req, p)
+		s.attachPlanRoster(rec, req, p, auth.Claims{})
 		Expect(rec.Code).To(Equal(400))
 		Expect(strings.ToLower(rec.Body.String())).To(ContainSubstring("roster"))
 	})
