@@ -60,7 +60,44 @@ var _ = Describe("planning assistant browser", Label("database", "browser"), fun
 		snapshotID := newID()
 		Expect(database.CreateSnapshotWithData(db.SnapshotRow{ID: snapshotID, Owner: user.Username, Name: "Atlas observed evidence", Source: "jira", CreatedAt: now, Scope: json.RawMessage(`["PROJ"]`)}, db.SnapshotData{Pods: []db.PodRow{{Name: "Team A", Streams: 2}}, Issues: []db.IssueRow{{Key: "PROJ-1", IssueType: "Epic", StatusCat: "indeterminate", Pod: "Team A"}, {Key: "PROJ-2", ParentKey: "PROJ-1", IssueType: "Story", StatusCat: "indeterminate", Pod: "Team A"}}})).To(Succeed())
 		DeferCleanup(func() { Expect(database.DeleteSnapshot(snapshotID)).To(Succeed()) })
+		sourceID := newID()
+		_, err = pool.Exec(context.Background(), `INSERT INTO evidence_sources(id,owner,config,credential,next_at) VALUES($1,$2,'{"site":"https://atlas.atlassian.net","projects":["PROJ"]}','',0)`, sourceID, user.Username)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			_, e := pool.Exec(context.Background(), `DELETE FROM evidence_sources WHERE id=$1`, sourceID)
+			Expect(e).NotTo(HaveOccurred())
+		})
+		addRun := func(id string, started, finished int64) error {
+			_, e := pool.Exec(context.Background(), `INSERT INTO evidence_runs(id,source_id,status,started_at,finished_at,snapshot_id,config,version) SELECT $1,id,'succeeded',$3,$4,$5,config,1 FROM evidence_sources WHERE id=$2`, newID(), sourceID, started, finished, id)
+			return e
+		}
+		Expect(addRun(snapshotID, now-120, now-60)).To(Succeed())
+		var outcomeSnapshots []string
+		DeferCleanup(func() {
+			for _, id := range outcomeSnapshots {
+				Expect(database.DeleteSnapshot(id)).To(Succeed())
+			}
+		})
 		mux := http.NewServeMux()
+		mux.HandleFunc("/__prediction-outcome-fixture", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "POST" {
+				http.Error(w, "method", http.StatusMethodNotAllowed)
+				return
+			}
+			id := newID()
+			at := time.Now().UTC()
+			err := database.CreateSnapshotWithData(db.SnapshotRow{ID: id, Owner: user.Username, Name: "Later Atlas capture", Source: "jira", CreatedAt: at.Unix()}, db.SnapshotData{Pods: []db.PodRow{{Name: "Team A", Streams: 2}}, Issues: []db.IssueRow{{Key: "PROJ-1", IssueType: "Epic", StatusCat: "done", Pod: "Team A"}, {Key: "PROJ-2", ParentKey: "PROJ-1", IssueType: "Story", StatusCat: "done", Pod: "Team A", Resolved: &at}}})
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+			outcomeSnapshots = append(outcomeSnapshots, id)
+			if err = addRun(id, at.Unix(), at.Unix()); err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+			writeJSON(w, map[string]any{"id": id})
+		})
 		mux.HandleFunc("/api/config", func(w http.ResponseWriter, _ *http.Request) {
 			writeJSON(w, map[string]any{"server": true, "authRequired": true, "serverGame": false, "oidc": false})
 		})

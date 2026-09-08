@@ -26,7 +26,7 @@ type PortfolioForecast struct {
 	Limitations []string           `json:"limitations"`
 }
 
-// specs/028-portfolio-forecasts.md:128: shared uncertainty is applied to inputs,
+// specs/028-portfolio-forecasts.md:152: shared uncertainty is applied to inputs,
 // never padded onto independently calculated initiative finish dates.
 func forecastInputs(in BaselineInputs, factor, disruption float64) BaselineInputs {
 	out := NewBaselineInputs(in.Teams, in.Initiatives, in.Params, in.Scheduling)

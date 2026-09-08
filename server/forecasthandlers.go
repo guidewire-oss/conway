@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// specs/028-portfolio-forecasts.md:97: a read-only computation still needs
+// specs/028-portfolio-forecasts.md:122: a read-only computation still needs
 // current plan ownership and current persisted manager authorization.
 func (s *server) handleForecast(w http.ResponseWriter, r *http.Request, p *db.PlanRow, c auth.Claims) {
 	w.Header().Set("Cache-Control", "no-store")
@@ -18,18 +18,7 @@ func (s *server) handleForecast(w http.ResponseWriter, r *http.Request, p *db.Pl
 		methodNotAllowed(w, r)
 		return
 	}
-	roles, err := s.db.EvidenceActor(r.Context(), c.Sub, time.Now().Unix())
-	if err != nil {
-		if errors.Is(err, db.ErrEvidenceOwner) {
-			http.Error(w, "Current manager access is required. Sign in again.", http.StatusForbidden)
-		} else {
-			s.logger().Error().Err(err).Msg("forecast account lookup failed")
-			http.Error(w, "Account access could not be checked. Retry when the service is available.", http.StatusInternalServerError)
-		}
-		return
-	}
-	if c.GameID != "" || (!c.Has("manager") && !c.Has("admin")) || (!slices.Contains(roles, "manager") && !slices.Contains(roles, "admin")) || (p.Owner != c.Sub && !slices.Contains(roles, "admin")) {
-		http.Error(w, "Manager access to this plan is required.", http.StatusForbidden)
+	if _, ok := s.forecastAccess(w, r, p, c); !ok {
 		return
 	}
 	var settings planning.ForecastSettings
@@ -52,4 +41,23 @@ func (s *server) handleForecast(w http.ResponseWriter, r *http.Request, p *db.Pl
 		return
 	}
 	writeJSON(w, result)
+}
+
+func (s *server) forecastAccess(w http.ResponseWriter, r *http.Request, p *db.PlanRow, c auth.Claims) (auth.Claims, bool) {
+	roles, err := s.db.EvidenceActor(r.Context(), c.Sub, time.Now().Unix())
+	if err != nil {
+		if errors.Is(err, db.ErrEvidenceOwner) {
+			http.Error(w, "Current manager access is required. Sign in again.", http.StatusForbidden)
+		} else {
+			s.logger().Error().Err(err).Msg("forecast account lookup failed")
+			http.Error(w, "Account access could not be checked. Retry when the service is available.", http.StatusInternalServerError)
+		}
+		return c, false
+	}
+	if c.GameID != "" || (!c.Has("manager") && !c.Has("admin")) || (!slices.Contains(roles, "manager") && !slices.Contains(roles, "admin")) || (p.Owner != c.Sub && !slices.Contains(roles, "admin")) {
+		http.Error(w, "Manager access to this plan is required.", http.StatusForbidden)
+		return c, false
+	}
+	c.Roles = roles
+	return c, true
 }

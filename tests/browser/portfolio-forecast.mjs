@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
+import {checkPredictionHistory} from './prediction-history.mjs';
 
 export async function checkPortfolioForecast(page,base,plan,snapshot,holdAnswer) {
  await page.locator('#view-forecast').click();
@@ -20,6 +21,7 @@ export async function checkPortfolioForecast(page,base,plan,snapshot,holdAnswer)
  await page.setViewportSize({width:360,height:800});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  await page.screenshot({path:join(process.env.CONWAY_TEST_ARTIFACT_DIR||tmpdir(),'conway-forecast-mobile.png'),fullPage:true});
  await page.setViewportSize({width:1280,height:960});
+ await checkPredictionHistory(page,base,plan,snapshot,holdAnswer);
  let held=await holdAnswer(endpoint);
  await run.click();await held.ready();await page.locator('#forecast-upper').fill('2');await held.deliver();
  assert.equal(await result.textContent(),'','Late results cannot survive a settings change');

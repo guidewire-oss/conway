@@ -91,6 +91,12 @@ server. The forecast journey compares scenarios, retries a failed request,
 inspects imported evidence, changes settings during a pending response, leaves
 and returns through Home, and follows an initiative into the saved timeline.
 Successful runs write `conway-assistant-dark.png`, `conway-assistant-light.png`
-and `conway-forecast-mobile.png` to `CONWAY_TEST_ARTIFACT_DIR` (or the system
+and `conway-forecast-mobile.png` plus `conway-prediction-history-mobile.png` to `CONWAY_TEST_ARTIFACT_DIR` (or the system
 temporary directory). The assistant uses a deterministic provider fixture; no
 live model or external credentials are needed.
+
+`prediction-history.mjs` extends this journey with recording, lost-response
+retry without duplicates, reload, visible capture failures, later outcome
+assessment and capture-selection invalidation. It temporarily uses a future
+planning period and restores the original settings, so time passing does not
+turn a prospective prediction fixture into an already-expired one.
