@@ -14,3 +14,12 @@ test('leads with recovery when training or later completed outcomes are unavaila
  v.probability=.6;v.test.coveragePercent=null;
  const html=predictionEvaluationHTML(v);assert.match(html,/No eligible test completions/);assert.match(html,/Unavailable <span class="fs-6">observed coverage/);assert.doesNotMatch(html,/NaN|undefined/);
 });
+
+test('registered assessments state prospective timing, preserve null scores and escape model names',()=>{
+ const v=fixture();v.brierScore=null;
+ const html=predictionEvaluationHTML(v,{registration:{name:'<Autumn>',registeredAt:3,createdBy:'<manager>'}});
+ assert.match(html,/Registered model assessment/);assert.match(html,/after registration/);
+ assert.match(html,/registered before the future predictions/);assert.match(html,/earlier initiative entries reserved/);
+ assert.doesNotMatch(html,/retrospective test|<Autumn>|<manager>/);
+ assert.match(html,/forecast-registration/);
+});

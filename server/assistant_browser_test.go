@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"conway/server/auth"
 	"conway/server/db"
 	"conway/server/planning"
 	"encoding/json"
@@ -73,6 +74,20 @@ var _ = Describe("planning assistant browser", Label("database", "browser"), fun
 		}
 		Expect(addRun(snapshotID, now-120, now-60)).To(Succeed())
 		evaluation := seedEvaluationFixture(database, pool, user.Username)
+		// A historical registration supplies future outcomes without waiting weeks.
+		// This fixture exists only in the isolated test binary.
+		archived, err := database.Prediction(context.Background(), evaluation.Plan, evaluation.Reference)
+		Expect(err).NotTo(HaveOccurred())
+		var reference planning.ForecastPrediction
+		Expect(json.Unmarshal(archived.Data, &reference)).To(Succeed())
+		ev, trainingIssues, ok := srv.predictionCapture(httptest.NewRecorder(), httptest.NewRequest("GET", "/", nil), auth.Claims{Sub: user.Username, Roles: []string{"manager"}}, evaluation.Training)
+		Expect(ok).To(BeTrue())
+		registered, err := planning.RegisterForecastModel(reference, []planning.ForecastPrediction{reference}, ev, trainingIssues, ev.CapturedAt+60)
+		Expect(err).NotTo(HaveOccurred())
+		registered.ID, registered.Name, registered.CreatedBy = "earlier-registered-model", "Earlier registered baseline", user.Username
+		_, err = pool.Exec(context.Background(), `INSERT INTO plan_forecast_registrations(plan_id,reference_id,id,request_hash,data) VALUES($1,$2,$3,'fixture',$4)`, evaluation.Plan, reference.ID, registered.ID, encode(registered))
+		Expect(err).NotTo(HaveOccurred())
+
 		var outcomeSnapshots []string
 		DeferCleanup(func() {
 			for _, id := range outcomeSnapshots {

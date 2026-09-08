@@ -1,3 +1,4 @@
+import {checkForecastRegistrations} from './forecast-registrations.mjs';
 import {checkPortfolioForecast} from './portfolio-forecast.mjs';
 import {checkPredictionEvaluation} from './prediction-evaluation.mjs';
 import {chooseUpdate,readAllUpdates} from './announcement-navigation.mjs';
@@ -86,5 +87,6 @@ try{
  const docs=await page.request.get(base+'/docs.html');assert.match(await docs.text(),/id="planning-assistant"/);
  const token=await page.evaluate(()=>localStorage.getItem('conway_token'));const reviews=await page.request.get(base+'/api/plan/'+plan+'/reviews',{headers:{Authorization:'Bearer '+token}});assert.deepEqual((await reviews.json()).reviews,[]);
  await checkPredictionEvaluation(page,base,holdAnswer);
+ await checkForecastRegistrations(page,base,holdAnswer);
  assert.deepEqual(errors,[]);console.log(JSON.stringify({schedule:true,agreement:true,observedAndManualReview:true,retry:true,staleScope:true,viewOwnership:true,mobile:true,readOnly:true,modelEvaluation:true}));
 }finally{for(const release of releases)release();await browser.close();}

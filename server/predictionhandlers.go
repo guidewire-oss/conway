@@ -128,6 +128,13 @@ func (s *server) handlePredictions(w http.ResponseWriter, r *http.Request, p *db
 	}
 	rest := strings.TrimPrefix(sub, "predictions/")
 	id, action, _ := strings.Cut(rest, "/")
+	if action == "registrations" || strings.HasPrefix(action, "registrations/") {
+		_, pred := s.readPrediction(w, r, p, c, id)
+		if pred != nil {
+			s.handleRegistrations(w, r, p, c, *pred, action)
+		}
+		return
+	}
 	if (action == "" && r.Method != http.MethodGet) || ((action == "assessment" || action == "validation" || action == "evaluation") && r.Method != http.MethodPost) || (action != "" && action != "assessment" && action != "validation" && action != "evaluation") {
 		methodNotAllowed(w, r)
 		return

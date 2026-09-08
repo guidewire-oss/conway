@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5/pgxpool"
 	. "github.com/onsi/ginkgo/v2"
@@ -168,6 +169,123 @@ var _ = Describe("portfolio forecast API", Label("database"), func() {
 			}
 		}
 	})
+	It("registers prospective models idempotently and protects frozen evidence and future assessment", func() {
+		f := seedEvaluationFixture(database, pool, claims.Sub)
+		endpoint := "/api/plan/" + f.Plan + "/predictions/" + f.Reference + "/registrations"
+		request := func(method, path, body string, c auth.Claims) *httptest.ResponseRecorder {
+			r := httptest.NewRecorder()
+			srv.handlePlanItem(r, httptest.NewRequest(method, path, strings.NewReader(body)), c)
+			return r
+		}
+		body := string(encode(map[string]string{"id": "registered-model-test", "name": "Autumn baseline", "trainingSnapshotId": f.Training}))
+		before := time.Now().Unix()
+		saved := request("POST", endpoint, body, claims)
+		Expect(saved.Code).To(Equal(200), saved.Body.String())
+		var summary map[string]any
+		Expect(json.Unmarshal(saved.Body.Bytes(), &summary)).To(Succeed())
+		Expect(summary["registeredAt"]).To(BeNumerically(">=", before))
+		Expect(summary["probability"]).To(BeNumerically("~", 2.0/3))
+		Expect(request("POST", endpoint, body, claims).Body.String()).To(Equal(saved.Body.String()))
+		Expect(request("POST", endpoint, strings.Replace(body, "Autumn baseline", "Other baseline", 1), claims).Code).To(Equal(409))
+		list := request("GET", endpoint, "", claims)
+		Expect(list.Code).To(Equal(200))
+		var listed struct {
+			Registrations []json.RawMessage `json:"registrations"`
+		}
+		Expect(json.Unmarshal(list.Body.Bytes(), &listed)).To(Succeed())
+		Expect(listed.Registrations).To(HaveLen(1))
+		assess := endpoint + "/registered-model-test/assessment"
+		laterBody := string(encode(map[string]string{"snapshotId": f.Later}))
+		Expect(request("POST", assess, laterBody, claims).Code).To(Equal(400), "A past capture is not prospective")
+		for _, bad := range []string{"null", "{}", body + body, strings.TrimSuffix(body, "}") + `,"probability":1}`} {
+			Expect(request("POST", endpoint, bad, claims).Code).To(Equal(400))
+		}
+		Expect(request("POST", assess+"/extra", laterBody, claims).Code).To(Equal(405))
+		Expect(request("PATCH", endpoint, "{}", claims).Code).To(Equal(405))
+		for _, c := range []auth.Claims{{Sub: "other", Roles: []string{"manager"}}, {Sub: claims.Sub, Roles: []string{"player"}}, {Sub: claims.Sub, Roles: claims.Roles, GameID: "game"}} {
+			Expect(request("GET", endpoint, "", c).Code).To(Equal(403))
+		}
+		// Advance a historical fixture through registration and future observation.
+		row, err := database.ForecastRegistration(context.Background(), f.Plan, "registered-model-test")
+		Expect(err).NotTo(HaveOccurred())
+		var model planning.ForecastRegistration
+		Expect(json.Unmarshal(row.Data, &model)).To(Succeed())
+		model.RegisteredAt = model.TrainingEvidence.CapturedAt + 60
+		model.History = model.History[:1]
+		_, err = pool.Exec(context.Background(), `UPDATE plan_forecast_registrations SET data=$3 WHERE plan_id=$1 AND id=$2`, f.Plan, model.ID, encode(model))
+		Expect(err).NotTo(HaveOccurred())
+		assessed := request("POST", assess, laterBody, claims)
+		Expect(assessed.Code).To(Equal(200), assessed.Body.String())
+		var report struct {
+			Evaluation planning.ForecastEvaluation `json:"evaluation"`
+		}
+		Expect(json.Unmarshal(assessed.Body.Bytes(), &report)).To(Succeed())
+		Expect(report.Evaluation.Test.Eligible).To(Equal(1))
+		Expect(*report.Evaluation.BrierScore).To(BeNumerically("~", 1.0/9))
+		// Replacing training outcomes and current inputs cannot rewrite the retained fit.
+		Expect(database.SavePlanInitiatives(f.Plan, []byte(`[]`), time.Now().Unix())).To(Succeed())
+		_, err = pool.Exec(context.Background(), `UPDATE snapshot_issues SET status_cat='indeterminate',resolved=NULL WHERE snapshot_id=$1`, f.Training)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(request("POST", assess, laterBody, claims).Body.String()).To(Equal(assessed.Body.String()))
+		_, err = pool.Exec(context.Background(), `UPDATE snapshot_issues SET status_cat='done',resolved=to_timestamp($2) WHERE snapshot_id=$1 AND issue_type='Story'`, f.Training, model.Reference.IssuedAt+14*86400)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Two concurrent new keys compete for the final slot; retries remain available.
+		savedPlan, err := database.GetPlan(f.Plan)
+		Expect(err).NotTo(HaveOccurred())
+		for i := 0; i < 98; i++ {
+			m := model
+			m.ID = fmt.Sprintf("limit-model-%03d", i)
+			inserted, e := database.SaveForecastRegistration(context.Background(), savedPlan, db.RegistrationRow{ID: m.ID, ReferenceID: f.Reference, RequestHash: m.ID, Data: encode(m)})
+			Expect(e).NotTo(HaveOccurred())
+			Expect(inserted).To(BeTrue())
+		}
+		type result struct {
+			inserted bool
+			err      error
+		}
+		results := make(chan result, 2)
+		for i := 0; i < 2; i++ {
+			m := model
+			m.ID = fmt.Sprintf("concurrent-model-%d", i)
+			data := encode(m)
+			go func() {
+				inserted, e := database.SaveForecastRegistration(context.Background(), savedPlan, db.RegistrationRow{ID: m.ID, ReferenceID: f.Reference, RequestHash: m.ID, Data: data})
+				results <- result{inserted, e}
+			}()
+		}
+		succeeded, capped := 0, 0
+		for i := 0; i < 2; i++ {
+			r := <-results
+			if r.inserted {
+				succeeded++
+			}
+			if errors.Is(r.err, db.ErrRegistrationLimit) {
+				capped++
+			} else {
+				Expect(r.err).NotTo(HaveOccurred())
+			}
+		}
+		Expect(succeeded).To(Equal(1))
+		Expect(capped).To(Equal(1))
+		Expect(request("POST", endpoint, body, claims).Code).To(Equal(200))
+		Expect(request("POST", endpoint, strings.Replace(body, "registered-model-test", "one-too-many-model", 1), claims).Code).To(Equal(422))
+		Expect(request("GET", endpoint, "", claims).Code).To(Equal(200))
+		for _, id := range []string{f.Initial, f.Training, f.Later} {
+			_, err = pool.Exec(context.Background(), `UPDATE snapshots SET owner='other',public=false WHERE id=$1`, id)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(request("POST", assess, laterBody, claims).Code).To(Equal(404))
+			if id != f.Later {
+				Expect(request("GET", endpoint, "", claims).Code).To(Equal(404))
+			}
+			_, err = pool.Exec(context.Background(), `UPDATE snapshots SET owner=$2 WHERE id=$1`, id, claims.Sub)
+			Expect(err).NotTo(HaveOccurred())
+		}
+		_, err = pool.Exec(context.Background(), `UPDATE accounts SET roles=ARRAY['player'],role='player' WHERE username=$1`, claims.Sub)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(request("GET", endpoint, "", claims).Code).To(Equal(403))
+	})
+
 	It("evaluates held-out forecasts with archived inputs and enforces strict requests and capture access", func() {
 		f := seedEvaluationFixture(database, pool, claims.Sub)
 		endpoint := "/api/plan/" + f.Plan + "/predictions/" + f.Reference + "/evaluation"

@@ -156,4 +156,65 @@ var _ = Describe("forecast model evaluation", func() {
 		Expect(r.Test.Rows[0].RepresentativeID).To(Equal(boundary.ID))
 		Expect(r.BrierScore).To(BeNil())
 	})
+	It("registers a frozen fit before future distinct work and never refits from changed history", func() {
+		ref := add("1", time.September, 14)
+		at := training.CapturedAt + 60
+		model, err := RegisterForecastModel(ref, history, training, trainingIssues, at)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(model.Probability).To(BeNumerically("~", 2.0/3))
+		add("2", time.November, 14)
+		history[0].Issues = nil
+		report, err := AssessRegisteredModel(model, history, later, laterIssues)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(report.Training).To(Equal(model.Training))
+		Expect(*report.Probability).To(BeNumerically("~", 2.0/3))
+		Expect(report.Test.Eligible).To(Equal(1))
+		Expect(*report.BrierScore).To(BeNumerically("~", 1.0/9))
+		repeat := history[1]
+		repeat.ID = "repeat"
+		repeat.Inputs = ref.Inputs
+		repeat.Issues = ref.Issues
+		history = append(history, repeat)
+		report, err = AssessRegisteredModel(model, history, later, laterIssues)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(report.Test.Repeated).To(Equal(1))
+		Expect(report.Test.Eligible).To(Equal(1))
+	})
+	It("reserves registration boundaries and refuses empty fits, chronology and oversized cohorts", func() {
+		ref := add("1", time.September, 14)
+		_, err := RegisterForecastModel(ref, history, training, nil, training.CapturedAt+1)
+		Expect(err).To(MatchError(ContainSubstring("completed")))
+		_, err = RegisterForecastModel(ref, history, training, trainingIssues, training.CapturedAt)
+		Expect(err).To(MatchError(ContainSubstring("before registration")))
+		model, err := RegisterForecastModel(ref, history, training, trainingIssues, training.CapturedAt+1)
+		Expect(err).NotTo(HaveOccurred())
+		add("2", time.November, 14)
+		history[1].IssuedAt = model.RegisteredAt
+		report, err := AssessRegisteredModel(model, history, later, laterIssues)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(report.Test.Rows).To(BeEmpty())
+		Expect(report.BrierScore).To(BeNil())
+		bad := later
+		bad.StartedAt = model.RegisteredAt
+		_, err = AssessRegisteredModel(model, history, bad, laterIssues)
+		Expect(err).To(MatchError(ContainSubstring("after registration")))
+		_, err = AssessRegisteredModel(model, make([]ForecastPrediction, MaxValidationRecords+1), later, laterIssues)
+		Expect(err).To(MatchError(ContainSubstring("200")))
+	})
+
+	It("bounds all retained registration entries including work recorded after training", func() {
+		ref := add("1", time.September, 14)
+		boundary := add("2", time.November, 14)
+		history[1].IssuedAt = training.CapturedAt
+		history[1].Inputs.Initiatives = make([]Initiative, 4999)
+		for i := range history[1].Inputs.Initiatives {
+			history[1].Inputs.Initiatives[i] = boundary.Inputs.Initiatives[0]
+		}
+		_, err := RegisterForecastModel(ref, history, training, trainingIssues, training.CapturedAt+60)
+		Expect(err).NotTo(HaveOccurred())
+		history[1].Inputs.Initiatives = append(history[1].Inputs.Initiatives, boundary.Inputs.Initiatives[0])
+		_, err = RegisterForecastModel(ref, history, training, trainingIssues, training.CapturedAt+60)
+		Expect(err).To(MatchError(ContainSubstring("5000 retained")))
+	})
+
 })
