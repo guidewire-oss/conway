@@ -59,13 +59,13 @@ export async function checkPredictionHistory(page,base,plan,snapshot,holdAnswer)
  await validation.locator('summary').click();await validation.getByRole('button',{name:'Open representative prediction'}).waitFor();
  await page.setViewportSize({width:360,height:800});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  await page.screenshot({path:join(process.env.CONWAY_TEST_ARTIFACT_DIR||tmpdir(),'conway-validation-mobile.png'),fullPage:true});await page.setViewportSize({width:1280,height:960});
- const validationHeld=await holdAnswer(validationURL);await page.locator('[data-prediction-validate]').click();await validationHeld.ready();
+ const validationHeld=await holdAnswer(validationURL);await page.locator('[data-prediction-validate]').click();await validationHeld.ready();assert.equal(await page.locator('[data-prediction-assessment-status]').textContent(),'Validating comparable prediction history…');
  await page.locator('#prediction-outcome-capture').selectOption(snapshot);await validationHeld.deliver();assert.equal(await page.locator('[data-prediction-assessment]').textContent(),'');
  await page.locator('#prediction-outcome-capture').selectOption(later.id);await page.locator('[data-prediction-validate]').click();await validation.waitFor();await validation.locator('summary').click();
  await validation.getByRole('button',{name:'Open representative prediction'}).click();await page.locator('[data-prediction-title]').waitFor();assert.equal(await page.locator('[data-prediction-assessment]').textContent(),'');
  await page.locator('#prediction-outcome-capture').selectOption(later.id);
  const assessmentURL=endpoint+'/'+recorded.id+'/assessment';
- const refreshHeld=await holdAnswer(assessmentURL);await page.locator('[data-prediction-assess]').click();await refreshHeld.ready();
+ const refreshHeld=await holdAnswer(assessmentURL);await page.locator('[data-prediction-assess]').click();await refreshHeld.ready();assert.equal(await page.locator('[data-prediction-assessment-status]').textContent(),'Comparing captured outcomes with saved dates…');
  await page.locator('[data-prediction-detail] [data-prediction-sources]').click();await page.locator('[data-prediction-capture-status]').getByText(/Managed captures refreshed/).waitFor();assert.equal(await page.locator('#prediction-outcome-capture').inputValue(),later.id);await refreshHeld.deliver();await page.locator('[data-prediction-assessment]').getByRole('table').waitFor();
  const removed=await holdAnswer(assessmentURL);await page.locator('[data-prediction-assess]').click();await removed.ready();
  await page.route(base+'/api/snapshots',async route=>{const r=await route.fetch();await route.fulfill({json:(await r.json()).filter(s=>s.id!==later.id)});});
