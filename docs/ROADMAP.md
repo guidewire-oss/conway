@@ -22,7 +22,7 @@ Live connection validation remains a separate release check.
 |---|---|---|---|
 | Release | Live Google/Jira validation; startup changes | 0% | Pending live connection checks and review of local startup changes |
 | 1 | Evidence-linked planning assistant | 100% | Merged PR 83; optional live model validation required before enabling |
-| 2 | Calibrated portfolio forecasts | 70% | Scenario/evidence increment merged in PR 84. Prediction history and per-prediction comparable outcome coverage implemented; release review pending. Independent cohort validation and calibrated probability models remain |
+| 2 | Calibrated portfolio forecasts | 85% | Scenarios merged in PR 84; prediction history merged in PR 85. Distinct-work historical validation and monthly descriptive coverage implemented in spec 029; release review pending. Held-out probability-model calibration remains |
 | 3 | Flow improvement experiments | 0% | Planned; explicit hypotheses, comparable before/after measures and guardrails |
 | 4 | Outcome and minimum-scope planning | 0% | Planned; extend lightweight review outcomes into initiative scope choices |
 | 5 | Milestones and external dependencies | 0% | Planned; acceptance events, vendor commitments and release conditions |

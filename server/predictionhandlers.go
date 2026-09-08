@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -126,7 +127,7 @@ func (s *server) handlePredictions(w http.ResponseWriter, r *http.Request, p *db
 	}
 	rest := strings.TrimPrefix(sub, "predictions/")
 	id, action, _ := strings.Cut(rest, "/")
-	if (action == "" && r.Method != http.MethodGet) || (action == "assessment" && r.Method != http.MethodPost) || (action != "" && action != "assessment") {
+	if (action == "" && r.Method != http.MethodGet) || ((action == "assessment" || action == "validation") && r.Method != http.MethodPost) || (action != "" && action != "assessment" && action != "validation") {
 		methodNotAllowed(w, r)
 		return
 	}
@@ -153,7 +154,57 @@ func (s *server) handlePredictions(w http.ResponseWriter, r *http.Request, p *db
 		s.predictionError(w, err)
 		return
 	}
+	if action == "validation" {
+		s.validatePredictionHistory(w, r, p, c, *pred, current, ev, issues)
+		return
+	}
 	writeJSON(w, planning.AssessPrediction(*pred, current, ev, issues))
+}
+
+// specs/029-forecast-history-validation.md:93: original evidence access is required
+// for all candidate records; an incomplete private cohort must not become a report.
+func (s *server) validatePredictionHistory(w http.ResponseWriter, r *http.Request, p *db.PlanRow, c auth.Claims, reference planning.ForecastPrediction, current []planning.Initiative, ev planning.PredictionEvidence, issues []planning.ExecutionIssue) {
+	rows, err := s.db.PredictionValidationHistory(r.Context(), p.ID)
+	if err != nil {
+		s.predictionError(w, err)
+		return
+	}
+	if len(rows) > 200 {
+		http.Error(w, "History validation supports at most 200 recorded predictions. No partial report was produced; retain history and contact an administrator.", http.StatusUnprocessableEntity)
+		return
+	}
+	history := make([]planning.ForecastPrediction, 0, len(rows))
+	access := map[string]bool{}
+	for _, row := range rows {
+		var pred planning.ForecastPrediction
+		if err := json.Unmarshal(row.Data, &pred); err != nil {
+			s.predictionError(w, err)
+			return
+		}
+		if planning.ValidationMatches(reference, pred) && pred.IssuedAt < ev.StartedAt && !access[row.SnapshotID] {
+			snap, err := s.db.GetSnapshot(row.SnapshotID)
+			if err != nil {
+				s.predictionError(w, err)
+				return
+			}
+			if !canReadExecutionSnapshot(snap, c) {
+				http.Error(w, "An original capture in this history is missing or inaccessible. Restore capture access before validating; no partial report was produced.", 404)
+				return
+			}
+			access[row.SnapshotID] = true
+		}
+		history = append(history, pred)
+	}
+	report, err := planning.ValidatePredictionHistory(reference, history, current, ev, issues)
+	if err != nil {
+		status := 400
+		if errors.Is(err, planning.ErrValidationLimit) {
+			status = http.StatusUnprocessableEntity
+		}
+		http.Error(w, err.Error(), status)
+		return
+	}
+	writeJSON(w, report)
 }
 func (s *server) recordPrediction(w http.ResponseWriter, r *http.Request, p *db.PlanRow, c auth.Claims) {
 	var req predictionRequest

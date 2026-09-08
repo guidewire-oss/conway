@@ -25,6 +25,24 @@ type PredictionSource struct {
 	FinishedAt  int64
 }
 
+// specs/029-forecast-history-validation.md:117: never score a silently truncated history.
+func (d *DB) PredictionValidationHistory(ctx context.Context, planID string) ([]PredictionRow, error) {
+	rows, err := d.pool.Query(ctx, `SELECT id,name,issued_at,recorded_order,snapshot_id,data FROM plan_forecast_predictions WHERE plan_id=$1 ORDER BY issued_at,id LIMIT 201`, planID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []PredictionRow{}
+	for rows.Next() {
+		var row PredictionRow
+		if err := rows.Scan(&row.ID, &row.Name, &row.IssuedAt, &row.Order, &row.SnapshotID, &row.Data); err != nil {
+			return nil, err
+		}
+		out = append(out, row)
+	}
+	return out, rows.Err()
+}
+
 // PredictionSnapshotSource uses the successful run's frozen configuration, not
 // today's source settings. specs/028-portfolio-forecasts.md:205
 func (d *DB) PredictionSnapshotSource(ctx context.Context, id string) (*PredictionSource, error) {

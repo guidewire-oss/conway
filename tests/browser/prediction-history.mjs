@@ -42,7 +42,8 @@ export async function checkPredictionHistory(page,base,plan,snapshot,holdAnswer)
  assert.match(await page.locator('[data-prediction-title]').textContent(),/September planning check/);
  await page.locator('#prediction-outcome-capture').selectOption(snapshot);await page.locator('[data-prediction-assess]').click();
  await page.locator('[data-prediction-assessment]').getByRole('table').waitFor();assert.match(await page.locator('[data-prediction-assessment]').textContent(),/Choose a capture started after/);
- await page.waitForFunction(issued=>Math.floor(Date.now()/1000)>issued,recorded.issuedAt);
+ const repeatedResponse=await page.request.post(endpoint,{headers,data:{id:'history-validation-repeat',name:'Repeated planning check',fingerprint:recorded.forecast.fingerprint,settings:recorded.forecast.settings,snapshotId:snapshot}});assert.equal(repeatedResponse.status(),200);const repeated=await repeatedResponse.json();
+ await page.waitForFunction(issued=>Math.floor(Date.now()/1000)>issued,Math.max(recorded.issuedAt,repeated.issuedAt));
  const laterResponse=await page.request.post(base+'/__prediction-outcome-fixture');assert.equal(laterResponse.status(),200);const later=await laterResponse.json();
  await page.locator('[data-prediction-detail] [data-prediction-sources]').click();await page.locator('#prediction-outcome-capture').selectOption(later.id);
  await page.locator('[data-prediction-assess]').click();await page.locator('[data-prediction-assessment]').getByText(/of 1 eligible completed/).waitFor();
@@ -50,6 +51,19 @@ export async function checkPredictionHistory(page,base,plan,snapshot,holdAnswer)
  await page.setViewportSize({width:360,height:800});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  await page.screenshot({path:join(process.env.CONWAY_TEST_ARTIFACT_DIR||tmpdir(),'conway-prediction-history-mobile.png'),fullPage:true});
  await page.setViewportSize({width:1280,height:960});
+ const validationURL=endpoint+'/'+recorded.id+'/validation';
+ await page.route(validationURL,route=>route.fulfill({status:503,body:'History temporarily unavailable. Retry.'}));
+ await page.locator('[data-prediction-validate]').click();await page.locator('[data-prediction-assessment-status][role=alert]').waitFor();assert.equal(await page.locator('[data-prediction-assessment]').textContent(),'');assert.equal(await page.locator('#prediction-outcome-capture').inputValue(),later.id);
+ await page.unroute(validationURL);await page.locator('[data-prediction-validate]').click();
+ const validation=page.getByRole('region',{name:'History validation'});await validation.waitFor();assert.match(await validation.textContent(),/1 repeated entries/);assert.match(await validation.textContent(),/0 within \/ 1 completed/);assert.match(await validation.textContent(),/not independent samples/);
+ await validation.locator('summary').click();await validation.getByRole('button',{name:'Open representative prediction'}).waitFor();
+ await page.setViewportSize({width:360,height:800});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ await page.screenshot({path:join(process.env.CONWAY_TEST_ARTIFACT_DIR||tmpdir(),'conway-validation-mobile.png'),fullPage:true});await page.setViewportSize({width:1280,height:960});
+ const validationHeld=await holdAnswer(validationURL);await page.locator('[data-prediction-validate]').click();await validationHeld.ready();
+ await page.locator('#prediction-outcome-capture').selectOption(snapshot);await validationHeld.deliver();assert.equal(await page.locator('[data-prediction-assessment]').textContent(),'');
+ await page.locator('#prediction-outcome-capture').selectOption(later.id);await page.locator('[data-prediction-validate]').click();await validation.waitFor();await validation.locator('summary').click();
+ await validation.getByRole('button',{name:'Open representative prediction'}).click();await page.locator('[data-prediction-title]').waitFor();assert.equal(await page.locator('[data-prediction-assessment]').textContent(),'');
+ await page.locator('#prediction-outcome-capture').selectOption(later.id);
  const assessmentURL=endpoint+'/'+recorded.id+'/assessment';
  const refreshHeld=await holdAnswer(assessmentURL);await page.locator('[data-prediction-assess]').click();await refreshHeld.ready();
  await page.locator('[data-prediction-detail] [data-prediction-sources]').click();await page.locator('[data-prediction-capture-status]').getByText(/Managed captures refreshed/).waitFor();assert.equal(await page.locator('#prediction-outcome-capture').inputValue(),later.id);await refreshHeld.deliver();await page.locator('[data-prediction-assessment]').getByRole('table').waitFor();
@@ -59,7 +73,7 @@ export async function checkPredictionHistory(page,base,plan,snapshot,holdAnswer)
  await page.locator('#prediction-outcome-capture').selectOption(snapshot);
  const held=await holdAnswer(assessmentURL);await page.locator('[data-prediction-assess]').click();await held.ready();
  await page.locator('#prediction-outcome-capture').selectOption('');await held.deliver();assert.equal(await page.locator('[data-prediction-assessment]').textContent(),'');
- const pending=await holdAnswer(endpoint+'/'+recorded.id,'GET');await page.locator('[data-prediction-open]').click();await pending.ready();
+ const pending=await holdAnswer(endpoint+'/'+recorded.id,'GET');await page.locator('[data-prediction-list] [data-prediction-open="'+recorded.id+'"]').click();await pending.ready();
  await page.locator('#view-timeline').click();await pending.deliver();assert.equal(await page.locator('[data-prediction-detail]').count(),0);
  await page.locator('#view-forecast').click();await page.locator('[data-forecast-run]').click();await page.locator('[data-forecast-result]').getByRole('table').waitFor();
  await page.getByText('Record this prediction',{exact:true}).click();await page.locator('#prediction-capture').selectOption(snapshot);await page.locator('#prediction-name').fill('Second planning check');

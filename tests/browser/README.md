@@ -100,3 +100,8 @@ retry without duplicates, reload, visible capture failures, later outcome
 assessment and capture-selection invalidation. It temporarily uses a future
 planning period and restores the original settings, so time passing does not
 turn a prospective prediction fixture into an already-expired one.
+
+The same journey validates complete prediction history, suppresses repeated
+work, recovers a failed validation request, ignores a result after capture
+selection changes, and opens the representative record. It writes
+`conway-validation-mobile.png` with expanded selection explanations at 360px.
