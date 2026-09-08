@@ -8,7 +8,7 @@ export async function withPredictionCleanup(journey,...cleanups){
  try{await journey();}catch(error){errors.push(error);}
  finally{for(const cleanup of cleanups){try{await cleanup();}catch(error){errors.push(error);}}}
  if(errors.length===1)throw errors[0];
- if(errors.length>1)throw new AggregateError(errors,'Prediction journey and cleanup failures');
+ if(errors.length>1)throw new AggregateError(errors,'Multiple failures during prediction test execution');
 }
 
 export async function checkPredictionHistory(page,base,plan,snapshot,holdAnswer){
