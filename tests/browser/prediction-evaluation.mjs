@@ -42,6 +42,19 @@ export async function checkPredictionEvaluation(page,base,holdAnswer){
  await result.getByText('Test evidence: inspect 1 entries',{exact:true}).click();await result.getByRole('button',{name:'Open Atlas release prediction'}).click();await page.locator('[data-prediction-title]').getByText('Atlas release prediction',{exact:true}).waitFor();
  assert.equal(await page.locator('[data-prediction-assessment]').textContent(),'');
  await page.locator('#prediction-outcome-capture').selectOption(later);await page.getByText('Test a probability model',{exact:true}).click();await page.locator('#prediction-training-capture').selectOption(training);
- const leaving=await holdAnswer(base+'/api/plan/'+plan+'/predictions/evaluation-test/evaluation');await page.locator('[data-prediction-evaluate]').click();await leaving.ready();await page.locator('#view-timeline').click();await consume(leaving);assert.equal(await page.locator('[data-prediction-assessment]').count(),0);
+ const leaving=await holdAnswer(base+'/api/plan/'+plan+'/predictions/evaluation-test/evaluation');await page.locator('[data-prediction-evaluate]').click();await leaving.ready();
+ await page.evaluate(()=>{window.retainedEvaluationHistory=document.querySelector('[data-prediction-history]');});
+ await page.locator('.tab[data-view="home"]').click();
+ await page.locator('#plan-btn').click();await page.locator('.tab[data-view="plan"]').click();
+ assert.equal(await page.evaluate(()=>window.retainedEvaluationHistory.isConnected&&window.retainedEvaluationHistory===document.querySelector('[data-prediction-history]')),true,'Home navigation retains the forecast panel');
+ // Reopen a different record before delivery so a stale render has a live target.
+ await page.locator('[data-prediction-list] [data-prediction-open="'+reference+'"]').click();await page.locator('[data-prediction-title]').getByText('Beacon prediction',{exact:true}).waitFor();
+ const freshStatus=await page.locator('[data-prediction-assessment-status]').textContent();
+ await consume(leaving);
+ assert.equal(await page.locator('[data-prediction-title]').textContent(),'Beacon prediction');
+ assert.equal(await page.locator('[data-prediction-assessment]').count(),1);
+ assert.equal(await page.locator('[data-prediction-assessment]').textContent(),'','The old evaluation cannot populate the reopened prediction');
+ assert.equal(await page.locator('[data-prediction-assessment-status]').textContent(),freshStatus);
+ await page.evaluate(()=>{delete window.retainedEvaluationHistory;});
  const docs=await page.request.get(base+'/docs.html');assert.match(await docs.text(),/id="forecast-evaluation"/);
 }
