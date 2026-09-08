@@ -24,9 +24,12 @@ try {
     const {timelineControlsHTML,timelineRowHTML,timelineInspectorHTML,podLensHTML} = await import('/js/timeline.js');
     const {baselineListHTML,baselineChipHTML} = await import('/js/baseline.js');
     const {initScoreboard} = await import('/js/scoreboard.js');
-    const {orderingBadge,verdictBadgeHTML,schedulingFormHTML} = await import('/js/order.js');
+    const {orderingBadge,verdictBadgeHTML,schedulingFormHTML,orderHeaderHTML} = await import('/js/order.js');
     const {initHome} = await import('/js/home.js');
     initForms();
+    const commitments=document.createElement('div');commitments.id='commitment-controls';
+    commitments.innerHTML=orderHeaderHTML({initiatives:[],podWeeks:[]});
+    document.querySelector('main').prepend(commitments);
     const item = {initiative:'Atlas acceptance checkpoint',kind:'milestone',state:'ready',canRelease:true,
       plannedStartWeek:0,plannedFinishWeek:0,reasons:[{message:'Acceptance evidence '+ 'reference'.repeat(20)}],checklist:[
         {key:'scope_ready',label:'Scope ready'},
@@ -82,6 +85,16 @@ try {
     new bootstrap.Tooltip(document.body,{selector:'[data-bs-toggle="tooltip"], [data-tip], .help',title:el=>el.dataset.bsTitle??el.dataset.tip??'',trigger:'hover focus',placement:'bottom'});
   });
   await page.locator('#ready-search.form-control').waitFor();
+  // specs/033-consistent-plan-controls-and-samples.md:35
+  for (const theme of ['light','dark']) {
+    await page.evaluate(theme=>document.documentElement.dataset.bsTheme=theme,theme);
+    const peerSizes=await page.locator('#ord-optimize,#sched-open,#tl-open').evaluateAll(nodes=>nodes.map(node=>({height:node.getBoundingClientRect().height,font:getComputedStyle(node).fontSize})));
+    assert.equal(peerSizes.length,3);
+    assert.ok(peerSizes.every(size=>Math.abs(size.height-peerSizes[0].height)<=1 && size.font===peerSizes[0].font),'Commitment actions share framework sizing: '+JSON.stringify(peerSizes));
+    const filterGeometry=await page.locator('#tl-initiative-filter,#tl-team-filter,#tl-fullscreen').evaluateAll(nodes=>nodes.map(node=>({height:node.getBoundingClientRect().height,bottom:node.getBoundingClientRect().bottom,font:getComputedStyle(node).fontSize})));
+    assert.equal(filterGeometry.length,3);
+    assert.ok(filterGeometry.every(size=>Math.abs(size.height-filterGeometry[0].height)<=1 && Math.abs(size.bottom-filterGeometry[0].bottom)<=1 && size.font===filterGeometry[0].font),'Timeline peers align and share framework sizing: '+JSON.stringify(filterGeometry));
+  }
   const calendarWidth=await page.locator('.cal-win').evaluate(row=>({width:row.getBoundingClientRect().width,selects:[...row.querySelectorAll('select')].map(select=>select.getBoundingClientRect().width)}));
   assert.ok(calendarWidth.selects.every(width=>width<calendarWidth.width/2),'Calendar selectors leave room for the other window fields: '+JSON.stringify(calendarWidth));
   const calendarAffordances=await page.locator('.cal-win select').evaluateAll(selects=>selects.map(select=>{const style=getComputedStyle(select);return {arrow:style.backgroundImage,left:parseFloat(style.paddingLeft),right:parseFloat(style.paddingRight)};}));

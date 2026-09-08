@@ -477,7 +477,7 @@ test('the timeline controls markup is tag-balanced (regression: btn-group swallo
     const html = timelineControlsHTML({ lens, horizon: 26, spans, spanSel: 'period', filter: '', hideEmpty: false, ghost: false });
     assert.equal(tagBalance(html), null, `${lens} lens controls balance`);
     assert.match(html, /<div id="tl-by-initiative"|id="tl-by-initiative"/);
-    assert.match(html, /class="tl-filter"/);
+    assert.match(html, /class="tl-filter\s[^"]*"/);
   }
   const pod = timelineControlsHTML({ lens: 'pod', horizon: 26, spans, spanSel: 'all', filter: 'x', hideEmpty: true, ghost: true });
   assert.match(pod, /id="tl-hide-empty"/, 'hide-empty checkbox rides the pod lens');

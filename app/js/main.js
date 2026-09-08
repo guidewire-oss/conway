@@ -43,7 +43,7 @@ function flushAnnouncementVisits() {
   }
 }
 window.addEventListener('conway:feature-opened', event => {
-  const target = ({ guide: 'docs-btn', assistant: 'view-assistant', forecast: 'view-forecast', ready: 'view-ready', execution: 'view-execution', 'linked-sheets': 'plan-linked-sheets', snapshots:'obs-snapshots' })[event.detail?.action];
+  const target = ({ guide: 'docs-btn', assistant: 'view-assistant', forecast: 'view-forecast', ready: 'view-ready', execution: 'view-execution', 'linked-sheets': 'plan-linked-sheets', 'plan-sample':'plan-init-sample', snapshots:'obs-snapshots' })[event.detail?.action];
   if (target && announcementIdentity()) {
     pendingAnnouncementVisits.set(target, announcementIdentity());
     flushAnnouncementVisits();
@@ -146,6 +146,10 @@ async function load() {
       onAction: async action => {
         if (action.target === 'docs-btn') { openDocs(); return true; }
         if (action.target === 'obs-snapshots') { openSnapshots(); return true; }
+        if (action.target === 'plan-init-sample') {
+          await openPlanDestination('setup');
+          return false; // Its successful download emits the usage event.
+        }
         return openPlanDestination(action.target === 'view-forecast' ? 'forecast' : action.target === 'view-assistant' ? 'assistant' : action.target === 'view-execution' ? 'execution' : action.target === 'view-ready' ? 'ready' : 'linked-sheets');
       },
     });

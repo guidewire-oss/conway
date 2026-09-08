@@ -19,7 +19,9 @@ function adopt(root) {
       return;
     }
     if (el.type === 'search') {
-      el.classList.add('form-control', 'form-control-sm');
+      // Explicit framework sizing wins; only unstyled legacy searches get compact defaults.
+      // specs/033-consistent-plan-controls-and-samples.md:102
+      if (!el.classList.contains('form-control')) el.classList.add('form-control', 'form-control-sm');
       return;
     }
     el.classList.add('form-control');

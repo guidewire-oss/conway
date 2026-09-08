@@ -168,6 +168,8 @@ func (s *server) handlePlanItem(w http.ResponseWriter, r *http.Request, c auth.C
 		return
 	}
 	switch {
+	case sub == "sample/initiatives.xlsx" && r.Method == http.MethodGet:
+		s.planSampleInitiatives(w, p)
 	case sub == "forecast":
 		s.handleForecast(w, r, p, c)
 	case sub == "predictions" || strings.HasPrefix(sub, "predictions/"):
@@ -195,7 +197,7 @@ func (s *server) handlePlanItem(w http.ResponseWriter, r *http.Request, c auth.C
 	case sub == "teams" && r.Method == http.MethodPatch:
 		s.editPlanTeam(w, r, p)
 	case sub == "roster" && r.Method == http.MethodPost:
-		s.attachPlanRoster(w, r, p)
+		s.attachPlanRoster(w, r, p, c)
 	case sub == "initiatives" && r.Method == http.MethodPost:
 		s.uploadPlanInitiatives(w, r, p, c)
 	case sub == "initiatives" && r.Method == http.MethodPatch:
@@ -235,6 +237,21 @@ func (s *server) handlePlanItem(w http.ResponseWriter, r *http.Request, c auth.C
 	default:
 		methodNotAllowed(w, r)
 	}
+}
+
+// specs/033-consistent-plan-controls-and-samples.md:112
+func (s *server) planSampleInitiatives(w http.ResponseWriter, p *db.PlanRow) {
+	var teams []planning.Team
+	if len(p.Teams) > 0 {
+		if err := json.Unmarshal(p.Teams, &teams); err != nil {
+			http.Error(w, "Could not read this plan's teams. Reload the plan and try again.", http.StatusInternalServerError)
+			return
+		}
+	}
+	w.Header().Set("Cache-Control", "private, no-store")
+	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	w.Header().Set("Content-Disposition", `attachment; filename="conway-sample-initiatives.xlsx"`)
+	_, _ = w.Write(planning.WriteSampleInitiativesXLSX(teams))
 }
 
 func (s *server) uploadPlanTeams(w http.ResponseWriter, r *http.Request, p *db.PlanRow, c auth.Claims) {
@@ -470,7 +487,7 @@ func netPodsToTeams(pods []NetPod) []planning.Team {
 // drifts over time, so this freezes a copy at attach time — roster_id is kept
 // only as a reference label, never live-joined, so later roster edits don't
 // silently change an already-built plan.
-func (s *server) attachPlanRoster(w http.ResponseWriter, r *http.Request, p *db.PlanRow) {
+func (s *server) attachPlanRoster(w http.ResponseWriter, r *http.Request, p *db.PlanRow, c auth.Claims) {
 	var body struct {
 		RosterID string `json:"rosterId"`
 	}
@@ -480,14 +497,30 @@ func (s *server) attachPlanRoster(w http.ResponseWriter, r *http.Request, p *db.
 		http.Error(w, "pick a roster", 400)
 		return
 	}
-	pods, err := s.rosterPods(rosterID)
+	// specs/033-consistent-plan-controls-and-samples.md:115
+	row, err := s.db.GetRoster(rosterID)
 	if err != nil {
 		s.logger().Error().Str("path", r.URL.Path).Err(err).Msg("request failed")
 		http.Error(w, err.Error(), 500)
 		return
 	}
+	if row == nil {
+		http.Error(w, "roster not found", http.StatusNotFound)
+		return
+	}
+	if row.Owner != c.Sub && !c.Has("admin") && !row.Public {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	var pods []NetPod
+	if len(row.Pods) > 0 {
+		if err := json.Unmarshal(row.Pods, &pods); err != nil {
+			http.Error(w, "Could not read this roster's teams.", http.StatusInternalServerError)
+			return
+		}
+	}
 	if len(pods) == 0 {
-		http.Error(w, "roster not found (or has no pods)", 400)
+		http.Error(w, "This roster has no teams. Add teams to the roster before attaching it.", 400)
 		return
 	}
 	teams := netPodsToTeams(pods)

@@ -74,6 +74,20 @@ func isNumeric(s string) bool {
 	return err == nil
 }
 
+// WriteSampleInitiativesXLSX uses the saved team snapshot, never real work.
+// specs/033-consistent-plan-controls-and-samples.md:112
+func WriteSampleInitiativesXLSX(teams []Team) []byte {
+	if len(teams) == 0 {
+		demoTeams, inits := Demo()
+		return WriteInitiativesXLSX(demoTeams, inits)
+	}
+	work := make(map[string]TeamWork, len(teams))
+	for _, team := range teams {
+		work[team.Name] = TeamWork{Weeks: 2, Estimated: true, InPath: true}
+	}
+	return WriteInitiativesXLSX(teams, []Initiative{{Name: "Example initiative - replace before importing", StatedPriority: 1, Work: work}})
+}
+
 // WriteInitiativesXLSX emits a v2 FullKit matrix from a plan: paired
 // "<Team> Sequence" (deps) + "<Team>" (weeks) columns. Non-involved teams are
 // marked "No Dependency".

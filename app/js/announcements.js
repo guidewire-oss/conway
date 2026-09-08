@@ -117,6 +117,7 @@ export function safeAnnouncementAction(action) {
   if (action.type === 'menu') return !action.route && ((action.target === 'docs-btn' && action.parent === 'help-btn') || (action.target === 'obs-snapshots' && action.parent === 'explore-btn'));
   if (action.type !== 'route' || action.parent !== 'plan-btn') return false;
   return (action.target === 'view-forecast' && action.route === '?view=plan&planView=forecast') || (action.target === 'view-assistant' && action.route === '?view=plan&planView=assistant') || (action.target === 'view-ready' && action.route === '?view=plan&planView=ready') ||
+    (action.target === 'plan-init-sample' && action.route === '?view=plan&planView=setup') ||
     (action.target === 'view-execution' && action.route === '?view=plan&planView=execution') ||
     (action.target === 'plan-linked-sheets' && action.route === '?view=plan');
 }
