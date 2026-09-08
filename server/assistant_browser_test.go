@@ -72,6 +72,7 @@ var _ = Describe("planning assistant browser", Label("database", "browser"), fun
 			return e
 		}
 		Expect(addRun(snapshotID, now-120, now-60)).To(Succeed())
+		evaluation := seedEvaluationFixture(database, pool, user.Username)
 		var outcomeSnapshots []string
 		DeferCleanup(func() {
 			for _, id := range outcomeSnapshots {
@@ -125,6 +126,7 @@ var _ = Describe("planning assistant browser", Label("database", "browser"), fun
 		defer cancel()
 		cmd := browserCommand(ctx, node, script)
 		cmd.Env = append(os.Environ(), "CONWAY_TEST_BASE_URL="+host.URL, "CONWAY_TEST_USERNAME="+user.Username, "CONWAY_TEST_PASSWORD="+password, "CONWAY_TEST_PLAN_ID="+row.ID, "CONWAY_TEST_SNAPSHOT_ID="+snapshotID)
+		cmd.Env = append(cmd.Env, "CONWAY_TEST_EVALUATION_PLAN="+evaluation.Plan, "CONWAY_TEST_EVALUATION_REFERENCE="+evaluation.Reference, "CONWAY_TEST_EVALUATION_TRAINING="+evaluation.Training, "CONWAY_TEST_EVALUATION_LATER="+evaluation.Later)
 		output, err := cmd.CombinedOutput()
 		GinkgoWriter.Printf("%s", output)
 		Expect(err).NotTo(HaveOccurred(), "%s", output)

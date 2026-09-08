@@ -78,6 +78,10 @@ func (v *ValidationCounts) count(status string) {
 // specs/029-forecast-history-validation.md:123: choose connected-scope representatives
 // before examining outcomes, including transitive overlap and excluded originals.
 func ValidatePredictionHistory(reference ForecastPrediction, history []ForecastPrediction, current []Initiative, evidence PredictionEvidence, issues []ExecutionIssue) (PredictionValidation, error) {
+	return validatePredictionHistory(reference, history, current, evidence, issues, false)
+}
+
+func validatePredictionHistory(reference ForecastPrediction, history []ForecastPrediction, current []Initiative, evidence PredictionEvidence, issues []ExecutionIssue, archivedInputs bool) (PredictionValidation, error) {
 	out := PredictionValidation{ReferenceID: reference.ID, Settings: reference.Forecast.Settings, Evidence: evidence, TotalRecords: len(history), Months: []ValidationMonth{}, Rows: []ValidationRow{}}
 	if len(history) > MaxValidationRecords {
 		return out, fmt.Errorf("%w: this report supports at most %d recorded predictions. No partial report was produced; retain history and contact an administrator", ErrValidationLimit, MaxValidationRecords)
@@ -166,7 +170,11 @@ func ValidatePredictionHistory(reference ForecastPrediction, history []ForecastP
 		} else {
 			assessment, ok := assessments[e.record]
 			if !ok {
-				assessment = AssessPrediction(p, current, evidence, issues)
+				inputs := current
+				if archivedInputs {
+					inputs = p.Inputs.Initiatives
+				}
+				assessment = AssessPrediction(p, inputs, evidence, issues)
 				assessments[e.record] = assessment
 			}
 			row.PredictionOutcome = assessment.Rows[e.initiative]

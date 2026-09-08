@@ -168,6 +168,54 @@ var _ = Describe("portfolio forecast API", Label("database"), func() {
 			}
 		}
 	})
+	It("evaluates held-out forecasts with archived inputs and enforces strict requests and capture access", func() {
+		f := seedEvaluationFixture(database, pool, claims.Sub)
+		endpoint := "/api/plan/" + f.Plan + "/predictions/" + f.Reference + "/evaluation"
+		body := string(encode(map[string]string{"trainingSnapshotId": f.Training, "snapshotId": f.Later}))
+		request := func(method, path, body string, c auth.Claims) *httptest.ResponseRecorder {
+			r := httptest.NewRecorder()
+			srv.handlePlanItem(r, httptest.NewRequest(method, path, strings.NewReader(body)), c)
+			return r
+		}
+		before, err := database.GetPlan(f.Plan)
+		Expect(err).NotTo(HaveOccurred())
+		r := request("POST", endpoint, body, claims)
+		Expect(r.Code).To(Equal(200), r.Body.String())
+		Expect(r.Header().Get("Cache-Control")).To(Equal("no-store"))
+		var report planning.ForecastEvaluation
+		Expect(json.Unmarshal(r.Body.Bytes(), &report)).To(Succeed())
+		Expect(report.Training.Eligible).To(Equal(1))
+		Expect(report.Test.Eligible).To(Equal(1))
+		Expect(*report.Probability).To(BeNumerically("~", 2.0/3))
+		Expect(*report.BrierScore).To(BeNumerically("~", 1.0/9))
+		Expect(database.SavePlanInitiatives(f.Plan, []byte(`[]`), before.UpdatedAt)).To(Succeed())
+		Expect(request("POST", endpoint, body, claims).Body.String()).To(Equal(r.Body.String()), "Current edits do not refit archived training evidence")
+		Expect(database.SavePlanInitiatives(f.Plan, before.Initiatives, before.UpdatedAt)).To(Succeed())
+		after, err := database.GetPlan(f.Plan)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(after).To(Equal(before))
+		for _, bad := range []string{"null", "{}", body + body, strings.TrimSuffix(body, "}") + `,"apply":true}`} {
+			Expect(request("POST", endpoint, bad, claims).Code).To(BeNumerically(">=", 400), bad)
+		}
+		Expect(request("GET", endpoint, body, claims).Code).To(Equal(405))
+		Expect(request("POST", endpoint+"/unknown", body, claims).Code).To(Equal(405))
+		reversed := string(encode(map[string]string{"trainingSnapshotId": f.Later, "snapshotId": f.Training}))
+		Expect(request("POST", endpoint, reversed, claims).Code).To(Equal(400))
+		for _, c := range []auth.Claims{{Sub: "other", Roles: []string{"manager"}}, {Sub: claims.Sub, Roles: []string{"player"}}, {Sub: claims.Sub, Roles: claims.Roles, GameID: "game"}} {
+			Expect(request("POST", endpoint, body, c).Code).To(Equal(403))
+		}
+		for _, id := range []string{f.Initial, f.Training, f.Later} {
+			_, err = pool.Exec(context.Background(), `UPDATE snapshots SET owner='other',public=false WHERE id=$1`, id)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(request("POST", endpoint, body, claims).Code).To(Equal(404))
+			_, err = pool.Exec(context.Background(), `UPDATE snapshots SET owner=$2 WHERE id=$1`, id, claims.Sub)
+			Expect(err).NotTo(HaveOccurred())
+		}
+		Expect(request("POST", endpoint, body, claims).Code).To(Equal(200))
+		_, err = pool.Exec(context.Background(), `UPDATE accounts SET roles=ARRAY['player'],role='player' WHERE username=$1`, claims.Sub)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(request("POST", endpoint, body, claims).Code).To(Equal(403))
+	})
 	It("validates the full history with current evidence access and rejects partial oversized reports", func() {
 		ctx := context.Background()
 		now := time.Now().Unix()
