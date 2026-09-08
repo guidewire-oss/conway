@@ -42,7 +42,7 @@ the same work, when validation runs, then the later success cannot replace the
 earlier representative. Transitive overlap also counts as one work group.
 
 **AC 1.3:** Given different settings, source configuration or records issued
-after capture started, when validation runs, then these records are excluded
+at or after capture started, when validation runs, then these records are excluded
 from the cohort with separately reported counts.
 
 **AC 2.1:** Given completed, pending and excluded representatives, when results
@@ -93,7 +93,7 @@ time, month and representative identity to the existing outcome fields.
 Use existing strict bounded JSON decoding and current owner/admin authorization.
 Return 400 for invalid evidence or requests, 403/404 for access violations, 422 for
 history exceeding limits, and generic 500 for unreadable history/storage faults.
-Original captures of every candidate record require current read access; fail
+Original captures of every matching record, including late records, require read access; fail
 the report if access is missing rather than silently dropping those observations.
 
 ## 9. Out of Scope
@@ -154,6 +154,14 @@ changing evidence or action clears the preceding result. Results use Bootstrap
 cards, badges and responsive layout, with optional full-entry details to avoid
 crowding the first view. Preserve selection on recoverable failures and link to
 contextual docs. Register this launch in feature announcements.
+
+### Decision 3: Review boundary clarification
+
+Access checks cover every source/settings-matching record before its issuance
+time is classified, because late-record counts also appear in the report. The
+database query and overflow rejection share the domain's record limit; the DB
+returns an explicit overflow error rather than a partial list. Exact action
+matching already rejects additional path suffixes; retain that behavior.
 
 ## 12. Success Metrics
 

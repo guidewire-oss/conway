@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -162,15 +163,15 @@ func (s *server) handlePredictions(w http.ResponseWriter, r *http.Request, p *db
 }
 
 // specs/029-forecast-history-validation.md:93: original evidence access is required
-// for all candidate records; an incomplete private cohort must not become a report.
+// for all matching records; an incomplete private cohort must not become a report.
 func (s *server) validatePredictionHistory(w http.ResponseWriter, r *http.Request, p *db.PlanRow, c auth.Claims, reference planning.ForecastPrediction, current []planning.Initiative, ev planning.PredictionEvidence, issues []planning.ExecutionIssue) {
 	rows, err := s.db.PredictionValidationHistory(r.Context(), p.ID)
-	if err != nil {
-		s.predictionError(w, err)
+	if errors.Is(err, planning.ErrValidationLimit) {
+		http.Error(w, fmt.Sprintf("History validation supports at most %d recorded predictions. No partial report was produced; retain history and contact an administrator.", planning.MaxValidationRecords), http.StatusUnprocessableEntity)
 		return
 	}
-	if len(rows) > 200 {
-		http.Error(w, "History validation supports at most 200 recorded predictions. No partial report was produced; retain history and contact an administrator.", http.StatusUnprocessableEntity)
+	if err != nil {
+		s.predictionError(w, err)
 		return
 	}
 	history := make([]planning.ForecastPrediction, 0, len(rows))
@@ -181,7 +182,7 @@ func (s *server) validatePredictionHistory(w http.ResponseWriter, r *http.Reques
 			s.predictionError(w, err)
 			return
 		}
-		if planning.ValidationMatches(reference, pred) && pred.IssuedAt < ev.StartedAt && !access[row.SnapshotID] {
+		if planning.ValidationMatches(reference, pred) && !access[row.SnapshotID] {
 			snap, err := s.db.GetSnapshot(row.SnapshotID)
 			if err != nil {
 				s.predictionError(w, err)

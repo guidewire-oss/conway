@@ -1,3 +1,4 @@
+import {waitForAsyncFunction} from './async-condition.mjs';
 // specs/025-team-ready-work-queue.md:129: actual server, retained evidence,
 // explicit operational decisions, keyboard navigation and narrow-screen use.
 import assert from 'node:assert/strict';
@@ -79,7 +80,7 @@ export async function checkReadyQueue(page,base,plan) {
     const history=await api('/history?team=Team%20A&initiative=Atlas');
     assert.equal(history.confirmations.length,1);assert.equal(history.decisions.length,3);
     assert.equal(history.decisions.at(-1).decision,'release');
-    await page.waitForFunction(async()=>{const response=await fetch('/api/announcements',{headers:{Authorization:'Bearer '+localStorage.getItem('conway_token')}});return (await response.json()).features.find(f=>f.id==='team-ready-work-v1')?.visited;});
+    await waitForAsyncFunction(page,async()=>{const response=await fetch('/api/announcements',{headers:{Authorization:'Bearer '+localStorage.getItem('conway_token')}});return (await response.json()).features.find(f=>f.id==='team-ready-work-v1')?.visited;});
 
     await page.locator('#ready-week').fill('1');await page.locator('#ready-week').press('Tab');
     await page.locator('#ready-context').filter({hasText:'Week 1'}).waitFor();

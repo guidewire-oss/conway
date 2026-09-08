@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"conway/server/planning"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -27,7 +28,7 @@ type PredictionSource struct {
 
 // specs/029-forecast-history-validation.md:117: never score a silently truncated history.
 func (d *DB) PredictionValidationHistory(ctx context.Context, planID string) ([]PredictionRow, error) {
-	rows, err := d.pool.Query(ctx, `SELECT id,name,issued_at,recorded_order,snapshot_id,data FROM plan_forecast_predictions WHERE plan_id=$1 ORDER BY issued_at,id LIMIT 201`, planID)
+	rows, err := d.pool.Query(ctx, `SELECT id,name,issued_at,recorded_order,snapshot_id,data FROM plan_forecast_predictions WHERE plan_id=$1 ORDER BY issued_at,id LIMIT $2`, planID, planning.MaxValidationRecords+1)
 	if err != nil {
 		return nil, err
 	}
@@ -39,6 +40,9 @@ func (d *DB) PredictionValidationHistory(ctx context.Context, planID string) ([]
 			return nil, err
 		}
 		out = append(out, row)
+		if len(out) > planning.MaxValidationRecords {
+			return nil, planning.ErrValidationLimit
+		}
 	}
 	return out, rows.Err()
 }

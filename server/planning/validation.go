@@ -9,6 +9,8 @@ import (
 
 var ErrValidationLimit = errors.New("history validation limit exceeded")
 
+const MaxValidationRecords = 200
+
 type ValidationCounts struct {
 	Eligible        int      `json:"eligible"`
 	Covered         int      `json:"covered"`
@@ -77,8 +79,8 @@ func (v *ValidationCounts) count(status string) {
 // before examining outcomes, including transitive overlap and excluded originals.
 func ValidatePredictionHistory(reference ForecastPrediction, history []ForecastPrediction, current []Initiative, evidence PredictionEvidence, issues []ExecutionIssue) (PredictionValidation, error) {
 	out := PredictionValidation{ReferenceID: reference.ID, Settings: reference.Forecast.Settings, Evidence: evidence, TotalRecords: len(history), Months: []ValidationMonth{}, Rows: []ValidationRow{}}
-	if len(history) > 200 {
-		return out, fmt.Errorf("%w: this report supports at most 200 recorded predictions. No partial report was produced; retain history and contact an administrator", ErrValidationLimit)
+	if len(history) > MaxValidationRecords {
+		return out, fmt.Errorf("%w: this report supports at most %d recorded predictions. No partial report was produced; retain history and contact an administrator", ErrValidationLimit, MaxValidationRecords)
 	}
 	if evidence.SourceID == "" || evidence.SourceID != reference.Evidence.SourceID || evidence.ConfigFingerprint == "" || evidence.ConfigFingerprint != reference.Evidence.ConfigFingerprint {
 		return out, errors.New("choose a capture with the reference prediction's source and extraction settings")

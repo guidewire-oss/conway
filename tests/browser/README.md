@@ -105,3 +105,9 @@ The same journey validates complete prediction history, suppresses repeated
 work, recovers a failed validation request, ignores a result after capture
 selection changes, and opens the representative record. It writes
 `conway-validation-mobile.png` with expanded selection explanations at 360px.
+
+Use `waitForAsyncFunction` from `async-condition.mjs` for conditions that fetch
+server state. It awaits each result and bounds both repeated false values and
+unsettled requests. Keep Playwright `waitForFunction` predicates synchronous.
+After a backend change, also wait for the corresponding rendered state before
+interacting with an existing control that may still refer to older data.
