@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"conway/server/auth"
 	"conway/server/db"
 	"conway/server/planning"
 	"encoding/json"
@@ -72,6 +73,21 @@ var _ = Describe("planning assistant browser", Label("database", "browser"), fun
 			return e
 		}
 		Expect(addRun(snapshotID, now-120, now-60)).To(Succeed())
+		evaluation := seedEvaluationFixture(database, pool, user.Username)
+		// A historical registration supplies future outcomes without waiting weeks.
+		// This fixture exists only in the isolated test binary.
+		archived, err := database.Prediction(context.Background(), evaluation.Plan, evaluation.Reference)
+		Expect(err).NotTo(HaveOccurred())
+		var reference planning.ForecastPrediction
+		Expect(json.Unmarshal(archived.Data, &reference)).To(Succeed())
+		ev, trainingIssues, ok := srv.predictionCapture(httptest.NewRecorder(), httptest.NewRequest("GET", "/", nil), auth.Claims{Sub: user.Username, Roles: []string{"manager"}}, evaluation.Training)
+		Expect(ok).To(BeTrue())
+		registered, err := planning.RegisterForecastModel(reference, []planning.ForecastPrediction{reference}, ev, trainingIssues, ev.CapturedAt+60)
+		Expect(err).NotTo(HaveOccurred())
+		registered.ID, registered.Name, registered.CreatedBy = "earlier-registered-model", "Earlier registered baseline", user.Username
+		_, err = pool.Exec(context.Background(), `INSERT INTO plan_forecast_registrations(plan_id,reference_id,id,request_hash,data) VALUES($1,$2,$3,'fixture',$4)`, evaluation.Plan, reference.ID, registered.ID, encode(registered))
+		Expect(err).NotTo(HaveOccurred())
+
 		var outcomeSnapshots []string
 		DeferCleanup(func() {
 			for _, id := range outcomeSnapshots {
@@ -125,6 +141,7 @@ var _ = Describe("planning assistant browser", Label("database", "browser"), fun
 		defer cancel()
 		cmd := browserCommand(ctx, node, script)
 		cmd.Env = append(os.Environ(), "CONWAY_TEST_BASE_URL="+host.URL, "CONWAY_TEST_USERNAME="+user.Username, "CONWAY_TEST_PASSWORD="+password, "CONWAY_TEST_PLAN_ID="+row.ID, "CONWAY_TEST_SNAPSHOT_ID="+snapshotID)
+		cmd.Env = append(cmd.Env, "CONWAY_TEST_EVALUATION_PLAN="+evaluation.Plan, "CONWAY_TEST_EVALUATION_REFERENCE="+evaluation.Reference, "CONWAY_TEST_EVALUATION_TRAINING="+evaluation.Training, "CONWAY_TEST_EVALUATION_LATER="+evaluation.Later)
 		output, err := cmd.CombinedOutput()
 		GinkgoWriter.Printf("%s", output)
 		Expect(err).NotTo(HaveOccurred(), "%s", output)

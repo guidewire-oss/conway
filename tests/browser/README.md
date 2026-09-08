@@ -100,3 +100,21 @@ retry without duplicates, reload, visible capture failures, later outcome
 assessment and capture-selection invalidation. It temporarily uses a future
 planning period and restores the original settings, so time passing does not
 turn a prospective prediction fixture into an already-expired one.
+
+The same journey validates complete prediction history, suppresses repeated
+work, recovers a failed validation request, ignores a result after capture
+selection changes, and opens the representative record. It writes
+`conway-validation-mobile.png` with expanded selection explanations at 360px.
+
+`prediction-evaluation.mjs` continues on a separate generic history fixture. It
+uses the real evaluation endpoint to fit earlier completed evidence, score later
+work, reject reversed captures, recover after an outage, preserve selections,
+ignore late responses after either capture disappears or navigation changes, and
+open original records. Keyboard submission and light/dark 360px screenshots
+(`conway-evaluation-*-mobile.png`) cover the progressive model section.
+
+Use `waitForAsyncFunction` from `async-condition.mjs` for conditions that fetch
+server state. It awaits each result and bounds both repeated false values and
+unsettled requests. Keep Playwright `waitForFunction` predicates synchronous.
+After a backend change, also wait for the corresponding rendered state before
+interacting with an existing control that may still refer to older data.

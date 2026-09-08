@@ -1,3 +1,4 @@
+import {waitForAsyncFunction} from './async-condition.mjs';
 import {chooseUpdate,readAllUpdates} from './announcement-navigation.mjs';
 // Called by the Go acceptance harness against its isolated real server.
 import assert from 'node:assert/strict';
@@ -27,7 +28,7 @@ try {
   const announcements=page.locator('#announcements-overlay');
   await announcements.waitFor({state:'visible'});
   assert.equal(await announcements.locator('[data-announcement-action]').count(),1);
-  await page.waitForFunction(async()=>{const r=await fetch('/api/announcements',{headers:{Authorization:'Bearer '+localStorage.getItem('conway_token')}});return (await r.json()).features.filter(f=>f.announced).length===1;});
+  await waitForAsyncFunction(page,async()=>{const r=await fetch('/api/announcements',{headers:{Authorization:'Bearer '+localStorage.getItem('conway_token')}});return (await r.json()).features.filter(f=>f.announced).length===1;});
   assert.equal((await api('/api/announcements')).features.filter(f=>f.announced).length,1);
   await page.keyboard.press('Escape');await announcements.waitFor({state:'hidden'});
   await page.reload();await announcements.waitFor({state:'visible'});
@@ -50,7 +51,7 @@ try {
   await page.setViewportSize({width:1280,height:960});
   await announcements.locator('[data-announcement-close]').click(); await announcements.waitFor({state:'hidden'});
   await page.locator('#plan-linked-sheets').click(); await overlay.locator('[data-link]').waitFor();
-  await page.waitForFunction(async()=>{const r=await fetch('/api/announcements',{headers:{Authorization:'Bearer '+localStorage.getItem('conway_token')}});return (await r.json()).features.find(f=>f.id==='linked-sheet-import-v1')?.visited;});
+  await waitForAsyncFunction(page,async()=>{const r=await fetch('/api/announcements',{headers:{Authorization:'Bearer '+localStorage.getItem('conway_token')}});return (await r.json()).features.find(f=>f.id==='linked-sheet-import-v1')?.visited;});
   const form=overlay.locator('[data-link]');
   await form.locator('[name=spreadsheetUrl]').fill('https://docs.google.com/spreadsheets/d/generic-sheet-id/edit');
   await form.locator('[name=range]').fill('Teams!A1:B20'); await form.locator('button[type=submit]').click();
@@ -145,7 +146,7 @@ try {
   await checkWeeklyReview(page,base,plan);
   await checkReadyQueue(page,base,plan);
   assert.deepEqual(errors,[]);
-  await page.waitForFunction(async()=>{
+  await waitForAsyncFunction(page,async()=>{
     const r=await fetch('/api/announcements',{headers:{Authorization:'Bearer '+localStorage.getItem('conway_token')}});
     const features=(await r.json()).features;
     return ['execution-review-v1','weekly-execution-review-v1'].every(id=>features.find(f=>f.id===id)?.visited);

@@ -9,7 +9,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -167,6 +169,307 @@ var _ = Describe("portfolio forecast API", Label("database"), func() {
 				Expect(fingerprint(changed)).NotTo(Equal(baseline), field)
 			}
 		}
+	})
+	It("supports Unicode registration names and retains models until plan deletion", func() {
+		f := seedEvaluationFixture(database, pool, claims.Sub)
+		endpoint := "/api/plan/" + f.Plan + "/predictions/" + f.Reference + "/registrations"
+		for i, letter := range []string{"界", "\U00010400"} {
+			for _, size := range []int{120, 121} {
+				body := encode(map[string]string{"id": fmt.Sprintf("unicode-model-%d-%d", i, size), "name": strings.Repeat(letter, size), "trainingSnapshotId": f.Training})
+				r := httptest.NewRecorder()
+				srv.handlePlanItem(r, httptest.NewRequest("POST", endpoint, bytes.NewReader(body)), claims)
+				if size == 120 {
+					Expect(r.Code).To(Equal(200), r.Body.String())
+				} else {
+					Expect(r.Code).To(Equal(400), r.Body.String())
+				}
+			}
+		}
+		var indexDefinition string
+		Expect(pool.QueryRow(context.Background(), `SELECT indexdef FROM pg_indexes WHERE schemaname=current_schema() AND indexname='forecast_registration_reference'`).Scan(&indexDefinition)).To(Succeed())
+		Expect(indexDefinition).To(ContainSubstring("(plan_id, reference_id)"))
+		_, err := pool.Exec(context.Background(), `DELETE FROM plan_forecast_predictions WHERE plan_id=$1 AND id=$2`, f.Plan, f.Reference)
+		Expect(err).To(HaveOccurred())
+		var fkError *pgconn.PgError
+		Expect(errors.As(err, &fkError)).To(BeTrue())
+		Expect(fkError.Code).To(Equal("23503"))
+		rows, err := database.ForecastRegistrations(context.Background(), f.Plan, f.Reference)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rows).To(HaveLen(2))
+		Expect(database.DeletePlan(f.Plan)).To(Succeed())
+		rows, err = database.ForecastRegistrations(context.Background(), f.Plan, f.Reference)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rows).To(BeEmpty())
+		predictions, err := database.PredictionValidationHistory(context.Background(), f.Plan)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(predictions).To(BeEmpty())
+	})
+
+	It("registers prospective models idempotently and protects frozen evidence and future assessment", func() {
+		f := seedEvaluationFixture(database, pool, claims.Sub)
+		endpoint := "/api/plan/" + f.Plan + "/predictions/" + f.Reference + "/registrations"
+		request := func(method, path, body string, c auth.Claims) *httptest.ResponseRecorder {
+			r := httptest.NewRecorder()
+			srv.handlePlanItem(r, httptest.NewRequest(method, path, strings.NewReader(body)), c)
+			return r
+		}
+		body := string(encode(map[string]string{"id": "registered-model-test", "name": "Autumn baseline", "trainingSnapshotId": f.Training}))
+		before := time.Now().Unix()
+		saved := request("POST", endpoint, body, claims)
+		Expect(saved.Code).To(Equal(200), saved.Body.String())
+		var summary map[string]any
+		Expect(json.Unmarshal(saved.Body.Bytes(), &summary)).To(Succeed())
+		Expect(summary["registeredAt"]).To(BeNumerically(">=", before))
+		Expect(summary["probability"]).To(BeNumerically("~", 2.0/3))
+		Expect(request("POST", endpoint, body, claims).Body.String()).To(Equal(saved.Body.String()))
+		Expect(request("POST", endpoint, strings.Replace(body, "Autumn baseline", "Other baseline", 1), claims).Code).To(Equal(409))
+		list := request("GET", endpoint, "", claims)
+		Expect(list.Code).To(Equal(200))
+		var listed struct {
+			Registrations []json.RawMessage `json:"registrations"`
+		}
+		Expect(json.Unmarshal(list.Body.Bytes(), &listed)).To(Succeed())
+		Expect(listed.Registrations).To(HaveLen(1))
+		assess := endpoint + "/registered-model-test/assessment"
+		laterBody := string(encode(map[string]string{"snapshotId": f.Later}))
+		Expect(request("POST", assess, laterBody, claims).Code).To(Equal(400), "A past capture is not prospective")
+		for _, bad := range []string{"null", "{}", body + body, strings.TrimSuffix(body, "}") + `,"probability":1}`} {
+			Expect(request("POST", endpoint, bad, claims).Code).To(Equal(400))
+		}
+		Expect(request("POST", assess+"/extra", laterBody, claims).Code).To(Equal(405))
+		Expect(request("PATCH", endpoint, "{}", claims).Code).To(Equal(405))
+		for _, c := range []auth.Claims{{Sub: "other", Roles: []string{"manager"}}, {Sub: claims.Sub, Roles: []string{"player"}}, {Sub: claims.Sub, Roles: claims.Roles, GameID: "game"}} {
+			Expect(request("GET", endpoint, "", c).Code).To(Equal(403))
+		}
+		// Advance a historical fixture through registration and future observation.
+		row, err := database.ForecastRegistration(context.Background(), f.Plan, "registered-model-test")
+		Expect(err).NotTo(HaveOccurred())
+		var model planning.ForecastRegistration
+		Expect(json.Unmarshal(row.Data, &model)).To(Succeed())
+		model.RegisteredAt = model.TrainingEvidence.CapturedAt + 60
+		model.History = model.History[:1]
+		_, err = pool.Exec(context.Background(), `UPDATE plan_forecast_registrations SET data=$3 WHERE plan_id=$1 AND id=$2`, f.Plan, model.ID, encode(model))
+		Expect(err).NotTo(HaveOccurred())
+		assessed := request("POST", assess, laterBody, claims)
+		Expect(assessed.Code).To(Equal(200), assessed.Body.String())
+		var report struct {
+			Evaluation planning.ForecastEvaluation `json:"evaluation"`
+		}
+		Expect(json.Unmarshal(assessed.Body.Bytes(), &report)).To(Succeed())
+		Expect(report.Evaluation.Test.Eligible).To(Equal(1))
+		Expect(*report.Evaluation.BrierScore).To(BeNumerically("~", 1.0/9))
+		// Replacing training outcomes and current inputs cannot rewrite the retained fit.
+		Expect(database.SavePlanInitiatives(f.Plan, []byte(`[]`), time.Now().Unix())).To(Succeed())
+		_, err = pool.Exec(context.Background(), `UPDATE snapshot_issues SET status_cat='indeterminate',resolved=NULL WHERE snapshot_id=$1`, f.Training)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(request("POST", assess, laterBody, claims).Body.String()).To(Equal(assessed.Body.String()))
+		_, err = pool.Exec(context.Background(), `UPDATE snapshot_issues SET status_cat='done',resolved=to_timestamp($2) WHERE snapshot_id=$1 AND issue_type='Story'`, f.Training, model.Reference.IssuedAt+14*86400)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Two concurrent new keys compete for the final slot; retries remain available.
+		savedPlan, err := database.GetPlan(f.Plan)
+		Expect(err).NotTo(HaveOccurred())
+		for i := 0; i < 98; i++ {
+			m := model
+			m.ID = fmt.Sprintf("limit-model-%03d", i)
+			inserted, e := database.SaveForecastRegistration(context.Background(), savedPlan, db.RegistrationRow{ID: m.ID, ReferenceID: f.Reference, RequestHash: m.ID, Data: encode(m)})
+			Expect(e).NotTo(HaveOccurred())
+			Expect(inserted).To(BeTrue())
+		}
+		type result struct {
+			inserted bool
+			err      error
+		}
+		results := make(chan result, 2)
+		for i := 0; i < 2; i++ {
+			m := model
+			m.ID = fmt.Sprintf("concurrent-model-%d", i)
+			data := encode(m)
+			go func() {
+				inserted, e := database.SaveForecastRegistration(context.Background(), savedPlan, db.RegistrationRow{ID: m.ID, ReferenceID: f.Reference, RequestHash: m.ID, Data: data})
+				results <- result{inserted, e}
+			}()
+		}
+		succeeded, capped := 0, 0
+		for i := 0; i < 2; i++ {
+			r := <-results
+			if r.inserted {
+				succeeded++
+			}
+			if errors.Is(r.err, db.ErrRegistrationLimit) {
+				capped++
+			} else {
+				Expect(r.err).NotTo(HaveOccurred())
+			}
+		}
+		Expect(succeeded).To(Equal(1))
+		Expect(capped).To(Equal(1))
+		Expect(request("POST", endpoint, body, claims).Code).To(Equal(200))
+		Expect(request("POST", endpoint, strings.Replace(body, "registered-model-test", "one-too-many-model", 1), claims).Code).To(Equal(422))
+		Expect(request("GET", endpoint, "", claims).Code).To(Equal(200))
+		for _, id := range []string{f.Initial, f.Training, f.Later} {
+			_, err = pool.Exec(context.Background(), `UPDATE snapshots SET owner='other',public=false WHERE id=$1`, id)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(request("POST", assess, laterBody, claims).Code).To(Equal(404))
+			if id != f.Later {
+				Expect(request("GET", endpoint, "", claims).Code).To(Equal(404))
+			}
+			_, err = pool.Exec(context.Background(), `UPDATE snapshots SET owner=$2 WHERE id=$1`, id, claims.Sub)
+			Expect(err).NotTo(HaveOccurred())
+		}
+		_, err = pool.Exec(context.Background(), `UPDATE accounts SET roles=ARRAY['player'],role='player' WHERE username=$1`, claims.Sub)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(request("GET", endpoint, "", claims).Code).To(Equal(403))
+	})
+
+	It("evaluates held-out forecasts with archived inputs and enforces strict requests and capture access", func() {
+		f := seedEvaluationFixture(database, pool, claims.Sub)
+		endpoint := "/api/plan/" + f.Plan + "/predictions/" + f.Reference + "/evaluation"
+		body := string(encode(map[string]string{"trainingSnapshotId": f.Training, "snapshotId": f.Later}))
+		request := func(method, path, body string, c auth.Claims) *httptest.ResponseRecorder {
+			r := httptest.NewRecorder()
+			srv.handlePlanItem(r, httptest.NewRequest(method, path, strings.NewReader(body)), c)
+			return r
+		}
+		before, err := database.GetPlan(f.Plan)
+		Expect(err).NotTo(HaveOccurred())
+		r := request("POST", endpoint, body, claims)
+		Expect(r.Code).To(Equal(200), r.Body.String())
+		Expect(r.Header().Get("Cache-Control")).To(Equal("no-store"))
+		var report planning.ForecastEvaluation
+		Expect(json.Unmarshal(r.Body.Bytes(), &report)).To(Succeed())
+		Expect(report.Training.Eligible).To(Equal(1))
+		Expect(report.Test.Eligible).To(Equal(1))
+		Expect(*report.Probability).To(BeNumerically("~", 2.0/3))
+		Expect(*report.BrierScore).To(BeNumerically("~", 1.0/9))
+		Expect(database.SavePlanInitiatives(f.Plan, []byte(`[]`), before.UpdatedAt)).To(Succeed())
+		Expect(request("POST", endpoint, body, claims).Body.String()).To(Equal(r.Body.String()), "Current edits do not refit archived training evidence")
+		Expect(database.SavePlanInitiatives(f.Plan, before.Initiatives, before.UpdatedAt)).To(Succeed())
+		after, err := database.GetPlan(f.Plan)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(after).To(Equal(before))
+		for _, bad := range []string{"null", "{}", body + body, strings.TrimSuffix(body, "}") + `,"apply":true}`} {
+			Expect(request("POST", endpoint, bad, claims).Code).To(BeNumerically(">=", 400), bad)
+		}
+		Expect(request("GET", endpoint, body, claims).Code).To(Equal(405))
+		Expect(request("POST", endpoint+"/unknown", body, claims).Code).To(Equal(405))
+		reversed := string(encode(map[string]string{"trainingSnapshotId": f.Later, "snapshotId": f.Training}))
+		Expect(request("POST", endpoint, reversed, claims).Code).To(Equal(400))
+		for _, c := range []auth.Claims{{Sub: "other", Roles: []string{"manager"}}, {Sub: claims.Sub, Roles: []string{"player"}}, {Sub: claims.Sub, Roles: claims.Roles, GameID: "game"}} {
+			Expect(request("POST", endpoint, body, c).Code).To(Equal(403))
+		}
+		for _, id := range []string{f.Initial, f.Training, f.Later} {
+			_, err = pool.Exec(context.Background(), `UPDATE snapshots SET owner='other',public=false WHERE id=$1`, id)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(request("POST", endpoint, body, claims).Code).To(Equal(404))
+			_, err = pool.Exec(context.Background(), `UPDATE snapshots SET owner=$2 WHERE id=$1`, id, claims.Sub)
+			Expect(err).NotTo(HaveOccurred())
+		}
+		Expect(request("POST", endpoint, body, claims).Code).To(Equal(200))
+		_, err = pool.Exec(context.Background(), `UPDATE accounts SET roles=ARRAY['player'],role='player' WHERE username=$1`, claims.Sub)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(request("POST", endpoint, body, claims).Code).To(Equal(403))
+	})
+	It("validates the full history with current evidence access and rejects partial oversized reports", func() {
+		ctx := context.Background()
+		now := time.Now().Unix()
+		sourceID, initialID, otherID, laterID := newID(), newID(), newID(), newID()
+		_, err := pool.Exec(ctx, `INSERT INTO evidence_sources(id,owner,config,credential,next_at) VALUES($1,$2,'{"site":"https://atlas.atlassian.net","projects":["PROJ"]}','',0)`, sourceID, claims.Sub)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			_, e := pool.Exec(ctx, `DELETE FROM evidence_sources WHERE id=$1`, sourceID)
+			Expect(e).NotTo(HaveOccurred())
+		})
+		for _, id := range []string{initialID, otherID, laterID} {
+			Expect(database.CreateSnapshotWithData(db.SnapshotRow{ID: id, Owner: claims.Sub, Name: "Atlas capture", Source: "jira", CreatedAt: now - 1}, db.SnapshotData{})).To(Succeed())
+			DeferCleanup(func() { Expect(database.DeleteSnapshot(id)).To(Succeed()) })
+			start, finish := now-120, now-60
+			if id == laterID {
+				start, finish = now-2, now-1
+			}
+			_, err = pool.Exec(ctx, `INSERT INTO evidence_runs(id,source_id,status,started_at,finished_at,snapshot_id,config,version) SELECT $1,id,'succeeded',$3,$4,$5,config,1 FROM evidence_sources WHERE id=$2`, newID(), sourceID, start, finish, id)
+			Expect(err).NotTo(HaveOccurred())
+		}
+		Expect(database.SavePlanInitiatives(plan.ID, encode([]planning.Initiative{{Name: "Beacon", EpicKeys: []string{"PROJ-1"}, KitPct: 1, Work: map[string]planning.TeamWork{"Atlas": {Weeks: 2, Estimated: true, InPath: true}}}}), now)).To(Succeed())
+		savedPlan, err := database.GetPlan(plan.ID)
+		Expect(err).NotTo(HaveOccurred())
+		inputs, err := srv.planScheduleFor(savedPlan, scheduleRequest{})
+		Expect(err).NotTo(HaveOccurred())
+		forecast, err := planning.ComputeForecast(inputs, planning.ForecastSettings{LowerFactor: .8, UpperFactor: 1.3, Disruption: .1})
+		Expect(err).NotTo(HaveOccurred())
+		source, err := database.PredictionSnapshotSource(ctx, initialID)
+		Expect(err).NotTo(HaveOccurred())
+		for i := 0; i < 52; i++ {
+			capture := initialID
+			if i == 1 {
+				capture = otherID
+			}
+			pred := planning.ForecastPrediction{ID: fmt.Sprintf("history-%03d", i), Name: "September check", IssuedAt: now - 30, Inputs: inputs, Forecast: forecast, Evidence: planning.PredictionEvidence{SnapshotID: capture, SourceID: sourceID, ConfigFingerprint: source.Fingerprint}}
+			inserted, e := database.SavePrediction(ctx, savedPlan, db.PredictionRow{ID: pred.ID, Name: pred.Name, IssuedAt: pred.IssuedAt, SnapshotID: capture, RequestHash: pred.ID, Data: encode(pred)})
+			Expect(e).NotTo(HaveOccurred())
+			Expect(inserted).To(BeTrue())
+		}
+		request := func(method, body string, c auth.Claims) *httptest.ResponseRecorder {
+			r := httptest.NewRecorder()
+			srv.handlePlanItem(r, httptest.NewRequest(method, "/api/plan/"+plan.ID+"/predictions/history-000/validation", strings.NewReader(body)), c)
+			return r
+		}
+		body := string(encode(map[string]string{"snapshotId": laterID}))
+		response := request("POST", body, claims)
+		Expect(response.Code).To(Equal(200), response.Body.String())
+		var report planning.PredictionValidation
+		Expect(json.Unmarshal(response.Body.Bytes(), &report)).To(Succeed())
+		Expect(report.TotalRecords).To(Equal(52))
+		Expect(report.CandidateRecords).To(Equal(52))
+		Expect(report.Repeated).To(Equal(51))
+		Expect(report.Excluded).To(Equal(1))
+		Expect(report.CoveragePercent).To(BeNil())
+		after, err := database.GetPlan(plan.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(after).To(Equal(savedPlan))
+		Expect(request("GET", body, claims).Code).To(Equal(405))
+		Expect(request("POST", `{"snapshotId":"absent"}`, claims).Code).To(Equal(404))
+		Expect(request("POST", body+body, claims).Code).To(Equal(400))
+		for _, suffix := range []string{"validation/unknown", "validation/", "assessment/unknown"} {
+			r := httptest.NewRecorder()
+			srv.handlePlanItem(r, httptest.NewRequest("POST", "/api/plan/"+plan.ID+"/predictions/history-000/"+suffix, strings.NewReader(body)), claims)
+			Expect(r.Code).To(Equal(405), suffix)
+		}
+		for _, c := range []auth.Claims{{Sub: "other", Roles: []string{"manager"}}, {Sub: claims.Sub, Roles: []string{"player"}}, {Sub: claims.Sub, Roles: claims.Roles, GameID: "game"}} {
+			Expect(request("POST", body, c).Code).To(Equal(403))
+		}
+		_, err = pool.Exec(ctx, `UPDATE snapshots SET owner='other',public=false WHERE id=$1`, otherID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(request("POST", body, claims).Code).To(Equal(404))
+		_, err = pool.Exec(ctx, `UPDATE plan_forecast_predictions SET issued_at=$2,data=jsonb_set(data,'{issuedAt}',to_jsonb($2::bigint)) WHERE plan_id=$1 AND id='history-001'`, plan.ID, now)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(request("POST", body, claims).Code).To(Equal(404), "Matching late records still require original capture access")
+		_, err = pool.Exec(ctx, `UPDATE snapshots SET owner=$2 WHERE id=$1`, otherID, claims.Sub)
+		Expect(err).NotTo(HaveOccurred())
+		response = request("POST", body, claims)
+		Expect(response.Code).To(Equal(200))
+		Expect(json.Unmarshal(response.Body.Bytes(), &report)).To(Succeed())
+		Expect(report.TooLateRecords).To(Equal(1))
+		Expect(report.CandidateRecords).To(Equal(51))
+		_, err = pool.Exec(ctx, `UPDATE evidence_runs SET config='{"site":"https://other.atlassian.net"}' WHERE snapshot_id=$1`, laterID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(request("POST", body, claims).Code).To(Equal(400))
+		_, err = pool.Exec(ctx, `UPDATE evidence_runs SET config=(SELECT config FROM evidence_sources WHERE id=$2) WHERE snapshot_id=$1`, laterID, sourceID)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = pool.Exec(ctx, `INSERT INTO plan_forecast_predictions(id,plan_id,issued_at,name,snapshot_id,request_hash,data) SELECT 'extra-'||n,plan_id,issued_at,name,snapshot_id,'hash',jsonb_set(data,'{id}',to_jsonb('extra-'||n)) FROM plan_forecast_predictions CROSS JOIN generate_series(1,148) n WHERE plan_id=$1 AND id='history-000'`, plan.ID)
+		Expect(err).NotTo(HaveOccurred())
+		response = request("POST", body, claims)
+		Expect(response.Code).To(Equal(200), response.Body.String())
+		Expect(json.Unmarshal(response.Body.Bytes(), &report)).To(Succeed())
+		Expect(report.TotalRecords).To(Equal(200))
+		_, err = pool.Exec(ctx, `INSERT INTO plan_forecast_predictions(id,plan_id,issued_at,name,snapshot_id,request_hash,data) SELECT 'overflow',plan_id,issued_at,name,snapshot_id,'hash',jsonb_set(data,'{id}','"overflow"') FROM plan_forecast_predictions WHERE plan_id=$1 AND id='history-000'`, plan.ID)
+		Expect(err).NotTo(HaveOccurred())
+		response = request("POST", body, claims)
+		Expect(response.Code).To(Equal(422))
+		Expect(response.Body.String()).To(ContainSubstring("No partial report"))
+		_, err = pool.Exec(ctx, `UPDATE accounts SET roles=ARRAY['player'],role='player' WHERE username=$1`, claims.Sub)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(request("POST", body, claims).Code).To(Equal(403))
 	})
 	It("records immutable predictions, retries without duplicates and protects captured evidence", func() {
 		callPath := func(method, path, body string, c auth.Claims) *httptest.ResponseRecorder {

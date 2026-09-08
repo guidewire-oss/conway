@@ -1,4 +1,6 @@
+import {checkForecastRegistrations} from './forecast-registrations.mjs';
 import {checkPortfolioForecast} from './portfolio-forecast.mjs';
+import {checkPredictionEvaluation} from './prediction-evaluation.mjs';
 import {chooseUpdate,readAllUpdates} from './announcement-navigation.mjs';
 import assert from 'node:assert/strict';
 import {tmpdir} from 'node:os';
@@ -84,5 +86,7 @@ try{
  for(const theme of ['light','dark']){await page.evaluate(t=>document.documentElement.dataset.bsTheme=t,theme);await page.setViewportSize({width:360,height:800});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'assistant fits mobile');await page.screenshot({path:join(process.env.CONWAY_TEST_ARTIFACT_DIR||tmpdir(),'conway-assistant-'+theme+'.png'),fullPage:true});}
  const docs=await page.request.get(base+'/docs.html');assert.match(await docs.text(),/id="planning-assistant"/);
  const token=await page.evaluate(()=>localStorage.getItem('conway_token'));const reviews=await page.request.get(base+'/api/plan/'+plan+'/reviews',{headers:{Authorization:'Bearer '+token}});assert.deepEqual((await reviews.json()).reviews,[]);
- assert.deepEqual(errors,[]);console.log(JSON.stringify({schedule:true,agreement:true,observedAndManualReview:true,retry:true,staleScope:true,viewOwnership:true,mobile:true,readOnly:true}));
+ await checkPredictionEvaluation(page,base,holdAnswer);
+ await checkForecastRegistrations(page,base,holdAnswer);
+ assert.deepEqual(errors,[]);console.log(JSON.stringify({schedule:true,agreement:true,observedAndManualReview:true,retry:true,staleScope:true,viewOwnership:true,mobile:true,readOnly:true,modelEvaluation:true}));
 }finally{for(const release of releases)release();await browser.close();}

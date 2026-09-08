@@ -1,3 +1,4 @@
+import {waitForAsyncFunction} from './async-condition.mjs';
 import assert from 'node:assert/strict';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
@@ -98,7 +99,7 @@ export async function checkWeeklyReview(page,base,plan){
   await action.locator('[data-action-transition][data-version="2"]').waitFor();
   assert.equal(await transition.locator('[name=evidence]').inputValue(),'The team demonstrated acceptance for PROJ-2.');
   await transition.locator('button[type=submit]').click();
-  await page.waitForFunction(async({plan,actionID})=>{
+  await waitForAsyncFunction(page,async({plan,actionID})=>{
     const r=await fetch('/api/plan/'+plan+'/decisions',{headers:{Authorization:'Bearer '+localStorage.getItem('conway_token')}});
     return (await r.json()).decisions.find(a=>a.id===actionID)?.status==='resolved';
   },{plan,actionID});

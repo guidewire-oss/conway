@@ -178,6 +178,11 @@ CSS is needed for this workflow; source-scoped identity strings wrap in tables.
 The integration CI job allows 30 minutes for the five-minute database gate,
 12-minute browser gate, dependency installation and cleanup.
 
+History validation extends the prediction detail's existing evidence selector
+with a Bootstrap outline action. Results use Bootstrap alerts and responsive
+grid cards; full-entry explanations are progressively disclosed with native
+details/summary. No additional component CSS or duplicate source selector is used.
+
 Portfolio forecasts reuse Bootstrap grid forms, cards, alerts and responsive
 tables. Feature discovery uses a single-update Bootstrap modal with a native
 select and previous/next buttons; menu dots retain a visually hidden label.

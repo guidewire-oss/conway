@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"conway/server/planning"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -23,6 +24,27 @@ type PredictionSource struct {
 	Fingerprint string
 	StartedAt   int64
 	FinishedAt  int64
+}
+
+// specs/029-forecast-history-validation.md:117: never score a silently truncated history.
+func (d *DB) PredictionValidationHistory(ctx context.Context, planID string) ([]PredictionRow, error) {
+	rows, err := d.pool.Query(ctx, `SELECT id,name,issued_at,recorded_order,snapshot_id,data FROM plan_forecast_predictions WHERE plan_id=$1 ORDER BY issued_at,id LIMIT $2`, planID, planning.MaxValidationRecords+1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []PredictionRow{}
+	for rows.Next() {
+		var row PredictionRow
+		if err := rows.Scan(&row.ID, &row.Name, &row.IssuedAt, &row.Order, &row.SnapshotID, &row.Data); err != nil {
+			return nil, err
+		}
+		out = append(out, row)
+		if len(out) > planning.MaxValidationRecords {
+			return nil, planning.ErrValidationLimit
+		}
+	}
+	return out, rows.Err()
 }
 
 // PredictionSnapshotSource uses the successful run's frozen configuration, not
