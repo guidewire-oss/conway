@@ -117,6 +117,9 @@ before copying team names; plan ownership alone does not grant roster access.
 Pending roster/sample operations survive view rendering. An uncertain roster
 response requires reloading saved plan inputs before another sample is offered;
 the interface must not infer that a failed response means the write failed.
+Confirmed errors retain the server's actionable message. Empty rosters receive
+a validation error. Sample discovery is acknowledged after a successful
+download, not merely by opening Plan setup.
 **Alternatives considered:** A public roster-ID query risks exposing private
 team names; reading the live roster could disagree with the plan's inputs.
 **Consequences:** Uploaded and linked rosters work identically; samples contain

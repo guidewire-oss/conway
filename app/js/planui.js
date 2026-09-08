@@ -71,7 +71,6 @@ async function resumePlanDestination() {
     const setup = root.querySelector('.plan-setup');
     if (setup) {
       setup.open = true; setup.querySelector('input,button,select')?.focus();
-      window.dispatchEvent(new CustomEvent('conway:feature-opened', {detail:{action:'plan-sample'}}));
     }
     root.querySelector('[data-pending-destination]')?.remove();
     return !!setup;
@@ -2115,10 +2114,11 @@ async function renderRosterPicker(nTeams) {
     syncSampleControls();
     box.querySelector('#plan-uploading')?.remove();
     box.insertAdjacentHTML('beforeend', '<span class="hint" id="plan-uploading" role="status">Applying roster…</span>');
-    let uncertain = false;
+    let uncertain = false, failure = '';
     try {
       const r = await req('/api/plan/' + forPlan + '/roster', { method: 'POST', body: JSON.stringify({ rosterId }) });
-      uncertain = !r?.ok;
+      if (!r) uncertain = true;
+      else if (!r.ok) failure = (await r.text()).trim().slice(0, 300) || 'The server refused the roster update.';
     } catch {
       uncertain = true;
     } finally {
@@ -2126,7 +2126,10 @@ async function renderRosterPicker(nTeams) {
         if (requestedPlanID === forPlan) {
           await openPlan(forPlan);
           const status = root.querySelector('#plan-sample-status');
-          if (uncertain && current?.id === forPlan && status) status.textContent = 'The roster update response could not be confirmed. Saved teams have been reloaded; check the selection before trying again.';
+          if (current?.id === forPlan && status) {
+            if (uncertain) status.textContent = 'The roster update response could not be confirmed. Saved teams have been reloaded; check the selection before trying again.';
+            else if (failure) status.textContent = 'Could not attach roster: ' + failure + ' Saved teams have been reloaded.';
+          }
         }
       } finally {
         pendingPlanSamples.delete(forPlan);

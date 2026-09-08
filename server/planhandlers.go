@@ -513,12 +513,14 @@ func (s *server) attachPlanRoster(w http.ResponseWriter, r *http.Request, p *db.
 		return
 	}
 	var pods []NetPod
-	if err := json.Unmarshal(row.Pods, &pods); err != nil {
-		http.Error(w, "Could not read this roster's teams.", http.StatusInternalServerError)
-		return
+	if len(row.Pods) > 0 {
+		if err := json.Unmarshal(row.Pods, &pods); err != nil {
+			http.Error(w, "Could not read this roster's teams.", http.StatusInternalServerError)
+			return
+		}
 	}
 	if len(pods) == 0 {
-		http.Error(w, "roster not found (or has no pods)", 400)
+		http.Error(w, "This roster has no teams. Add teams to the roster before attaching it.", 400)
 		return
 	}
 	teams := netPodsToTeams(pods)

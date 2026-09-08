@@ -3,6 +3,7 @@ package planning
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"slices"
 )
 
 // specs/033-consistent-plan-controls-and-samples.md:42
@@ -12,7 +13,9 @@ var _ = Describe("roster-aware initiative samples", func() {
 		rows, err := ReadGrid(WriteSampleInitiativesXLSX(teams), "")
 		Expect(err).NotTo(HaveOccurred())
 		names := []string{"Atlas & Services", "Beacon", "Cedar"}
-		Expect(rows[0][19:]).To(Equal([]string{"Atlas & Services Sequence", "Atlas & Services", "Beacon Sequence", "Beacon", "Cedar Sequence", "Cedar"}))
+		start := slices.Index(rows[0], "Atlas & Services Sequence")
+		Expect(start).To(BeNumerically(">=", 0), "sample must include the first roster team's sequence column")
+		Expect(rows[0][start:]).To(Equal([]string{"Atlas & Services Sequence", "Atlas & Services", "Beacon Sequence", "Beacon", "Cedar Sequence", "Cedar"}))
 		parsed := ParseMatrix(rows, names, true)
 		Expect(parsed.Initiatives).NotTo(BeEmpty())
 		for _, name := range names {

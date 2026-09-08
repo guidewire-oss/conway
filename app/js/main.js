@@ -146,7 +146,10 @@ async function load() {
       onAction: async action => {
         if (action.target === 'docs-btn') { openDocs(); return true; }
         if (action.target === 'obs-snapshots') { openSnapshots(); return true; }
-        if (action.target === 'plan-init-sample') return openPlanDestination('setup');
+        if (action.target === 'plan-init-sample') {
+          await openPlanDestination('setup');
+          return false; // Its successful download emits the usage event.
+        }
         return openPlanDestination(action.target === 'view-forecast' ? 'forecast' : action.target === 'view-assistant' ? 'assistant' : action.target === 'view-execution' ? 'execution' : action.target === 'view-ready' ? 'ready' : 'linked-sheets');
       },
     });

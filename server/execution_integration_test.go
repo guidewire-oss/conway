@@ -121,6 +121,17 @@ var _ = Describe("planning database integration", Label("database"), func() {
 		Expect(request("POST", path, map[string]string{"rosterId": roster.ID}, claims).Code).To(Equal(200))
 		Expect(request("GET", "/api/plan/"+plan.ID+"/sample/initiatives.xlsx", nil, claims).Body.Bytes()).To(Equal(planning.WriteSampleInitiativesXLSX([]planning.Team{{Name: "Cedar", Tracks: 1}})))
 	})
+	It("reports empty rosters as actionable validation errors", func() {
+		roster := db.RosterRow{ID: newID(), Owner: claims.Sub, Name: "Empty Atlas roster", CreatedAt: time.Now().Unix()}
+		Expect(database.CreateRoster(roster)).To(Succeed())
+		DeferCleanup(func() { Expect(database.DeleteRoster(roster.ID)).To(Succeed()) })
+		for _, pods := range [][]byte{nil, []byte("[]")} {
+			Expect(database.UpdateRoster(roster.ID, roster.Name, pods, time.Now().Unix())).To(Succeed())
+			rec := request("POST", "/api/plan/"+plan.ID+"/roster", map[string]string{"rosterId": roster.ID}, claims)
+			Expect(rec.Code).To(Equal(400))
+			Expect(rec.Body.String()).To(ContainSubstring("Add teams to the roster"))
+		}
+	})
 	It("reads complete snapshot evidence, protects scope, and persists append-only review decisions", func() {
 		in, err := srv.planScheduleFor(plan, scheduleRequest{})
 		Expect(err).NotTo(HaveOccurred())

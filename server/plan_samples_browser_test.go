@@ -19,7 +19,9 @@ var _ = Describe("plan samples browser", Label("database", "browser"), func() {
 		if os.Getenv("CONWAY_TEST_BROWSER") != "1" {
 			Skip("Set CONWAY_TEST_BROWSER=1 with isolated PostgreSQL and Playwright.")
 		}
-		database, err := db.Open(context.Background(), os.Getenv("CONWAY_TEST_DATABASE_URL"))
+		url := os.Getenv("CONWAY_TEST_DATABASE_URL")
+		Expect(url).NotTo(BeEmpty(), "Set CONWAY_TEST_DATABASE_URL to an isolated PostgreSQL database.")
+		database, err := db.Open(context.Background(), url)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(database.Close)
 		st := newMemStore()

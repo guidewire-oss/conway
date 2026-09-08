@@ -39,14 +39,16 @@ try {
   await page.locator('[data-announcement-action="roster-initiative-sample-v1"]').click();
   await page.locator('#announcements-overlay').waitFor({state:'hidden'});
   await page.locator('#plan-roster-sel').waitFor();
+  assert.equal(await page.locator('#plan-init-sample [data-announcement-indicator]').count(),1,'Opening setup does not consume the sample announcement');
   const demo=await download();assert.doesNotMatch(demo.xml,/Example initiative - replace before importing/);
+  await page.locator('#plan-init-sample [data-announcement-indicator]').waitFor({state:'detached'});
   await page.locator('#plan-roster-sel').selectOption({label:'Atlas roster (1 pods)'});
   await page.waitForFunction(()=>document.querySelector('#plan-roster-sel')?.disabled===false && document.querySelector('.plan-setup')?.textContent.includes("plan's 1 attached teams"));
   const atlas=await download();assert.match(atlas.xml,/Atlas Sequence/);assert.doesNotMatch(atlas.xml,/Beacon Sequence/);
   // A refused change restores the previous selection and leaves download retryable.
   await page.route('**/api/plan/*/roster',route=>route.fulfill({status:503,body:'Temporary failure'}),{times:1});
   await page.locator('#plan-roster-sel').selectOption({label:'Beacon roster (1 pods)'});
-  await page.getByText('The roster update response could not be confirmed.',{exact:false}).waitFor();
+  await page.getByText('Could not attach roster: Temporary failure',{exact:false}).waitFor();
   assert.match(await page.locator('#plan-roster-sel option:checked').textContent(),/Atlas/);
   assert.match((await download()).xml,/Atlas Sequence/);
   // A save can commit even when its response is lost; reconcile the saved selection.
@@ -84,7 +86,6 @@ try {
   await page.locator('.plan-setup summary').click();
   let releaseRoster;
   const heldRoster=new Promise(resolve=>{releaseRoster=resolve;});
-  const releaseTimer=setTimeout(()=>releaseRoster(),10000);
   await page.route('**/api/plan/*/roster',async route=>{await heldRoster;await route.continue();},{times:1});
   try {
     page.once('dialog',dialog=>dialog.accept());
@@ -96,7 +97,7 @@ try {
     await page.locator('#plan-roster-sel').waitFor();
     assert.equal(await page.locator('#plan-roster-sel').isDisabled(),true,'View rendering preserves the pending roster lock');
     assert.equal(await page.locator('#plan-init-sample').isDisabled(),true,'View rendering cannot enable a stale sample');
-  } finally {clearTimeout(releaseTimer);releaseRoster();}
+  } finally {releaseRoster();}
   await page.waitForFunction(()=>document.querySelector('#plan-roster-sel option:checked')?.textContent.includes('Atlas') && !document.querySelector('#plan-roster-sel')?.disabled);
   assert.deepEqual(errors,[]);console.log('Plan samples: demo fallback, roster switch, failures, import and responsive controls passed');
 } catch(error) {
