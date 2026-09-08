@@ -256,6 +256,8 @@ rosterId, roster, wipMode, podField and teams. Canonical JSONB serialization kee
 existing fingerprints stable, including an empty configuration; operational and
 unknown metadata do not affect comparability. Browser journeys restore temporary
 scheduling changes in a finally block, including when an assertion fails.
+Cleanup attempts run independently. If cleanup also fails, preserve the original
+journey failure alongside every cleanup error so diagnosis retains its cause.
 
 ## 12. Success Metrics
 

@@ -2,12 +2,21 @@ import assert from 'node:assert/strict';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 
+// specs/028-portfolio-forecasts.md:259: cleanup must not hide the original cause.
+export async function withPredictionCleanup(journey,...cleanups){
+ const errors=[];
+ try{await journey();}catch(error){errors.push(error);}
+ finally{for(const cleanup of cleanups){try{await cleanup();}catch(error){errors.push(error);}}}
+ if(errors.length===1)throw errors[0];
+ if(errors.length>1)throw new AggregateError(errors,'Prediction journey and cleanup failures');
+}
+
 export async function checkPredictionHistory(page,base,plan,snapshot,holdAnswer){
  const token=await page.evaluate(()=>localStorage.getItem('conway_token'));
  const headers={Authorization:'Bearer '+token};
  const scheduleResponse=await page.request.get(base+'/api/plan/'+plan,{headers});assert.equal(scheduleResponse.status(),200);const original=(await scheduleResponse.json()).scheduling;
  const period=new Date();period.setUTCDate(period.getUTCDate()+7);const periodStart=period.toISOString().slice(0,10);
- try {
+ await withPredictionCleanup(async()=>{
  const changed=await page.request.patch(base+'/api/plan/'+plan+'/scheduling',{headers,data:{...original,periodStart}});assert.equal(changed.status(),200);
  await page.locator('[data-forecast-run]').click();await page.locator('[data-forecast-result]').getByRole('table').waitFor();
  await page.getByText('Record this prediction',{exact:true}).click();
@@ -61,9 +70,10 @@ export async function checkPredictionHistory(page,base,plan,snapshot,holdAnswer)
  const savingHistory=await holdAnswer(endpoint,'GET');await page.locator('[data-prediction-record]').click();await savingHistory.ready();
  await page.locator('#forecast-upper').fill('2');await savingHistory.deliver();
  await page.locator('[data-forecast-run]').click();await page.locator('[data-forecast-result]').getByRole('table').waitFor();assert.equal(await page.locator('[data-prediction-title]').count(),0,'An abandoned save continuation cannot reopen its detail');
- } finally {
+ },async()=>{
   const restored=await page.request.patch(base+'/api/plan/'+plan+'/scheduling',{headers,data:original});assert.equal(restored.status(),200);
+ },async()=>{
   await page.evaluate(()=>{delete crypto.randomUUID;delete crypto.getRandomValues;delete window.predictionRandomValues;});
- }
+ });
  await page.locator('#view-forecast').click();await page.locator('[data-forecast-run]').click();await page.locator('[data-forecast-result]').getByRole('table').waitFor();
 }
