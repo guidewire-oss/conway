@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -169,6 +170,41 @@ var _ = Describe("portfolio forecast API", Label("database"), func() {
 			}
 		}
 	})
+	It("supports Unicode registration names and retains models until plan deletion", func() {
+		f := seedEvaluationFixture(database, pool, claims.Sub)
+		endpoint := "/api/plan/" + f.Plan + "/predictions/" + f.Reference + "/registrations"
+		for i, letter := range []string{"界", "\U00010400"} {
+			for _, size := range []int{120, 121} {
+				body := encode(map[string]string{"id": fmt.Sprintf("unicode-model-%d-%d", i, size), "name": strings.Repeat(letter, size), "trainingSnapshotId": f.Training})
+				r := httptest.NewRecorder()
+				srv.handlePlanItem(r, httptest.NewRequest("POST", endpoint, bytes.NewReader(body)), claims)
+				if size == 120 {
+					Expect(r.Code).To(Equal(200), r.Body.String())
+				} else {
+					Expect(r.Code).To(Equal(400), r.Body.String())
+				}
+			}
+		}
+		var indexDefinition string
+		Expect(pool.QueryRow(context.Background(), `SELECT indexdef FROM pg_indexes WHERE schemaname=current_schema() AND indexname='forecast_registration_reference'`).Scan(&indexDefinition)).To(Succeed())
+		Expect(indexDefinition).To(ContainSubstring("(plan_id, reference_id)"))
+		_, err := pool.Exec(context.Background(), `DELETE FROM plan_forecast_predictions WHERE plan_id=$1 AND id=$2`, f.Plan, f.Reference)
+		Expect(err).To(HaveOccurred())
+		var fkError *pgconn.PgError
+		Expect(errors.As(err, &fkError)).To(BeTrue())
+		Expect(fkError.Code).To(Equal("23503"))
+		rows, err := database.ForecastRegistrations(context.Background(), f.Plan, f.Reference)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rows).To(HaveLen(2))
+		Expect(database.DeletePlan(f.Plan)).To(Succeed())
+		rows, err = database.ForecastRegistrations(context.Background(), f.Plan, f.Reference)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rows).To(BeEmpty())
+		predictions, err := database.PredictionValidationHistory(context.Background(), f.Plan)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(predictions).To(BeEmpty())
+	})
+
 	It("registers prospective models idempotently and protects frozen evidence and future assessment", func() {
 		f := seedEvaluationFixture(database, pool, claims.Sub)
 		endpoint := "/api/plan/" + f.Plan + "/predictions/" + f.Reference + "/registrations"

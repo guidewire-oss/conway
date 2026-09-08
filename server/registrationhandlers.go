@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 func registrationSummary(m planning.ForecastRegistration) map[string]any {
@@ -138,7 +139,7 @@ func (s *server) registerForecastModel(w http.ResponseWriter, r *http.Request, p
 		return
 	}
 	req.Name = strings.TrimSpace(req.Name)
-	if !regexp.MustCompile(`^[A-Za-z0-9_-]{8,100}$`).MatchString(req.ID) || req.Name == "" || len(req.Name) > 120 || req.TrainingSnapshotID == "" {
+	if !regexp.MustCompile(`^[A-Za-z0-9_-]{8,100}$`).MatchString(req.ID) || req.Name == "" || utf8.RuneCountInString(req.Name) > 120 || req.TrainingSnapshotID == "" {
 		http.Error(w, "Name the model (up to 120 characters) and choose a completed training capture.", 400)
 		return
 	}

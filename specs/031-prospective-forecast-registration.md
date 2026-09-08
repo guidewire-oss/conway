@@ -151,6 +151,24 @@ ownership guard carry keyboard, recovery and mobile behavior.
 **Consequences:** Registration remains optional and does not crowd the main
 scenario comparison. A contextual guide explains the next capture cycle.
 
+### Decision 3: Preserve independent loading and storage invariants
+
+**Context:** Review identified shared request ownership, a byte-based name limit,
+and missing storage support for per-reference lookup and plan-only removal.
+
+**Decision:** Model-list requests own a separate ticket and status from form and
+assessment requests. Typing or changing evidence does not discard the list.
+After a save, refresh the list with a new ticket so an older response cannot
+remove the saved model. Names allow 120 Unicode code points after trimming,
+with matching browser and server validation, including supplementary letters.
+A forward migration indexes (plan_id, reference_id), adds plan-level cascade
+and changes the prediction reference to deferrable, initially immediate NO
+ACTION. Standalone prediction deletion must fail; deleting the plan removes
+both predictions and registrations. Preserve already-applied migration 0029.
+
+**Consequences:** Managers can type during loading, prior evidence remains
+retained, and upgrades receive the same constraints as fresh installations.
+
 ## 12. Success Metrics
 
 | Metric | Current | Target | How to Measure |
