@@ -8,6 +8,7 @@ import {checkAnnouncementRecovery} from './announcement-recovery.mjs';
 import {checkLinkedSourceRaces} from './linked-source-races.mjs';
 import {checkWeeklyReview} from './weekly-review.mjs';
 import {checkReadyQueue} from './ready-queue.mjs';
+import {checkBaselineComparison} from './baseline-comparison.mjs';
 const {chromium} = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const base = process.env.CONWAY_TEST_BASE_URL, plan = process.env.CONWAY_TEST_PLAN_ID;
 if (!base || !plan) throw new Error('Run the linked features browser Go acceptance harness.');
@@ -41,6 +42,7 @@ try {
   assert.equal((await api('/api/announcements')).features.some(f=>f.visited),false);
   await page.keyboard.press('Escape'); await announcements.waitFor({state:'hidden'});
   await page.reload(); await page.locator('#plan-linked-sheets').waitFor();
+  await checkBaselineComparison(page,base,plan);
   assert.equal(await announcements.isVisible(),false,'automatic introduction must not recur');
   assert.ok(await page.locator('#plan-linked-sheets [data-announcement-indicator]').count());
   await page.locator('#help-btn').click(); await page.locator('#whats-new-btn').click();

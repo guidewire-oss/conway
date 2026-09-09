@@ -785,6 +785,7 @@ function openBaselinesDrawer() {
 }
 
 function closeBaselinesDrawer() {
+  compareGate.claim();
   document.querySelector('.bl-drawer-overlay')?.remove();
   document.getElementById('bl-chip')?.focus();
 }
@@ -879,9 +880,10 @@ function wireBaselineDelegation() {
 // onCompareClick: comparing the already-compared baseline dismisses the card —
 // a second click that does nothing reads as broken (button audit, 2026-08-23).
 function onCompareClick(btn) {
-  if (current.baselineCompare && current.baselineCompare.baseline?.id === btn.dataset.id) {
+  if (current.baselineCompare && !current.baselineCompare.to && current.baselineCompare.baseline?.id === btn.dataset.id) {
+    compareGate.claim();
     current.baselineCompare = null;
-    renderCurrentPlanView();
+    updateBaselineComparison();
     return;
   }
   compareBaseline(btn.dataset.id);
@@ -895,23 +897,20 @@ async function onVsChange(sel) {
   const other = sel.value;
   sel.value = ''; // a one-shot trigger, not a persistent selection
   if (!other) return;
-  const forPlan = current.id;
-  const ticket = compareGate.claim();
-  const r = await req('/api/plan/' + forPlan + '/baseline/' + sel.dataset.from + '/compare-to/' + other, {
-    method: 'POST', body: '{}',
-  });
-  const mine = () => !!current && current.id === forPlan && compareGate.isCurrent(ticket);
-  if (!mine()) return;
-  if (!r || !r.ok) { await baselineError(r, 'compare', mine); return; }
-  const res = await r.json();
-  // Parsing suspended too, so the gate is checked again before the write:
-  // passing it above only proved this was current a moment ago.
-  if (!mine()) return;
-  // The card reads result.baseline for the "from" end; the pairwise
-  // endpoint returns `from`. Same object, the view's name for it.
-  if (res && res.from && !res.baseline) res.baseline = res.from;
-  current.baselineCompare = res;
-  renderCurrentPlanView();
+  await compareBaseline(sel.dataset.from, other);
+}
+
+// specs/015-baselines-drawer.md:211: update the visible result, retaining save drafts.
+function updateBaselineComparison(message = '', error = false) {
+  const region = document.querySelector('.bl-drawer-overlay .bl-comparison-region');
+  if (!region) return;
+  const status = region.querySelector('.bl-comparison-status');
+  status.innerHTML = message; // constants or HTML-escaped saveErrorMessage output
+  status.hidden = !message;
+  status.classList.toggle('plan-warn', error);
+  region.setAttribute('aria-busy', String(!!message && !error));
+  region.querySelector('.bl-comparison-result').innerHTML = compareTableHTML(current.baselineCompare);
+  if (message || current.baselineCompare) region.scrollIntoView({block:'nearest'});
 }
 
 // Both compare paths render into current.baselineCompare, so they share one gate:
@@ -938,6 +937,7 @@ async function baselineError(r, op, stillWanted) {
   // from a superseded request is as wrong to show as its result would be.
   const msg = saveErrorMessage(r ? r.status : 0, r ? await r.text() : '', op);
   if (stillWanted && !stillWanted()) return;
+  if (op === 'compare') { updateBaselineComparison(msg, true); return; }
   baselineNote(msg);
 }
 
@@ -965,21 +965,33 @@ async function activateBaseline(id) {
 }
 
 // compareBaseline measures the order on screen against a saved one (AC 7.4).
-async function compareBaseline(id) {
+async function compareBaseline(id, other = '') {
   const forPlan = current.id;
   const atEpoch = orderEpoch; // a lever or upload can land while this request is out
+  const atLoad = planLoadTicket;
+  const region = document.querySelector('.bl-drawer-overlay .bl-comparison-region');
   const ticket = compareGate.claim(); // and a newer compare can be asked for
-  const r = await req('/api/plan/' + forPlan + '/baseline/' + id + '/compare', {
-    method: 'POST', body: JSON.stringify(orderRequestBody()),
-  });
   const mine = () => !!current && current.id === forPlan
-    && orderEpoch === atEpoch && compareGate.isCurrent(ticket);
-  if (!mine()) return; // answers the plan and the order it left, and is not superseded
-  if (!r || !r.ok) { await baselineError(r, 'compare', mine); return; }
-  const res = await r.json(); // parse first, then re-check: awaiting is a gap
-  if (!mine()) return;
-  current.baselineCompare = res;
-  renderCurrentPlanView();
+    && requestedPlanID === forPlan && planLoadTicket === atLoad && region?.isConnected
+    && (other || orderEpoch === atEpoch) && compareGate.isCurrent(ticket);
+  current.baselineCompare = null;
+  updateBaselineComparison('Comparing baselines…');
+  try {
+    const suffix = other ? '/compare-to/' + encodeURIComponent(other) : '/compare';
+    const r = await req('/api/plan/' + forPlan + '/baseline/' + encodeURIComponent(id) + suffix, {
+      method: 'POST', body: JSON.stringify(other ? {} : orderRequestBody()),
+    });
+    if (!mine()) return;
+    if (!r || !r.ok) { await baselineError(r, 'compare', mine); return; }
+    const res = await r.json();
+    if (!mine()) return;
+    if (!res?.comparison) throw new Error('Missing comparison');
+    if (res.from && !res.baseline) res.baseline = res.from;
+    current.baselineCompare = res;
+    updateBaselineComparison();
+  } catch {
+    if (mine()) updateBaselineComparison('Could not read the comparison. Try Compare again.', true);
+  }
 }
 
 // toggleRemedies expands or collapses one initiative's priced options

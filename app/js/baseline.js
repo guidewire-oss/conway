@@ -162,7 +162,10 @@ export function baselinesDrawerHTML(baselines, compare, { draft = false } = {}) 
       ${draft ? '<span class="plan-warn">Save the uploaded initiatives first — a baseline freezes what is stored, not the preview you are looking at.</span>' : ''}
     </div>
     ${baselineListHTML(baselines)}
-    ${compareTableHTML(compare)}
+    <section class="bl-comparison-region" aria-label="Baseline comparison">
+      <p class="bl-comparison-status" role="status" aria-live="polite" hidden></p>
+      <div class="bl-comparison-result">${compareTableHTML(compare)}</div>
+    </section>
   </aside>`;
 }
 
@@ -191,7 +194,9 @@ export function saveErrorMessage(status, body, op) {
       + (detail ? ` The server said: ${detail}` : '');
   }
   if (status === 401 || status === 403) return 'You are not allowed to change this plan’s baselines.';
-  if (status === 503) return 'The database is unavailable, so nothing can be saved right now.';
+  if (status === 503) return op === 'compare'
+    ? `Comparison is unavailable right now. Try again.${detail ? ' ' + detail : ''}`
+    : 'The database is unavailable, so nothing can be saved right now.';
   if (status >= 500) return `The server could not ${verb}${detail ? ': ' + detail : ''}.`;
   // A 4xx body is written for a person — it is the useful part, so keep it.
   return detail ? `That was refused: ${detail}` : 'That was refused by the server.';
