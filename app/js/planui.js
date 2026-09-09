@@ -2140,7 +2140,7 @@ async function renderRosterPicker(nTeams) {
           const status = root.querySelector('#plan-sample-status');
           if (current?.id === forPlan && status) {
             if (uncertain) status.textContent = 'The roster update response could not be confirmed. Saved teams have been reloaded; check the selection before trying again.';
-            else if (failure) status.textContent = 'Could not attach roster: ' + failure + ' Saved teams have been reloaded.';
+else if (failure) status.textContent = 'Could not attach roster: ' + failure.replace(/\s*\.?$/, '') + '. Saved teams have been reloaded.';
           }
         }
       } finally {
