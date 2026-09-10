@@ -212,6 +212,9 @@ test('a dead connection is distinguishable from a rejection', () => {
 // A shared handler once labelled every failure with the word "save", so a
 // compare that 500ed was reported as a failed save. op names the operation.
 test('a compare failure is not mislabeled as a save', () => {
+  const unavailable = saveErrorMessage(503, 'Comparison temporarily unavailable', 'compare');
+  assert.match(unavailable, /Comparison temporarily unavailable/);
+  assert.doesNotMatch(unavailable, /saved/);
   const msg = saveErrorMessage(500, 'pg: boom', 'compare');
   assert.match(msg, /compare/i);
   assert.ok(!/save/i.test(msg), 'no "save" in a compare failure');

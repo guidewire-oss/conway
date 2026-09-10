@@ -520,3 +520,17 @@ test('the pod card and sheet show the effective capacity loss', () => {
   const sheetInherited = podSheetHTML({ pod: 'Beacon', tracks: 2, lossPct: 10, lossOverride: false, slices: [] }, { initiatives: [], horizonWeeks: 26 }, { horizonWeeks: 26, span: 26 });
   assert.match(sheetInherited, /capacity loss 10% \(plan default\)/);
 });
+
+// specs/034-readable-scrollable-timelines.md:96
+test('zero-duration scheduled work remains a checkpoint without invented track time', () => {
+  const ps = {pod:'Atlas',tracks:2,weeks:[],slices:[{initiative:'Beacon handoff',pod:'Atlas',startWeek:53,finishWeek:53,lanesUsed:1}]};
+  const full = podLanesHTML(ps,{horizonWeeks:154});
+  assert.match(full,/tl-checkpoints/);
+  assert.match(full,/left:34.42%/);
+  assert.match(full,/checkpoint week 53, no track time/);
+  assert.doesNotMatch(full,/class="tl-bar /);
+  assert.doesNotMatch(podLanesHTML(ps,{horizonWeeks:154,initiativeQuery:'Cedar'}),/tl-checkpoint/);
+  assert.match(podLanesHTML(ps,{horizonWeeks:26}),/Work outside this view/);
+  const row=timelineRowHTML({name:'Beacon handoff',startWeek:53,rawFinishWeek:53,commitWeek:53,bufferWeeks:0,slices:[]},{horizonWeeks:154});
+  assert.match(row,/tl-checkpoint/);assert.doesNotMatch(row,/class="tl-bar /);
+});

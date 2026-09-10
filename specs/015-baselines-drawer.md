@@ -203,6 +203,39 @@ and the confirm state is testable markup.
 
 ---
 
+### Decision 3: Comparison updates belong to the drawer
+
+**Context:** The drawer lives outside the plan view. Updating the plan view after
+a comparison leaves the visible drawer unchanged, despite a successful API call.
+
+**Decision:** Both saved-to-current and saved-to-saved comparisons update a
+dedicated result region inside the open drawer, with immediate loading and
+retryable error feedback. Preserve a partially entered baseline name. A second
+click hides a current-plan comparison; clicking Compare after a pairwise result
+requests the current plan instead. Closing the drawer or changing plan/request
+ownership prevents late results from appearing in a reopened drawer.
+
+**Acceptance:** Given a saved baseline, clicking Compare shows its comparison
+inside the drawer; choosing another baseline shows both named endpoints. Given
+a failed request, the drawer shows the error and a retry can succeed. Given an
+in-flight request, closing and reopening the drawer cannot accept that old result.
+Given an entered save name, comparing or dismissing the result retains the name.
+
+**Alternatives considered:** Refreshing the whole drawer would show results but
+erase the unfinished name; refreshing only the plan never updates this surface.
+
+**Consequences:** Comparisons remain read-only and reuse the existing endpoints
+and delta calculations. Browser acceptance must exercise the actual drawer.
+
+### Decision 4: Comparison validity follows its inputs and drawer session
+
+A working-order change clears both completed and pending live comparisons,
+while comparisons between saved baselines remain valid. Drawer content refreshes
+retain pending/error feedback and accept responses belonging to the same mounted
+overlay. Closing and reopening creates a new session and refuses old responses.
+Acceptance: change a lever after a live result, reopen and request fresh deltas;
+activate a baseline while comparing and receive the pending result after repaint.
+
 ## 12. Success Metrics
 
 | Metric | Current | Target | How to Measure |

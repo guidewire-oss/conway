@@ -18,6 +18,7 @@ import {
 import { esc, compareScheduleCosts, orderViewHTML, schedulingFromForm, initiativeEditDialogHTML, initiativeEditFromBody, wipModelsTableHTML } from './order.js';
 import { exportBlockPNG } from './exportpng.js';
 import { attachDrag } from './drag.js';
+import { attachTimelineViewport } from './timeline-viewport.js';
 import { openDocs } from './docs.js';
 import { initiativeMatch } from './filter.js';
 import { term } from './terms.js';
@@ -26,7 +27,7 @@ import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
 import { portfolioTimelineHTML, podLensHTML, podSheetHTML, timelineControlsHTML, timelineInspectorHTML, timelineEditsFromRows, matchesTimelineTeam } from './timeline.js';
 import { healthReportHTML, remediesSectionHTML } from './report.js';
 
-let root, current = null, disposeAssistant = null, disposeForecast = null;
+let root, current = null, disposeAssistant = null, disposeForecast = null, disposeTimeline = null;
 let requestedPlanID = null;
 // specs/033-consistent-plan-controls-and-samples.md:117
 const pendingPlanSamples = new Set();
@@ -270,7 +271,7 @@ async function undoDrag() {
 }
 
 async function renderList() {
-  disposeAssistant?.(); disposeAssistant = null; disposeForecast?.(); disposeForecast = null;
+  disposeAssistant?.(); disposeAssistant = null; disposeForecast?.(); disposeForecast = null; disposeTimeline?.(); disposeTimeline = null;
   const ticket = ++planLoadTicket;
   current = null;
   requestedPlanID = null;
@@ -353,7 +354,7 @@ function uploadField(kind, label, count) {
 }
 
 function renderPlan() {
-  disposeAssistant?.(); disposeAssistant = null; disposeForecast?.(); disposeForecast = null;
+  disposeAssistant?.(); disposeAssistant = null; disposeForecast?.(); disposeForecast = null; disposeTimeline?.(); disposeTimeline = null;
   const p = current;
   const nTeams = (p.teams || []).length, nInit = (p.initiatives || []).length;
   const unknown = p.unknownTeams || [];
@@ -777,6 +778,10 @@ function openBaselinesDrawer() {
   overlay.className = 'bl-drawer-overlay';
   overlay.innerHTML = baselinesDrawerHTML(current.baselines, current.baselineCompare, { draft: current.isDraft });
   document.body.appendChild(overlay);
+  if (current.baselineComparisonState) {
+    const {message, error} = current.baselineComparisonState;
+    updateBaselineComparison(message, error);
+  }
   overlay.querySelector('.bl-drawer-close')?.addEventListener('click', closeBaselinesDrawer);
   containFocus(overlay,closeBaselinesDrawer);
   // Backdrop click closes; clicks inside the drawer do not.
@@ -785,6 +790,8 @@ function openBaselinesDrawer() {
 }
 
 function closeBaselinesDrawer() {
+  compareGate.claim();
+  if (current) current.baselineComparisonState = null;
   document.querySelector('.bl-drawer-overlay')?.remove();
   document.getElementById('bl-chip')?.focus();
 }
@@ -795,9 +802,14 @@ function closeBaselinesDrawer() {
 function refreshBaselinesDrawer() {
   const overlay = document.querySelector('.bl-drawer-overlay');
   if (!overlay) return;
+  const draftName = overlay.querySelector('#bl-drawer-name')?.value;
   overlay.innerHTML = baselinesDrawerHTML(current.baselines, current.baselineCompare, { draft: current.isDraft });
+  if (draftName !== undefined && overlay.querySelector('#bl-drawer-name')) overlay.querySelector('#bl-drawer-name').value = draftName;
+  if (current.baselineComparisonState) {
+    const {message, error} = current.baselineComparisonState;
+    updateBaselineComparison(message, error);
+  }
   overlay.querySelector('.bl-drawer-close')?.addEventListener('click', closeBaselinesDrawer);
-  overlay.addEventListener('click', (ev) => { if (ev.target === overlay) closeBaselinesDrawer(); });
 }
 
 // saveBaselinesDrawerSave persists the drawer's named snapshot (FR-003): a
@@ -879,9 +891,10 @@ function wireBaselineDelegation() {
 // onCompareClick: comparing the already-compared baseline dismisses the card —
 // a second click that does nothing reads as broken (button audit, 2026-08-23).
 function onCompareClick(btn) {
-  if (current.baselineCompare && current.baselineCompare.baseline?.id === btn.dataset.id) {
+  if (current.baselineCompare && !current.baselineCompare.to && current.baselineCompare.baseline?.id === btn.dataset.id) {
+    compareGate.claim();
     current.baselineCompare = null;
-    renderCurrentPlanView();
+    updateBaselineComparison();
     return;
   }
   compareBaseline(btn.dataset.id);
@@ -895,23 +908,21 @@ async function onVsChange(sel) {
   const other = sel.value;
   sel.value = ''; // a one-shot trigger, not a persistent selection
   if (!other) return;
-  const forPlan = current.id;
-  const ticket = compareGate.claim();
-  const r = await req('/api/plan/' + forPlan + '/baseline/' + sel.dataset.from + '/compare-to/' + other, {
-    method: 'POST', body: '{}',
-  });
-  const mine = () => !!current && current.id === forPlan && compareGate.isCurrent(ticket);
-  if (!mine()) return;
-  if (!r || !r.ok) { await baselineError(r, 'compare', mine); return; }
-  const res = await r.json();
-  // Parsing suspended too, so the gate is checked again before the write:
-  // passing it above only proved this was current a moment ago.
-  if (!mine()) return;
-  // The card reads result.baseline for the "from" end; the pairwise
-  // endpoint returns `from`. Same object, the view's name for it.
-  if (res && res.from && !res.baseline) res.baseline = res.from;
-  current.baselineCompare = res;
-  renderCurrentPlanView();
+  await compareBaseline(sel.dataset.from, other);
+}
+
+// specs/015-baselines-drawer.md:211: update the visible result, retaining save drafts.
+function updateBaselineComparison(message = '', error = false) {
+  current.baselineComparisonState = {...current.baselineComparisonState, message, error};
+  const region = document.querySelector('.bl-drawer-overlay .bl-comparison-region');
+  if (!region) return;
+  const status = region.querySelector('.bl-comparison-status');
+  status.innerHTML = message; // constants or HTML-escaped saveErrorMessage output
+  status.hidden = !message;
+  status.classList.toggle('plan-warn', error);
+  region.setAttribute('aria-busy', String(!!message && !error));
+  region.querySelector('.bl-comparison-result').innerHTML = compareTableHTML(current.baselineCompare);
+  if (message || current.baselineCompare) region.scrollIntoView({block:'nearest'});
 }
 
 // Both compare paths render into current.baselineCompare, so they share one gate:
@@ -938,6 +949,7 @@ async function baselineError(r, op, stillWanted) {
   // from a superseded request is as wrong to show as its result would be.
   const msg = saveErrorMessage(r ? r.status : 0, r ? await r.text() : '', op);
   if (stillWanted && !stillWanted()) return;
+  if (op === 'compare') { updateBaselineComparison(msg, true); return; }
   baselineNote(msg);
 }
 
@@ -965,21 +977,34 @@ async function activateBaseline(id) {
 }
 
 // compareBaseline measures the order on screen against a saved one (AC 7.4).
-async function compareBaseline(id) {
+async function compareBaseline(id, other = '') {
   const forPlan = current.id;
   const atEpoch = orderEpoch; // a lever or upload can land while this request is out
+  const atLoad = planLoadTicket;
+  const overlay = document.querySelector('.bl-drawer-overlay');
   const ticket = compareGate.claim(); // and a newer compare can be asked for
-  const r = await req('/api/plan/' + forPlan + '/baseline/' + id + '/compare', {
-    method: 'POST', body: JSON.stringify(orderRequestBody()),
-  });
   const mine = () => !!current && current.id === forPlan
-    && orderEpoch === atEpoch && compareGate.isCurrent(ticket);
-  if (!mine()) return; // answers the plan and the order it left, and is not superseded
-  if (!r || !r.ok) { await baselineError(r, 'compare', mine); return; }
-  const res = await r.json(); // parse first, then re-check: awaiting is a gap
-  if (!mine()) return;
-  current.baselineCompare = res;
-  renderCurrentPlanView();
+    && requestedPlanID === forPlan && planLoadTicket === atLoad && overlay?.isConnected
+    && (other || orderEpoch === atEpoch) && compareGate.isCurrent(ticket);
+  current.baselineCompare = null;
+  current.baselineComparisonState = {live: !other};
+  updateBaselineComparison('Comparing baselines…');
+  try {
+    const suffix = other ? '/compare-to/' + encodeURIComponent(other) : '/compare';
+    const r = await req('/api/plan/' + forPlan + '/baseline/' + encodeURIComponent(id) + suffix, {
+      method: 'POST', body: JSON.stringify(other ? {} : orderRequestBody()),
+    });
+    if (!mine()) return;
+    if (!r || !r.ok) { await baselineError(r, 'compare', mine); return; }
+    const res = await r.json();
+    if (!mine()) return;
+    if (!res?.comparison) throw new Error('Missing comparison');
+    if (res.from && !res.baseline) res.baseline = res.from;
+    current.baselineCompare = res;
+    updateBaselineComparison();
+  } catch {
+    if (mine()) updateBaselineComparison('Could not read the comparison. Try Compare again.', true);
+  }
 }
 
 // toggleRemedies expands or collapses one initiative's priced options
@@ -1056,7 +1081,16 @@ let orderEpoch = 0;
 
 function staleOrder() {
   orderEpoch += 1;
-  if (current) current.schedule = null;
+  if (current) {
+    current.schedule = null;
+    // specs/015-baselines-drawer.md:231: live deltas belong to the working inputs.
+    if (current.baselineComparisonState?.live || (current.baselineCompare && !current.baselineCompare.to)) {
+      compareGate.claim();
+      current.baselineCompare = null;
+      current.baselineComparisonState = null;
+      updateBaselineComparison('Working plan changed. Select Compare to refresh the comparison.', true);
+    }
+  }
 }
 
 function setView(v) {
@@ -1105,6 +1139,7 @@ function applyLiveAssumptions() {
 // would be a second answer to one question. Same epoch discipline as
 // renderOrder — an in-flight order can land after the view switched.
 async function renderTimeline() {
+  disposeTimeline?.(); disposeTimeline = null;
   const host = document.getElementById('plan-dash');
   if (!host || !current || view() !== 'timeline') return;
   // Spec 012 FR-004: first-visit callout, dismissed once per session.
@@ -1291,6 +1326,7 @@ async function renderTimeline() {
   const paint = () => {
     const main = document.getElementById('tl-main');
     if (!main) return;
+    disposeTimeline?.();
     // Spec 001 Q17: an unchosen WIP model schedules as strict while the choice
     // is demanded — the Order view's set-up card demands it, and so must the
     // timeline, or a fresh plan renders two bars and reads as a broken filter.
@@ -1327,6 +1363,8 @@ async function renderTimeline() {
         // schedule itself only carries the windows' effects, not their dates.
         calendars: (current.scheduling || {}).calendars || [],
       });
+    current.timelineViewport ??= {};
+    disposeTimeline = attachTimelineViewport(main, current.timelineViewport);
     // AC 8.4: expanding a row shows its pod slices. One open row at a time, so
     // the lens stays readable — the wireframe is one expanded initiative.
     main.querySelectorAll('[data-select-init], .tl-bar[data-initiative]').forEach((el) => {
@@ -1445,6 +1483,7 @@ async function renderTimeline() {
       }));
   };
   paint();
+  window.dispatchEvent(new CustomEvent('conway:feature-opened', {detail:{action:'timeline'}}));
   // A pod sheet open from before a lens switch stays open: render it directly
   // rather than through the toggle, which would read the selection as a
   // second click and clear it.

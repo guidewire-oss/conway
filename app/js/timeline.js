@@ -6,9 +6,8 @@ import { icon } from './icons.js';
 // like order.js and baseline.js — planui.js owns fetching and the DOM, and
 // node --test covers this whole surface against the committed Go fixture.
 //
-// FR-035: the whole horizon always fits the width. Every position is a
-// percentage of the row; zoom is the axis aggregating its labels, never the
-// bars widening past the container.
+// specs/034-readable-scrollable-timelines.md:88: every row shares a scrollable
+// time canvas; percentages retain schedule precision without squeezing long spans.
 //
 // FR-044: colour never carries meaning alone. The buffer tail is hatched AND
 // labelled, the target is a diamond glyph, today is an arrow, zero slack is a
@@ -72,7 +71,11 @@ export function axisTicks(horizon) {
 // with each team and its export. Compact labels retain both ends of the scale.
 function timeAxisHTML(span, periodStart) {
   const scale = axisScale(span), ticks = axisTicks(span);
-  if (ticks.at(-1)?.week !== span) ticks.push({ week: span, label: `w${span}` });
+  if (ticks.at(-1)?.week !== span) {
+    // Leave a full tick interval before the endpoint, avoiding crowded dates.
+    if (ticks.length > 1) ticks.pop();
+    ticks.push({ week: span, label: `w${span}` });
+  }
   const compactIndices = new Set(Array.from({ length: Math.min(5, ticks.length) }, (_, index) =>
     Math.round(index * (ticks.length - 1) / Math.min(4, ticks.length - 1))));
   return `<div class="tl-axis">${ticks.map((t, index) => {
@@ -80,6 +83,16 @@ function timeAxisHTML(span, periodStart) {
     const compact = compactIndices.has(index);
     return `<span class="tl-tick${compact ? ' tl-tick-compact' : ''}" style="${pct(scale(t.week))}"${title ? ` title="${esc(title)}"` : ''}>${t.label}${title ? `<small class="tl-tick-date">${weekToDate(t.week, periodStart).slice(5)}</small>` : ''}</span>`;
   }).join('')}</div>`;
+}
+
+function timelinePlotHTML(axis, body, span, label) {
+  const timeWidth = Math.max(1, span) * (span <= 16 ? 48 : 24);
+  return `<div class="tl-plot" style="--tl-time-width:${timeWidth}px">
+    <div class="tl-scroll overflow-x-auto" tabindex="0" role="region" aria-label="${esc(label)}; scroll horizontally for later weeks">
+      <div class="tl-canvas"><div class="tl-axis-row"><div class="tl-axis-label" aria-hidden="true"></div>${axis}</div><div class="tl-body">${body}</div></div>
+    </div>
+    <div class="tl-label-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Resize timeline labels" aria-valuemin="96" aria-valuemax="640" aria-valuenow="160" title="Drag to resize names; arrow keys adjust; Home resets"></div>
+  </div>`;
 }
 
 function contextHTML(sched, opts, horizon, span) {
@@ -154,6 +167,11 @@ function barGeom(startWeek, endWeek, horizon) {
   return { left, width, overrun };
 }
 
+function checkpointHTML(name, week, span) {
+  if (!Number.isFinite(week) || week < 0 || week > span) return '';
+  return `<button type="button" class="btn btn-link p-0 tl-checkpoint" data-select-init="${esc(name)}" style="${pct(axisScale(span)(week))}" title="${esc(name)}: checkpoint w${week} (no track time)" aria-label="Select ${esc(name)}: checkpoint week ${week}, no track time">◆</button>`;
+}
+
 // sliceBar renders one pod slice's span. The handoff glyph marks a slice that
 // waited on another pod (§13.3's "→ handoff"), so the dependency is visible
 // even before the sub-row's text names it.
@@ -192,7 +210,7 @@ export function timelineRowHTML(si, opts = {}) {
   // would push a zero-width marker outside the container. Work that starts
   // beyond the horizon is named by an edge marker instead, so the row still
   // says what happened to it.
-  const bar = work.width > 0 ? barHTML({
+  const bar = si.startWeek === si.rawFinishWeek && si.startWeek <= horizon ? checkpointHTML(si.name, si.startWeek, horizon) : work.width > 0 ? barHTML({
     left: work.left, width: work.width, label: si.name,
     title: `${si.name}: w${si.startWeek}–w${si.rawFinishWeek}, buffer ${si.bufferWeeks}w, commit w${si.commitWeek}` +
       (overrun > 0 ? ` — ${overrun}w past the horizon` : ''),
@@ -288,8 +306,8 @@ export function portfolioTimelineHTML(sched, opts = {}) {
   return `<div class="card p-3 panel-card tl-card">
     <div class="ord-head"><b>Timeline</b>
       <span class="hint">one row per initiative · the lighter tail is the ${term('buffer', 'buffer')} · ◆ is the ${term('target', 'target')}</span></div>
-    ${timeAxisHTML(span, sched.periodStart || opts.periodStart)}
-    <div class="tl-body">${rows}${contextHTML(sched, opts, horizon, span)}</div>
+    <p class="hint mb-2">Scroll horizontally for later weeks. Drag the divider beside the labels to reveal longer names.</p>
+    ${timelinePlotHTML(timeAxisHTML(span, sched.periodStart || opts.periodStart), rows + contextHTML(sched, opts, horizon, span), span, 'Initiative timeline')}
     ${calendarContextHTML(sched, opts, span)}
     <div class="hint">█ scheduled · ░ buffer · ◆ target · → waits on another pod · ↑ today${bands ? ' · ░freeze░ change freeze · ▒ non-working' : ''}${periodEnd ? ' · │ period end' : ''}</div>
   </div>`;
@@ -382,6 +400,9 @@ export function podLanesHTML(ps, opts = {}) {
   const q = opts.initiativeQuery || '';
   const ghost = !!opts.ghostOthers;
   const outsideHTML = opts.includeOutside === false ? '' : outsideWorkHTML(ps, opts);
+  const checkpoints = (ps.slices || []).filter(sl => sl.startWeek === sl.finishWeek && sl.startWeek <= horizon && (!q || initiativeMatch(q, sl.initiative)))
+    .map(sl => checkpointHTML(sl.initiative, sl.startWeek, horizon)).join('');
+  const checkpointRow = checkpoints ? `<div class="tl-lane tl-checkpoints"><span class="hint">checkpoints</span><div class="tl-track">${checkpoints}</div></div>` : '';
   // A pod with work but no tracks is not a lane puzzle — it is the unknown/
   // zero-capacity case, and giving it a track lane would claim capacity that
   // does not exist. Named for what it is instead.
@@ -395,7 +416,7 @@ export function podLanesHTML(ps, opts = {}) {
         title: `${sl.initiative}: w${sl.startWeek}–w${sl.finishWeek} — this pod has no tracks in the roster`,
       });
     }).join('');
-    return `<div class="tl-lane"><span class="hint">no capacity</span><div class="tl-track">${bars || '<span class="hint">—</span>'}</div></div>${outsideHTML}`;
+    return `<div class="tl-lane"><span class="hint">no capacity</span><div class="tl-track">${bars || '<span class="hint">—</span>'}</div></div>${checkpointRow}${outsideHTML}`;
   }
   const { placement, lanes } = assignLanes(displaySlices(ps), ps.tracks || 0, opts.pinnedLanes || null);
   const laneOrigins = new Map();
@@ -470,7 +491,7 @@ export function podLanesHTML(ps, opts = {}) {
   for (let lane = lanes; lane < ps.tracks; lane++) {
     idle.push(`<div class="tl-lane"><span class="hint">track ${lane + 1}</span><div class="tl-track"><span class="hint">· idle ·</span></div></div>`);
   }
-  return rows.join('') + idle.join('') + outsideHTML;
+  return rows.join('') + idle.join('') + checkpointRow + outsideHTML;
 }
 
 // podRho is the mean weekly utilization over the configured horizon — every
@@ -531,8 +552,7 @@ export function podLensHTML(sched, opts = {}) {
         <span class="hint">ρ ${rho.toFixed(2)} · ${ps.tracks} track${ps.tracks > 1 ? 's' : ''} · ${(ps.slices || []).length} slice${(ps.slices || []).length === 1 ? '' : 's'}${loss}</span>
         <button class="btn btn-secondary btn-sm" type="button" data-open-pod="${esc(ps.pod)}">View team sheet</button>
         <button type="button" class="btn btn-secondary btn-sm pod-export" data-export-pod="${esc(ps.pod)}" title="download this pod's timeline as a PNG">${icon('download')} Download PNG</button></div>
-      ${timeAxisHTML(span, sched.periodStart || opts.periodStart)}
-      <div class="tl-body">${podLanesHTML(ps, { ...opts, horizonWeeks: span, includeOutside: false, pinnedLanes: (opts.pinnedLanes || {})[ps.pod] || null })}${contextHTML(sched, opts, horizon, span)}</div>
+      ${timelinePlotHTML(timeAxisHTML(span, sched.periodStart || opts.periodStart), podLanesHTML(ps, { ...opts, horizonWeeks: span, includeOutside: false, pinnedLanes: (opts.pinnedLanes || {})[ps.pod] || null }) + contextHTML(sched, opts, horizon, span), span, ps.pod + ' timeline')}
       ${calendarContextHTML(sched, opts, span)}
       ${outsideWorkHTML(ps, { ...opts, horizonWeeks: span })}
       ${unscheduledTeamHTML(rejectedAt(ps.pod))}
@@ -541,6 +561,7 @@ export function podLensHTML(sched, opts = {}) {
   return `<div class="card p-3 panel-card tl-card">
     <div class="ord-head"><b>Timeline — by pod</b>
       <span class="hint">one lane per track · idle lanes are slack, shown on purpose · ${q ? 'waterfall: earliest matching start first' : 'hottest first'}</span></div>
+    <p class="hint mb-2">Scroll each chart horizontally for later weeks. Drag the divider beside the labels to adjust their width.</p>
     ${blocks}
   </div>`;
 }

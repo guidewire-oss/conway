@@ -130,6 +130,10 @@ palette moves, that interpolation moves with it.
 - Timeline (`app/js/timeline.js`): bars, buffer tails, target diamonds, bands
 - Order table + heatmap (`app/js/order.js`)
 - Network graphs (`app/js/netgraph.js`, d3)
+- Timeline scrolling and resizable labels (`app/js/timeline-viewport.js`): native
+  horizontal overflow, a shared time canvas and sticky labels. The focusable
+  separator supplies pointer and keyboard resizing; Bootstrap has no equivalent
+  Gantt geometry or resizable label component. Standard actions use Bootstrap.
 - Pod lens / pod sheet
 - Fever chart, tornado, CDF (Observe)
 
