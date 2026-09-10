@@ -227,6 +227,15 @@ erase the unfinished name; refreshing only the plan never updates this surface.
 **Consequences:** Comparisons remain read-only and reuse the existing endpoints
 and delta calculations. Browser acceptance must exercise the actual drawer.
 
+### Decision 4: Comparison validity follows its inputs and drawer session
+
+A working-order change clears both completed and pending live comparisons,
+while comparisons between saved baselines remain valid. Drawer content refreshes
+retain pending/error feedback and accept responses belonging to the same mounted
+overlay. Closing and reopening creates a new session and refuses old responses.
+Acceptance: change a lever after a live result, reopen and request fresh deltas;
+activate a baseline while comparing and receive the pending result after repaint.
+
 ## 12. Success Metrics
 
 | Metric | Current | Target | How to Measure |

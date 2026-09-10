@@ -43,6 +43,34 @@ table.sortable th:focus-visible, .tl-bar[role="button"]:focus-visible, .tl-label
   .tl-label, .tl-lane > .hint { flex-basis: 96px; }
   .tl-tick:not(.tl-tick-compact) { display: none; }
 }
+/* specs/034-readable-scrollable-timelines.md:88: one coordinate system for dates
+   and occupied intervals. Sticky labels do not take width away from any lane. */
+.tl-plot { --tl-label-width: 160px; position: relative; min-width: 0; }
+.tl-scroll { width: 100%; padding-bottom: .5rem; }
+.tl-canvas { width: 100%; min-width: calc(var(--tl-label-width) + var(--tl-time-width)); padding-right: 0; }
+.tl-canvas .tl-axis { margin-left: var(--tl-label-width); margin-right: 0; }
+.tl-axis-row { display: flex; align-items: stretch; }
+.tl-axis-row .tl-axis { flex: 1 1 0; min-width: 0; margin-left: 0; }
+.tl-axis-label { flex: 0 0 var(--tl-label-width); position: sticky; left: 0; z-index: 5; background: var(--panel); }
+.tl-canvas .tl-overlay { left: var(--tl-label-width); }
+.tl-canvas .tl-row { align-items: flex-start; }
+.tl-canvas .tl-row > .tl-label { margin-top: 2px; }
+.tl-canvas .tl-label, .tl-canvas .tl-lane > .hint {
+  flex: 0 0 var(--tl-label-width); width: var(--tl-label-width); box-sizing: border-box;
+  position: sticky; left: 0; z-index: 4; background: var(--panel);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tl-canvas .tl-track { flex: 1 1 0; min-width: 0; }
+.tl-canvas .tl-bar, .tl-canvas .tl-buffer { min-width: 0; box-sizing: border-box; padding-left: 0; padding-right: 0; text-indent: 4px; }
+.tl-canvas .tl-tick { display: block; }
+.tl-label-resizer { position: absolute; top: 0; bottom: .5rem; left: calc(var(--tl-label-width) - 5px); width: 10px; z-index: 6;
+  cursor: col-resize; touch-action: none; border-left: 1px solid var(--bs-border-color); }
+.tl-label-resizer:hover, .tl-label-resizer:focus-visible { background: var(--bs-primary-bg-subtle); outline: 2px solid var(--bs-primary); }
+.tl-scroll:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 2px; }
+.tl-checkpoint { position: absolute; top: 0; transform: translateX(-50%); z-index: 3; color: var(--bs-primary); font-size: 16px; line-height: 22px; }
+.tl-checkpoint[style="left:0.00%"] { transform: none; }
+.tl-checkpoint[style="left:100.00%"] { transform: translateX(-100%); }
+@container (max-width: 600px) { .tl-plot { --tl-label-width: 96px; } }
 @media (max-width: 600px) {
   .plan-views > .btn-group { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
   .plan-views > .btn-group > .btn { margin: 0; border-radius: .3rem; }

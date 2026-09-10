@@ -464,6 +464,9 @@ try {
   await page.goto(process.env.CONWAY_TEST_BASE_URL+'/bootstrap-acceptance');
   const {checkGameBootstrap}=await import('./game-bootstrap.mjs');
   await checkGameBootstrap(page);
+  await page.goto(process.env.CONWAY_TEST_BASE_URL+'/bootstrap-acceptance');
+  const {checkTimelineViewport}=await import('./timeline-viewport.mjs');
+  await checkTimelineViewport(page);
   assert.deepEqual(errors,[]);
   console.log(JSON.stringify({bootstrapControls:true,dynamicInsertion:true,selectedGroups:true,nativeDisclosureKeyboard:true,draftsRetained:true,guideSearchAndContents:true,readablePrint:true,badgeContrast:true,themes:['dark','light'],mobileOverflow:false,pageErrors:errors}));
 } catch (error) {

@@ -18,6 +18,7 @@ import {
 import { esc, compareScheduleCosts, orderViewHTML, schedulingFromForm, initiativeEditDialogHTML, initiativeEditFromBody, wipModelsTableHTML } from './order.js';
 import { exportBlockPNG } from './exportpng.js';
 import { attachDrag } from './drag.js';
+import { attachTimelineViewport } from './timeline-viewport.js';
 import { openDocs } from './docs.js';
 import { initiativeMatch } from './filter.js';
 import { term } from './terms.js';
@@ -26,7 +27,7 @@ import { remediesPanelHTML, remediesErrorMessage } from './remedyui.js';
 import { portfolioTimelineHTML, podLensHTML, podSheetHTML, timelineControlsHTML, timelineInspectorHTML, timelineEditsFromRows, matchesTimelineTeam } from './timeline.js';
 import { healthReportHTML, remediesSectionHTML } from './report.js';
 
-let root, current = null, disposeAssistant = null, disposeForecast = null;
+let root, current = null, disposeAssistant = null, disposeForecast = null, disposeTimeline = null;
 let requestedPlanID = null;
 // specs/033-consistent-plan-controls-and-samples.md:117
 const pendingPlanSamples = new Set();
@@ -270,7 +271,7 @@ async function undoDrag() {
 }
 
 async function renderList() {
-  disposeAssistant?.(); disposeAssistant = null; disposeForecast?.(); disposeForecast = null;
+  disposeAssistant?.(); disposeAssistant = null; disposeForecast?.(); disposeForecast = null; disposeTimeline?.(); disposeTimeline = null;
   const ticket = ++planLoadTicket;
   current = null;
   requestedPlanID = null;
@@ -353,7 +354,7 @@ function uploadField(kind, label, count) {
 }
 
 function renderPlan() {
-  disposeAssistant?.(); disposeAssistant = null; disposeForecast?.(); disposeForecast = null;
+  disposeAssistant?.(); disposeAssistant = null; disposeForecast?.(); disposeForecast = null; disposeTimeline?.(); disposeTimeline = null;
   const p = current;
   const nTeams = (p.teams || []).length, nInit = (p.initiatives || []).length;
   const unknown = p.unknownTeams || [];
@@ -777,6 +778,10 @@ function openBaselinesDrawer() {
   overlay.className = 'bl-drawer-overlay';
   overlay.innerHTML = baselinesDrawerHTML(current.baselines, current.baselineCompare, { draft: current.isDraft });
   document.body.appendChild(overlay);
+  if (current.baselineComparisonState) {
+    const {message, error} = current.baselineComparisonState;
+    updateBaselineComparison(message, error);
+  }
   overlay.querySelector('.bl-drawer-close')?.addEventListener('click', closeBaselinesDrawer);
   containFocus(overlay,closeBaselinesDrawer);
   // Backdrop click closes; clicks inside the drawer do not.
@@ -786,6 +791,7 @@ function openBaselinesDrawer() {
 
 function closeBaselinesDrawer() {
   compareGate.claim();
+  if (current) current.baselineComparisonState = null;
   document.querySelector('.bl-drawer-overlay')?.remove();
   document.getElementById('bl-chip')?.focus();
 }
@@ -796,9 +802,14 @@ function closeBaselinesDrawer() {
 function refreshBaselinesDrawer() {
   const overlay = document.querySelector('.bl-drawer-overlay');
   if (!overlay) return;
+  const draftName = overlay.querySelector('#bl-drawer-name')?.value;
   overlay.innerHTML = baselinesDrawerHTML(current.baselines, current.baselineCompare, { draft: current.isDraft });
+  if (draftName !== undefined && overlay.querySelector('#bl-drawer-name')) overlay.querySelector('#bl-drawer-name').value = draftName;
+  if (current.baselineComparisonState) {
+    const {message, error} = current.baselineComparisonState;
+    updateBaselineComparison(message, error);
+  }
   overlay.querySelector('.bl-drawer-close')?.addEventListener('click', closeBaselinesDrawer);
-  overlay.addEventListener('click', (ev) => { if (ev.target === overlay) closeBaselinesDrawer(); });
 }
 
 // saveBaselinesDrawerSave persists the drawer's named snapshot (FR-003): a
@@ -902,6 +913,7 @@ async function onVsChange(sel) {
 
 // specs/015-baselines-drawer.md:211: update the visible result, retaining save drafts.
 function updateBaselineComparison(message = '', error = false) {
+  current.baselineComparisonState = {...current.baselineComparisonState, message, error};
   const region = document.querySelector('.bl-drawer-overlay .bl-comparison-region');
   if (!region) return;
   const status = region.querySelector('.bl-comparison-status');
@@ -969,12 +981,13 @@ async function compareBaseline(id, other = '') {
   const forPlan = current.id;
   const atEpoch = orderEpoch; // a lever or upload can land while this request is out
   const atLoad = planLoadTicket;
-  const region = document.querySelector('.bl-drawer-overlay .bl-comparison-region');
+  const overlay = document.querySelector('.bl-drawer-overlay');
   const ticket = compareGate.claim(); // and a newer compare can be asked for
   const mine = () => !!current && current.id === forPlan
-    && requestedPlanID === forPlan && planLoadTicket === atLoad && region?.isConnected
+    && requestedPlanID === forPlan && planLoadTicket === atLoad && overlay?.isConnected
     && (other || orderEpoch === atEpoch) && compareGate.isCurrent(ticket);
   current.baselineCompare = null;
+  current.baselineComparisonState = {live: !other};
   updateBaselineComparison('Comparing baselines…');
   try {
     const suffix = other ? '/compare-to/' + encodeURIComponent(other) : '/compare';
@@ -1068,7 +1081,16 @@ let orderEpoch = 0;
 
 function staleOrder() {
   orderEpoch += 1;
-  if (current) current.schedule = null;
+  if (current) {
+    current.schedule = null;
+    // specs/015-baselines-drawer.md:231: live deltas belong to the working inputs.
+    if (current.baselineComparisonState?.live || (current.baselineCompare && !current.baselineCompare.to)) {
+      compareGate.claim();
+      current.baselineCompare = null;
+      current.baselineComparisonState = null;
+      updateBaselineComparison('Working plan changed. Select Compare to refresh the comparison.', true);
+    }
+  }
 }
 
 function setView(v) {
@@ -1117,6 +1139,7 @@ function applyLiveAssumptions() {
 // would be a second answer to one question. Same epoch discipline as
 // renderOrder — an in-flight order can land after the view switched.
 async function renderTimeline() {
+  disposeTimeline?.(); disposeTimeline = null;
   const host = document.getElementById('plan-dash');
   if (!host || !current || view() !== 'timeline') return;
   // Spec 012 FR-004: first-visit callout, dismissed once per session.
@@ -1303,6 +1326,7 @@ async function renderTimeline() {
   const paint = () => {
     const main = document.getElementById('tl-main');
     if (!main) return;
+    disposeTimeline?.();
     // Spec 001 Q17: an unchosen WIP model schedules as strict while the choice
     // is demanded — the Order view's set-up card demands it, and so must the
     // timeline, or a fresh plan renders two bars and reads as a broken filter.
@@ -1339,6 +1363,8 @@ async function renderTimeline() {
         // schedule itself only carries the windows' effects, not their dates.
         calendars: (current.scheduling || {}).calendars || [],
       });
+    current.timelineViewport ??= {};
+    disposeTimeline = attachTimelineViewport(main, current.timelineViewport);
     // AC 8.4: expanding a row shows its pod slices. One open row at a time, so
     // the lens stays readable — the wireframe is one expanded initiative.
     main.querySelectorAll('[data-select-init], .tl-bar[data-initiative]').forEach((el) => {
@@ -1457,6 +1483,7 @@ async function renderTimeline() {
       }));
   };
   paint();
+  window.dispatchEvent(new CustomEvent('conway:feature-opened', {detail:{action:'timeline'}}));
   // A pod sheet open from before a lens switch stays open: render it directly
   // rather than through the toggle, which would read the selection as a
   // second click and clear it.

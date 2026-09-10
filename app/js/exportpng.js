@@ -32,6 +32,10 @@ export async function exportBlockPNG(block, filename) {
   if (!block) return false;
   try {
     const clone = block.cloneNode(true);
+    // specs/034-readable-scrollable-timelines.md:88: include off-screen weeks.
+    clone.querySelectorAll('.tl-label-resizer').forEach(el => el.remove());
+    const chartWidth = Math.max(0, ...[...block.querySelectorAll('.tl-scroll')].map(el => el.scrollWidth));
+    clone.querySelectorAll('.tl-scroll').forEach(el => { el.style.overflow = 'visible'; });
     // specs/019-scheduling-audit-and-gantt-integrity.md:170: initiative names
     // remain evidence even when their selection affordance becomes plain text.
     clone.querySelectorAll('button').forEach((b) => {
@@ -40,6 +44,8 @@ export async function exportBlockPNG(block, filename) {
         label.className = b.className.split(/\s+/)
           .filter((name) => name && name !== 'btn' && !name.startsWith('btn-')).join(' ');
         label.textContent = b.textContent;
+        if (b.hasAttribute('style')) label.setAttribute('style', b.getAttribute('style'));
+        if (b.hasAttribute('title')) label.setAttribute('title', b.getAttribute('title'));
         b.replaceWith(label);
       } else b.remove();
     });
@@ -56,7 +62,7 @@ export async function exportBlockPNG(block, filename) {
     const variables = Array.from(cs).filter((key) => key.startsWith('--'))
       .map((key) => `${key}:${cs.getPropertyValue(key)};`).join('');
     const pad = 12; // mirrored into the SVG's dimensions below, not just the style
-    const w = Math.max(1, Math.ceil(block.getBoundingClientRect().width) + pad * 2 || 600);
+    const w = Math.max(1, Math.ceil(Math.max(block.getBoundingClientRect().width, chartWidth + 32)) + pad * 2 || 600);
     const h = Math.max(1, Math.ceil(block.getBoundingClientRect().height) + pad * 2 || 200);
     const bg = cs.getPropertyValue('--panel').trim() || '#ffffff';
 

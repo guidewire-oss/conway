@@ -43,6 +43,13 @@ try {
   await page.keyboard.press('Escape'); await announcements.waitFor({state:'hidden'});
   await page.reload(); await page.locator('#plan-linked-sheets').waitFor();
   await checkBaselineComparison(page,base,plan);
+  await page.locator('#help-btn').click();await page.locator('#whats-new-btn').click();
+  await chooseUpdate(page,'Read long timelines and reveal full names');
+  await announcements.locator('[data-announcement-action="scrollable-timeline-v1"]').click();
+  await page.locator('#tl-main .tl-scroll').waitFor();
+  await waitForAsyncFunction(page,async()=>{const r=await fetch('/api/announcements',{headers:{Authorization:'Bearer '+localStorage.getItem('conway_token')}});return (await r.json()).features.find(f=>f.id==='scrollable-timeline-v1')?.visited;});
+  assert.equal(await page.locator('#linked-sheets-overlay').isVisible(),false,'Timeline announcement opens its own destination');
+  await page.locator('#view-order').click();
   assert.equal(await announcements.isVisible(),false,'automatic introduction must not recur');
   assert.ok(await page.locator('#plan-linked-sheets [data-announcement-indicator]').count());
   await page.locator('#help-btn').click(); await page.locator('#whats-new-btn').click();

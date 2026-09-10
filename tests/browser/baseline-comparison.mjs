@@ -29,6 +29,21 @@ export async function checkBaselineComparison(page, base, plan) {
   const endpoint=base+'/api/plan/'+plan+'/baseline/'+id+'/compare';
   const otherID=await original.locator('.bl-vs-sel option').filter({hasText:'Beacon revision'}).getAttribute('value');
   const pairEndpoint=base+'/api/plan/'+plan+'/baseline/'+id+'/compare-to/'+otherID;
+  // A history repaint keeps the same drawer session and pending comparison.
+  let releaseRefresh;
+  const heldRefresh=new Promise(resolve=>{releaseRefresh=resolve;});
+  await page.route(endpoint,async route=>{const response=await route.fetch();await heldRefresh;await route.fulfill({response});},{times:1});
+  try {
+    await original.locator('.bl-compare').click();
+    await drawer.getByText('Comparing baselines…').waitFor();
+    await row('Atlas original').locator('.bl-activate').click();
+    await row('Atlas original').locator('.bl-activate').waitFor({state:'detached'});
+    await drawer.getByText('Comparing baselines…').waitFor();
+    assert.equal(await drawer.locator('#bl-drawer-name').inputValue(),'Unfinished agreement');
+    releaseRefresh();
+    await drawer.getByText('Nothing has moved since Atlas original').waitFor();
+  } finally {releaseRefresh();}
+  await original.locator('.bl-compare').click();
   let releasePair;
   const heldPair=new Promise(resolve=>{releasePair=resolve;});
   await page.route(pairEndpoint,async route=>{const response=await route.fetch();await heldPair;await route.fulfill({response});},{times:1});
@@ -65,5 +80,26 @@ export async function checkBaselineComparison(page, base, plan) {
     await drawer.getByText('Nothing has moved since Atlas original').waitFor();
   } finally {release();}
   await drawer.locator('.bl-drawer-close').click();
-  console.log('Baseline drawer: live and pairwise comparison, dismissal, draft preservation and retry passed');
+  await page.locator('#view-timeline').click();
+  await page.locator('[data-select-init]').first().click();
+  const start=page.locator('.tl-precise-edit [name=startWeek]').first();
+  await start.fill(String(Number(await start.inputValue())+1));
+  await page.locator('.tl-precise-edit button[type=submit]').click();
+  await page.locator('#tl-undo:not([disabled])').waitFor();
+  await page.locator('#bl-chip').click();
+  assert.equal(await drawer.locator('.bl-compare-card').count(),0,'Working-order changes invalidate completed live deltas');
+  await drawer.getByText('Working plan changed.',{exact:false}).waitFor();
+  const fresh=page.waitForResponse(endpoint);
+  await original.locator('.bl-compare').click();await fresh;
+  await drawer.locator('.bl-compare-card').waitFor();
+  await original.locator('.bl-vs-sel').selectOption({label:'Beacon revision'});
+  await drawer.getByText('Nothing moved between Atlas original and Beacon revision').waitFor();
+  await drawer.locator('.bl-drawer-close').click();
+  await page.locator('#tl-undo').click();
+  await page.locator('#tl-undo[disabled]').waitFor();
+  await page.locator('#bl-chip').click();
+  await drawer.getByText('Nothing moved between Atlas original and Beacon revision').waitFor();
+  await drawer.locator('.bl-drawer-close').click();
+  await page.locator('#view-order').click();
+  console.log('Baseline drawer: current/pairwise comparison, working-order invalidation, same-drawer refresh, dismissal, draft preservation and retry passed');
 }
